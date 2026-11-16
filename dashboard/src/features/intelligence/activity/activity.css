@@ -127,6 +127,15 @@
   background: var(--app-chosen-mark);
 }
 
+/* Contrast themes repaint backgrounds from the person's palette: the bar keeps
+   its shape in a system colour, so the picked row still stands apart. */
+@media (forced-colors: active) {
+  .activity-row[aria-current="true"]::before {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
+}
+
 .activity-time {
   color: var(--app-text-faint);
   white-space: nowrap;

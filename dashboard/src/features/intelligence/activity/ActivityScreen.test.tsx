@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../../api";
+import { msg } from "../../../test/msg";
 import type { ActivityEntry, ActivityPage } from "../../../api/agentActivity";
 import { ActivityScreen } from "./ActivityScreen";
 import { byDay, dayHeading } from "./ActivityList";
@@ -14,7 +15,10 @@ import { byDay, dayHeading } from "./ActivityList";
 vi.mock("../../../api", () => ({ api: { agentActivity: vi.fn() } }));
 
 const HOUR = 3_600_000;
-const ago = (hours: number) => new Date(Date.now() - hours * HOUR).toISOString();
+// Entries are placed before today's local noon, not before the wall clock, so
+// "today" and "yesterday" hold at any hour the suite runs.
+const NOON = new Date(new Date().setHours(12, 0, 0, 0)).getTime();
+const ago = (hours: number) => new Date(NOON - hours * HOUR).toISOString();
 
 function entry(over: Partial<ActivityEntry> & { id: number }): ActivityEntry {
   return {
@@ -74,8 +78,15 @@ function renderScreen(initial = "/settings/intelligence/activity") {
   );
 }
 
-const rows = () => within(screen.getByRole("region", { name: "Entries" })).getAllByRole("link");
-const inspector = () => screen.getByRole("complementary", { name: "Picked entry" });
+const MOVED_TEXT = msg("activity-moved-role", {
+  title: "Design Lead", company: "contoso", stage: msg("taxonomy-stage-interviewing"),
+});
+const ASKED_OFFER = msg("activity-asked-offer");
+const entries = () => screen.getByRole("region", { name: msg("activity-list") });
+const rows = () => within(entries()).getAllByRole("link");
+const inspector = () => screen.getByRole("complementary", { name: msg("activity-inspector") });
+const button = (name: string) => screen.getByRole("button", { name });
+const range = (first: number, last: number) => msg("activity-page-range", { first, last });
 
 beforeEach(() => {
   vi.mocked(api.agentActivity).mockReset();
@@ -87,22 +98,21 @@ describe("ActivityScreen: the list", () => {
     renderScreen();
     await screen.findByText("Design Lead", { selector: "b *" });
     const [moved, refused, read] = rows();
-    expect(moved).toHaveTextContent("Moved Design Lead at contoso to Interviewing");
-    expect(moved).toHaveTextContent("Tracking progress");
-    expect(refused).toHaveTextContent("Asked for your offer");
-    expect(within(refused).getByText("Not shared")).toBeInTheDocument();
-    expect(read).toHaveTextContent("Read 42 postings");
-    expect(within(read).getByText("Postings")).toBeInTheDocument();
+    expect(moved).toHaveTextContent(MOVED_TEXT);
+    expect(moved).toHaveTextContent(msg("activity-group-tracking-progress"));
+    expect(refused).toHaveTextContent(ASKED_OFFER);
+    expect(within(refused).getByText(msg("activity-tag-not-shared"))).toBeInTheDocument();
+    expect(read).toHaveTextContent(msg("activity-read-postings-count", { count: 42 }));
+    expect(within(read).getByText(msg("activity-category-postings"))).toBeInTheDocument();
   });
 
   it("groups the entries under one heading per day, newest first", async () => {
     renderScreen();
-    await screen.findByText("Asked for your offer");
-    const headings = within(screen.getByRole("region", { name: "Entries" })).getAllByRole("heading", { level: 2 });
-    expect(headings.map((heading) => heading.textContent?.startsWith("Today") || heading.textContent?.startsWith("Yesterday")))
-      .toEqual([true, true]);
-    expect(headings[0]).toHaveTextContent(/^Today/);
-    expect(headings[1]).toHaveTextContent(/^Yesterday/);
+    await screen.findByText(ASKED_OFFER);
+    const headings = within(entries()).getAllByRole("heading", { level: 2 });
+    expect(headings).toHaveLength(2);
+    expect(headings[0].textContent?.startsWith(msg("activity-day-today"))).toBe(true);
+    expect(headings[1].textContent?.startsWith(msg("activity-day-yesterday"))).toBe(true);
   });
 
   it("falls back to the stored sentence for a topic it has no words for", async () => {
@@ -110,84 +120,85 @@ describe("ActivityScreen: the list", () => {
       items: [entry({ id: 9, summary: "Ran something new", subject: { topic: "later.topic" } })],
     }));
     renderScreen();
-    await screen.findByText("1 to 1");
+    await screen.findByText(range(1, 1));
     expect(rows()[0]).toHaveTextContent("Ran something new");
   });
 
   it("says when nothing matches the filters, and when there is nothing yet", async () => {
     vi.mocked(api.agentActivity).mockResolvedValue(page({ items: [] }));
     renderScreen("/settings/intelligence/activity?kind=refused");
-    expect(await screen.findByText("No entry matches these filters.")).toBeInTheDocument();
+    expect(await screen.findByText(msg("activity-empty-body", { choice: "yes" }))).toBeInTheDocument();
   });
 });
 
 describe("ActivityScreen: the inspector", () => {
   it("shows the first entry until another is picked, the old value struck through", async () => {
     renderScreen();
-    await screen.findByText("Asked for your offer");
+    await screen.findByText(ASKED_OFFER);
     expect(rows()[0]).toHaveAttribute("aria-current", "true");
     expect(rows()[1]).not.toHaveAttribute("aria-current");
 
     const panel = inspector();
-    expect(within(panel).getByRole("heading", { level: 2 })).toHaveTextContent("Moved Design Lead at contoso to Interviewing");
-    const changed = within(panel).getByLabelText("What changed");
-    expect(within(changed).getByText("Applied").closest("s")).not.toBeNull();
-    expect(changed).toHaveTextContent("Interviewing");
+    expect(within(panel).getByRole("heading", { level: 2 })).toHaveTextContent(MOVED_TEXT);
+    const changed = within(panel).getByLabelText(msg("activity-what-changed"));
+    expect(within(changed).getByText(msg("taxonomy-stage-applied")).closest("s")).not.toBeNull();
+    expect(changed).toHaveTextContent(msg("taxonomy-stage-interviewing"));
     // A field the record did not have shows only its new value.
     expect(within(changed).getByText("Portfolio review").closest("s")).toBeNull();
     expect(within(panel).getByText("pursuits.patch").tagName).toBe("CODE");
-    expect(panel).toHaveTextContent("Progress and notes and Postings");
-    expect(panel).toHaveTextContent("Tracking progress");
+    expect(panel).toHaveTextContent(msg("activity-category-progress-and-notes"));
+    expect(panel).toHaveTextContent(msg("activity-category-postings"));
+    expect(panel).toHaveTextContent(msg("activity-group-tracking-progress"));
   });
 
   it("follows the picked row, and says what a refusal asked for", async () => {
     const user = userEvent.setup();
     renderScreen();
-    await screen.findByText("Asked for your offer");
+    await screen.findByText(ASKED_OFFER);
     await user.click(rows()[1]);
     expect(rows()[1]).toHaveAttribute("aria-current", "true");
     expect(rows()[0]).not.toHaveAttribute("aria-current");
     const panel = inspector();
-    expect(within(panel).getByRole("heading", { level: 2 })).toHaveTextContent("Asked for your offer");
-    expect(within(panel).queryByLabelText("What changed")).toBeNull();
-    expect(within(panel).getByText("Asked for")).toBeInTheDocument();
-    expect(within(panel).queryByText("Group")).toBeNull();
+    expect(within(panel).getByRole("heading", { level: 2 })).toHaveTextContent(ASKED_OFFER);
+    expect(within(panel).queryByLabelText(msg("activity-what-changed"))).toBeNull();
+    expect(within(panel).getByText(msg("activity-fact-asked-for"))).toBeInTheDocument();
+    expect(within(panel).queryByText(msg("activity-fact-group"))).toBeNull();
   });
 });
 
 describe("ActivityScreen: filters and pages", () => {
   it("asks for the last 30 days by default, from the reader's midnight", async () => {
     renderScreen();
-    await screen.findByText("Asked for your offer");
+    await screen.findByText(ASKED_OFFER);
     const now = new Date();
     const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29).toISOString();
     expect(lastParams()).toMatchObject({ kind: "all", category: null, since: midnight, cursor: null, q: null });
-    expect(screen.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
+    expect(button(msg("activity-kind-all"))).toHaveAttribute("aria-pressed", "true");
   });
 
   it("asks the server for one kind, one kind of data and a span of days", async () => {
     const user = userEvent.setup();
     renderScreen();
-    await screen.findByText("Asked for your offer");
+    await screen.findByText(ASKED_OFFER);
 
-    await user.click(screen.getByRole("button", { name: "Refused" }));
-    expect(screen.getByRole("button", { name: "Refused" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(button(msg("activity-kind-refused")));
+    expect(button(msg("activity-kind-refused"))).toHaveAttribute("aria-pressed", "true");
     await waitFor(() => expect(lastParams()).toMatchObject({ kind: "refused" }));
 
-    await user.click(screen.getByRole("button", { name: /Any data/ }));
-    await user.click(await screen.findByRole("radio", { name: "Offer" }));
+    await user.click(button(msg("activity-category-any")));
+    await user.click(await screen.findByRole("radio", { name: msg("activity-category-offer") }));
     await waitFor(() => expect(lastParams()).toMatchObject({ kind: "refused", category: "offer" }));
 
-    await user.click(screen.getByRole("button", { name: /Last 30 days/ }));
-    await user.click(await screen.findByRole("radio", { name: "Any time" }));
+    await user.click(button(msg("activity-range-month")));
+    await user.click(await screen.findByRole("radio", { name: msg("activity-range-all") }));
     await waitFor(() => expect(lastParams()).toMatchObject({ category: "offer", since: null }));
   });
 
   it("searches on the server once typing pauses", async () => {
     const user = userEvent.setup();
     renderScreen();
-    await screen.findByText("Asked for your offer");
-    await user.type(screen.getByRole("searchbox", { name: "Search activity" }), "contoso");
+    await screen.findByText(ASKED_OFFER);
+    await user.type(screen.getByRole("searchbox", { name: msg("activity-search") }), "contoso");
     await waitFor(() => expect(lastParams()).toMatchObject({ q: "contoso" }));
     const asked = vi.mocked(api.agentActivity).mock.calls.map(([params]) => params.q);
     // A keystroke is not a query.
@@ -199,27 +210,43 @@ describe("ActivityScreen: filters and pages", () => {
     const full = Array.from({ length: 50 }, (_, n) => entry({ id: 100 - n, occurred_at: ago(n / 100) }));
     vi.mocked(api.agentActivity).mockResolvedValue(page({ items: full, next_cursor: "older-1" }));
     renderScreen();
-    expect(await screen.findByText("1 to 50")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Newer" })).toBeNull();
+    expect(await screen.findByText(range(1, 50))).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: msg("activity-newer") })).toBeNull();
 
-    await user.click(screen.getByRole("button", { name: "Older" }));
+    await user.click(button(msg("activity-older")));
     await waitFor(() => expect(lastParams()).toMatchObject({ cursor: "older-1" }));
-    expect(await screen.findByText("51 to 100")).toBeInTheDocument();
+    expect(await screen.findByText(range(51, 100))).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Newer" }));
+    await user.click(button(msg("activity-newer")));
     await waitFor(() => expect(lastParams()).toMatchObject({ cursor: null }));
-    expect(await screen.findByText("1 to 50")).toBeInTheDocument();
+    expect(await screen.findByText(range(1, 50))).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Older" }));
+    await user.click(button(msg("activity-older")));
     await waitFor(() => expect(lastParams()).toMatchObject({ cursor: "older-1" }));
-    await user.click(screen.getByRole("button", { name: "Changes" }));
+    await user.click(button(msg("activity-kind-changes")));
     await waitFor(() => expect(lastParams()).toMatchObject({ kind: "change", cursor: null }));
+  });
+
+  it("starts at the newest again on a filter it has paged before", async () => {
+    const user = userEvent.setup();
+    const full = Array.from({ length: 50 }, (_, n) => entry({ id: 100 - n, occurred_at: ago(n / 100) }));
+    vi.mocked(api.agentActivity).mockResolvedValue(page({ items: full, next_cursor: "older-1" }));
+    renderScreen();
+    await screen.findByText(range(1, 50));
+    await user.click(button(msg("activity-older")));
+    await screen.findByText(range(51, 100));
+
+    await user.click(button(msg("activity-kind-changes")));
+    await waitFor(() => expect(lastParams()).toMatchObject({ kind: "change", cursor: null }));
+    await user.click(button(msg("activity-kind-all")));
+    await waitFor(() => expect(lastParams()).toMatchObject({ kind: "all", cursor: null }));
+    expect(await screen.findByText(range(1, 50))).toBeInTheDocument();
   });
 
   it("offers no Older on the last page", async () => {
     renderScreen();
-    await screen.findByText("1 to 3");
-    expect(screen.queryByRole("button", { name: "Older" })).toBeNull();
+    await screen.findByText(range(1, 3));
+    expect(screen.queryByRole("button", { name: msg("activity-older") })).toBeNull();
   });
 });
 

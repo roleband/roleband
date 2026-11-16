@@ -102,6 +102,10 @@ export function ActivityScreen() {
   // starts over at the newest: a cursor belongs to the list it was read from.
   const filterKey = [kind, category, since, query].join("\u001f");
   const [paging, setPaging] = useState<{ key: string; cursors: (string | null)[] }>({ key: filterKey, cursors: [null] });
+  if (paging.key !== filterKey) {
+    // Drop the old stack, not just hide it: coming back to a filter is a new list.
+    setPaging({ key: filterKey, cursors: [null] });
+  }
   const cursors = paging.key === filterKey ? paging.cursors : [null];
   const cursor = cursors[cursors.length - 1];
   const pageIndex = cursors.length - 1;

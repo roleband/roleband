@@ -124,6 +124,18 @@ test("marks the picked row with the chosen wash and an inset bar, and a refusal 
     return { tag: getComputedStyle(element).color, danger };
   });
   expect(colours.tag).toBe(colours.danger);
+
+  // A contrast theme repaints backgrounds; the bar keeps a system colour.
+  await page.emulateMedia({ forcedColors: "active" });
+  const forced = await picked.evaluate((element) => {
+    const probe = document.createElement("span");
+    probe.style.color = "CanvasText";
+    document.body.append(probe);
+    const ink = getComputedStyle(probe).color;
+    probe.remove();
+    return { bar: getComputedStyle(element, "::before").backgroundColor, ink };
+  });
+  expect(forced.bar).toBe(forced.ink);
 });
 
 test("keeps the toolbar, the day heading and the inspector in view as the list scrolls", async ({ page }) => {
