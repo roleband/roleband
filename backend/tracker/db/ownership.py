@@ -698,6 +698,14 @@ TABLE_OWNERS: dict[str, TableOwnership] = {
         writers=("tracker/plugins/store.py",),
         readers=("tracker/plugins/registry.py",),
     ),
+    # Each run's end, inserted by the transaction that closes the run: the
+    # changes feed's ordered record of plugin health.
+    "plugin_run_ends": TableOwnership(
+        claim="infra",
+        lifecycle="append_only",
+        writers=("tracker/plugins/store.py",),
+        readers=("tracker/agents/operations/changes.py",),
+    ),
     "plugin_state": TableOwnership(
         claim="infra",
         lifecycle="operational",

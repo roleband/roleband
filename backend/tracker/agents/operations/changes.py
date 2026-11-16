@@ -37,17 +37,20 @@ that comes first, ordered by id, and only to a read from the beginning or a
 - `source_health`: derived. Each source run is recorded; that its health
   moved (healthy, degraded, failing) is a comparison with the source's
   previous run, made at the read.
+- `plugin_source_health`: derived the same way, per plugin job. Each plugin
+  run's end is recorded once by the transaction that closed it
+  (`plugin_run_ends`); its health is compared with the job's previous ended
+  run. A run the person stopped says nothing about its source's health.
 - `pursuit_due`: derived. A next action's due time is state the person can
   move, not an event: a read reports the pursuits whose due time passed
   within its window of wall-clock time, so a due time moved after it passed
   can be reported twice or not at all. A window read while pursuits are not
   shared still moves the due-time window on, so the due times that passed in
   it are not reported once sharing turns back on.
-- `plugin_source_health`: unavailable. A plugin run's outcome is written over
-  its own row when the run ends, so there is no ordered record to read.
 
 Visibility is the Board's: a posting or source of a company the person hides
-or does not follow is left out, as of the read. A pursuit is the person's own
+or does not follow is left out, as of the read. A plugin reads for every
+company, so its health is never hidden. A pursuit is the person's own
 record and is never hidden. A data category the person does not share is
 absent from every page.
 """
@@ -69,6 +72,7 @@ from sqlalchemy import (
     and_,
     case,
     false,
+    func,
     literal,
     not_,
     or_,
@@ -91,7 +95,14 @@ from tracker.agents.operations.envelope import NextAction, OperationError
 from tracker.agents.operations.policy import category_disabled
 from tracker.agents.operations.search import PAGE_BUDGET_BYTES
 from tracker.company_store import off_board_company_slugs
-from tracker.db.models import Job, JobLifecycleEvent, Pursuit, ScrapeSourceRun
+from tracker.db.models import (
+    Job,
+    JobLifecycleEvent,
+    PluginRun,
+    PluginRunEnd,
+    Pursuit,
+    ScrapeSourceRun,
+)
 from tracker.notifications.pursuit_due import TERMINAL_STAGES
 
 _CODE: JsonDict = {"x-text": "code"}
@@ -116,9 +127,10 @@ KIND_BASIS: dict[Kind, Basis] = {
     "stated_pay_changed": "recorded",
     "reposted": "derived",
     "source_health": "derived",
+    "plugin_source_health": "derived",
     "pursuit_due": "derived",
 }
-UNAVAILABLE: dict[Kind, str] = {"plugin_source_health": "no_ordered_record"}
+UNAVAILABLE: dict[Kind, str] = {}
 #: The data category each kind belongs to.
 KIND_CATEGORY: dict[Kind, DataClass] = {
     kind: "private_pursuit" if kind == "pursuit_due" else "public_posting" for kind in KINDS
@@ -128,11 +140,19 @@ ALL_CATEGORIES: frozenset[DataClass] = frozenset(get_args(DataClass))
 
 Health = Literal["healthy", "degraded", "failing"]
 _FAILING = ("failed", "blocked")
+#: A plugin run's outcome as health. `bounded`: the job's budget ended the run
+#: before its work was through, and the schedule tries again. `stopped` is the
+#: person's choice, not a reading of the source, so it is absent here and from
+#: every comparison, as a built-in run that was not attempted is.
+_PLUGIN_HEALTH: dict[str, Health] = {
+    "clean": "healthy", "partial": "healthy", "bounded": "degraded", "error": "failing",
+}
 _REPOST_ROLES = ("repost", "duplicate")
 _OPENINGS = ("opened", "added")
 
 #: The streams a window merges, in the order they sort within one transaction.
-_EVENTS, _RUNS, _DUE = 0, 1, 2
+#: A position holds the number, so a stream keeps the one it was given.
+_EVENTS, _RUNS, _DUE, _PLUGIN_RUNS = 0, 1, 2, 3
 #: A window's phases: history from before positions, positioned rows, derived due times.
 _HISTORY, _POSITIONED, _DERIVED = 0, 1, 2
 
@@ -199,6 +219,16 @@ class SourceHealthChange(Shape):
     provider: str = Field(json_schema_extra=_IDENTIFIER)
 
 
+class PluginHealthChange(Shape):
+    state: Health = Field(json_schema_extra=_CODE)
+    #: Null on the job's first ended run.
+    previous_state: Health | None = Field(json_schema_extra=_CODE)
+    #: The run's outcome as the host decided it, of which `state` is the class.
+    outcome: str = Field(json_schema_extra=_CODE)
+    plugin: str = Field(json_schema_extra=_IDENTIFIER)
+    job: str = Field(json_schema_extra=_IDENTIFIER)
+
+
 class ChangeEvent(Shape):
     #: Stable and unique per event: a caller that reads a page twice dedupes by it.
     sequence: str = Field(json_schema_extra=_IDENTIFIER)
@@ -213,6 +243,7 @@ class ChangeEvent(Shape):
     company: str | None = Field(default=None, json_schema_extra=_IDENTIFIER)
     pay: StatedPayChange | None = None
     source: SourceHealthChange | None = None
+    plugin: PluginHealthChange | None = None
 
 
 class UnavailableKind(Shape):
@@ -237,7 +268,8 @@ CHANGES_LIST = OperationDescriptor(
     id="changes.list",
     summary=(
         "List what changed after a position, in commit order: new, closed, reopened and reposted postings, "
-        "stated-pay changes, pursuit actions falling due and source health. Pass next_since back as since."
+        "stated-pay changes, pursuit actions falling due and the health of built-in and plugin sources. "
+        "Pass next_since back as since."
     ),
     input=ChangesListInput,
     result=ChangesPage,
@@ -265,6 +297,7 @@ _LATEST = 253_402_300_799_999_999
 _Micros = Annotated[int, Field(ge=_EARLIEST, le=_LATEST)]
 _Xact = Annotated[int, Field(ge=0, le=2**63 - 1)]
 _Phase = Annotated[int, Field(ge=0, le=2)]
+_Stream = Annotated[int, Field(ge=0, le=3)]
 
 
 class _Position(BaseModel):
@@ -287,7 +320,7 @@ class _Position(BaseModel):
     #: never answered, even one whose transaction commits after a later window.
     st: _Micros | None
     #: The last key read in this window: (phase, transaction or due time, stream, id).
-    a: tuple[_Phase, Annotated[int, Field(ge=_EARLIEST, le=2**63 - 1)], _Phase, _Xact] | None
+    a: tuple[_Phase, Annotated[int, Field(ge=_EARLIEST, le=2**63 - 1)], _Stream, _Xact] | None
 
     @model_validator(mode="after")
     def _key_in_range(self) -> _Position:
@@ -599,6 +632,67 @@ async def _source_runs(
     return found
 
 
+async def _plugin_runs(
+    session: AsyncSession, position: _Position, cluster: str, *, limit: int
+) -> list[_Candidate]:
+    end = PluginRunEnd
+    earlier = aliased(PluginRun)
+    earlier_end = aliased(PluginRunEnd)
+    # The job's previous ended run, read from the run table, which also holds
+    # the runs that ended before their ends were recorded, so a job's first
+    # recorded end is still compared with the run before it. A run with a
+    # recorded end is read as recorded: its row may have been closed again
+    # since, and the feed's moves must chain from what it reported.
+    earlier_outcome = func.coalesce(earlier_end.outcome, earlier.outcome)
+    previous = (
+        select(earlier_outcome.label("outcome"))
+        .select_from(earlier)
+        .outerjoin(earlier_end, earlier_end.run_id == earlier.id)
+        .where(
+            earlier.plugin_id == end.plugin_id,
+            earlier.job == end.job,
+            earlier.id < end.run_id,
+            earlier_outcome.in_(list(_PLUGIN_HEALTH)),
+        )
+        .order_by(earlier.id.desc())
+        .limit(1)
+        .lateral("previous")
+    )
+    state = case(*((end.outcome == outcome, health) for outcome, health in _PLUGIN_HEALTH.items()))
+    before = case(*((previous.c.outcome == outcome, health) for outcome, health in _PLUGIN_HEALTH.items()))
+    moved = or_(
+        and_(previous.c.outcome.is_(None), state != "healthy"),
+        and_(previous.c.outcome.is_not(None), state != before),
+    )
+    start = None if position.st is None else _moment(position.st)
+    found: list[_Candidate] = []
+    for phase in (_HISTORY, _POSITIONED):
+        segment = _segment(end, _PLUGIN_RUNS, position, cluster, phase=phase, start=start, at=end.ended_at)
+        if segment is None:
+            continue
+        statement = (
+            select(end, previous.c.outcome)
+            .outerjoin(previous, true())
+            .where(segment, end.outcome.in_(list(_PLUGIN_HEALTH)), moved)
+            .order_by(*_order(end, phase))
+            .limit(limit)
+        )
+        for row, prior in (await session.execute(statement)).all():
+            found.append(_Candidate(
+                (phase, int(row.change_xact or 0) if phase == _POSITIONED else 0, _PLUGIN_RUNS, row.id),
+                ChangeEvent(
+                    sequence=f"plugin_run:{row.run_id}", kind="plugin_source_health", basis="derived",
+                    at=row.ended_at,
+                    plugin=PluginHealthChange(
+                        state=_PLUGIN_HEALTH[row.outcome],
+                        previous_state=None if prior is None else _PLUGIN_HEALTH[prior],
+                        outcome=row.outcome, plugin=row.plugin_id, job=row.job,
+                    ),
+                ),
+            ))
+    return found
+
+
 async def _due(session: AsyncSession, position: _Position, *, limit: int) -> list[_Candidate]:
     assert position.th is not None
     after = position.a
@@ -692,6 +786,8 @@ async def changes_page(
         *await _lifecycle(session, position, frontier.cluster, served, hidden, limit=room),
         *(await _source_runs(session, position, frontier.cluster, hidden, limit=room)
           if "source_health" in served else []),
+        *(await _plugin_runs(session, position, frontier.cluster, limit=room)
+          if "plugin_source_health" in served else []),
         *(await _due(session, position, limit=room) if "pursuit_due" in served else []),
     ]
     candidates.sort(key=lambda candidate: candidate.key)
