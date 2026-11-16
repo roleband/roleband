@@ -76,6 +76,7 @@
    "differences": [
     "Cursor paging; the MCP tool returns one page of up to 100.",
     "Each pursuit carries its revision, which a patch passes back.",
+    "A pursuit names its opportunity as opportunity_id, the id every pursuit operation takes; the MCP tool's id (the pursuit row's) and job_id are not sent.",
     "pursuits.get reads one pursuit with its notes by opportunity ID; the MCP server has no single-pursuit tool.",
     "A limit outside 1 to 100 is an input error naming the range; the MCP tool clamps it."
    ],
@@ -103,7 +104,7 @@
    "differences": [
     "Explicit null clears a nullable field (notes, next action, its due date); an omitted field is unchanged. The MCP tool reads null as not given, so it cannot clear a field.",
     "stage: null and priority: null are input errors.",
-    "--if-revision N is required: a dashboard edit between the agent's read and its write returns revision_conflict, with the current revision, instead of overwriting it. 0 is the revision of a role with no pursuit yet, which the patch creates, as the MCP tool does.",
+    "--if-revision N is required: a dashboard edit between the agent's read and its write returns revision_conflict, with the current revision, instead of overwriting it. 0 is the revision of a role with no pursuit yet, which the patch creates, as the MCP tool does; a revision above 0 for a role with no pursuit is not_found, with the revision 0.",
     "An idempotency key, replay before the revision check, and receipts.get, as for pursuits.save.",
     "A field's text goes as a flag; a null goes in JSON through --input. A patch with no field is refused, as today.",
     "The audit event records via: agent_api, as for pursuits.save."

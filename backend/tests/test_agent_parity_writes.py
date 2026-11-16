@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import re
 from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 
@@ -28,7 +29,8 @@ import tracker.mcp.server as server
 from tests.test_agent_writes_db import _until_waiting
 from tests.test_recipe_adapter import RECIPE
 from tracker.agents.config import AgentAccessConfig, set_agent_access
-from tracker.agents.operations.outcomes import outcome
+from tracker.agents.operations.catalog import CATALOG
+from tracker.agents.operations.outcomes import EXIT_NOT_FOUND, outcome
 from tracker.agents.operations.pursuits import VIA, PursuitItem
 from tracker.agents.operations.recipes import SavedDraft
 from tracker.agents.operations.workspace import ensure_workspace_id
@@ -145,7 +147,7 @@ async def test_save_starts_a_pursuit_at_saved_and_records_the_agent_and_its_way_
     response, body = await _save(api_client, job_id)
 
     data = _data(response, body)
-    assert (data["job_id"], data["stage"], data["priority"], data["revision"]) == (job_id, "saved", 3, 1)
+    assert (data["opportunity_id"], data["stage"], data["priority"], data["revision"]) == (job_id, "saved", 3, 1)
     assert data["opportunity"]["title"] == "Staff PM 1"
     assert body["meta"]["idempotency_key"] == KEY and body["meta"]["replayed"] is False
     assert [(actor, kind, detail.get("via")) for actor, kind, detail in await _events(db_session, job_id)] == [
@@ -160,12 +162,14 @@ async def test_save_answers_what_the_tool_answers_for_the_same_pursuit(api_clien
     data = _data(*await _save(api_client, job_id, {"priority": 2}))
 
     # The tool saving it again with the same priority changes nothing, and
-    # answers the pursuit as it stands: the fields the operation answered.
+    # answers the pursuit as it stands: the fields the operation answered,
+    # with the opportunity's id as `opportunity_id` in place of the row's.
     tool = await server.save_opportunity(job_id, priority=2)
+    fields = {key: value for key, value in tool.items() if key not in ("id", "job_id")}
 
-    assert PursuitItem.model_validate({**tool, "revision": 1, "opportunity": data["opportunity"]}).model_dump(
-        mode="json"
-    ) == data
+    assert PursuitItem.model_validate(
+        {**fields, "opportunity_id": tool["job_id"], "revision": 1, "opportunity": data["opportunity"]}
+    ).model_dump(mode="json") == data
     assert (await _pursuit(db_session, job_id)).revision == 1
 
 
@@ -253,6 +257,29 @@ async def test_a_retried_save_replays_and_writes_once(api_client, db_session, ro
     assert _data(response, body) == first and body["meta"]["replayed"] is True
     assert len(await _events(db_session, job_id)) == 1
     assert await _count(db_session, CommandReceipt) == 1
+
+
+@pytest.mark.parametrize("write", ["save", "patch"])
+async def test_a_receipt_stored_with_the_row_keys_replays_in_the_record_shape(api_client, db_session, roles, write):
+    """A receipt keeps the result in the keys it was stored with. One that
+    names the pursuit row's `id` and `job_id` still replays, as the
+    `opportunity_id` record, and writes nothing again."""
+    job_id, _ = roles
+    body = {"priority": 2} if write == "save" else {"if_revision": 0, "notes": "first"}
+    send = _save if write == "save" else _patch
+    first = _data(*await send(api_client, job_id, body))
+    async with _fresh(db_session) as session:
+        receipt = await session.scalar(select(CommandReceipt))
+        row_id = (await session.scalar(select(Pursuit.id).where(Pursuit.job_id == job_id)))
+        stored = {key: value for key, value in receipt.result.items() if key != "opportunity_id"}
+        receipt.result = {"id": row_id, "job_id": job_id, **stored}
+        await session.commit()
+
+    response, replayed = await send(api_client, job_id, body)
+
+    assert _data(response, replayed) == first and replayed["meta"]["replayed"] is True
+    assert "id" not in replayed["data"] and "job_id" not in replayed["data"]
+    assert len(await _events(db_session, job_id)) == 1
 
 
 async def test_two_identical_saves_at_once_write_once(api_client, db_session, roles):
@@ -403,6 +430,84 @@ async def test_a_patch_with_revision_zero_starts_the_pursuit_as_the_tool_does(ap
     data = _data(*await _patch(api_client, job_id, {"if_revision": 0, "stage": "researching"}))
 
     assert (data["stage"], data["priority"], data["revision"]) == ("researching", 3, 1)
+
+
+async def test_a_pursuit_record_names_only_the_id_a_patch_takes(api_client, db_session, roles):
+    _, pursued = roles
+    await _dashboard_edit(api_client, pursued, {"stage": "applied"})
+
+    listed = (await api_client.get(f"{PREFIX}/pursuits")).json()["data"]["items"]
+    got = (await api_client.get(f"{PREFIX}/pursuits/{pursued}")).json()["data"]
+    patched = _data(*await _patch(api_client, pursued, {"if_revision": got["revision"], "priority": 2}))
+
+    for record in (*listed, got, patched):
+        assert [key for key in record if key == "id" or key.endswith("_id")] == ["opportunity_id"], record
+        assert record["opportunity_id"] == pursued
+
+
+async def test_a_patch_at_a_revision_of_an_opportunity_with_no_pursuit_says_there_is_none(
+    api_client, db_session, roles
+):
+    """The misread a record with the pursuit row's own id invited: that id
+    sent as the opportunity, at the pursuit's revision. The opportunity it
+    names has no pursuit, so the answer says so, rather than a conflict that
+    re-reading can never resolve."""
+    unpursued, pursued = roles
+    await _dashboard_edit(api_client, pursued, {"next_action": "Follow up", "next_action_due": DUE.isoformat()})
+    row = await _pursuit(db_session, pursued)
+    assert (row.id, row.revision) == (unpursued, 1), "the row id names the other role, as in the misread"
+
+    error = _refused(*await _patch(api_client, row.id, {"if_revision": 1, "next_action": None}), "not_found")
+
+    assert outcome("not_found").exit_status == EXIT_NOT_FOUND
+    assert error["details"] == {"opportunity_id": unpursued, "expected_revision": 1, "current_revision": 0}
+    assert "no pursuit for this opportunity" in error["message"] and "pursuits.list" in error["message"]
+    assert error["next_actions"] == [{"operation": "pursuits.list", "arguments": {}}]
+    assert await _pursuit(db_session, unpursued) is None
+    kept = await _pursuit(db_session, pursued)
+    assert (kept.next_action, kept.revision) == ("Follow up", 1)
+    assert await _count(db_session, CommandReceipt) == 0
+
+    # The same change at revision 0 starts that pursuit; a save at a stale
+    # revision of a pursuit that exists is still a conflict.
+    created = _data(*await _patch(api_client, unpursued, {"if_revision": 0, "next_action": None}, key=OTHER_KEY))
+    assert (created["opportunity_id"], created["revision"]) == (unpursued, 1)
+    stale = _refused(*await _save(api_client, pursued, {"priority": 1, "if_revision": 7}), "revision_conflict")
+    assert stale["details"] == {"expected_revision": 7, "current_revision": 1}
+
+
+#: Words a refusal would use to steer the caller towards a write.
+_WRITE_WORDS = re.compile(r"\b(creat|start|begin|send|save|patch|write|retry|if_revision|revision 0 to)", re.I)
+
+
+@pytest.mark.parametrize("write", ["patch", "save"])
+@pytest.mark.parametrize("revision", [1, 7])
+async def test_the_no_pursuit_refusal_never_suggests_a_create(api_client, db_session, roles, write, revision):
+    """The caller most likely holds a wrong id; a create suggested there is a
+    pursuit on an opportunity the person never chose. So neither the message
+    nor a suggested call leads to a write."""
+    unpursued, _ = roles
+    body = {"if_revision": revision, **({"next_action": None} if write == "patch" else {"priority": 2})}
+    send = _patch if write == "patch" else _save
+
+    error = _refused(*await send(api_client, unpursued, body), "not_found")
+
+    assert not _WRITE_WORDS.search(error["message"]), error["message"]
+    assert error["next_actions"], "the refusal points somewhere to look"
+    for action in error["next_actions"]:
+        assert CATALOG.get(action["operation"]).access == "read", action
+        assert "if_revision" not in action["arguments"], action
+    assert await _pursuit(db_session, unpursued) is None
+
+
+async def test_the_write_word_check_catches_a_create_hint():
+    # Negative control: the message this refusal must not carry is caught.
+    assert _WRITE_WORDS.search("To start pursuing this opportunity, send the change with if_revision 0.")
+    assert _WRITE_WORDS.search("Create it with revision 0.")
+    assert not _WRITE_WORDS.search(
+        "There is no pursuit for this opportunity, so its revision is 0. "
+        "Check the id: pursuits.list names each pursuit's opportunity_id."
+    )
 
 
 @pytest.mark.parametrize("body", [
@@ -666,7 +771,7 @@ async def test_with_writes_off_every_write_is_refused_and_writes_nothing_while_r
     assert (await _pursuit(db_session, other)).notes is None
     assert await _revisions(db_session) == []
     assert _data(*(await _get(api_client, f"/pursuits/{other}")))["revision"] == 1
-    assert _data(*await _receipt(api_client, "pursuits.save", KEY))["result"]["job_id"] == other
+    assert _data(*await _receipt(api_client, "pursuits.save", KEY))["result"]["opportunity_id"] == other
 
 
 async def test_with_access_off_the_receipt_read_is_refused_too(api_client, db_session, roles):

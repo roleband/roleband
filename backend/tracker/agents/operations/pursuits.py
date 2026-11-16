@@ -4,7 +4,9 @@
 All four go through `tracker.agents.pursuits`, the store the dashboard and
 every pursuit writer share, and answer its `public_pursuit` fields, notes
 included, with the pursuit's `revision`, which a write passes back.
-A pursuit is addressed by its opportunity's id, never the pursuit row's.
+A pursuit is addressed by its opportunity's id, never the pursuit row's, and
+its record carries that id alone, as `opportunity_id`: an agent reading a
+record finds no other id a command would take.
 
 A patch reads its fields by presence: a field sent as null clears it, a field
 left out is untouched. Stage and priority always have a value, so a null for
@@ -46,6 +48,7 @@ from tracker.agents.pursuits import (
     public_pursuit,
     upsert_pursuit,
 )
+from tracker.agents.receipts import RevisionConflict
 from tracker.db.models import Job, Pursuit
 from tracker.notifications.pursuit_due import generate_pursuit_due_notifications
 
@@ -62,11 +65,10 @@ _CURSOR_FORMAT = 1
 
 
 class PursuitState(Shape):
-    """One pursuit's fields as every surface shows them."""
+    """One pursuit's fields as every agent operation shows them."""
 
-    id: int
     #: The opportunity this pursuit is about: the id every pursuit operation takes.
-    job_id: int
+    opportunity_id: int
     stage: PursuitStage = Field(json_schema_extra=_CODE)
     priority: int = Field(ge=1, le=5)
     #: The person's own notes. Text an agent wrote here earlier reads back too.
@@ -78,6 +80,16 @@ class PursuitState(Shape):
     #: Advances with every change to the pursuit, the dashboard's included. A
     #: write passes back the revision it read and is refused if it moved.
     revision: int = Field(ge=1)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _from_row_keys(cls, data: Any) -> Any:
+        """A write's receipt keeps its result in the keys it was stored with,
+        which may be the row's `id` and `job_id`; a same-key retry replays it
+        in this shape all the same."""
+        if isinstance(data, dict) and "job_id" in data and "opportunity_id" not in data:
+            return agent_fields(data)
+        return data
 
 
 class PursuedOpportunity(Shape):
@@ -310,7 +322,7 @@ async def pursuit_page(
     next_cursor = (
         encode_cursor(workspace_id=workspace_id, stage=params.stage, last=page[-1]) if more and page else None
     )
-    items = [item_of(row, postings=postings) for row in page]
+    items = [item_of(agent_fields(row), postings=postings) for row in page]
     return PursuitList(count=len(items), items=items), next_cursor
 
 
@@ -344,14 +356,36 @@ def shown(item: PursuitItem, *, postings: bool) -> PursuitItem:
     return item if postings else item.model_copy(update={"opportunity": MISSING})
 
 
+def agent_fields(fields: dict[str, Any]) -> dict[str, Any]:
+    """`public_pursuit`'s fields as an agent reads them: the opportunity's id
+    as `opportunity_id`, and no row id, which no operation takes."""
+    record = {key: value for key, value in fields.items() if key not in ("id", "job_id")}
+    return {"opportunity_id": fields["job_id"], **record}
+
+
 def state_of(pursuit: Pursuit, job: Job | None = None) -> dict[str, Any]:
-    """A pursuit's public fields and its revision, from one read of its row."""
-    return {**public_pursuit(pursuit, job), "revision": pursuit.revision}
+    """A pursuit's agent fields and its revision, from one read of its row."""
+    return agent_fields({**public_pursuit(pursuit, job), "revision": pursuit.revision})
 
 
 def reread(opportunity_id: int) -> list[NextAction]:
     """What a refused write suggests: read the pursuit again."""
     return [NextAction(operation=PURSUITS_GET.id, arguments={"opportunity_id": opportunity_id})]
+
+
+def no_pursuit(opportunity_id: int, expected_revision: int) -> OperationError:
+    """The refusal of a write that states a revision above 0 for an
+    opportunity with no pursuit. It is `not_found`, not a conflict: reading
+    again finds nothing newer. The likely cause is a wrong id, so it points
+    to the ids and never suggests creating a pursuit, which on a wrong id
+    would be a write the person never asked for."""
+    return OperationError(
+        "not_found",
+        "There is no pursuit for this opportunity, so its revision is 0. "
+        "Check the id: pursuits.list names each pursuit's opportunity_id.",
+        details={"opportunity_id": opportunity_id, "expected_revision": expected_revision, "current_revision": 0},
+        next_actions=[NextAction(operation=PURSUITS_LIST.id, arguments={})],
+    )
 
 
 async def _write(
@@ -365,6 +399,10 @@ async def _write(
         raise OperationError(
             "not_found", "There is no opportunity with this id.", details={"opportunity_id": opportunity_id}
         ) from None
+    except RevisionConflict as conflict:
+        if conflict.current != 0:
+            raise
+        raise no_pursuit(opportunity_id, conflict.expected) from None
     # A reminder follows its pursuit in the same transaction, as every pursuit write's does.
     await generate_pursuit_due_notifications(session)
     job = await session.get(Job, opportunity_id)

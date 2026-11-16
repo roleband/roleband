@@ -109,7 +109,7 @@ def test_every_read_answers_through_its_command_as_the_engine_does(home, seeded)
     one = _command(home, "pursuits", "get", str(job_id))
     assert one["operation"] == "pursuits.get"
     assert one["data"] == _engine_data(seeded, f"/pursuits/{job_id}")
-    assert one["data"]["job_id"] == job_id and one["data"]["revision"] >= 1
+    assert one["data"]["opportunity_id"] == job_id and one["data"]["revision"] >= 1
 
     contract = _command(home, "recipes", "contract", "get")
     assert contract["operation"] == "recipes.contract.get"

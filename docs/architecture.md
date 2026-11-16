@@ -1410,8 +1410,15 @@ Each read that replaces an MCP tool reuses that tool's query owner, and
 The MCP writes have theirs: `pursuits.save` (PUT) and `pursuits.patch` (PATCH)
 write through `upsert_pursuit` as the agent, and their event records
 `via: agent_api`; `recipes.draft.save` appends a draft revision and never
-activates. A patch states the revision it read (`if_revision`, 0 for a role
-with no pursuit yet) and reads its fields by presence: null clears the notes,
+activates. A pursuit is addressed by its opportunity's id, and a pursuit
+record (the pursuit operations' answers, and the pursuit in `opportunities.get`
+and `context.export`) names it as `opportunity_id`, with no row id beside it
+that a command could be given instead. A patch states the revision it read
+(`if_revision`, 0 for a role with no pursuit yet); a revision above 0 for a
+role with no pursuit is `not_found` with the revision 0, never a conflict
+that reading again cannot resolve; it points to `pursuits.list` for the ids
+and never suggests creating one, since the likely cause is a wrong id. It
+reads its fields by presence: null clears the notes,
 the next action or its due date, a field left out is untouched, and a null
 stage or priority is an input error. A save may state the revision; without
 one it is last-writer-wins on priority. `receipts.get` reads a write's receipt

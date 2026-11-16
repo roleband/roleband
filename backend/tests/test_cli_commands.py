@@ -634,7 +634,7 @@ def test_the_documented_patch_call_clears_a_due_date_with_input_and_control_flag
         assert result.status == 0, result
         return result.envelope
 
-    target = run("pursuits", "list", "--limit", "1", "--json")["data"]["items"][0]["job_id"]
+    target = run("pursuits", "list", "--limit", "1", "--json")["data"]["items"][0]["opportunity_id"]
     revision = run("pursuits", "get", str(target), "--json")["data"]["revision"]
     due = "2026-12-01T09:00:00+00:00"
     run("pursuits", "patch", str(target), "--if-revision", str(revision), "--next-action", "Call the recruiter",
