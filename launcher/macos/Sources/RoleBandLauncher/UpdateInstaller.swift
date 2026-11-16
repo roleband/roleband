@@ -57,8 +57,13 @@ final class UpdateInstaller: ObservableObject {
         // A refused quit keeps its plan, and that plan's helper may still be waiting for this app to
         // quit. Handing the same plan over again means a second helper finds its lease taken and
         // stands aside, so two helpers never wait to replace this app, and the hand-off restarts the
-        // first helper's wait.
-        if plan != nil { return restart() }
+        // first helper's wait. A held plan for another version is set aside: Update names the version
+        // to install, and the newer offer is the one the person sees.
+        if let plan {
+            if plan.to == version { return restart() }
+            try? FileManager.default.removeItem(at: plan.paths.directory)
+            self.plan = nil
+        }
         generation += 1
         let token = generation
         self.version = version
