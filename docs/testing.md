@@ -52,12 +52,13 @@ goes to Windows' deployment log first, even with updates unavailable, while a st
 cannot be read settles nothing, and the new version settles the update by its preparation;
 the real package switch needs an installed trial. `UpdateWindowTests` hold when the update window
 opens, waits for setup or an update, or lets a release go; Later's three days and its third Later;
-what it shows from the offer to Windows' install; and a real window shown on top that takes neither
-the foreground nor a click's activation. Build the actual
+what it shows from the offer to Windows' install; and a real window that takes neither the
+foreground nor a click's activation, and shows on top wherever the desktop lets any window be
+topmost (a hosted runner does not). Build the actual
 app with `dotnet build launcher/windows/RoleBand.App -p:Platform=x64` and
 check on Windows: the icon's flyout opens by the icon and closes on a second click, Esc or a click
 elsewhere; the right-click menu's bold default, pause and Quit; Settings and setup; the update window
-while typing in another app, which keeps the keyboard while its buttons answer the first click; Quit
+while typing in another app, which stays on top and keeps the keyboard while its buttons answer the first click; Quit
 stops the engine. A source run started with `--simulate-update <scenario>` plays the update commands and
 Windows' installer instead of the real ones, opens Settings and presses what the scenario follows,
 so each update state (a download, a pause, a full disk, Windows' install, a failed update, an Undo
