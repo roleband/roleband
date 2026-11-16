@@ -166,7 +166,11 @@ public sealed record UpdateRow(UpdateRowKind Kind, string Title, string? Caption
 /// <param name="Percent">How far the download, or Windows' install, has got.</param>
 /// <param name="Cancel">The download can be stopped from the banner.</param>
 public sealed record FlyoutUpdate(string Title, string? Caption, string? Action, string Version, bool Busy, bool Failed, bool WholeState,
-                                  int? Percent = null, bool Cancel = false);
+                                  int? Percent = null, bool Cancel = false)
+{
+    /// <summary>A verified version waits for its Update press: not a download, a failure or Windows' install.</summary>
+    public bool Offers => Action is not null && !Failed && !Busy && !WholeState && !Cancel;
+}
 
 /// <param name="On">Windows' own state; Settings shows what is registered, not a proposal.</param>
 public sealed record LoginRow(bool On, bool Enabled, string CaptionKey, bool Settings, bool Visible);

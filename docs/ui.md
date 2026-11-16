@@ -142,7 +142,8 @@ leaves the app running if the engine did not stop, with the reason in Settings. 
 data folder: starting it again, from Start or anywhere else, hands the start to the running copy.
 
 **The icon.** One icon for the app's life: the radar mark, with a badge for any state but ready
-(scanning or starting, paused, needs attention, stopped). The glyph, not the colour, carries the
+(scanning or starting, paused, needs attention, stopped, an update waiting). An update's download
+arrow shows only on an idle icon with an offer waiting for Update; every other badge outranks it. The glyph, not the colour, carries the
 state. Each state ships as an .ico per taskbar theme with frames drawn for 16, 20, 24 and 32
 pixels, and the frame drawn for the notification area's size is taken, never a scaled one; the
 icon follows the taskbar's theme and scale as they change, and a contrast theme takes the set
@@ -203,7 +204,7 @@ folder.
 
 **Updating.** An offer puts Update, the gold press, beside Check for updates. While scanning runs it
 is also a gold-tinted banner under the flyout's summary, with a download glyph, the version and its
-own Update, so it cannot pass unnoticed; the idle icon's tooltip names it; and the menu adds Update
+own Update, so it cannot pass unnoticed; the idle icon's badge marks it and its tooltip names it; and the menu adds Update
 to the version, in its own group before Settings. Update is the only press: the card and the banner
 follow the download, with how much has arrived of how much and Cancel, which keeps what arrived
 for the next Update. Update and Cancel take each other's place, and focus moves with them; a press

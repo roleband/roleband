@@ -118,6 +118,10 @@ def tray_inner(px, ink, badge=None, bfill=None, gfill=None, uid="t"):
     elif badge == "pause":
         glyph = (f'<path d="M{f(bc - .3 * br)} {f(bc - .48 * br)}V{f(bc + .48 * br)}M{f(bc + .3 * br)} {f(bc - .48 * br)}V{f(bc + .48 * br)}" '
                  f'stroke="{g}" stroke-width="{f(.28 * br)}" stroke-linecap="round"></path>')
+    elif badge == "update":
+        glyph = (f'<path d="M{f(bc)} {f(bc - .55 * br)}V{f(bc + .45 * br)}M{f(bc - .42 * br)} {f(bc + .05 * br)}L{f(bc)} {f(bc + .5 * br)}'
+                 f'L{f(bc + .42 * br)} {f(bc + .05 * br)}" fill="none" stroke="{g}" stroke-width="{f(.28 * br)}" '
+                 f'stroke-linecap="round" stroke-linejoin="round"></path>')
     elif badge == "attention":
         glyph = (f'<path d="M{f(bc)} {f(bc - .55 * br)}V{f(bc + .08 * br)}" stroke="{g}" stroke-width="{f(.3 * br)}" stroke-linecap="round"></path>'
                  f'<circle cx="{f(bc)}" cy="{f(bc + .5 * br)}" r="{f(.17 * br)}" fill="{g}"></circle>')
@@ -130,7 +134,7 @@ def tray_inner(px, ink, badge=None, bfill=None, gfill=None, uid="t"):
 def tray_svg(px, display, ink, badge=None, bfill=None, gfill=None, uid="t"):
     """The tray icon drawn on a `px` grid and shown at `display` px.
 
-    `badge` is None (ready), "play", "pause", "attention", or anything else for the stopped
+    `badge` is None (ready), "play", "pause", "attention", "update", or anything else for the stopped
     dash. `uid` names the cut-out mask, so it must be unique within one document."""
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {px} {px}" width="{display}" height="{display}">'
             f'{tray_inner(px, ink, badge, bfill, gfill, uid)}</svg>')

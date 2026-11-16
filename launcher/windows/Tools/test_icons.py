@@ -24,7 +24,8 @@ TRAY_SIZES = [16, 20, 24, 32]
 APP_ICO_SIZES = [16, 20, 24, 32, 40, 48, 64, 256]
 THEMES = ("light", "dark")
 BADGES = {"scanning": {"light": "08607D", "dark": "6FC9E6"}, "paused": {"light": "5A5A5A", "dark": "D0D0D0"},
-          "attention": {"light": "9D5D00", "dark": "EFA85E"}, "stopped": {"light": "C42B1C", "dark": "FF99A4"}}
+          "attention": {"light": "9D5D00", "dark": "EFA85E"}, "stopped": {"light": "C42B1C", "dark": "FF99A4"},
+          "update": {"light": "0F7B0F", "dark": "6CCB5F"}}
 
 
 def png_size(data):

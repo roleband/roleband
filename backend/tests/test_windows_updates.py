@@ -122,10 +122,21 @@ def allow(state, automatic):
     record_consent(state, automatic=automatic, text="Check for RoleBand updates once a day.", language="en", now=NOW)
 
 
-def test_no_choice_means_no_automatic_request(state, identity, feed):
+def test_an_install_that_never_chose_checks_once_a_day_without_recording_a_choice(state, identity, feed):
     feed.publish("0.1.3")
-    assert run(state, identity, feed, manual=False).status == "not-allowed"
-    assert feed.requests == []
+    assert windows_updates.status(state, identity, "0.1.2")["automatic"] is True
+    assert run(state, identity, feed, manual=False).status == "offered"
+    assert feed.requests[0].startswith("https://api.github.com/")
+    assert not (state / windows_updates.CONSENT).exists(), "a choice the person never made is not recorded"
+    assert run(state, identity, feed, manual=False, now=NOW + 1).status == "throttled"
+
+
+def test_a_choice_to_turn_checks_on_after_turning_them_off_checks_again(state, identity, feed):
+    feed.publish("0.1.3")
+    allow(state, False)
+    assert windows_updates.status(state, identity, "0.1.2")["automatic"] is False
+    allow(state, True)
+    assert run(state, identity, feed, manual=False).status == "offered"
 
 
 def test_declined_automatic_checks_still_allow_one_manual_request(state, identity, feed):
@@ -388,13 +399,13 @@ def test_a_version_this_installation_undid_is_not_offered_again(state, identity,
 
 def test_status_reads_what_checks_kept_without_asking_the_feed(state, identity, feed):
     assert windows_updates.status(state, identity, "0.1.2") == {
-        "automatic": False, "checked_at": None, "offer": None, "rate_limited_until": None}
-    allow(state, True)
+        "automatic": True, "checked_at": None, "offer": None, "rate_limited_until": None}
+    allow(state, False)
     feed.publish("0.1.3")
     run(state, identity, feed, manual=True)
     asked = len(feed.requests)
     kept = windows_updates.status(state, identity, "0.1.2")
-    assert (kept["automatic"], kept["offer"], kept["checked_at"]) == (True, "0.1.3", NOW)
+    assert (kept["automatic"], kept["offer"], kept["checked_at"]) == (False, "0.1.3", NOW)
     assert windows_updates.status(state, identity, "0.1.3")["offer"] is None, "an installed offer is no offer"
     feed.listing_override = httpx.Response(429, headers={"Retry-After": "120"})
     run(state, identity, feed, manual=True, now=NOW + 1)
