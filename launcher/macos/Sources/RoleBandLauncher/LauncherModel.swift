@@ -231,7 +231,9 @@ final class LauncherModel: ObservableObject {
     private var controlTask: Task<Void, Never>?
     private var timer: Timer?
     private(set) var loginTimer: Timer?
-    private var setupVisible = false
+    private(set) var setupVisible = false
+    /// A version an automatic check found while something held its window back.
+    var heldUpdateWindow: String?
     let registrationURL: URL
     private let installationSource: InstallationSource
     private let readStatus: @Sendable (Installation) async throws -> VerifiedStatus

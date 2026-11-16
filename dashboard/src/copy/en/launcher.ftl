@@ -339,8 +339,6 @@ launcher-notes-loading = Loading release notes…
 launcher-notes-done = Done
 
 # kind=label
-launcher-update-available = Update available
-# kind=label
 launcher-update-offered = Available version
 # kind=status
 launcher-update-checked = Release check completed.
@@ -367,10 +365,6 @@ launcher-update-check-now = Check now
 # kind=status
 launcher-update-idle = Not checked yet
 
-# kind=notification
-launcher-update-notification-body = See what's new in this version.
-# kind=button
-launcher-update-notification-settings = Notification settings
 
 # kind=heading
 launcher-guide-title = Install the app
@@ -727,11 +721,9 @@ launcher-panel-check-automatically = Check automatically
 # kind=sentence
 launcher-panel-check-automatically-caption = Looks for a new version once a day.
 # kind=label
-launcher-panel-notices = Update notices
+launcher-panel-update-window = Update window
 # kind=sentence
-launcher-panel-notices-caption = A notification when one is ready.
-# kind=sentence
-launcher-panel-notices-refused = Notifications are off for this app in System Settings.
+launcher-panel-update-window-caption = Opens when a new version is ready.
 # kind=status
 launcher-panel-checked = Checked { $time }
 # kind=status
@@ -743,6 +735,8 @@ launcher-panel-status-failed = Couldn't check
 
 # kind=status
 launcher-update-ready = Version { $version } is ready
+# kind=sentence
+launcher-update-window-body = This update includes improvements and bug fixes.
 # kind=button
 launcher-update-install = Update
 # kind=button
