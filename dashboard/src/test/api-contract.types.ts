@@ -120,6 +120,11 @@ export type QueryContract = [
   Expect<ReadBy<DecidedQuery, "twin_review_api_twins_review_get">>,
   Expect<ReadBy<ParamsOf<typeof api.skillsTop>, "skills_top_api_skills_top_get">>,
   Expect<ReadBy<ParamsOf<typeof api.notifications>, "notifications_api_notifications_get">>,
+  Expect<ReadBy<ParamsOf<typeof api.agentActivity>, "agent_activity_api_agent_activity_get">>,
+];
+
+export type AgentActivityRouteContract = [
+  Expect<Equals<Returns<typeof api.agentActivity>, Ok<"agent_activity_api_agent_activity_get">>>,
 ];
 
 // @ts-expect-error: a sort key the job list does not publish does not compile.

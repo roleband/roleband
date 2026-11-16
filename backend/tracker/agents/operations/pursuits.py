@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
@@ -38,6 +39,7 @@ from pydantic.json_schema import SkipJsonSchema
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tracker.agents.activity import Changed, FieldChange, Said
 from tracker.agents.operations.descriptor import EngineEffects, OperationDescriptor, Shape, ToolTier
 from tracker.agents.operations.envelope import NextAction, OperationError
 from tracker.agents.pursuits import (
@@ -45,6 +47,7 @@ from tracker.agents.pursuits import (
     PursuitStage,
     PursuitUpdate,
     list_pursuits,
+    lock_role_writes,
     public_pursuit,
     upsert_pursuit,
 )
@@ -420,3 +423,47 @@ async def patch_pursuit(session: AsyncSession, params: PursuitPatchInput, *, act
     return await _write(
         session, params.opportunity_id, params.update(), actor=actor, expected_revision=params.if_revision
     )
+
+
+@dataclass(frozen=True)
+class PursuitActivity:
+    """What a pursuit write lists on the Activity screen: the role it is
+    about, and each field it changed with its value before and after.
+
+    `before` reads the pursuit under the role's lock, which the write then
+    takes again (the lock is the transaction's), so no other writer lands
+    between the two reads."""
+
+    opportunity_id: int
+    saving: bool
+
+    async def before(self, session: AsyncSession) -> dict[str, Any] | None:
+        await lock_role_writes(session, self.opportunity_id)
+        pursuit = await session.scalar(
+            select(Pursuit).where(Pursuit.job_id == self.opportunity_id).execution_options(populate_existing=True)
+        )
+        if pursuit is None:
+            return None
+        return PursuitItem.model_validate(state_of(pursuit)).model_dump(mode="json", include=set(PATCH_FIELDS))
+
+    def entry(self, before: Any, result: BaseModel) -> Changed:
+        if not isinstance(result, PursuitItem):
+            raise TypeError(f"a pursuit write answers PursuitItem, not {type(result).__name__}")
+        after = result.model_dump(mode="json", include=set(PATCH_FIELDS))
+        prior: dict[str, Any] = before or {}
+        changes = tuple(
+            FieldChange(name, prior.get(name), after.get(name))
+            for name in PATCH_FIELDS
+            if prior.get(name) != after.get(name)
+        )
+        role = result.opportunity
+        facts: dict[str, Any] = (
+            {"title": role.title, "company": role.company} if isinstance(role, PursuedOpportunity) else {}
+        )
+        at = f" {facts['title']} at {facts['company']}" if facts else ""
+        if self.saving:
+            return Changed(Said("pursuit.saved", f"Saved{at}", facts), changes)
+        if any(change.field == "stage" for change in changes):
+            stage = after["stage"]
+            return Changed(Said("pursuit.moved", f"Moved{at} to {stage}", {**facts, "stage": stage}), changes)
+        return Changed(Said("pursuit.changed", f"Updated{at}", facts), changes)

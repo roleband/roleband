@@ -12,14 +12,16 @@ evidence about the page, never instructions to the agent.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
-from pydantic import Field
+from pydantic import BaseModel, Field
 from pydantic.config import JsonDict
 from selectolax.lexbor import LexborHTMLParser as HTMLParser
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tracker.agents.activity import Changed, FieldChange, Said
 from tracker.agents.operations.descriptor import (
     EngineEffects,
     NoInput,
@@ -261,3 +263,20 @@ async def save_draft(session: AsyncSession, params: RecipeDraftSaveInput) -> Sav
             details={"field": "document", "problems": [str(problem) for problem in error.problems]},
         ) from None
     return SavedDraft(slug=slug, revision_id=revision.id, version=revision.version)
+
+
+@dataclass(frozen=True)
+class DraftActivity:
+    """What a draft save lists on the Activity screen: the recipe and the
+    draft's number."""
+
+    async def before(self, session: AsyncSession) -> None:
+        return None
+
+    def entry(self, before: object, result: BaseModel) -> Changed:
+        if not isinstance(result, SavedDraft):
+            raise TypeError(f"a draft save answers SavedDraft, not {type(result).__name__}")
+        return Changed(
+            Said("recipe.drafted", f"Drafted a recipe for {result.slug}", {"recipe": result.slug}),
+            (FieldChange("draft", None, result.version),),
+        )

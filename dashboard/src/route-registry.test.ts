@@ -54,7 +54,7 @@ describe("route registry", () => {
     // screen fetched ahead, for each entry — a static import here would put
     // the screen straight back in the shell with nothing failing.
     const lazyCount = [...registry.matchAll(/(?:lazy|preloadable)\(\(\)\s*=>/g)].length;
-    expect(lazyCount).toBe(Object.keys(ROUTE_COMPONENTS).length + 3); // + Welcome + the two covers (position, compare)
+    expect(lazyCount).toBe(Object.keys(ROUTE_COMPONENTS).length + 4); // + Welcome + the two covers (position, compare) + Activity
     expect(registry).not.toMatch(/^import\s+\{[^}]*\}\s+from\s+"\.\/(routes|features|components)\//m);
   });
 

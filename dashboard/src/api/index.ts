@@ -14,6 +14,7 @@
 // boundary, and this file composes the one `api` object every screen calls.
 // Importers write `../api`.
 
+import { agentActivityApi } from "./agentActivity";
 import { applicationsApi } from "./applications";
 import { jobsApi } from "./jobs";
 import { opsApi } from "./ops";
@@ -46,6 +47,7 @@ export const api = {
   ...recipesApi,
   ...usageApi,
   ...pluginsApi,
+  ...agentActivityApi,
 };
 
 export { ApiError, isNotFound } from "./transport";

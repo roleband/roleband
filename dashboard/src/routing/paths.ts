@@ -29,6 +29,9 @@ export function coverBackground(location: { pathname: string; state: unknown }):
 
 export const COMPARE_ROUTE = "/compare";
 
+/** Settings › AI › Activity: what connected assistant apps read, changed and were refused. */
+export const ACTIVITY_ROUTE = "/settings/intelligence/activity";
+
 type Place = { pathname: string; search?: string; state: unknown };
 
 /** The page at the bottom of a stack of covers: a cover opens over a page, and

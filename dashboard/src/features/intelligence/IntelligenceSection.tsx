@@ -26,6 +26,7 @@ import { positionPath } from "../../routing/paths";
 import { AimLine } from "./AimLine";
 import { AssistantsCard } from "./AssistantsCard";
 import { CapabilitiesCard } from "./CapabilitiesCard";
+import { ActivityCard } from "./activity/ActivityCard";
 import { FitBandKey, FitField } from "./FitField";
 import { MatchingModel } from "./MatchingModel";
 import { OriginBadge } from "./OriginBadge";
@@ -110,6 +111,7 @@ export function IntelligenceTab() {
       />
       <AssistantsCard />
       <CapabilitiesCard status={status} setStatus={setStatus} />
+      <ActivityCard />
       {error && <div className="intel-error" role="alert">{error}</div>}
     </div>
   );

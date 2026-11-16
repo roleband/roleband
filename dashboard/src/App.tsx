@@ -8,6 +8,7 @@ import {
   shellLoadingRole,
   shellPaletteOpenAria,
   shellPaletteOpenTitle,
+  shellRouteActivity,
   shellRouteCompare,
   shellRouteDashboard,
   shellRouteWelcome,
@@ -35,7 +36,7 @@ import { ResourceLoadState } from "./ui/ResourceLoadState";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { recordClientError } from "./diagnostics/clientErrors";
 import { Suspense, lazy, memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import type { Location } from "react-router-dom";
 import { shellApi, type UsageState } from "./api/shell";
 import { FreshnessBadge } from "./shell/FreshnessBadge";
@@ -46,11 +47,11 @@ import { CompareSaveAlert } from "./shell/CompareSaveAlert";
 import { StatChip } from "./shell/StatChip";
 import { NotificationBell } from "./features/notifications/NotificationBell";
 import { SyncButton } from "./shell/SyncButton";
-import { POSITION_ROUTE, positionKey } from "./routing/paths";
+import { ACTIVITY_ROUTE, POSITION_ROUTE, positionKey } from "./routing/paths";
 import { ScreenProvider } from "./routing/screen";
 import { readUnconfigured, useSetupMode } from "./routing/setupMode";
 import { NAV_TABS } from "./navigation";
-import { CompareRoute, PositionRoute, ROUTE_COMPONENTS, SettingsItemRoute, WelcomeRoute, preloadProfile, preloadScreens } from "./routeRegistry";
+import { ActivityRoute, CompareRoute, PositionRoute, ROUTE_COMPONENTS, SettingsItemRoute, WelcomeRoute, preloadProfile, preloadScreens } from "./routeRegistry";
 import { AppProviders } from "./context/AppProviders";
 import { CopyBoundary } from "./copy/CopyBoundary";
 import { useMissionActions, useMissionState, useMissionStats } from "./context/MissionState";
@@ -119,6 +120,8 @@ const RoutedScreens = memo(function RoutedScreens({ location }: { location: Loca
       <Route path="/favorites" element={<Navigate to="/pipeline/board" replace />} />
       {/* One plugin's settings: the Settings shell on the Plugins tab,
           which reads `:pluginId` (any other tab sends it back). */}
+      {/* Settings › AI › Activity: a screen of its own, outranking the plugin address above. */}
+      <Route path={ACTIVITY_ROUTE} element={<ActivityRoute />} />
       <Route path="/settings/:tab/:pluginId" element={<SettingsItemRoute />} />
       <Route path="/welcome" element={<WelcomeRoute />} />
       <Route path="*" element={<Navigate to="/" replace />} />
@@ -298,6 +301,9 @@ function Shell() {
   const headerDetail = activeTab?.tabs
     ? activeTab.tabs.find((s) => s.slug === routedLocation.pathname.split("/")[2])?.label ?? null
     : null;
+  // A screen under a tab (Settings › AI › Activity) adds its own last segment,
+  // and the tab before it becomes the way back.
+  const headerLeaf = routedLocation.pathname === ACTIVITY_ROUTE ? shellRouteActivity() : null;
 
   /* Which of the top bar's counts is lit: at most one, and it is what the page
      shows. Asked of the page ON SCREEN, not the routed one — a cover is its own
@@ -396,7 +402,17 @@ function Shell() {
             {headerDetail && (
               <>
                 <span className="route-slash" aria-hidden="true">/</span>
-                <strong aria-current="page">{headerDetail}</strong>
+                {headerLeaf ? (
+                  <Link to={`/${routedLocation.pathname.split("/").slice(1, 3).join("/")}`}>{headerDetail}</Link>
+                ) : (
+                  <strong aria-current="page">{headerDetail}</strong>
+                )}
+              </>
+            )}
+            {headerDetail && headerLeaf && (
+              <>
+                <span className="route-slash" aria-hidden="true">/</span>
+                <strong aria-current="page">{headerLeaf}</strong>
               </>
             )}
           </nav>

@@ -1703,6 +1703,55 @@ class CommandReceipt(Base):
     )
 
 
+class AgentActivity(Base):
+    """One agent operation as the person reads it on the Activity screen: a
+    read, a change or a refusal (`tracker/agents/activity.py`).
+
+    A change's row is written in the write's own transaction, beside its audit
+    event and its receipt, so a write that rolled back leaves no row and a row
+    never claims a change that did not land. A read's or a refusal's row is
+    written once the answer is decided, on a session of its own.
+
+    `categories` are the data categories the operation read (for a refusal,
+    the one it asked for). `subject` holds the facts the summary is said from
+    (a role's title, a count, a stage slug); `summary` is the same sentence in
+    English, kept for search and for a reader without the catalog. `changes`
+    lists each field a change touched with its value before and after.
+    """
+
+    __tablename__ = "agent_activity"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    workspace_id: Mapped[str | None] = mapped_column(String(64))
+    principal_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    operation: Mapped[str] = mapped_column(String(128), nullable=False)
+    request_id: Mapped[str | None] = mapped_column(String(128))
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    categories: Mapped[list[str]] = mapped_column(
+        ARRAY(String(32)), nullable=False, server_default=text("'{}'::varchar[]")
+    )
+    #: The action group a change belongs to; None for a read, a refusal, or
+    #: an operation no group names yet.
+    action_group: Mapped[str | None] = mapped_column(String(64))
+    #: The refusal's error code (`category_disabled`, `writes_disabled`, ...).
+    refusal: Mapped[str | None] = mapped_column(String(64))
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    subject: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    changes: Mapped[list | None] = mapped_column(JSONB)
+    #: A change's idempotency key: with the principal and operation it names its receipt.
+    idempotency_key: Mapped[str | None] = mapped_column(String(128))
+
+    __table_args__ = (
+        CheckConstraint("kind IN ('read', 'change', 'refused')", name="ck_agent_activity_kind"),
+        CheckConstraint("(kind = 'refused') = (refusal IS NOT NULL)", name="ck_agent_activity_refusal"),
+        # The screen pages newest first by (occurred_at, id): one index, read backwards.
+        Index("ix_agent_activity_occurred", "occurred_at", "id"),
+    )
+
+
 class TrackedCompany(Base):
     """Every company to scrape — built-in and user-added alike — is a row here.
 

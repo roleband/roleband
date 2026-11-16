@@ -1,8 +1,9 @@
 {
  "_why": "The schema as the models declare it, frozen so a change to a column, index, constraint or default cannot land without showing up in a reviewer's diff. `alembic check` already answers 'do the models and the migrations agree?', but only against a live cluster and only in a CI log; this fixture answers 'did the models change at all?' with no database, in the pull request itself. The two claims are independent: a model edit WITH a matching migration keeps `check` green and still belongs in review, which is what this catches. Regenerate deliberately, in the same change as the migration: `.venv/bin/python -m scripts.freeze_schema_metadata`.",
  "embedding_dim": 768,
- "table_count": 76,
+ "table_count": 77,
  "classes": {
+  "AgentActivity": "agent_activity",
   "AiTaskLog": "ai_task_log",
   "AppSetting": "app_settings",
   "BindingReconciliationDecision": "binding_reconciliation_decisions",
@@ -81,6 +82,36 @@
   "WorkspaceIdentity": "workspace_identity"
  },
  "tables": {
+  "agent_activity": {
+   "create": [
+    "CREATE TABLE agent_activity (",
+    "    id BIGSERIAL NOT NULL,",
+    "    occurred_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,",
+    "    workspace_id VARCHAR(64),",
+    "    principal_id VARCHAR(64) NOT NULL,",
+    "    operation VARCHAR(128) NOT NULL,",
+    "    request_id VARCHAR(128),",
+    "    kind VARCHAR(16) NOT NULL,",
+    "    categories VARCHAR(32)[] DEFAULT '{}'::varchar[] NOT NULL,",
+    "    action_group VARCHAR(64),",
+    "    refusal VARCHAR(64),",
+    "    summary TEXT NOT NULL,",
+    "    subject JSONB DEFAULT '{}'::jsonb NOT NULL,",
+    "    changes JSONB,",
+    "    idempotency_key VARCHAR(128),",
+    "    PRIMARY KEY (id),",
+    "    CONSTRAINT ck_agent_activity_kind CHECK (kind IN ('read', 'change', 'refused')),",
+    "    CONSTRAINT ck_agent_activity_refusal CHECK ((kind = 'refused') = (refusal IS NOT NULL))",
+    ")"
+   ],
+   "indexes": [
+    "CREATE INDEX ix_agent_activity_occurred ON agent_activity (occurred_at, id)"
+   ],
+   "python_defaults": {},
+   "python_onupdate": {},
+   "comment": null,
+   "column_comments": {}
+  },
   "ai_task_log": {
    "create": [
     "CREATE TABLE ai_task_log (",

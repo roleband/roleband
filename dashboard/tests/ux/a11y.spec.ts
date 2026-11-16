@@ -30,6 +30,8 @@ const ROUTES = [
   "/settings",
   // Usage sharing's switches, install ID and next batch (docs/architecture.md).
   "/settings/privacy",
+  // What assistant apps read, changed and were refused.
+  "/settings/intelligence/activity",
   "/welcome",
 ];
 

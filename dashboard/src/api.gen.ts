@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/api/agent-activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Agent Activity */
+        get: operations["agent_activity_api_agent_activity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/v1/applications": {
         parameters: {
             query?: never;
@@ -3923,6 +3940,57 @@ export interface components {
         ActivatePayload: {
             /** Revision Id */
             revision_id: number;
+        };
+        /** ActivityEntry */
+        ActivityEntry: {
+            /** Action Group */
+            action_group: string | null;
+            /** Categories */
+            categories: string[];
+            /** Changes */
+            changes: components["schemas"]["ActivityFieldChange"][];
+            /** Id */
+            id: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "read" | "change" | "refused";
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Operation */
+            operation: string;
+            /** Refusal */
+            refusal: string | null;
+            /** Subject */
+            subject: {
+                [key: string]: unknown;
+            };
+            /** Summary */
+            summary: string;
+        };
+        /**
+         * ActivityFieldChange
+         * @description One field a change touched. A value is JSON as the record stored it;
+         *     `before` is null for a field the record did not have yet.
+         */
+        ActivityFieldChange: {
+            /** After */
+            after: unknown;
+            /** Before */
+            before: unknown;
+            /** Field */
+            field: string;
+        };
+        /** ActivityPageResponse */
+        ActivityPageResponse: {
+            /** Items */
+            items: components["schemas"]["ActivityEntry"][];
+            /** Next Cursor */
+            next_cursor: string | null;
         };
         /**
          * AdapterCapabilityRow
@@ -15910,6 +15978,43 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    agent_activity_api_agent_activity_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                kind?: "all" | "change" | "read" | "refused";
+                category?: ("public_posting" | "market_statistic" | "private_pursuit" | "offer" | "candidate") | null;
+                since?: string | null;
+                until?: string | null;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityPageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     application_board_api_agent_v1_applications_get: {
         parameters: {
             query?: {

@@ -405,6 +405,18 @@ textarea {
   font-weight: var(--app-weight-name);
 }
 
+/* A tab with a screen under it is the way back to the tab. */
+.route-breadcrumb a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.route-breadcrumb a:hover {
+  color: var(--tb-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .route-slash {
   color: var(--tb-text-faint);
   font-family: var(--app-font-mono);
