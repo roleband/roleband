@@ -128,10 +128,14 @@ extension UpdatePlan {
         let directory = paths.directory
         while FileManager.default.fileExists(atPath: directory.path) {
             if let lease = try? HelperLease(directory) {
-                // Deleted under the lease; a helper that opened the lock file before then finds its
-                // name gone once it locks, and stands aside.
                 defer { withExtendedLifetime(lease) {} }
-                do { try FileManager.default.removeItem(at: directory) } catch { return false }
+                // Moved away under the lease in one step, so no helper can create a lock file in the
+                // plan's folder while it is being deleted: one that opens the lock file afterwards
+                // finds no folder, and one that opened it before finds its name gone once it locks.
+                let retired = directory.deletingLastPathComponent().appendingPathComponent(".retired-" + id.uuidString)
+                try? FileManager.default.removeItem(at: retired)
+                do { try FileManager.default.moveItem(at: directory, to: retired) } catch { return false }
+                try? FileManager.default.removeItem(at: retired)
                 return true
             }
             do { try await pause() } catch { return false }

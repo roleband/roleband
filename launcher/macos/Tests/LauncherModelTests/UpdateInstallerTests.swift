@@ -59,6 +59,9 @@ private actor FakeRelease {
 /// Holds each wait of a set-aside plan's retirement until the test lets it go on.
 private actor RetirePauses {
     private var held: CheckedContinuation<Void, Never>?
+    /// When set, retirement reports that the plan could not be moved out of reach.
+    var fails = false
+    func set(fails: Bool) { self.fails = fails }
     func pause() async { await withCheckedContinuation { held = $0 } }
     func resume() { held?.resume(); held = nil }
     var waiting: Bool { held != nil }
@@ -95,7 +98,10 @@ private final class ReserveThreads: @unchecked Sendable {
                 if handOffFails { throw Injected.handOff }
                 handedOff.append(plan)
             },
-            retire: { plan in await plan.retire(pause: { await pauses.pause(); try Task.checkCancellation() }) }))
+            retire: { plan in
+                if await pauses.fails { return false }
+                return await plan.retire(pause: { await pauses.pause(); try Task.checkCancellation() })
+            }))
     }
     deinit { try? FileManager.default.removeItem(at: home) }
 }
@@ -279,17 +285,13 @@ private final class ReserveThreads: @unchecked Sendable {
     await h.installer.installAndWait("0.1.1")
     h.installer.quitRefused()
     let held = h.handedOff[0]
-    // A file the plan's folder cannot let go of, as a helper starting on it would leave.
-    let stuck = held.candidate.appendingPathComponent("stuck")
-    FileManager.default.createFile(atPath: stuck.path, contents: Data())
-    try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: held.candidate.path)
-    defer { try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: held.candidate.path) }
+    await h.pauses.set(fails: true)
     await h.installer.installAndWait("0.1.2")
     #expect(h.installer.activity == .failed(.restart))
     #expect(h.handedOff.count == 1)
     #expect(FileManager.default.fileExists(atPath: held.paths.directory.path))
 
-    try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: held.candidate.path)
+    await h.pauses.set(fails: false)
     await h.installer.installAndWait("0.1.2")
     #expect(h.installer.activity == .restarting && h.handedOff.count == 2 && h.handedOff[1].to == "0.1.2")
     #expect(!FileManager.default.fileExists(atPath: held.paths.directory.path))

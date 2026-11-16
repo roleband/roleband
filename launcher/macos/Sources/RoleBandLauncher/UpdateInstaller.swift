@@ -10,7 +10,8 @@ struct UpdateInstallerOperations: Sendable {
     var discard: @Sendable (String) -> Void
     /// Starts the helper and quits, so the helper can replace this app.
     var handOff: @MainActor @Sendable (UpdatePlan) throws -> Void
-    /// Deletes a plan set aside for another version once its helper has stopped waiting; false when cancelled.
+    /// Deletes a plan set aside for another version once its helper has stopped waiting; false when
+    /// cancelled or when the plan could not be moved out of reach, and then nothing may be handed over.
     var retire: @Sendable (UpdatePlan) async -> Bool = { await $0.retire() }
 }
 
@@ -86,7 +87,7 @@ final class UpdateInstaller: ObservableObject {
                 activity = .verifying
                 let plan = try await operations.prepare(update)
                 // The set-aside plan's helper would run once this app quits, so the new plan waits for it.
-                // A plan that could not be deleted may have a helper starting on it, so nothing is
+                // A plan that could not be retired may have a helper starting on it, so nothing is
                 // handed over until it is gone; Try again waits for it again.
                 if let held = setAside {
                     guard await operations.retire(held) else {

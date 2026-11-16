@@ -631,3 +631,18 @@ private func until(_ condition: () async -> Bool) async -> Bool {
     #expect(await f.plan.retire())
     #expect(!FileManager.default.fileExists(atPath: f.plan.paths.directory.path))
 }
+
+@Test func aRetiredPlanLeavesNothingAtItsPathEvenWhenItsContentsCannotBeDeleted() async throws {
+    let f = try HelperFixture(); defer { f.remove() }
+    let directory = f.plan.paths.directory
+    let stuck = f.plan.candidate.deletingLastPathComponent()
+    try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: stuck.path)
+    #expect(await f.plan.retire(pause: { Issue.record("no helper holds the lease") }))
+    #expect(!FileManager.default.fileExists(atPath: directory.path))
+    // A helper starting on the plan now has no folder to make a lock file in.
+    #expect(throws: UpdateHelperProblem.helperRunning) { try HelperLease(directory) }
+    let retired = directory.deletingLastPathComponent().appendingPathComponent(".retired-" + f.plan.id.uuidString)
+    let moved = retired.appendingPathComponent(stuck.lastPathComponent)
+    #expect(FileManager.default.fileExists(atPath: moved.path))
+    try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: moved.path)
+}
