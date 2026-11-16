@@ -18,9 +18,9 @@ final class LauncherUpdates: ObservableObject {
     @Published private(set) var checking = false
     @Published private(set) var messageKey: String?
     @Published private(set) var lastSuccess: Date?
-    @Published var notificationsDenied = false
-    /// Unset until the person turns notices on or off; until then notices follow automatic checks.
-    @Published private var noticeChoice: Bool?
+    /// The About switch for the update window. It is stored under the key the desktop notices
+    /// switch used, so a person who turned those off keeps the window off.
+    @Published private(set) var showsWindow: Bool
     /// A version that was rolled back is not offered again on its own; Check now can still find it.
     @Published private(set) var suppressedVersion: String?
     private let preferences: UserDefaults
@@ -32,9 +32,7 @@ final class LauncherUpdates: ObservableObject {
     private let now: @Sendable () -> Date
     private let copy: LauncherCopy
     private let automaticInterval: TimeInterval
-    var automaticChoiceChanged: ((Bool) -> Void)?
     var didCheck: ((OfferedRelease, Bool) -> Void)?
-    var noticesChanged: ((Bool) -> Void)?
     private var task: Task<Void, Never>?
     private var timer: Timer?
     private var generation = 0
@@ -58,15 +56,29 @@ final class LauncherUpdates: ObservableObject {
                 .map { $0.signed(notice: preferences.string(forKey: "offeredNotice")) }
         }
         lastSuccess = preferences.object(forKey: "updateLastSuccess") as? Date
-        noticeChoice = preferences.object(forKey: "updateNotices") as? Bool
+        showsWindow = preferences.object(forKey: "updateNotices") as? Bool ?? true
         suppressedVersion = preferences.string(forKey: "updateSuppressedVersion")
     }
-    var notices: Bool { noticeChoice ?? automatic }
-    func setNotices(_ enabled: Bool) {
-        guard enabled != notices || noticeChoice == nil else { return }
-        noticeChoice = enabled
+    func setShowsWindow(_ enabled: Bool) {
+        showsWindow = enabled
         preferences.set(enabled, forKey: "updateNotices")
-        if enabled { noticesChanged?(true) }
+    }
+    /// How long Later keeps the update window away, and how many Laters it takes for a version to
+    /// leave it to the menu-bar badge alone.
+    static let laterInterval: TimeInterval = 3 * 86400
+    static let laterLimit = 3
+    /// Later on the update window. A newer version starts its own count.
+    func later(_ version: String) {
+        let count = preferences.string(forKey: "updateLaterVersion") == version ? preferences.integer(forKey: "updateLaterCount") : 0
+        preferences.set(version, forKey: "updateLaterVersion")
+        preferences.set(count + 1, forKey: "updateLaterCount")
+        preferences.set(now().addingTimeInterval(Self.laterInterval), forKey: "updateLaterUntil")
+    }
+    /// Whether the person's Laters still let the window open for this version.
+    func windowAllows(_ version: String) -> Bool {
+        guard preferences.string(forKey: "updateLaterVersion") == version else { return true }
+        guard preferences.integer(forKey: "updateLaterCount") < Self.laterLimit else { return false }
+        return now() >= preferences.object(forKey: "updateLaterUntil") as? Date ?? .distantPast
     }
     func suppress(_ version: String) {
         suppressedVersion = version
@@ -74,7 +86,7 @@ final class LauncherUpdates: ObservableObject {
     }
     func text(_ key: String) -> String { copy.text(key) }
     var automatic: Bool { consent.checksDaily }
-    func choose(_ choice: UpdateConsent, requestNotifications: Bool = true) {
+    func choose(_ choice: UpdateConsent) {
         guard choice != .undecided, choice != consent else { return }
         let wording = text("update-automatic")
         stop()
@@ -84,11 +96,10 @@ final class LauncherUpdates: ObservableObject {
         preferences.set(wording, forKey: "updateConsentText")
         preferences.set("en", forKey: "updateConsentLocale")
         preferences.set(now(), forKey: "updateConsentAt")
-        if requestNotifications { automaticChoiceChanged?(choice == .daily && notices) }
         if automatic { start() }
     }
-    func setAutomaticChecks(_ enabled: Bool, requestNotifications: Bool = true) {
-        choose(enabled ? .daily : .manual, requestNotifications: requestNotifications)
+    func setAutomaticChecks(_ enabled: Bool) {
+        choose(enabled ? .daily : .manual)
     }
     func checkManually() { check(explicitlyRequested: true) }
     func start() {

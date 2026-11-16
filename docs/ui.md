@@ -10,7 +10,7 @@ Wording is a separate system: [copy.md](copy.md).
 The About tab's Updates group opens with a status row: the check result as its title
 (checking, up to date, a version ready, couldn't check, or not checked yet), the last
 successful check time under it, and Check now beside it in every state. The
-automatic-check and notices switches follow. The manual action works with automatic
+automatic-check and update-window switches follow. The manual action works with automatic
 checks off and leaves that choice unchanged. Show an up-to-date result only
 after a successful check; an unchecked state must not imply success.
 
@@ -22,11 +22,18 @@ including in an expandable section. Those facts belong in [SECURITY.md](../SECUR
 Add supporting text only when it helps the person choose an action or resolve
 the current state. Keep unrelated setup controls outside the update group.
 
-Turning on notices with automatic checks in About asks macOS for desktop
-notification permission. Setup never asks for it. Automatic checks announce a newer release
-once per version when permission already exists; manual checks show the result
-in the app. A notification opens the available release notes. Denied permission
-keeps the in-app banner working and offers notification settings.
+A release an automatic check finds opens the update window in the middle of the screen:
+the version and its release date, one fixed line ("This update includes improvements and
+bug fixes."), What's new, Later and Update. It floats above other windows without taking
+focus or the keyboard, so typing elsewhere carries on, and its buttons answer the first
+click. Update keeps it open through the download, a failure or the restart, since the
+person it is for may never open the panel. A release's Before you update notice shows on
+the window itself, so Update needs no Read first step there. Later hides that version's
+window for three days; after the third Later only the menu-bar badge carries it, and a
+newer version starts again. Check now never opens the window; its answer is the status row.
+The window waits while setup is open or unfinished and while an update runs, and About's
+update-window switch turns it off. A source checkout gets no window: its offer stays in the
+banner and the badge. The app asks macOS for no notification permission.
 
 An offer and every step of an update (download, check, failure, and the result
 on the next open) share one banner above the tabs, on every tab including About;
