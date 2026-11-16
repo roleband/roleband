@@ -70,6 +70,7 @@ from sqlalchemy import (
     and_,
     case,
     false,
+    func,
     literal,
     not_,
     or_,
@@ -631,16 +632,22 @@ async def _plugin_runs(
 ) -> list[_Candidate]:
     end = PluginRunEnd
     earlier = aliased(PluginRun)
-    # The job's previous ended run, from the run table: it holds the runs that
-    # ended before their ends were recorded, so a job's first recorded end is
-    # still compared with the run before it.
+    earlier_end = aliased(PluginRunEnd)
+    # The job's previous ended run, read from the run table, which also holds
+    # the runs that ended before their ends were recorded, so a job's first
+    # recorded end is still compared with the run before it. A run with a
+    # recorded end is read as recorded: its row may have been closed again
+    # since, and the feed's moves must chain from what it reported.
+    earlier_outcome = func.coalesce(earlier_end.outcome, earlier.outcome)
     previous = (
-        select(earlier.outcome)
+        select(earlier_outcome.label("outcome"))
+        .select_from(earlier)
+        .outerjoin(earlier_end, earlier_end.run_id == earlier.id)
         .where(
             earlier.plugin_id == end.plugin_id,
             earlier.job == end.job,
             earlier.id < end.run_id,
-            earlier.outcome.in_(list(_PLUGIN_HEALTH)),
+            earlier_outcome.in_(list(_PLUGIN_HEALTH)),
         )
         .order_by(earlier.id.desc())
         .limit(1)

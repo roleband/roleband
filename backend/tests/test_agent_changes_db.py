@@ -325,9 +325,11 @@ async def test_a_run_the_dead_run_sweep_closes_is_recorded_once_with_its_first_e
         ends = (await session.execute(select(PluginRunEnd.run_id, PluginRunEnd.outcome))).all()
         assert (await session.get(PluginRun, run_id)).outcome == "clean"
     assert ends == [(run_id, "error")]
+    # The next run is compared with the end the feed reported, not the rewritten row.
+    recovered = await _plugin_run(feed, plugin, "clean")
     events, _ = await _drain(api_client, since=since, kinds=["plugin_source_health"])
     assert [(e["sequence"], e["plugin"]["previous_state"], e["plugin"]["state"]) for e in events] == [
-        (f"plugin_run:{run_id}", None, "failing"),
+        (f"plugin_run:{run_id}", None, "failing"), (f"plugin_run:{recovered}", "failing", "healthy"),
     ]
 
 
