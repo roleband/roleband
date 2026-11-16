@@ -27,7 +27,7 @@ public sealed class TrayArtTests
             Assert.IsTrue(File.Exists(Path.Combine(TrayFolder(), file)), file);
             Assert.AreEqual("RoleBand.Tray." + file, TrayArt.Resource(badge, light));
         }
-        Assert.AreEqual(10, names.Count);
+        Assert.AreEqual(12, names.Count, "six states, two taskbar themes");
     }
 
     [TestMethod]

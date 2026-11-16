@@ -1,8 +1,8 @@
 """Ask the update feed for a newer Windows release, only as often as the person allowed.
 
-No request is made before an explicit choice. Automatic checks stay off until enabled and run
-at most once a day, failed attempts included; a manual check authorizes one request without
-changing that choice. A rate limit delays manual checks too. The listing is not signed, so an
+Automatic checks run at most once a day, failed attempts included, unless the person turned them
+off; an install that never chose checks without a choice being recorded. A manual check authorizes
+one request without changing that choice. A rate limit delays manual checks too. The listing is not signed, so an
 offer comes only from release files that verify with the installed package's key
 (`windows_release`); a failed check keeps the last verified offer, and a verified offer is
 never replaced by an older listing.
@@ -116,8 +116,9 @@ def record_consent(state: Path, *, automatic: bool, text: str, language: str, no
 
 
 def automatic_allowed(state: Path) -> bool:
+    """On unless a recorded choice turned automatic checks off."""
     record = _load(state / CONSENT)
-    return bool(record and record.get("format") == 1 and record.get("automatic") is True)
+    return not (record and record.get("format") == 1 and record.get("automatic") is False)
 
 
 def _stored_offer(record: dict[str, Any], identity: Identity, installed: str, held_back: str | None = None) -> Offer | None:

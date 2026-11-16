@@ -31,10 +31,10 @@ the app never takes a real release. [Decision 0012](0012-windows-distribution-an
 says where the Windows release key and certificate are kept. A build without an identity
 never asks a feed.
 
-Checking follows the Mac's contract. Nothing is requested before an explicit choice,
-recorded with the words shown and their language. Automatic checks stay off until enabled
-and run at most once a day, failed attempts included; a manual check authorizes one
-request. A 403 or 429 delays every check by at least a minute, or until the quota resets.
+Checking follows the Mac's contract. Automatic checks run at most once a day, failed
+attempts included, unless the person turned them off
+([decision 0019](0019-update-checks-on-by-default.md)); a choice is recorded with the words
+shown and their language. A manual check authorizes one request. A 403 or 429 delays every check by at least a minute, or until the quota resets.
 The listing is the feed's twenty most recent releases, read without redirects,
 credentials or cookies and bounded to 1 MiB; only a published, stable release of the feed
 whose files include the Windows checksum counts, so a newer release with only the Mac's

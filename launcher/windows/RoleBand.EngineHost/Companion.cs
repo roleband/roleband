@@ -1,7 +1,7 @@
 namespace RoleBand.EngineHost;
 
 /// <summary>The badge drawn into the notification-area icon. Its glyph, not its colour, carries the state.</summary>
-public enum TrayBadge { None, Scanning, Paused, Attention, Stopped }
+public enum TrayBadge { None, Scanning, Paused, Attention, Stopped, Update }
 
 /// <summary>What the menu's bold command does, and with it a double-click on the icon and a second start.</summary>
 public enum DefaultCommand { OpenRadar, Settings, Setup }
@@ -56,7 +56,7 @@ public static class Companion
     public const int NamedCompanies = 3;
 
     /// <param name="update">The update banner: an offer, a download or a failure follows the summary while scanning runs,
-    /// and an idle icon's tooltip names the offer; a download keeps its banner, with Cancel, under any summary. While
+    /// and an idle icon marks the offer and its tooltip names it; a download keeps its banner, with Cancel, under any summary. While
     /// Windows replaces the app, the stopped engine is that replacement, not a problem.</param>
     public static FlyoutView View(NativeCopy copy, EngineSnapshot engine, ScanStatus? status, ScanAction? requested,
                                   DateTimeOffset? lastScanAt, bool setupComplete, DateTimeOffset now, FlyoutUpdate? update = null)
@@ -67,7 +67,13 @@ public static class Companion
                 Tip(update.Title));
         var view = Summary(copy, engine, status, requested, lastScanAt, now);
         if (update is not null && (engine.State == EngineState.Ready || update.Cancel))
-            view = view with { Update = update, Tooltip = view.Badge == TrayBadge.None ? Tip(update.Title) : view.Tooltip };
+            view = view with
+            {
+                Update = update,
+                Tooltip = view.Badge == TrayBadge.None ? Tip(update.Title) : view.Tooltip,
+                // A scan or the engine's state needs the person sooner, so its badge keeps the place.
+                Badge = view.Badge == TrayBadge.None && update.Offers ? TrayBadge.Update : view.Badge,
+            };
         if (!setupComplete && view.Badge != TrayBadge.Stopped)
             view = view with { Badge = TrayBadge.Attention, Tooltip = Tip(copy["setup-pending"]) };
         return view;

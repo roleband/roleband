@@ -2,9 +2,9 @@
 
 ## Context
 
-The Mac app finds a new release only by asking GitHub's releases API. When automatic
-checks waited for an explicit choice, a person who left setup's switch alone never
-heard about a release unless they opened About and pressed Check now. Fixes then
+The Mac and Windows apps find a new release only by asking GitHub's releases API. When
+automatic checks waited for an explicit choice, a person who left the switch alone never
+heard about a release unless they went to About or Settings and asked for a check. Fixes then
 reached only the people who went looking for them.
 
 A check sends GitHub the network address and a generic User-Agent, nothing about the
@@ -14,12 +14,13 @@ exposure.
 
 ## Decision
 
-The Mac app checks for updates once a day unless the person turns automatic checks
-off. Setup and About show the same switch, on until it is turned off.
+The Mac and Windows apps check for updates once a day unless the person turns automatic
+checks off. The Mac's setup and About, and Windows' Settings, show the switch on until it is
+turned off.
 
 - An install that never chose checks without recording a choice. Only turning the
   switch off or on records one, with the words shown and their language.
-- A recorded choice to turn checks off, or a declined choice kept in older
+- A recorded choice to turn checks off, or a declined choice kept in older Mac
   preferences, still prevents every passive request.
 - Check now stays a one-off request that changes no choice.
 
@@ -30,9 +31,10 @@ off. Setup and About show the same switch, on until it is turned off.
 - Tests that build an app model without their own update feed must give it an
   offline one, since a fresh install now checks by itself.
 - Notices still need macOS permission, which only About asks for.
-- The Windows app keeps the explicit choice of
-  [0009](0009-windows-release-authorization.md) until it adopts this rule.
-- Enforced by `launcher/macos/Tests/LauncherModelTests/UpdateTests.swift`;
+- Windows' release authorization stays as
+  [0009](0009-windows-release-authorization.md) states it; only when it checks changes.
+- Enforced by `launcher/macos/Tests/LauncherModelTests/UpdateTests.swift` and
+  `backend/tests/test_windows_updates.py`;
   described in [architecture.md](../architecture.md) and [ui.md](../ui.md#native-launcher-updates).
 
 ## Alternatives considered

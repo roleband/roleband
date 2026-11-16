@@ -39,11 +39,14 @@ TRAY_SIZES = (16, 20, 24, 32)
 APP_ICO_SIZES = (16, 20, 24, 32, 40, 48, 64, 256)
 
 #: Tray state file name -> badge name in icons.tray_svg.
-STATES = {"ready": None, "scanning": "play", "paused": "pause", "attention": "attention", "stopped": "stopped"}
+STATES = {"ready": None, "scanning": "play", "paused": "pause", "attention": "attention", "stopped": "stopped",
+          "update": "update"}
 #: Taskbar theme -> ink, badge glyph and badge fills. "light" is a light taskbar, so dark ink.
 THEMES = {
-    "light": ("#1A1A1A", "#FFFFFF", {"play": "#08607D", "pause": "#5A5A5A", "attention": "#9D5D00", "stopped": "#C42B1C"}),
-    "dark": ("#FFFFFF", "#1C1C1C", {"play": "#6FC9E6", "pause": "#D0D0D0", "attention": "#EFA85E", "stopped": "#FF99A4"}),
+    "light": ("#1A1A1A", "#FFFFFF", {"play": "#08607D", "pause": "#5A5A5A", "attention": "#9D5D00", "stopped": "#C42B1C",
+                                     "update": "#0F7B0F"}),
+    "dark": ("#FFFFFF", "#1C1C1C", {"play": "#6FC9E6", "pause": "#D0D0D0", "attention": "#EFA85E", "stopped": "#FF99A4",
+                                    "update": "#6CCB5F"}),
 }
 
 EDGE = Path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe")
