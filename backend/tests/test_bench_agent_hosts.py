@@ -901,6 +901,8 @@ def test_every_graded_cli_call_carries_what_the_graders_read(tmp_path):
      "echo \"exit=$?\"", True),
     ("Claude requested permissions to use Bash, but you haven't granted it yet.", True),
     ("Permission to use Bash with command cat x has been denied.", True),
+    ("This command can't be checked before it runs", True),
+    ("A variable in this command can\u2019t be checked before it runs", True),
     ('Exit code 2\n{"ok": false, "error": {"code": "unknown_operation"}}', False),
     ('{"ok": true, "data": {"operations": []}}', False),
 ])

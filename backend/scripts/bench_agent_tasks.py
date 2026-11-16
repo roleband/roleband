@@ -1352,7 +1352,8 @@ def claude_breaches(init: dict) -> list[str]:
 
 
 #: How Claude Code words a Bash call its permission rules stopped before it ran.
-_REFUSALS = re.compile(r"require[sd]? approval|haven't granted|permission[^.]*denied|was blocked", re.IGNORECASE)
+_REFUSALS = re.compile(r"require[sd]? approval|haven't granted|permission[^.]*denied|was blocked|can.t be checked before it runs",
+                       re.IGNORECASE)
 
 
 def _refused(text: str) -> bool:
