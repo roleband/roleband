@@ -123,7 +123,7 @@ struct UpdateWindowView: View {
     /// The buttons beside What's new. The notice, when there is one, is already on the window, so
     /// Update needs no Read first step. Once the update is checked and restarting, nothing is left to
     /// choose. A release signed differently can only be installed from its page, so it offers that.
-    static func buttons(for activity: UpdateActivity?) -> [Choice] {
+    nonisolated static func buttons(for activity: UpdateActivity?) -> [Choice] {
         switch activity {
         case nil: [.later, .update]
         case .downloading?, .paused?: [.cancel]
