@@ -651,7 +651,7 @@
      },
      "view": {
       "default": "summary",
-      "description": "summary (each operation's id and summary) or full (also its access, availability, effects, data classes, tiers and idempotency).",
+      "description": "summary (each resource's summary and operation ids) or full (each operation's summary, access, availability, effects, data classes, tiers and idempotency).",
       "enum": [
        "summary",
        "full"
@@ -809,11 +809,11 @@
         "type": "string",
         "x-text": "code"
        },
-       "operations": {
+       "resources": {
         "additionalProperties": {
-         "type": "string"
+         "$ref": "#/$defs/ResourceIndex"
         },
-        "title": "Operations",
+        "title": "Resources",
         "type": "object"
        },
        "supported_contract_versions": {
@@ -851,7 +851,7 @@
        "engine_version",
        "metadata_source",
        "view",
-       "operations",
+       "resources",
        "effects",
        "unavailable",
        "continue_with"
@@ -1001,6 +1001,30 @@
        "idempotency"
       ],
       "title": "OperationSummary",
+      "type": "object"
+     },
+     "ResourceIndex": {
+      "additionalProperties": false,
+      "properties": {
+       "operations": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Operations",
+        "type": "array",
+        "x-text": "identifier"
+       },
+       "summary": {
+        "title": "Summary",
+        "type": "string",
+        "x-text": "diagnostic"
+       }
+      },
+      "required": [
+       "summary",
+       "operations"
+      ],
+      "title": "ResourceIndex",
       "type": "object"
      }
     },
@@ -16826,6 +16850,25 @@
    ]
   }
  ],
+ "resources": {
+  "applications": "The person's applications: the board of stages and the calendar of interviews.",
+  "capabilities": "The operations this engine offers.",
+  "changes": "What changed after a position: postings, stated pay, follow-ups due, source health.",
+  "companies": "Companies the person follows: profiles, facts with their sources, share prices.",
+  "context": "Everything about one opportunity as one hashed packet.",
+  "describe": "How to call one operation.",
+  "doctor": "The engine's checks and settings.",
+  "insights": "Market figures: open roles, pay by level and country, trends, skills asked for.",
+  "offer": "The person's own offer.",
+  "opportunities": "Open roles: search, one posting, its history, similar and duplicate postings.",
+  "pursuits": "Roles the person saved or pursues: stage, priority, notes, next action.",
+  "radar": "Counts of open and saved roles, pursuits by stage, overdue follow-ups.",
+  "receipts": "What a write sent under an idempotency key did.",
+  "recipes": "Listing recipes for a careers site: the contract, a live preview, drafts.",
+  "sources": "One public careers page, fetched.",
+  "status": "The workspace and engine answering.",
+  "vocabulary": "The values a search filter accepts."
+ },
  "routes": {
   "applications.board": {
    "method": "GET",

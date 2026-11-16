@@ -1346,12 +1346,14 @@ client's up to date under the same rule, and says so in `warnings`
 connect never installed and one the person deleted stay as they are.
 
 Discovery answers fit the standard tier's capability index budget, 1,500
-tokens (`tests/test_agent_operations.py`, `tests/test_cli.py`), because every
-session reads them and a small model carries them on every turn. By default
-`capabilities` maps each operation's id to its summary's first sentence and
-lists only the effects beyond reading and the operations the switches turn
-off; `describe` gives how to call one, its input schema without generated
-titles and no output schema. Each names its `view` `full` in `continue_with`
+tokens, and the default index 1,000 (`tests/test_agent_operations.py`,
+`tests/test_cli.py`), because every session reads them and a small model
+carries them on every turn. By default `capabilities` lists each resource's
+one-line summary (`RESOURCES` in `catalog.py`) with the ids of its
+operations, the effects beyond reading and the operations the switches turn
+off, so an operation adds only its id; `describe` gives how to call one: its
+summary, its input schema without generated titles, and no output schema.
+Each names its `view` `full` in `continue_with`
 (`backend/tracker/agents/operations/index.py`, shared with the client's
 offline answers).
 

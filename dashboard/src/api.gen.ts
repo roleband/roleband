@@ -4649,9 +4649,9 @@ export interface components {
              * @enum {string}
              */
             metadata_source: "bundled" | "engine";
-            /** Operations */
-            operations: {
-                [key: string]: string;
+            /** Resources */
+            resources: {
+                [key: string]: components["schemas"]["ResourceIndex"];
             };
             /** Supported Contract Versions */
             supported_contract_versions: string[];
@@ -13444,6 +13444,13 @@ export interface components {
             /** Slug */
             slug: string;
         };
+        /** ResourceIndex */
+        ResourceIndex: {
+            /** Operations */
+            operations: string[];
+            /** Summary */
+            summary: string;
+        };
         /**
          * RetentionChoice
          * @description One option of the Select, with what a run under it would remove now.
@@ -15945,7 +15952,7 @@ export interface operations {
             query?: {
                 /** @description List only the operations in this tool tier. */
                 tier?: ("small" | "standard" | "full") | null;
-                /** @description summary (each operation's id and summary) or full (also its access, availability, effects, data classes, tiers and idempotency). */
+                /** @description summary (each resource's summary and operation ids) or full (each operation's summary, access, availability, effects, data classes, tiers and idempotency). */
                 view?: "summary" | "full";
             };
             header?: never;

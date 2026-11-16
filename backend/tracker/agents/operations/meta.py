@@ -95,8 +95,8 @@ class CapabilitiesInput(Shape):
     tier: ToolTier | None = Field(default=None, description="List only the operations in this tool tier.")
     view: DiscoveryView = Field(
         default="summary",
-        description="summary (each operation's id and summary) or full (also its access, availability, "
-        "effects, data classes, tiers and idempotency).",
+        description="summary (each resource's summary and operation ids) or full (each operation's summary, "
+        "access, availability, effects, data classes, tiers and idempotency).",
     )
 
 
@@ -108,10 +108,16 @@ class _Versions(Shape):
     metadata_source: Literal["bundled", "engine"] = Field(json_schema_extra=_CODE)
 
 
+class ResourceIndex(Shape):
+    summary: str = Field(json_schema_extra=_DIAGNOSTIC)
+    #: The ids of the resource's operations; `describe` gives each one's summary.
+    operations: list[str] = Field(json_schema_extra=_IDENTIFIER)
+
+
 class CapabilitiesSummary(_Versions):
     view: Literal["summary"] = Field(json_schema_extra=_CODE)
-    #: Each operation's summary, by id.
-    operations: dict[str, str]
+    #: Each resource's summary and operations, by name.
+    resources: dict[str, ResourceIndex]
     #: The engine and client effects of each operation that has any, by id.
     #: An operation absent here only reads.
     effects: dict[str, list[str]]

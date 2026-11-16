@@ -10,7 +10,6 @@ This module imports only the standard library: the client imports it.
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
 #: The views both operations take.
@@ -19,43 +18,49 @@ VIEWS = ("summary", "full")
 _SCHEMA_MAPS = frozenset({"properties", "$defs", "definitions", "patternProperties", "dependentSchemas"})
 #: The detail `describe`'s summary leaves to the full view.
 _FULL_ONLY = ("output_schema", "output_schema_ref")
-#: Where a summary's first sentence ends: a full stop before another sentence.
-_SENTENCE_END = re.compile(r"(?<=\.)\s+(?=[A-Z])")
 
 
-def capabilities_summary(entries: list[dict[str, Any]], *, availability_known: bool,
+def resource_of(operation: str) -> str:
+    """The resource an operation id belongs to: its first segment. A
+    one-segment id (`status`) is a resource of its own."""
+    return operation.split(".", 1)[0]
+
+
+def capabilities_summary(entries: list[dict[str, Any]], *, resources: dict[str, str], availability_known: bool,
                          tier: str | None) -> dict[str, Any]:
-    """Each operation's id and the first sentence of its summary, the effects
-    of those that do more than read, and the reason each one that cannot be
-    called now cannot. A summary's later sentences say how a call behaves,
-    which `describe` gives whole.
+    """Each resource's one-line summary and the ids of its operations, the
+    effects of the operations that do more than read, and the reason each one
+    that cannot be called now cannot. An operation adds only its id here; its
+    own summary is in `describe`, so the index grows with resources, not with
+    the text of every operation.
 
-    `entries` are `summary_entry` or `full_entry` dicts. Bundled metadata
-    cannot know the person's switches, so there `unavailable` is null, which
-    reads as unknown, never as available."""
+    `entries` are `summary_entry` or `full_entry` dicts and `resources` maps
+    each resource to its summary. Bundled metadata cannot know the person's
+    switches, so there `unavailable` is null, which reads as unknown, never as
+    available."""
+    grouped: dict[str, list[str]] = {}
     effects: dict[str, list[str]] = {}
     unavailable: dict[str, str] = {}
     for entry in entries:
+        operation = entry["operation"]
+        grouped.setdefault(resource_of(operation), []).append(operation)
         named = [name for name, on in entry["engine_effects"].items() if on] + list(entry["client_effects"])
         if named:
-            effects[entry["operation"]] = sorted(named)
+            effects[operation] = sorted(named)
         state = entry["availability"]
         if state["state"] != "available":
-            unavailable[entry["operation"]] = state["reason"]
+            unavailable[operation] = state["reason"]
     full: dict[str, Any] = {"view": "full"}
     if tier is not None:
         full["tier"] = tier
     return {
         "view": "summary",
-        "operations": {entry["operation"]: first_sentence(entry["summary"]) for entry in entries},
+        "resources": {name: {"summary": resources[name], "operations": operations}
+                      for name, operations in grouped.items()},
         "effects": effects,
         "unavailable": unavailable if availability_known else None,
         "continue_with": [{"operation": "capabilities", "arguments": full}],
     }
-
-
-def first_sentence(summary: str) -> str:
-    return _SENTENCE_END.split(summary, maxsplit=1)[0]
 
 
 def describe_view(entry: dict[str, Any], view: str) -> dict[str, Any]:

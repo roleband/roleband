@@ -33,7 +33,7 @@ from tracker.agents.operations import (
     search,
     vocabulary,
 )
-from tracker.agents.operations.catalog import CATALOG
+from tracker.agents.operations.catalog import CATALOG, resources
 from tracker.agents.operations.envelope import Envelope, EnvelopeNotice, NextAction, OperationError
 from tracker.agents.operations.index import capabilities_summary, describe_view
 from tracker.agents.operations.meta import (
@@ -109,7 +109,7 @@ async def capabilities(
     if params.view == "full":
         listed: dict[str, Any] = {"view": "full", "operations": [OperationSummary.model_validate(entry) for entry in entries]}
     else:
-        listed = capabilities_summary(entries, availability_known=True, tier=params.tier)
+        listed = capabilities_summary(entries, resources=resources(), availability_known=True, tier=params.tier)
     return op.ok(CapabilitiesResult.model_validate({**versions, **listed}))
 
 

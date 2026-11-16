@@ -23,7 +23,7 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any, NoReturn, TextIO, cast
 
-from tracker.agents.operations.index import VIEWS, capabilities_summary, describe_view
+from tracker.agents.operations.index import VIEWS, capabilities_summary, describe_view, resource_of
 from tracker.agents.operations.outcomes import CONTRACT_VERSION, EXIT_OK, outcome
 from tracker.cli import commands, connect
 from tracker.cli.errors import (
@@ -242,7 +242,9 @@ def _bundle_document() -> dict[str, Any]:
     operations = document.get("operations")
     if not isinstance(operations, list) or not all(
         isinstance(entry, dict) and isinstance(entry.get("operation"), str) for entry in operations
-    ) or not isinstance(document.get("routes", {}), dict):
+    ) or not isinstance(document.get("routes", {}), dict) or not isinstance(document.get("resources"), dict) or not all(
+        resource_of(entry["operation"]) in document["resources"] for entry in operations
+    ):
         raise ClientError("internal_error", "The client's bundled operation index is missing or damaged.")
     _BUNDLE_CACHE.append(document)
     return document
@@ -265,7 +267,8 @@ def _offline_capabilities(args: argparse.Namespace) -> dict[str, Any]:
     }
     if args.view == "full":
         return {**versions, "view": "full", "operations": [{key: entry[key] for key in keys} for entry in entries]}
-    return {**versions, **capabilities_summary(entries, availability_known=False, tier=args.tier)}
+    summaries = _bundle_document()["resources"]
+    return {**versions, **capabilities_summary(entries, resources=summaries, availability_known=False, tier=args.tier)}
 
 
 def _offline_describe(args: argparse.Namespace) -> dict[str, Any]:

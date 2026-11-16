@@ -32,8 +32,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from tracker.agents.operations.catalog import CATALOG
-from tracker.agents.operations.index import first_sentence
+from tracker.agents.operations.catalog import CATALOG, resources
 
 BACKEND = Path(__file__).resolve().parents[1]
 WORKSPACE = re.compile(r"^ws_[0-9a-f]{32}$")
@@ -154,7 +153,11 @@ def test_offline_capabilities_and_describe_read_the_bundle(home):
     assert body["data"]["metadata_source"] == "bundled"
     assert body["data"]["engine_version"] is None
     assert body["data"]["view"] == "summary"
-    assert body["data"]["operations"] == {descriptor.id: first_sentence(descriptor.summary) for descriptor in CATALOG}
+    # The same index the engine answers, from the bundle.
+    assert body["data"]["resources"] == {
+        name: {"summary": summary, "operations": [d.id for d in CATALOG if d.id.split(".")[0] == name]}
+        for name, summary in resources().items()
+    }
     # Offline availability is unknown, never false: not an empty list of unavailable operations.
     assert body["data"]["unavailable"] is None
 
@@ -635,13 +638,16 @@ def test_a_reply_that_trickles_past_the_deadline_is_a_deadline_with_exit_8(home)
 #: The most one discovery answer may take: the capability index budget of the
 #: standard tool tier, 1,500 tokens at four bytes each.
 DISCOVERY_BUDGET = 1_500 * 4
+#: The most the default index may take, with room under the budget for the
+#: operations still to come.
+INDEX_BUDGET = 1_000 * 4
 
 
 def test_offline_discovery_fits_the_capability_index_budget(home):
     """Every trial reads the index and a describe or two, and a small model
     pays for each byte on every later turn."""
     listed = cli(home, "capabilities", "--offline", "--json")
-    assert len(listed.stdout.encode()) <= DISCOVERY_BUDGET
+    assert len(listed.stdout.encode()) <= INDEX_BUDGET
     for descriptor in CATALOG:
         described = cli(home, "describe", descriptor.id, "--offline", "--json")
         assert described.status == 0
@@ -840,7 +846,7 @@ def test_a_real_engine_refuses_until_the_switch_and_then_names_its_workspace(hom
         (e["access"], e["availability"]["state"]) for e in capabilities.envelope["data"]["operations"]
     } == {("read", "available"), ("write", "unavailable")}
     index = cli(home, "capabilities", "--json")
-    assert len(index.stdout.encode()) <= DISCOVERY_BUDGET
+    assert len(index.stdout.encode()) <= INDEX_BUDGET
     writes = {descriptor.id for descriptor in CATALOG if descriptor.access == "write"}
     assert index.envelope["data"]["unavailable"] == dict.fromkeys(sorted(writes), "writes_disabled")
 

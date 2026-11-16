@@ -2187,11 +2187,11 @@
       "type": "string",
       "x-text": "code"
      },
-     "operations": {
+     "resources": {
       "additionalProperties": {
-       "type": "string"
+       "$ref": "#/components/schemas/ResourceIndex"
       },
-      "title": "Operations",
+      "title": "Resources",
       "type": "object"
      },
      "supported_contract_versions": {
@@ -2229,7 +2229,7 @@
      "engine_version",
      "metadata_source",
      "view",
-     "operations",
+     "resources",
      "effects",
      "unavailable",
      "continue_with"
@@ -30805,6 +30805,30 @@
     "title": "RequirementSkill",
     "type": "object"
    },
+   "ResourceIndex": {
+    "additionalProperties": false,
+    "properties": {
+     "operations": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Operations",
+      "type": "array",
+      "x-text": "identifier"
+     },
+     "summary": {
+      "title": "Summary",
+      "type": "string",
+      "x-text": "diagnostic"
+     }
+    },
+    "required": [
+     "summary",
+     "operations"
+    ],
+    "title": "ResourceIndex",
+    "type": "object"
+   },
    "RetentionChoice": {
     "additionalProperties": false,
     "description": "One option of the Select, with what a run under it would remove now.",
@@ -38074,7 +38098,7 @@
       }
      },
      {
-      "description": "summary (each operation's id and summary) or full (also its access, availability, effects, data classes, tiers and idempotency).",
+      "description": "summary (each resource's summary and operation ids) or full (each operation's summary, access, availability, effects, data classes, tiers and idempotency).",
       "in": "query",
       "name": "view",
       "required": false,

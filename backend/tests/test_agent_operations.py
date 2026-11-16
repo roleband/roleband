@@ -22,7 +22,14 @@ from sqlalchemy import select
 from scripts.export_agent_operations import COMMITTED, render
 from tracker.agents.config import AgentAccessConfig, set_agent_access
 from tracker.agents.operations import meta
-from tracker.agents.operations.catalog import CATALOG, REGISTERED, Catalog, bundled_index
+from tracker.agents.operations.catalog import (
+    CATALOG,
+    REGISTERED,
+    RESOURCES,
+    Catalog,
+    bundled_index,
+    resources,
+)
 from tracker.agents.operations.descriptor import (
     OPERATION_ID,
     Availability,
@@ -32,7 +39,6 @@ from tracker.agents.operations.descriptor import (
     Shape,
 )
 from tracker.agents.operations.envelope import OperationError
-from tracker.agents.operations.index import first_sentence
 from tracker.agents.operations.outcomes import CONTRACT_VERSION, OUTCOMES, compatible, outcome
 from tracker.agents.operations.policy import admit, availability, shared, withheld
 from tracker.agents.operations.workspace import ensure_workspace_id, get_workspace_id
@@ -474,21 +480,35 @@ async def test_capabilities_lists_each_operation_with_live_availability(api_clie
 #: The most one discovery answer may take: the capability index budget of the
 #: standard tool tier, 1,500 tokens at four bytes each.
 DISCOVERY_BUDGET = 1_500 * 4
+#: The most the default index may take, with room under the budget for the
+#: operations still to come.
+INDEX_BUDGET = 1_000 * 4
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("allow_writes", [False, True])
-async def test_the_capability_index_is_each_summary_by_id_within_its_budget(api_client, db_session, allow_writes):
-    """What every trial reads first: what each operation is for, what more
-    than reading it does, and what the person's switches turn off."""
+async def test_the_capability_index_groups_operation_ids_by_resource_within_its_budget(
+    api_client, db_session, allow_writes,
+):
+    """What every trial reads first: what each resource is for and the
+    operations under it, what more than reading each does, and what the
+    person's switches turn off."""
     await _enable(db_session, allow_writes=allow_writes)
     response = await api_client.get(f"{PREFIX}/capabilities")
-    assert len(response.content) <= DISCOVERY_BUDGET
+    assert len(response.content) <= INDEX_BUDGET
     body = response.json()
     _assert_envelope(body, operation="capabilities", ok=True)
     data = body["data"]
     assert data["view"] == "summary"
-    assert data["operations"] == {descriptor.id: first_sentence(descriptor.summary) for descriptor in CATALOG}
+    assert data["resources"]["opportunities"]["summary"] == RESOURCES["opportunities"]
+    assert [operation for resource in data["resources"].values() for operation in resource["operations"]] == [
+        descriptor.id for descriptor in CATALOG
+    ]
+    assert all(operation.split(".")[0] == name
+               for name, resource in data["resources"].items() for operation in resource["operations"])
+    # An operation's own summary is left to describe, so the index grows by an id per operation.
+    for descriptor in CATALOG:
+        assert descriptor.summary not in response.text, descriptor.id
     # Only what a call does beyond reading the engine is listed.
     assert data["effects"]["pursuits.patch"] == ["state_write"]
     assert data["effects"]["sources.inspect"] == ["outbound_network"]
@@ -509,14 +529,13 @@ async def test_a_category_kept_back_shows_in_the_index_with_its_reason(api_clien
     assert data["unavailable"] == {"offer.get": "category_disabled"}
 
 
-def test_the_index_keeps_a_summary_up_to_its_first_full_stop():
-    assert first_sentence("Save an opportunity. A new pursuit starts at saved.") == "Save an opportunity."
-    assert first_sentence("Read one opportunity in a declared view: summary, detail or evidence.") == (
-        "Read one opportunity in a declared view: summary, detail or evidence."
-    )
-    for descriptor in CATALOG:
-        kept = first_sentence(descriptor.summary)
-        assert descriptor.summary.startswith(kept) and kept.endswith("."), descriptor.id
+def test_every_resource_has_a_one_line_summary_and_every_summary_a_resource():
+    names = {descriptor.id.split(".")[0] for descriptor in CATALOG}
+    assert set(RESOURCES) == names
+    for name, summary in RESOURCES.items():
+        assert summary.endswith(".") and len(summary) <= 100, name
+    with pytest.raises(ValueError, match="widgets"):
+        resources(Catalog([*REGISTERED, dataclasses.replace(REGISTERED[0], id="widgets.list")]))
 
 
 @pytest.mark.asyncio
@@ -528,7 +547,11 @@ async def test_capabilities_filters_by_tier_and_refuses_unknown_input(api_client
     }
     assert "recipes.contract.get" not in {entry["operation"] for entry in small["data"]["operations"]}
     index = (await api_client.get(f"{PREFIX}/capabilities", params={"tier": "small"})).json()["data"]
-    assert set(index["operations"]) == {descriptor.id for descriptor in CATALOG if "small" in descriptor.tool_tiers}
+    assert {operation for resource in index["resources"].values() for operation in resource["operations"]} == {
+        descriptor.id for descriptor in CATALOG if "small" in descriptor.tool_tiers
+    }
+    # A resource with no operation in the tier is not listed.
+    assert "recipes" not in index["resources"] and "sources" not in index["resources"]
     # The full view of the same list keeps the tier.
     assert index["continue_with"] == [{"operation": "capabilities", "arguments": {"view": "full", "tier": "small"}}]
 

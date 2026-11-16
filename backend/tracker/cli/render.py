@@ -70,14 +70,16 @@ def _status(data: dict[str, Any]) -> list[str]:
 def _capabilities(data: dict[str, Any]) -> list[str]:
     source = data["metadata_source"]
     lines = [f"contract {escape(data['contract_version'])}, metadata from {escape(source)}"]
-    operations = data["operations"]
-    if isinstance(operations, dict):
+    if "resources" in data:
         unavailable = data.get("unavailable")
-        for name, summary in operations.items():
-            state = "unknown" if unavailable is None else ("unavailable" if name in unavailable else "available")
-            lines.append(f"  {escape(name):<16} {escape(state):<12} {escape(summary)}")
+        for name, resource in data["resources"].items():
+            lines.append(f"  {escape(name)}: {escape(resource['summary'])}")
+            for operation in resource["operations"]:
+                state = "unknown" if unavailable is None else (
+                    "unavailable" if operation in unavailable else "available")
+                lines.append(f"    {escape(operation):<28} {escape(state)}")
         return lines
-    for entry in operations:
+    for entry in data["operations"]:
         state = entry["availability"]["state"]
         lines.append(f"  {escape(entry['operation']):<16} {escape(state):<12} {escape(entry['summary'])}")
     return lines
