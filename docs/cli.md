@@ -43,18 +43,19 @@ How the operations and the command are built is in
    costs, without making it. Both hosts get the RoleBand skill, which tells the
    agent how to use the command. Any other host is refused as
    `unsupported_host`.
-3. Restart the host and ask the agent to run `roleband capabilities`.
+3. On a new machine, create the context file. The command reaches an engine
+   only through a named context, read from `ROLEBAND_CLI_CONFIG`, else
+   `~/.config/roleband/cli.json`; there is no default engine, and a command
+   with no context answers `context_required`. Neither the Mac app nor
+   `connect` writes that file, so create it with the app's engine as the
+   current context (port 8010, unless the person chose another in the app's
+   Settings):
 
-The command reaches an engine only through a named context, read from
-`ROLEBAND_CLI_CONFIG`, else `~/.config/roleband/cli.json`; there is no default
-engine, and a command with no context answers `context_required`. Neither the
-Mac app nor `connect` writes that file, so on a new machine create it with the
-app's engine as the current context (port 8010, unless the person chose
-another in the app's Settings):
+   ```json
+   {"format": 1, "current": "app", "contexts": {"app": {"url": "http://127.0.0.1:8010"}}}
+   ```
 
-```json
-{"format": 1, "current": "app", "contexts": {"app": {"url": "http://127.0.0.1:8010"}}}
-```
+4. Restart the host and ask the agent to run `roleband capabilities`.
 
 The Mac app writes the `roleband` command to `~/.local/bin` each time it starts
 its engine. That folder must be on `PATH`, since the host runs the command by
