@@ -243,6 +243,43 @@ def test_stopping_a_group_that_already_ended_reports_it_gone(tmp_path):
     assert asyncio.run(runner.stop_group(launched.pgid, 1, reap=launched.process.poll)) == "gone"
 
 
+def _refused(pgid: int, signum: int) -> None:
+    raise PermissionError(1, "Operation not permitted")
+
+
+@posix_processes
+def test_stopping_a_job_that_exited_but_is_not_yet_reaped_reports_it_gone(tmp_path, monkeypatch):
+    """macOS answers EPERM to every signal sent to a group whose members have
+    all exited but not been reaped; a job that ends as it is stopped meets that.
+    The refusal is forced so Linux, which accepts the signal, takes the same path."""
+    launched = _launch(_job("pass"), 16, tmp_path)
+    _wait_for(lambda: _zombie(launched.pid))
+    monkeypatch.setattr(os, "killpg", _refused)
+    try:
+        assert runner.signal_group(launched.pgid, signal.SIGTERM) is False
+        assert runner.group_alive(launched.pgid) is False
+        assert asyncio.run(runner.stop_group(launched.pgid, 0)) == "gone"
+    finally:
+        _wait(launched)
+
+
+@posix_processes
+def test_a_refused_signal_to_a_running_job_is_reported_not_swallowed(tmp_path, monkeypatch):
+    launched = _launch(_job("import time; print('ready', flush=True); time.sleep(60)"), 17, tmp_path)
+    _wait_for(lambda: "ready" in launched.log_path.read_text())
+    monkeypatch.setattr(os, "killpg", _refused)
+    try:
+        assert runner.group_alive(launched.pgid) is True
+        with pytest.raises(PermissionError):
+            runner.signal_group(launched.pgid, signal.SIGTERM)
+        with pytest.raises(PermissionError):
+            asyncio.run(runner.stop_group(launched.pgid, 0, reap=launched.process.poll))
+    finally:
+        monkeypatch.setattr(os, "killpg", REAL_KILLPG)
+        asyncio.run(runner.stop_group(launched.pgid, 5, reap=launched.process.poll))
+    assert launched.process.poll() is not None
+
+
 def test_a_command_that_cannot_start_leaves_a_result_not_a_mystery(tmp_path):
     job = JobSpec("missing", ("/nonexistent/tool",), OnRequest(), power=Power.NONE, uses_database=False)
     launched = _launch(job, 12, tmp_path)
