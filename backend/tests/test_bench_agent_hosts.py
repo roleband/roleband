@@ -647,13 +647,18 @@ async def test_an_empty_input_is_none_and_a_real_one_meets_the_command_s_own_ref
     transcript, _ = await _local_run(monkeypatch, cli, tmp_path, [
         *(("roleband", {"args": offline, "input": empty}) for empty in empties),
         ("roleband", {"args": offline, "input": {"tier": "small"}}),
+        # Text nested past the JSON decoder's limit is refused, and the next call still runs.
+        ("roleband", {"args": offline, "input": "[" * 100_000 + "]" * 100_000}),
+        ("roleband", {"args": offline}),
     ], '{"overdue_follow_ups": 2}')
 
-    *ran, real = transcript.tool_calls
+    *ran, real, nested, after = transcript.tool_calls
+    assert nested["is_error"] and nested["ran"] is False and "nested too deeply" in nested["result"]
+    assert after["exit_code"] == 0 and transcript.error is None
     assert [(call["exit_code"], call["argv"]) for call in ran] == [(0, offline)] * len(empties)
     assert real["ran"] is True and real["argv"] == [*offline, "--input", "-"] and real["exit_code"] == 2
     assert "--input" in real["result"] + real["stderr"]
-    assert [call["args"] for call in read_cli_log(cli)] == [offline] * len(empties) + [[*offline, "--input", "-"]]
+    assert [call["args"] for call in read_cli_log(cli)] == [offline] * len(empties) + [[*offline, "--input", "-"], offline]
 
 
 @pytest.mark.parametrize(("header", "line"), [

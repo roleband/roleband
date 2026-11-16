@@ -1876,6 +1876,9 @@ def roleband_input(raw: Any) -> bytes | None:
             parsed = json.loads(value) if value.strip() else None
         except json.JSONDecodeError:
             parsed = value
+        except RecursionError:
+            # Nesting past the decoder's limit: refused like any bad input, so the trial goes on.
+            raise ValueError("input is nested too deeply to read") from None
         if parsed is None or parsed == {}:
             return None
     if value is None or value == {}:
