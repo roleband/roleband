@@ -95,7 +95,7 @@ const FIELD_NAME: Record<string, () => string> = {
 const own = <T,>(record: Record<string, T>, key: unknown): T | undefined =>
   typeof key === "string" && Object.prototype.hasOwnProperty.call(record, key) ? record[key] : undefined;
 
-export const isCategory = (value: unknown): value is ActivityCategory =>
+const isCategory = (value: unknown): value is ActivityCategory =>
   own(CATEGORY_NAME, value) !== undefined;
 
 export function categoryName(category: string): string {
@@ -110,7 +110,7 @@ export function fieldName(field: string): string {
   return own(FIELD_NAME, field)?.() ?? field;
 }
 
-export function stageName(stage: unknown): string {
+function stageName(stage: unknown): string {
   return own(STAGE_LABEL as Record<string, string>, stage) ?? String(stage);
 }
 

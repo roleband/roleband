@@ -16,7 +16,7 @@ import {
 } from "../../../copy/gen/activity";
 
 /** The reader's own calendar day of an instant, as `YYYY-MM-DD`. */
-export function localDay(iso: string): string {
+function localDay(iso: string): string {
   const at = new Date(iso);
   return `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, "0")}-${String(at.getDate()).padStart(2, "0")}`;
 }

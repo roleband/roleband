@@ -38,7 +38,7 @@ import {
 } from "../../../copy/gen/activity";
 
 /** The engine's page size: the list asks for its default. */
-export const PAGE_SIZE = 50;
+const PAGE_SIZE = 50;
 /** The Board's search debounce; a keystroke is not a query. */
 const SEARCH_DEBOUNCE_MS = 250;
 
