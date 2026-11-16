@@ -177,7 +177,9 @@ def _write(path: Path, data: bytes, *, overwrite: bool) -> dict[str, Any]:
     """Write `data` to `path` whole or not at all. Without `overwrite`
     nothing already at `path` is replaced, a link included, and a link is
     never followed."""
-    target = Path(os.path.abspath(path))
+    # Joined, not normalised: `..` after a link names the link target's parent,
+    # which only the filesystem can resolve.
+    target = path if path.is_absolute() else Path.cwd() / path
     partial = target.with_name(f".{target.name}.{secrets.token_hex(8)}.partial")
     created = False
     try:

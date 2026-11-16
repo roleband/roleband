@@ -15,6 +15,7 @@ import errno
 import hashlib
 import json
 import os
+from pathlib import Path
 from typing import Annotated, Any, Literal
 
 import pytest
@@ -345,6 +346,21 @@ def test_overwrite_without_output_is_refused(home):
     result = cli(home, "tools", "export", "--dialect", "openai", "--offline", "--overwrite", "--json")
     assert result.status == 2
     assert result.envelope["error"]["code"] == "invalid_arguments"
+
+
+def test_dot_dot_after_a_linked_folder_is_resolved_by_the_filesystem(tmp_path, monkeypatch):
+    real = tmp_path / "exports" / "nested"
+    real.mkdir(parents=True)
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "link").symlink_to(real)
+    (work / "tools.json").write_bytes(b"keep")
+    monkeypatch.chdir(work)
+    written = tools._write(Path("link/../tools.json"), b"{}\n", overwrite=True)
+    assert (tmp_path / "exports" / "tools.json").read_bytes() == b"{}\n"
+    assert (work / "tools.json").read_bytes() == b"keep"
+    assert written["path"] == str(work / "link" / ".." / "tools.json")
+    assert sorted(os.listdir(tmp_path / "exports")) == ["nested", "tools.json"]
 
 
 def test_a_filesystem_without_hard_links_is_refused_rather_than_written_in_place(tmp_path, monkeypatch):
