@@ -16,6 +16,8 @@ from typing import Any
 VIEWS = ("summary", "full")
 #: The JSON Schema keywords whose value maps names to schemas, not keywords.
 _SCHEMA_MAPS = frozenset({"properties", "$defs", "definitions", "patternProperties", "dependentSchemas"})
+#: The JSON Schema keywords whose value is instance data, kept as written.
+_LITERALS = frozenset({"default", "examples", "example", "const", "enum"})
 #: The detail `describe`'s summary leaves to the full view.
 _FULL_ONLY = ("output_schema", "output_schema_ref")
 
@@ -83,7 +85,8 @@ def describe_view(entry: dict[str, Any], view: str) -> dict[str, Any]:
 def _untitled(schema: Any) -> Any:
     """`schema` without its `title` keywords. A property that is itself named
     `title` stays: inside a keyword that maps names to schemas, every key is
-    a name."""
+    a name. So does a `title` in a default, an example or an allowed value,
+    which is data, not schema."""
     if isinstance(schema, list):
         return [_untitled(item) for item in schema]
     if not isinstance(schema, dict):
@@ -92,7 +95,9 @@ def _untitled(schema: Any) -> Any:
     for key, value in schema.items():
         if key == "title" and isinstance(value, str):
             continue
-        if key in _SCHEMA_MAPS and isinstance(value, dict):
+        if key in _LITERALS:
+            kept[key] = value
+        elif key in _SCHEMA_MAPS and isinstance(value, dict):
             kept[key] = {name: _untitled(item) for name, item in value.items()}
         else:
             kept[key] = _untitled(value)

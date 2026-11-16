@@ -375,6 +375,34 @@ def test_capabilities_leaves_alone_a_skill_it_does_not_own_at_an_older_version(h
     assert envelope["warnings"] == []
 
 
+def test_a_newer_client_installing_meanwhile_keeps_its_copy(tmp_path, monkeypatch):
+    """The record said an older version; by the time the copy is read, a newer
+    client has replaced both the file and its record."""
+    monkeypatch.syspath_prepend(str(BACKEND))
+    from tracker.cli import connect
+
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude"))
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex"))
+    directory = tmp_path / "claude" / "skills" / "roleband"
+    directory.mkdir(parents=True)
+    (directory / "SKILL.md").write_bytes(OLDER_SKILL)
+    (directory / ".roleband-skill.json").write_text(json.dumps(
+        {"format": 1, "version": connect.SKILL_VERSION - 1, "sha256": hashlib.sha256(OLDER_SKILL).hexdigest()}))
+    newer = b"---\nname: roleband\n---\nA newer version.\n"
+    planned = connect._skill
+
+    def newer_client_installs_first(path: Path) -> connect.SkillPlan:
+        (path / "SKILL.md").write_bytes(newer)
+        (path / ".roleband-skill.json").write_text(json.dumps(
+            {"format": 1, "version": connect.SKILL_VERSION + 1, "sha256": hashlib.sha256(newer).hexdigest()}))
+        return planned(path)
+
+    monkeypatch.setattr(connect, "_skill", newer_client_installs_first)
+    assert connect.refresh_installed_skills() == []
+    assert (directory / "SKILL.md").read_bytes() == newer
+    assert json.loads((directory / ".roleband-skill.json").read_text())["version"] == connect.SKILL_VERSION + 1
+
+
 @pytest.mark.skipif(os.geteuid() == 0, reason="root writes through a read-only folder")
 def test_a_skill_that_cannot_be_written_leaves_capabilities_answering(home):
     from tracker.cli.connect import SKILL_VERSION

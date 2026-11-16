@@ -348,6 +348,14 @@ def _install_skill(plan: SkillPlan, applied: list[str]) -> None:
             applied.append(str(record))
 
 
+def _recorded(directory: Path) -> object:
+    """The sidecar connect wrote beside the skill in `directory`; None when there is none to read."""
+    try:
+        return json.loads((directory / SKILL_RECORD).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
 def refresh_installed_skills() -> list[dict[str, str]]:
     """Bring each skill `connect` installed up to this client's version, and
     return a notice for each one it updated or could not.
@@ -359,15 +367,16 @@ def refresh_installed_skills() -> list[dict[str, str]]:
     notices: list[dict[str, str]] = []
     for host, base in (("claude-code", claude_dir), ("codex", codex_dir)):
         directory = base() / "skills" / "roleband"
-        try:
-            record = json.loads((directory / SKILL_RECORD).read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            continue
+        record = _recorded(directory)
         installed = record.get("version") if isinstance(record, dict) else None
         if not isinstance(installed, int) or isinstance(installed, bool) or installed >= SKILL_VERSION:
             continue
         try:
             plan = _skill(directory)
+            # Another client may have installed its own version since the
+            # record was read; that copy is not this client's to replace.
+            if _recorded(directory) != record:
+                continue
             if plan.action in ("update", "unchanged"):
                 _install_skill(plan, [])
         except OSError as error:

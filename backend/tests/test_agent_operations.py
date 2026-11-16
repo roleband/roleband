@@ -575,7 +575,7 @@ def _titled(schema: object) -> bool:
         return False
     return "title" in schema or any(
         any(_titled(item) for item in value.values()) if key in ("properties", "$defs") else _titled(value)
-        for key, value in schema.items()
+        for key, value in schema.items() if key not in ("default", "examples", "const", "enum")
     )
 
 
@@ -585,14 +585,19 @@ def test_a_brief_input_schema_drops_title_keywords_and_keeps_fields_named_title(
     schema = {
         "title": "Input", "type": "object",
         "properties": {"title": {"title": "Title", "type": "string"},
-                       "sort": {"enum": ["title", "pay"], "title": "Sort"}},
+                       "sort": {"enum": ["title", "pay"], "title": "Sort"},
+                       "role": {"type": "object", "title": "Role", "default": {"title": "Engineer"},
+                                "examples": [{"title": "Lead"}], "const": {"title": "Engineer"}}},
         "$defs": {"title": {"title": "Title", "type": "string"}},
     }
     entry = {"operation": "widgets.list", "input_schema": schema, "output_schema": {}, "output_schema_ref": "#/x"}
     brief = describe_view(entry, "summary")["input_schema"]
     assert brief == {
         "type": "object",
-        "properties": {"title": {"type": "string"}, "sort": {"enum": ["title", "pay"]}},
+        "properties": {"title": {"type": "string"}, "sort": {"enum": ["title", "pay"]},
+                       # A default, an example or a constant is data: its title stays.
+                       "role": {"type": "object", "default": {"title": "Engineer"},
+                                "examples": [{"title": "Lead"}], "const": {"title": "Engineer"}}},
         "$defs": {"title": {"type": "string"}},
     }
     assert _titled(schema) and not _titled(brief)

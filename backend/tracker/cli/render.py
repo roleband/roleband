@@ -98,7 +98,7 @@ def _describe(data: dict[str, Any]) -> list[str]:
         f"  metadata from  {escape(data['metadata_source'])}",
     ]
     if "output_schema" not in data:
-        lines.append(f"  output schema  roleband describe {escape(data['operation'])} --view full")
+        lines.append(f"  output schema  roleband describe {escape(data['operation'])} --view full --json")
     return lines
 
 
