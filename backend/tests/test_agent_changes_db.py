@@ -19,7 +19,7 @@ from typing import Any
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import select, text, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from tests.factories import make_company, make_job
@@ -39,12 +39,14 @@ from tracker.db.models import (
     JobLifecycleEvent,
     PluginInstall,
     PluginRun,
+    PluginRunEnd,
     Pursuit,
     ScrapeRun,
     ScrapeSourceRun,
     SourceBinding,
     WorkspaceIdentity,
 )
+from tracker.plugins import store as plugin_store
 
 pytestmark = pytest.mark.asyncio
 
@@ -145,7 +147,37 @@ async def _binding(db_session) -> int:
         return binding.id
 
 
+async def _plugin(db_session, plugin_id: str = "example.board") -> PluginInstall:
+    async with _factory(db_session)() as session:
+        install = PluginInstall(
+            plugin_id=plugin_id, name="Example", version="1.0.0", source_dir="/plugins/example",
+            code_sha="c" * 64, manifest_sha="m" * 64, manifest={}, fingerprint="f" * 64,
+        )
+        session.add(install)
+        await session.commit()
+        return install
+
+
+async def _open_plugin_run(db_session, install: PluginInstall, job: str = "sync") -> int:
+    """A run opened and committed on its own, as the host opens one before the plugin starts."""
+    async with _factory(db_session)() as session:
+        run = await plugin_store.open_run(session, install, job, trigger="schedule")
+        await session.commit()
+        return run.id
+
+
+async def _plugin_run(db_session, install: PluginInstall, outcome_: str, *, job: str = "sync") -> int:
+    """One plugin run as the host writes it: opened in one transaction, closed in another."""
+    run_id = await _open_plugin_run(db_session, install, job)
+    async with _factory(db_session)() as session:
+        await plugin_store.close_run(session, run_id, outcome=outcome_, published={}, refusals=[], message=None)
+        await session.commit()
+    return run_id
+
+
 async def test_each_kind_appears_once_from_a_seeded_change_with_how_it_is_known(api_client, feed):
+    plugin = await _plugin(feed)
+    await _plugin_run(feed, plugin, "clean")
     opened = await _posting(feed, "opened")
     closed = await _posting(feed, "closed")
     reopened = await _posting(feed, "reopened")
@@ -164,6 +196,7 @@ async def test_each_kind_appears_once_from_a_seeded_change_with_how_it_is_known(
     # A change of another field is not a stated-pay change.
     await _event(feed, paid, "changed", {"title": {"from": "a", "to": "b"}})
     await _source_run(feed, binding, "failed")
+    await _plugin_run(feed, plugin, "error")
     async with _factory(feed)() as session:
         due_at = (await session.execute(text("SELECT clock_timestamp()"))).scalar_one()
         session.add(Pursuit(job_id=pursued, stage="applied", next_action="Write back", next_action_due=due_at))
@@ -172,11 +205,13 @@ async def test_each_kind_appears_once_from_a_seeded_change_with_how_it_is_known(
     events, _ = await _drain(api_client, since=since)
     by_kind = {event["kind"]: event for event in events}
     assert sorted(event["kind"] for event in events) == sorted(
-        ["new", "closed", "reopened", "reposted", "stated_pay_changed", "source_health", "pursuit_due"]
+        ["new", "closed", "reopened", "reposted", "stated_pay_changed", "source_health", "plugin_source_health",
+         "pursuit_due"]
     )
     assert {kind: event["basis"] for kind, event in by_kind.items()} == {
         "new": "recorded", "closed": "recorded", "reopened": "recorded", "stated_pay_changed": "recorded",
-        "reposted": "derived", "source_health": "derived", "pursuit_due": "derived",
+        "reposted": "derived", "source_health": "derived", "plugin_source_health": "derived",
+        "pursuit_due": "derived",
     }
     assert by_kind["new"]["opportunity_id"] == opened
     assert by_kind["closed"]["opportunity_id"] == closed
@@ -190,30 +225,18 @@ async def test_each_kind_appears_once_from_a_seeded_change_with_how_it_is_known(
     assert by_kind["source_health"]["source"] == {
         "state": "failing", "previous_state": "healthy", "outcome": "failed", "provider": "greenhouse:acme",
     }
+    assert by_kind["plugin_source_health"]["plugin"] == {
+        "state": "failing", "previous_state": "healthy", "outcome": "error", "plugin": "example.board",
+        "job": "sync",
+    }
+    assert by_kind["plugin_source_health"]["company"] is None
     assert by_kind["pursuit_due"]["opportunity_id"] == pursued
     assert len({event["sequence"] for event in events}) == len(events)
 
 
-async def test_an_unavailable_kind_is_reported_as_such_and_never_inferred(api_client, feed):
-    async with _factory(feed)() as session:
-        session.add(PluginInstall(
-            plugin_id="example.board", name="Example", version="1.0.0", source_dir="/plugins/example",
-            code_sha="c" * 64, manifest_sha="m" * 64, manifest={}, fingerprint="f" * 64,
-        ))
-        await session.flush()
-        session.add(PluginRun(plugin_id="example.board", job="sync", trigger="schedule", fingerprint="f" * 64,
-                              outcome="error", ended_at=T))
-        await session.commit()
-
-    data = (await _page(api_client, kinds=["plugin_source_health"]))["data"]
-    assert data["events"] == []
-    assert data["unavailable"] == [{"kind": "plugin_source_health", "reason": "no_ordered_record"}]
-    # Every read that asks for all kinds names it too.
-    assert (await _page(api_client))["data"]["unavailable"] == [
-        {"kind": "plugin_source_health", "reason": "no_ordered_record"}
-    ]
-    # A read of recorded kinds only does not mention it.
-    assert (await _page(api_client, kinds=["new"]))["data"]["unavailable"] == []
+async def test_no_kind_is_reported_unavailable(api_client, feed):
+    assert (await _page(api_client))["data"]["unavailable"] == []
+    assert (await _page(api_client, kinds=["plugin_source_health"]))["data"]["unavailable"] == []
 
 
 async def test_an_opening_reads_as_a_repost_once_its_lineage_says_so(api_client, feed):
@@ -249,6 +272,63 @@ async def test_a_first_run_reports_only_when_it_is_not_healthy(api_client, feed)
     await _source_run(feed, failing, "blocked")
     events, _ = await _drain(api_client, since=since, kinds=["source_health"])
     assert [(e["source"]["previous_state"], e["source"]["state"]) for e in events] == [(None, "failing")]
+
+
+async def test_plugin_source_health_reports_each_move_of_a_job_and_nothing_else(api_client, feed):
+    plugin = await _plugin(feed)
+    await _plugin_run(feed, plugin, "clean")
+    since = await _start(api_client, kinds=["plugin_source_health"])
+    for result in ("partial", "stopped", "bounded", "error", "error", "stopped", "clean"):
+        await _plugin_run(feed, plugin, result)
+    # Another job of the same plugin is a source of its own: its first run failing is a move.
+    backfill = await _plugin_run(feed, plugin, "error", job="backfill")
+    events, _ = await _drain(api_client, since=since, kinds=["plugin_source_health"])
+    # clean then partial are both healthy; a run the person stopped says nothing; error stays failing.
+    assert [(e["plugin"]["job"], e["plugin"]["previous_state"], e["plugin"]["state"], e["plugin"]["outcome"])
+            for e in events] == [
+        ("sync", "healthy", "degraded", "bounded"), ("sync", "degraded", "failing", "error"),
+        ("sync", "failing", "healthy", "clean"), ("backfill", None, "failing", "error"),
+    ]
+    assert events[-1]["sequence"] == f"plugin_run:{backfill}"
+    assert {e["source"] for e in events} == {None}
+
+
+async def test_a_first_recorded_end_compares_with_a_run_that_ended_before_ends_were_recorded(api_client, feed):
+    """A run closed before the record existed has a run row and no end row.
+    The job's next recorded end still reads as the move it is."""
+    plugin = await _plugin(feed)
+    async with _factory(feed)() as session:
+        session.add(PluginRun(plugin_id=plugin.plugin_id, job="sync", trigger="schedule", fingerprint="f" * 64,
+                              outcome="error", ended_at=T))
+        await session.commit()
+    since = await _start(api_client, kinds=["plugin_source_health"])
+    still_failing = await _plugin_run(feed, plugin, "error")
+    recovered = await _plugin_run(feed, plugin, "clean")
+    events, _ = await _drain(api_client, since=since, kinds=["plugin_source_health"])
+    assert [(e["sequence"], e["plugin"]["previous_state"], e["plugin"]["state"]) for e in events] == [
+        (f"plugin_run:{recovered}", "failing", "healthy"),
+    ]
+    assert still_failing < recovered
+
+
+async def test_a_run_the_dead_run_sweep_closes_is_recorded_once_with_its_first_end(api_client, feed):
+    plugin = await _plugin(feed)
+    since = await _start(api_client, kinds=["plugin_source_health"])
+    run_id = await _open_plugin_run(feed, plugin)
+    async with _factory(feed)() as session:
+        await plugin_store.close_dead_runs(session, [run_id])
+        await session.commit()
+    # A host that closes the run afterwards rewrites the run row; the end recorded first stays.
+    async with _factory(feed)() as session:
+        await plugin_store.close_run(session, run_id, outcome="clean", published={}, refusals=[], message=None)
+        await session.commit()
+        ends = (await session.execute(select(PluginRunEnd.run_id, PluginRunEnd.outcome))).all()
+        assert (await session.get(PluginRun, run_id)).outcome == "clean"
+    assert ends == [(run_id, "error")]
+    events, _ = await _drain(api_client, since=since, kinds=["plugin_source_health"])
+    assert [(e["sequence"], e["plugin"]["previous_state"], e["plugin"]["state"]) for e in events] == [
+        (f"plugin_run:{run_id}", None, "failing"),
+    ]
 
 
 async def test_a_posting_at_a_company_the_person_does_not_follow_is_left_out(api_client, feed):
@@ -374,6 +454,50 @@ async def test_a_writer_that_commits_after_a_read_past_its_id_still_appears_exac
     assert (await _drain(api_client, since=since))[0] == []
     # The naive reader passed the slow writer's id before it committed and never sees it.
     assert await _naive_read(feed, naive_after) == []
+
+
+async def test_a_plugin_run_whose_close_commits_after_a_read_still_appears_exactly_once(api_client, feed):
+    """Two plugin runs close at once: the slower close takes the lower end id
+    and commits after a read. A naive reader of end ids above the last one
+    seen passes it and never reads it."""
+    plugin = await _plugin(feed)
+    await _plugin_run(feed, plugin, "clean")
+    await _plugin_run(feed, plugin, "clean", job="backfill")
+    kinds = ["plugin_source_health"]
+    since = await _start(api_client, kinds=kinds)
+
+    async def naive_read(after_id: int) -> list[int]:
+        async with _factory(feed)() as session:
+            return list((await session.scalars(
+                select(PluginRunEnd.run_id).where(PluginRunEnd.id > after_id).order_by(PluginRunEnd.id)
+            )).all())
+
+    async def last_end_id() -> int:
+        async with _factory(feed)() as session:
+            return int(await session.scalar(select(func.max(PluginRunEnd.id))) or 0)
+
+    naive_after = await last_end_id()
+    slow_run = await _open_plugin_run(feed, plugin)
+    slow = _factory(feed)()
+    try:
+        await plugin_store.close_run(slow, slow_run, outcome="error", published={}, refusals=[], message=None)
+        quick_run = await _plugin_run(feed, plugin, "error", job="backfill")
+
+        data = (await _page(api_client, since=since, kinds=kinds))["data"]
+        assert data["events"] == [] and data["caught_up"] is True
+        since = data["next_since"]
+        assert await naive_read(naive_after) == [quick_run]
+        naive_after = await last_end_id()
+
+        await slow.commit()
+    finally:
+        await slow.close()
+
+    events, since = await _drain(api_client, since=since, kinds=kinds)
+    assert [event["sequence"] for event in events] == [f"plugin_run:{slow_run}", f"plugin_run:{quick_run}"]
+    assert (await _drain(api_client, since=since, kinds=kinds))[0] == []
+    # The naive reader passed the slow close's end before it committed and never sees it.
+    assert await naive_read(naive_after) == []
 
 
 async def test_a_writer_that_rolls_back_leaves_no_event_and_does_not_hold_the_feed(api_client, feed):
