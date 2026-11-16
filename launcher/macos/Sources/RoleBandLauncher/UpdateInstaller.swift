@@ -10,6 +10,8 @@ struct UpdateInstallerOperations: Sendable {
     var discard: @Sendable (String) -> Void
     /// Starts the helper and quits, so the helper can replace this app.
     var handOff: @MainActor @Sendable (UpdatePlan) throws -> Void
+    /// Deletes a plan set aside for another version once its helper has stopped waiting; false when cancelled.
+    var retire: @Sendable (UpdatePlan) async -> Bool = { await $0.retire() }
 }
 
 extension UpdateInstallerOperations {
@@ -40,6 +42,8 @@ final class UpdateInstaller: ObservableObject {
     private let operations: UpdateInstallerOperations
     private var task: Task<Void, Never>?
     private var plan: UpdatePlan?
+    /// A plan handed over for another version, whose helper may still wait for this app to quit.
+    private var setAside: UpdatePlan?
     private var generation = 0
 
     init(operations: UpdateInstallerOperations) {
@@ -61,7 +65,7 @@ final class UpdateInstaller: ObservableObject {
         // to install, and the newer offer is the one the person sees.
         if let plan {
             if plan.to == version { return restart() }
-            try? FileManager.default.removeItem(at: plan.paths.directory)
+            setAside = plan
             self.plan = nil
         }
         generation += 1
@@ -81,6 +85,8 @@ final class UpdateInstaller: ObservableObject {
                 guard generation == token else { return }
                 activity = .verifying
                 let plan = try await operations.prepare(update)
+                // The set-aside plan's helper would run once this app quits, so the new plan waits for it.
+                if let held = setAside, await operations.retire(held), setAside?.id == held.id { setAside = nil }
                 guard generation == token else {
                     try? FileManager.default.removeItem(at: plan.paths.directory)
                     return

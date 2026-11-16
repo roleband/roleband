@@ -243,10 +243,19 @@ private final class ReserveThreads: @unchecked Sendable {
     #expect(h.handedOff.count == 2 && h.handedOff[0].id == h.handedOff[1].id)
     #expect(await h.release.downloads.count == 1)
 
-    // A newer version found meanwhile installs itself, never the plan held for the older one.
+    // A newer version found meanwhile installs itself, never the plan held for the older one. The
+    // older plan's helper still waits for this app to quit, so the newer one waits until it gives up.
     h.installer.quitRefused()
     let held = h.handedOff[0]
-    await h.installer.installAndWait("0.1.2")
+    var helper: HelperLease? = try HelperLease(held.paths.directory)
+    h.installer.install("0.1.2")
+    #expect(await eventually { await h.release.prepared == 2 && h.installer.activity == .verifying })
+    try await Task.sleep(for: .milliseconds(700))
+    #expect(h.installer.activity == .verifying && h.handedOff.count == 2)
+    #expect(FileManager.default.fileExists(atPath: held.candidate.path))
+    helper = nil
+    #expect(await eventually { h.installer.activity == .restarting })
+    _ = helper
     #expect(await h.release.downloads.map(\.version) == ["0.1.1", "0.1.2"])
     #expect(h.installer.activity == .restarting && h.installer.version == "0.1.2")
     #expect(h.handedOff.count == 3 && h.handedOff[2].to == "0.1.2" && h.handedOff[2].id != held.id)

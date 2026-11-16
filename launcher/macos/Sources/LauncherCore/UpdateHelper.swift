@@ -119,6 +119,25 @@ public struct UpdatePlan: Codable, Equatable, Sendable {
     }
 }
 
+extension UpdatePlan {
+    /// Deletes a handed-over plan that this app set aside, once no helper holds its lease. Its helper
+    /// waits for this app to quit, and a quit for another plan would set it running without its
+    /// files, so the plan stays until that helper gives up its wait. False when cancelled first.
+    public func retire(pause: Duration = .milliseconds(500)) async -> Bool {
+        let directory = paths.directory
+        while FileManager.default.fileExists(atPath: directory.path) {
+            if let lease = try? HelperLease(directory) {
+                // Deleted under the lease, so a helper starting now finds no plan to run.
+                try? FileManager.default.removeItem(at: directory)
+                withExtendedLifetime(lease) {}
+                return true
+            }
+            do { try await Task.sleep(for: pause) } catch { return false }
+        }
+        return true
+    }
+}
+
 /// Held for the helper's whole life. A launch that finds it held leaves the update to the helper.
 final class HelperLease: @unchecked Sendable {
     private let descriptor: Int32

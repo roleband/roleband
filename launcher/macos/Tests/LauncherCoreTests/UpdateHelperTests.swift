@@ -557,3 +557,26 @@ private final class StandInEngine: @unchecked Sendable {
     #expect(!(try await operations.healthy("0.1.1")), "an engine still creating its database is not healthy yet")
     #expect(Set(engine.paths) == ["/api/status", "/api/launcher-health"])
 }
+
+@Test func aSetAsidePlanIsDeletedOnlyOnceItsWaitingHelperGivesUp() async throws {
+    let f = try HelperFixture(); defer { f.remove() }
+    var helper: HelperLease? = try HelperLease(f.plan.paths.directory)
+    let retire = Task { await f.plan.retire(pause: .milliseconds(10)) }
+    try await Task.sleep(for: .milliseconds(150))
+    #expect(FileManager.default.fileExists(atPath: f.plan.candidate.path))
+    helper = nil
+    #expect(await retire.value)
+    _ = helper
+    #expect(!FileManager.default.fileExists(atPath: f.plan.paths.directory.path))
+    // A helper that starts only now finds no plan to run.
+    #expect(await f.helper().apply() == .busy)
+
+    // Cancelled while the helper still waits, it keeps the plan.
+    let g = try HelperFixture(); defer { g.remove() }
+    let waiting = try HelperLease(g.plan.paths.directory)
+    let cancelled = Task { await g.plan.retire(pause: .milliseconds(10)) }
+    cancelled.cancel()
+    #expect(await cancelled.value == false)
+    #expect(FileManager.default.fileExists(atPath: g.plan.candidate.path))
+    withExtendedLifetime(waiting) {}
+}
