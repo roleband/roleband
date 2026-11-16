@@ -240,10 +240,13 @@ async def test_a_switch_save_cannot_put_back_choices_saved_while_it_ran(db_sessi
             await session.commit()
 
     async def read_then_let_the_other_run(session):
-        categories = await read(session)
-        other.append(asyncio.create_task(withhold()))
-        await until_waiting(db_session.bind, other[0])
-        return categories
+        choices = await read(session)
+        # Only the switch save lets the other run; the other save reads the
+        # stored groups through this hook too, and must not start a third.
+        if not other:
+            other.append(asyncio.create_task(withhold()))
+            await until_waiting(db_session.bind, other[0])
+        return choices
 
     monkeypatch.setattr(config_module, "_locked_choices", read_then_let_the_other_run)
     async with sessions() as switches:

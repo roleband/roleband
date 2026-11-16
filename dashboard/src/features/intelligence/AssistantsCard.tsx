@@ -134,10 +134,15 @@ export function AssistantsCard() {
   // Changes ride on the connection: turning it on allows them, and each kind
   // the person switched off stays off, since the save leaves the groups out.
   const connect = (next: boolean) => save({ enabled: next, allow_writes: next });
-  // A choice in Customize stores both whole maps, so what the dialog showed is
-  // what is saved, whatever the row held before.
-  const customize = (choices: AccessChoices) =>
-    save({ enabled: allowed, allow_writes: allowed, ...choices });
+  // A choice in Customize stores the whole grid it changed, so what the dialog
+  // showed is what is saved. A data choice leaves changes as they are; a choice
+  // of changes allows them, so the grid the person set is the one that applies.
+  const customize = (choices: Partial<AccessChoices>) =>
+    save({
+      enabled: allowed,
+      allow_writes: choices.groups ? allowed : (state?.allow_writes ?? false),
+      ...choices,
+    });
 
   const lines = state ? heldBack(state) : [];
 

@@ -470,9 +470,9 @@
 .intel-access-grid thead th {
   color: var(--app-text-muted);
   font-family: var(--app-font-mono);
-  font-size: var(--app-type-whisper);
-  font-weight: var(--app-type-whisper-weight);
-  letter-spacing: var(--app-type-whisper-track);
+  font-size: var(--app-type-label);
+  font-weight: var(--app-weight-strong);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: nowrap;
 }

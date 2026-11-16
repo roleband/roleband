@@ -2,7 +2,10 @@
 // less than everything. The card's switch is the one consent; this dialog only
 // narrows it. Each choice is a column heading said once, and each row a radio
 // group, so a choice is never repeated row after row. A click is stored at
-// once, as Settings switches are, so the dialog has no Save.
+// once, as Settings switches are, so the dialog has no Save. A click hands up
+// only the grid it changed: while changes are off, the engine reports every
+// group off, and saving that with a data choice would overwrite the groups the
+// person stored.
 import type { AgentAccessState } from "../../api";
 import { Button, Dialog, InfoTip } from "../../ui";
 import {
@@ -116,14 +119,13 @@ export function AgentAccessDialog({
   state: AgentAccessState;
   saving: boolean;
   error: string | null;
-  onChange: (choices: AccessChoices) => void;
+  onChange: (choices: Partial<AccessChoices>) => void;
   onClose: () => void;
 }) {
   const current = choicesOf(state);
   const setCategory = (id: Category, choice: CategoryChoice) =>
-    onChange({ ...current, categories: { ...current.categories, [id]: choice } });
-  const setGroup = (id: Group, choice: GroupChoice) =>
-    onChange({ ...current, groups: { ...current.groups, [id]: choice } });
+    onChange({ categories: { ...current.categories, [id]: choice } });
+  const setGroup = (id: Group, choice: GroupChoice) => onChange({ groups: { ...current.groups, [id]: choice } });
 
   return (
     <Dialog isOpen onClose={onClose} label={aiAccessDialogTitle()} width={720} className="app-overlay">

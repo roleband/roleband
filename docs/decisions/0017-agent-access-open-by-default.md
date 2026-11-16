@@ -39,9 +39,10 @@ open, and the person switches off what they do not want.
 
 ## Consequences
 
-- The enablement step is one switch, which turns everything on; nothing else
-  asks the person again. Every category and group is listed, switched on, in
-  Customize beside it, where the person holds any of them back.
+- The enablement step is one switch. The first time, it turns everything on;
+  nothing else asks the person again. Every category and group is listed,
+  switched on, in Customize beside it, where the person holds any of them back.
+  Turning the switch off and on again keeps what they held back.
 - An operation declares the categories it reads and the action group it
   belongs to, so the engine can refuse it from the stored choices, and a test
   can fail when an operation declares neither.

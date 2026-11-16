@@ -331,7 +331,10 @@ test("assistants: one switch lets apps connect, and Customize holds back the res
   await expect(assistants.getByText(msg("ai-assistants-card-everything-shared"))).toHaveCount(0);
   await expect(assistants.getByText(msg("ai-assistants-card-what-apps-do"))).toHaveCount(0);
 
-  // Customize: every choice is a column heading said once.
+  // Customize: every choice is a column heading said once, and each radio is
+  // named by its row and column.
+  const cell = (row: string, column: string) => msg("ai-access-dialog-cell", { row, column });
+  const offerKept = cell(msg("ai-access-dialog-offer"), msg("ai-access-dialog-not-shared"));
   await assistants.getByRole("button", { name: msg("ai-assistants-card-customize") }).click();
   const customize = page.getByRole("dialog", { name: msg("ai-access-dialog-title") });
   await expect(customize).toBeVisible();
@@ -345,25 +348,26 @@ test("assistants: one switch lets apps connect, and Customize holds back the res
       return b.x + b.width / 2;
     };
     const heading = await centre(customize.getByRole("columnheader", { name: msg("ai-access-dialog-not-shared") }).boundingBox());
-    const offer = await centre(customize.getByRole("radio", { name: "Offer: Not shared" }).boundingBox());
+    const offer = await centre(customize.getByRole("radio", { name: offerKept }).boundingBox());
     expect(Math.abs(heading - offer)).toBeLessThan(3);
-    const postings = await centre(customize.getByRole("radio", { name: "Postings: Any model" }).boundingBox());
-    const tracking = await centre(customize.getByRole("radio", { name: "Tracking progress: On" }).boundingBox());
+    const postings = await centre(customize.getByRole("radio", { name: cell(msg("ai-access-dialog-postings"), msg("ai-access-dialog-any-model")) }).boundingBox());
+    const tracking = await centre(customize.getByRole("radio", { name: cell(msg("ai-access-dialog-tracking-progress"), msg("ai-access-dialog-on")) }).boundingBox());
     expect(Math.abs(postings - tracking)).toBeLessThan(3);
   }
 
   // A choice is stored at once; the card then names it, and only it.
   const saved = page.waitForRequest((request) => request.method() === "PUT" && request.url().endsWith("/api/intelligence/agents"));
   // A radio shows the stored choice, so it moves once the save answers.
-  await customize.getByRole("radio", { name: "Offer: Not shared" }).click();
+  await customize.getByRole("radio", { name: offerKept }).click();
   const body = (await saved).postDataJSON();
   expect(body.categories.offer).toBe("not_shared");
   expect(body.categories.public_posting).toBe("any_model");
-  expect(body.groups.tracking_progress).toBe("on");
-  await expect(customize.getByRole("radio", { name: "Offer: Not shared" })).toBeChecked();
+  // A data choice leaves the stored kinds of change alone.
+  expect(body.groups).toBeUndefined();
+  await expect(customize.getByRole("radio", { name: offerKept })).toBeChecked();
   await customize.getByRole("button", { name: "Done" }).click();
   await expect(customize).toBeHidden();
-  await expect(assistants.getByText(msg("ai-assistants-card-not-shared", { list: "Offer" }))).toBeVisible();
+  await expect(assistants.getByText(msg("ai-assistants-card-not-shared", { list: msg("ai-access-dialog-offer") }))).toBeVisible();
 
   // Set up is a dialog carrying the literal command, run once in a terminal.
   await setup.first().click();
