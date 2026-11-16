@@ -198,6 +198,7 @@ def _piped(home, *args: str, stdin) -> test_cli.Result:
     return test_cli.Result(done.returncode, done.stdout.decode(), done.stderr.decode())
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows pipes cannot be polled, so piped data runs as given")
 @pytest.mark.parametrize("args", [
     ("opportunities", "search", "--json"),
     ("opportunities", "get", "--json"),
@@ -215,6 +216,22 @@ def test_data_piped_without_input_dash_is_refused_and_asks_no_engine(home, args,
     error = refused.envelope["error"]
     assert error["code"] == "invalid_arguments"
     assert "add --input - to read it" in error["message"]
+    assert stub.requests == []
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows pipes cannot be polled, so piped data runs as given")
+def test_blank_input_past_the_input_limit_is_refused_undecided(home, tmp_path):
+    """The scan is bounded; a redirected file whose data starts after more
+    blank bytes than any --input accepts is refused, never run unfiltered."""
+    from tracker.cli.commands import MAX_INPUT_BYTES
+
+    redirected = tmp_path / "padded.json"
+    redirected.write_bytes(b" " * (MAX_INPUT_BYTES + 8192) + b'{"location": ["New York, NY"]}')
+    with Stub(Reply(200, _envelope("opportunities.search", data=_PAGE))) as stub, redirected.open("rb") as handle:
+        home.contexts(current="dev", dev={"url": stub.url})
+        refused = _piped(home, "opportunities", "search", "--json", stdin=handle)
+    assert refused.status == 2, refused
+    assert refused.envelope["error"]["code"] == "invalid_arguments"
     assert stub.requests == []
 
 

@@ -345,15 +345,16 @@ def refuse_unread_input(stream: Any) -> None:
         held = False
         seen = 0
         # Leading whitespace can fill a whole read; keep reading what is already
-        # there until a non-blank byte, the end, or a pause in the input.
-        while seen <= MAX_INPUT_BYTES and select.select([descriptor], [], [], 0)[0]:
+        # there until a non-blank byte, the end, or a pause in the input. Blank
+        # input past the input limit counts as held: the scan stops undecided.
+        while select.select([descriptor], [], [], 0)[0]:
             chunk = os.read(descriptor, _STDIN_PEEK_BYTES)
             if not chunk:
                 break
-            if chunk.strip():
+            seen += len(chunk)
+            if chunk.strip() or seen > MAX_INPUT_BYTES:
                 held = True
                 break
-            seen += len(chunk)
     except (AttributeError, OSError, ValueError):
         return
     if held:
