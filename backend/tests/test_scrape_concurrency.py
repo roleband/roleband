@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
 
@@ -204,16 +205,22 @@ async def test_independent_sources_begin_collection_concurrently():
 @pytest.mark.asyncio
 async def test_sources_beyond_the_concurrency_limit_wait_for_a_slot():
     """Negative control for the test above: with one slot the second backend
-    starts only after the first finishes, so the two never meet. The first
-    source's request is made and the second's never is: the collection holds
-    on the slot, not anywhere before it. A hang is seen only as time passing,
-    and cannot end early under load, so a short wait cannot fail a correct
-    collector."""
+    starts only after the first finishes, so the two never meet. Once the
+    first source's request is made, however long that takes, the second's
+    never is: the collection holds on the slot. That absence is seen only as
+    time passing, and a request the slot holds back cannot arrive early under
+    load, so a short wait cannot fail a correct collector."""
     started = {"first": asyncio.Event(), "second": asyncio.Event()}
-    with pytest.raises(TimeoutError):
-        await asyncio.wait_for(_collect_waiting_on_each_other(1, started), timeout=0.5)
-    assert started["first"].is_set()
-    assert not started["second"].is_set()
+    collection = asyncio.create_task(_collect_waiting_on_each_other(1, started))
+    try:
+        await asyncio.wait_for(started["first"].wait(), timeout=HANG_GUARD)
+        with pytest.raises(TimeoutError):
+            await asyncio.wait_for(started["second"].wait(), timeout=0.5)
+        assert not collection.done()
+    finally:
+        collection.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await collection
 
 
 @pytest.mark.asyncio

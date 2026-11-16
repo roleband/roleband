@@ -140,7 +140,9 @@ def stop_unheld(pgdata: Path, *, ignore: frozenset[int] = frozenset()) -> bool:
     lock = getattr(_upstream().PostgresServer, "_lock", None)
     with lock if lock is not None else contextlib.nullcontext():
         holders = live_holders(pgdata, ignore=ignore)
-        if not (pgdata / "postmaster.pid").exists() or holders is None or holders:
+        # `pg_ctl stop` signals the PID the lock file names. A file a crashed
+        # server left behind can name a PID since given to another process.
+        if not running_postmaster(pgdata) or holders is None or holders:
             return False
         version = int((pgdata / "PG_VERSION").read_text().strip())
         pg_ctl = bundled_bin_dir(version) / "pg_ctl"
@@ -167,14 +169,23 @@ def _retire_handle(pgdata: Path) -> None:
 
 
 def running_postmaster(pgdata: Path) -> bool:
-    """Whether a server runs on `pgdata` now, by the PID its lock file names."""
+    """Whether the PID `postmaster.pid` names is a postmaster serving `pgdata`.
+
+    The file alone does not say so: a server that crashed leaves it behind, and
+    its PID can since belong to any process. So the process must be a
+    `postgres` started with `-D` naming this data directory."""
     import psutil
 
     try:
         pid = int((pgdata / "postmaster.pid").read_text().split("\n", 1)[0])
-    except (OSError, ValueError):
+        proc = psutil.Process(pid)
+        name = proc.name()
+    except (OSError, ValueError, psutil.Error):
         return False
-    return psutil.pid_exists(pid)
+    arguments = _arguments(proc)
+    if not name.startswith("postgres") or "-D" not in arguments[:-1]:
+        return False
+    return Path(arguments[arguments.index("-D") + 1]).resolve() == pgdata.resolve()
 
 
 def stop_after_run(pgdata: Path, *, settle: float = 30.0) -> bool:

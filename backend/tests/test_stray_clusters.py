@@ -22,6 +22,7 @@ from scripts.stray_clusters import (
     _why_kept,
     live_holders,
     running_clusters,
+    running_postmaster,
     stop_after_run,
     stop_unheld,
 )
@@ -78,6 +79,20 @@ def test_a_run_stops_a_throwaway_cluster_and_leaves_a_development_database(tmp_p
     assert stop_after_run(development) is False
     assert stop_after_run(throwaway) is True
     assert stopped == [throwaway.resolve()]
+
+
+def test_a_stale_lock_file_naming_another_process_is_never_signalled(tmp_path, monkeypatch):
+    """A crashed server leaves `postmaster.pid` behind, and its PID may since be
+    another process's: here this test's own. Nothing is stopped and `pg_ctl`,
+    which would signal that PID, never runs."""
+    pytest.importorskip("pixeltable_pgserver", reason="embedded Postgres wheel not installed")
+    pgdata = _cluster(tmp_path / "db", [GONE])
+    (pgdata / "postmaster.pid").write_text(f"{os.getpid()}\n{pgdata}\n")
+    (pgdata / "PG_VERSION").write_text("16\n")
+    monkeypatch.setattr(stray_clusters.subprocess, "run", lambda *_a, **_k: pytest.fail("pg_ctl was run"))
+
+    assert running_postmaster(pgdata) is False
+    assert stop_unheld(pgdata) is False
 
 
 def test_a_run_never_stops_an_apps_cluster(tmp_path, monkeypatch):
