@@ -56,6 +56,14 @@ private actor FakeRelease {
     }
 }
 
+/// Holds each wait of a set-aside plan's retirement until the test lets it go on.
+private actor RetirePauses {
+    private var held: CheckedContinuation<Void, Never>?
+    func pause() async { await withCheckedContinuation { held = $0 } }
+    func resume() { held?.resume(); held = nil }
+    var waiting: Bool { held != nil }
+}
+
 /// Which threads computed the space reserve.
 private final class ReserveThreads: @unchecked Sendable {
     private let lock = NSLock()
@@ -67,6 +75,7 @@ private final class ReserveThreads: @unchecked Sendable {
 @MainActor private final class Harness {
     let release: FakeRelease
     let reserveThreads = ReserveThreads()
+    let pauses = RetirePauses()
     let home = FileManager.default.temporaryDirectory.appendingPathComponent("update-installer-" + UUID().uuidString)
     var handedOff: [UpdatePlan] = []
     var handOffFails = false
@@ -75,6 +84,7 @@ private final class ReserveThreads: @unchecked Sendable {
         let release = FakeRelease()
         let home = home
         let reserveThreads = reserveThreads
+        let pauses = pauses
         self.release = release
         installer = UpdateInstaller(operations: UpdateInstallerOperations(
             reserve: { reserveThreads.record(Thread.isMainThread); return 5_000_000_000 },
@@ -84,7 +94,8 @@ private final class ReserveThreads: @unchecked Sendable {
             handOff: { [unowned self] plan in
                 if handOffFails { throw Injected.handOff }
                 handedOff.append(plan)
-            }))
+            },
+            retire: { plan in await plan.retire(pause: { await pauses.pause(); try Task.checkCancellation() }) }))
     }
     deinit { try? FileManager.default.removeItem(at: home) }
 }
@@ -249,11 +260,12 @@ private final class ReserveThreads: @unchecked Sendable {
     let held = h.handedOff[0]
     var helper: HelperLease? = try HelperLease(held.paths.directory)
     h.installer.install("0.1.2")
-    #expect(await eventually { await h.release.prepared == 2 && h.installer.activity == .verifying })
-    try await Task.sleep(for: .milliseconds(700))
+    #expect(await eventually { await h.pauses.waiting })
+    #expect(await h.release.prepared == 2)
     #expect(h.installer.activity == .verifying && h.handedOff.count == 2)
     #expect(FileManager.default.fileExists(atPath: held.candidate.path))
     helper = nil
+    await h.pauses.resume()
     #expect(await eventually { h.installer.activity == .restarting })
     _ = helper
     #expect(await h.release.downloads.map(\.version) == ["0.1.1", "0.1.2"])

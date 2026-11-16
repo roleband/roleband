@@ -122,17 +122,19 @@ public struct UpdatePlan: Codable, Equatable, Sendable {
 extension UpdatePlan {
     /// Deletes a handed-over plan that this app set aside, once no helper holds its lease. Its helper
     /// waits for this app to quit, and a quit for another plan would set it running without its
-    /// files, so the plan stays until that helper gives up its wait. False when cancelled first.
-    public func retire(pause: Duration = .milliseconds(500)) async -> Bool {
+    /// files, so the plan stays until that helper gives up its wait. False when cancelled first or
+    /// when the plan could not be deleted, so the caller keeps it to try again.
+    public func retire(pause: @Sendable () async throws -> Void = { try await Task.sleep(for: .milliseconds(500)) }) async -> Bool {
         let directory = paths.directory
         while FileManager.default.fileExists(atPath: directory.path) {
             if let lease = try? HelperLease(directory) {
-                // Deleted under the lease, so a helper starting now finds no plan to run.
-                try? FileManager.default.removeItem(at: directory)
-                withExtendedLifetime(lease) {}
+                // Deleted under the lease; a helper that opened the lock file before then finds its
+                // name gone once it locks, and stands aside.
+                defer { withExtendedLifetime(lease) {} }
+                do { try FileManager.default.removeItem(at: directory) } catch { return false }
                 return true
             }
-            do { try await Task.sleep(for: pause) } catch { return false }
+            do { try await pause() } catch { return false }
         }
         return true
     }
@@ -142,12 +144,19 @@ extension UpdatePlan {
 final class HelperLease: @unchecked Sendable {
     private let descriptor: Int32
 
-    init(_ directory: URL) throws {
-        let fd = open(directory.appendingPathComponent("helper.lock").path, O_CREAT | O_RDWR | O_NOFOLLOW | O_CLOEXEC, 0o600)
+    /// `beforeLock` runs between opening the lock file and locking it, for tests.
+    init(_ directory: URL, beforeLock: () -> Void = {}) throws {
+        let path = directory.appendingPathComponent("helper.lock").path
+        let fd = open(path, O_CREAT | O_RDWR | O_NOFOLLOW | O_CLOEXEC, 0o600)
         guard fd >= 0 else { throw UpdateHelperProblem.helperRunning }
+        beforeLock()
         var info = stat()
+        var named = stat()
+        // A plan retired between the open and the lock leaves this descriptor on an unlinked file,
+        // whose lock would still succeed; only a lock on the file the path still names counts.
         guard fstat(fd, &info) == 0, info.st_mode & S_IFMT == S_IFREG, info.st_uid == getuid(),
-              info.st_mode & 0o077 == 0, flock(fd, LOCK_EX | LOCK_NB) == 0 else {
+              info.st_mode & 0o077 == 0, flock(fd, LOCK_EX | LOCK_NB) == 0,
+              lstat(path, &named) == 0, named.st_dev == info.st_dev, named.st_ino == info.st_ino else {
             close(fd); throw UpdateHelperProblem.helperRunning
         }
         descriptor = fd
