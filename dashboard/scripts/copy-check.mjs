@@ -175,8 +175,17 @@ export function glossary(locale, root = COPY) {
 }
 
 /** A word and its inflections, hyphen or space as a joiner: "scrape" also
- *  matches "scraping", "scraped", "scrapers"; "best match" also "best matches". */
+ *  matches "scraping", "scraped", "scrapers"; "best match" also "best matches".
+ *  Every message asks with the same few lists, so each list's pattern is built
+ *  once: building it dominates a check of the whole catalog. */
+const wordPatterns = new Map();
 function wordPattern(words, strategy = "inflections") {
+  const key = `${strategy}\0${words.join("\0")}`;
+  if (!wordPatterns.has(key)) wordPatterns.set(key, buildWordPattern(words, strategy));
+  return wordPatterns.get(key);
+}
+
+function buildWordPattern(words, strategy) {
   const forms = words.flatMap((w) => {
     if (strategy === "substring") return escape(w);
     const parts = w.split(/\s+/).map(escape);
@@ -276,6 +285,26 @@ export function recordTranslated(root, locale, ids = []) {
   const sorted = Object.fromEntries(Object.keys(from).sort().map((id) => [id, from[id]]));
   writeFileSync(fromPath(root, locale), JSON.stringify(sorted, null, 1) + "\n");
   return { recorded, dropped };
+}
+
+/** The 1-based line of `offset` in `src`. A file's messages share its text, so
+ *  its line starts are found once per check (kept in `lineStarts`) instead of
+ *  rescanning the file per message. */
+function lineAt(lineStarts, src, offset) {
+  if (!lineStarts.has(src)) {
+    const starts = [0];
+    for (let i = src.indexOf("\n"); i !== -1; i = src.indexOf("\n", i + 1)) starts.push(i + 1);
+    lineStarts.set(src, starts);
+  }
+  const starts = lineStarts.get(src);
+  let low = 0;
+  let high = starts.length - 1;
+  while (low < high) {
+    const mid = (low + high + 1) >> 1;
+    if (starts[mid] <= offset) low = mid;
+    else high = mid - 1;
+  }
+  return low + 1;
 }
 
 export function checkCatalog(root = COPY, asFoundPath = AS_FOUND, catalogs = new Map()) {
@@ -404,13 +433,15 @@ export function checkCatalog(root = COPY, asFoundPath = AS_FOUND, catalogs = new
     const translated = new Set(cat.messages.map((m) => m.id));
     const gone = Object.keys(from).filter((id) => !translated.has(id) || !byId.has(id)).length;
     if (gone) reports.push(`${loc.code}: translated-from.json records ${gone} messages it no longer translates; ${how}`);
-    const missing = en.messages.filter((m) => !(manifest.englishOnly??[]).includes(m.id)&&!cat.messages.some((x) => x.id === m.id)).length;
+    const englishOnly = new Set(manifest.englishOnly ?? []);
+    const missing = en.messages.filter((m) => !englishOnly.has(m.id) && !translated.has(m.id)).length;
     if (missing) reports.push(`${loc.code}: ${missing} of ${en.messages.length} messages not translated yet (${loc.status})`);
   }
   if (asIs) reports.push(`en: ${asIs} of ${en.messages.length} messages moved as-is, wording not reviewed yet`);
   const locations = new Map();
+  const lineStarts = new Map();
   for (const loc of manifest.locales.filter(l=>l.status !== "pseudo")) for (const msg of catalog(loc.code).messages)
-    locations.set(`${msg.file} ${msg.id}`, {locale:loc.code,id:msg.id,file:msg.file,line:msg.src.slice(0,msg.node.span.start).split("\n").length});
+    locations.set(`${msg.file} ${msg.id}`, {locale:loc.code,id:msg.id,file:msg.file,line:lineAt(lineStarts, msg.src, msg.node.span.start)});
   const diagnostic = (text,severity) => {
     const match = text.match(/^([^:]+?)(?: \(as-is\))?: ([^:]+): (.*)$/);
     const location = match ? locations.get(match[1]) : null;

@@ -515,8 +515,55 @@ def _embedded_servers_stop_with_the_session(tmp_path_factory):
     stop_clusters_under(tmp_path_factory.getbasetemp())
 
 
+#: The embedded cluster this run's database tests open, and whether it ran
+#: before the run began. Kept by the controlling process only.
+_RUN_CLUSTER = pytest.StashKey[tuple[Path, bool]]()
+
+
+def _configured_cluster() -> Path | None:
+    """The embedded cluster the settings name, without starting it; None for a
+    server named by URL (CI) and on Windows, whose runner stops its own."""
+    if os.name == "nt":
+        return None
+    try:
+        from tracker.config import Settings
+
+        settings = Settings()
+    except Exception:  # noqa: BLE001 - no settings, no cluster to look after
+        return None
+    if settings.database_url_override or not settings.db_embedded:
+        return None
+    return settings.embedded_pgdata()
+
+
 def pytest_configure(config):
     config.pluginmanager.register(DocReads(), "doc-reads")
+    if hasattr(config, "workerinput"):
+        return
+    pgdata = _configured_cluster()
+    if pgdata is not None:
+        from scripts.stray_clusters import running_postmaster
+
+        config.stash[_RUN_CLUSTER] = (pgdata, running_postmaster(pgdata))
+
+
+def pytest_unconfigure(config):
+    """Stop the cluster the run's database tests used, once the run's workers
+    have let go of it, if the run started it or it is a throwaway one, and no
+    other process holds it. The embedded server outlives every process that
+    opens it, so without this a test run leaves its cluster running, and each
+    holds one of the machine's few shared memory segments. A killed run is not
+    covered: `scripts.stray_clusters` lists and stops what is left."""
+    run = config.stash.get(_RUN_CLUSTER, None)
+    if run is None:
+        return
+    pgdata, ran_before = run
+    from scripts.stray_clusters import stop_after_run
+
+    try:
+        stop_after_run(pgdata, started_here=not ran_before)
+    except Exception:  # noqa: BLE001 - teardown must never fail the run
+        pass
 
 
 def pytest_collection_modifyitems(items):
