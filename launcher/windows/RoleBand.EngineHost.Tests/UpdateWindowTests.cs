@@ -141,6 +141,8 @@ public sealed class UpdateWindowTests
         Assert.IsTrue(UpdateWindowRules.Stale(Copy, State(new UpdateState(Offer with { Offer = null })), record), "installed or withdrawn");
         Assert.IsTrue(UpdateWindowRules.Stale(Copy, State(), off));
         Assert.IsTrue(UpdateWindowRules.Stale(Copy, State(new UpdateState(Offer, ReturningTo: "0.2.2", Returning: true)), record), "an Undo");
+        Assert.IsTrue(UpdateWindowRules.Stale(Copy, State(new UpdateState(Offer, new UpdateRun(UpdateStep.DownloadFailed, "0.2.3"),
+            ReturningTo: "0.2.2", Returning: true)), record), "an Undo from the failure it shows");
         Assert.IsFalse(UpdateWindowRules.Stale(Copy, State(Running(new UpdateRun(UpdateStep.Downloading, "0.2.3"))), off),
             "its own update keeps it");
         Assert.IsFalse(UpdateWindowRules.Stale(Copy, State(Running(new UpdateRun(UpdateStep.CheckFailed, "0.2.3"))), off),

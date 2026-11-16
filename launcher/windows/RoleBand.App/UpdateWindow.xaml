@@ -37,7 +37,10 @@
                   Foreground="{ThemeResource SystemFillColorCautionBrush}" />
         <StackPanel Grid.Column="1" Spacing="2">
           <TextBlock x:Name="StepTitle" FontWeight="SemiBold" TextWrapping="Wrap" />
-          <TextBlock x:Name="StepDetail" FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+          <!-- Windows' own reason for a failed install can run long; the window keeps its buttons on screen and the tooltip
+               and Narrator carry the whole of it. -->
+          <TextBlock x:Name="StepDetail" FontSize="12" TextWrapping="Wrap" MaxLines="6" TextTrimming="CharacterEllipsis"
+                     Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
         </StackPanel>
       </Grid>
       <ProgressBar x:Name="StepProgress" Maximum="100" />

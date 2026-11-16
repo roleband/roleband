@@ -114,7 +114,8 @@ public static class UpdateWindowRules
     /// Undo is under way) or its switch is turned off. With its switch off, only the update it shows, running or failed,
     /// keeps it, so that update's result stays in view; a newer offer in its place does not.</summary>
     public static bool Stale(NativeCopy copy, AppState state, UpdateWindowRecord record) =>
-        View(copy, state) is not { } view || (!record.Shows && (state.Update.Run is not { } run || view.Version != run.Version));
+        state.Update.Returning || View(copy, state) is not { } view
+        || (!record.Shows && (state.Update.Run is not { } run || view.Version != run.Version));
 
     /// <summary>The window for the state: the offer with Later and Update; the download with Cancel; Windows' install with
     /// nothing left to choose; a failure with Later and Try again. A failure of an older version gives way to a newer

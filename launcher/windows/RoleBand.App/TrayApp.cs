@@ -300,7 +300,14 @@ internal sealed class TrayApp
 
     private void ShowUpdateWindow(UpdateWindowView view)
     {
-        var window = new UpdateWindow(copy);
+        // The window is a notice: one Windows cannot build or refuses to show must not take the tray and the engine with it.
+        UpdateWindow window;
+        try { window = new UpdateWindow(copy); }
+        catch (Exception error)
+        {
+            Debug.WriteLine(error);
+            return;
+        }
         window.Later += () =>
         {
             // Later sets aside the version the window acts on, which a failed older update may name.
@@ -318,7 +325,6 @@ internal sealed class TrayApp
             if (updateWindow == window) updateWindow = null;
         };
         updateWindow = window;
-        // The window is a notice: one Windows refuses to show must not take the tray and the engine with it.
         try
         {
             window.Render(view);

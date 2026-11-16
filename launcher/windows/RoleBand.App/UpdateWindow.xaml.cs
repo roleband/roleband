@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Controls;
 using RoleBand.EngineHost;
 using Windows.Graphics;
 
@@ -81,6 +82,7 @@ public sealed partial class UpdateWindow : Window
         StepTitle.Text = view.Step ?? "";
         StepDetail.Text = view.Detail ?? "";
         StepDetail.Visibility = view.Detail is null ? Visibility.Collapsed : Visibility.Visible;
+        ToolTipService.SetToolTip(StepDetail, view.Detail ?? "");
         StepGlyph.Visibility = view.Failed ? Visibility.Visible : Visibility.Collapsed;
         StepProgress.Visibility = view.Failed ? Visibility.Collapsed : Visibility.Visible;
         StepProgress.IsIndeterminate = view.Working;
