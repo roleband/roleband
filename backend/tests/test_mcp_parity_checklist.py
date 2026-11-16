@@ -110,7 +110,7 @@ def test_an_added_operation_replaces_no_tool_and_says_why():
     replacing = {row["operation"] for row in checklist["tools"]}
     added = checklist["added_operations"]
 
-    assert [row["operation"] for row in added] == ["receipts.get"]
+    assert [row["operation"] for row in added] == ["receipts.get", "opportunities.get_many", "opportunities.reality"]
     for row in added:
         assert row["operation"] in CATALOG and row["operation"] not in replacing
         assert row["switch"] in SWITCH_FOR_ACCESS.values()

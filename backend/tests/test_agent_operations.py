@@ -538,7 +538,7 @@ async def test_describe_of_a_resource_name_lists_the_operations_under_it(api_cli
     ]
     # A partial id names what it starts; a name that starts nothing names nothing.
     partial = (await api_client.get(f"{PREFIX}/operations/opportunities.ge")).json()
-    assert partial["error"]["details"]["candidates"] == ["opportunities.get"]
+    assert partial["error"]["details"]["candidates"] == ["opportunities.get", "opportunities.get_many"]
     none = (await api_client.get(f"{PREFIX}/operations/widgets")).json()
     assert none["error"]["details"]["candidates"] == []
 

@@ -1,4 +1,5 @@
-"""`opportunities.get` and `opportunities.history`: one posting, by its id.
+"""`opportunities.get` and `opportunities.history`: one posting, by its id;
+`opportunities.get_many`: several, as search rows.
 
 `get` answers one of three declared views. `summary` is the posting's facts and
 pay, with the detail read in `continue_with`; `detail` adds its department, team and text; `evidence` adds what each
@@ -25,13 +26,14 @@ from __future__ import annotations
 
 import json
 from collections.abc import Collection
+from dataclasses import dataclass
 from datetime import UTC, date, datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import Field, RootModel
 from pydantic.config import JsonDict
 from pydantic.experimental.missing_sentinel import MISSING
-from sqlalchemy import exists, or_, select
+from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.agents.operations.descriptor import (
@@ -43,8 +45,17 @@ from tracker.agents.operations.descriptor import (
 )
 from tracker.agents.operations.envelope import NextAction, OperationError
 from tracker.agents.operations.pursuits import PURSUITS_GET, PursuitState, state_of
+from tracker.agents.operations.search import (
+    PAGE_BUDGET_BYTES,
+    PageRow,
+    only_columns,
+    rows_within_budget,
+    shared_columns,
+    summary_rows,
+)
 from tracker.analytics.posting_reality import listing_age
 from tracker.db.models import Favorite, Job, JobCompEstimate, Pursuit, TrackedCompany
+from tracker.db.queries.jobs import list_rows
 from tracker.db.queries.listing_history import listing_history
 from tracker.pay_disclosure import disclosure_known
 from tracker.pay_period import effective_period
@@ -314,9 +325,6 @@ OPPORTUNITIES_HISTORY = OperationDescriptor(
     examples=({"opportunity_id": 4821},),
 )
 
-OPERATIONS: tuple[OperationDescriptor, ...] = (OPPORTUNITIES_GET, OPPORTUNITIES_HISTORY)
-
-
 # --- reads ------------------------------------------------------------------- #
 
 
@@ -326,32 +334,43 @@ def _not_found(opportunity_id: int) -> OperationError:
     )
 
 
+async def visible_jobs(
+    session: AsyncSession, ids: list[int], *, summary: bool = False, chosen_counts: bool = True,
+) -> dict[int, Job]:
+    """The postings of `ids` an agent may read, by id: none that is unknown, or
+    at a company the person hid and neither saved nor pursued. With
+    `chosen_counts` false a saved or pursued posting at a hidden company is
+    left out too. `summary` leaves the description columns unread, as a list
+    row does."""
+    if not ids:
+        return {}
+    statement = select(Job).where(Job.id.in_(ids))
+    jobs = list((await session.scalars(list_rows(statement) if summary else statement)).all())
+    hidden = set(
+        (
+            await session.scalars(
+                select(TrackedCompany.slug).where(
+                    TrackedCompany.slug.in_({job.company for job in jobs}), TrackedCompany.visible.is_(False)
+                )
+            )
+        ).all()
+    ) if jobs else set()
+    at_hidden = [job.id for job in jobs if job.company in hidden]
+    chosen: set[int] = set()
+    if at_hidden and chosen_counts:
+        chosen = set((await session.scalars(select(Favorite.job_id).where(Favorite.job_id.in_(at_hidden)))).all())
+        chosen |= set((await session.scalars(select(Pursuit.job_id).where(Pursuit.job_id.in_(at_hidden)))).all())
+    return {job.id: job for job in jobs if job.company not in hidden or job.id in chosen}
+
+
 async def visible_job(session: AsyncSession, opportunity_id: int, *, chosen_counts: bool = True) -> Job:
     """The posting, unless it is unknown or at a company the person hid and
     neither saved nor pursued. Both answer the same `not_found`, so a hidden
     posting cannot be told from a missing one. With `chosen_counts` false a
     saved or pursued posting at a hidden company is not found either."""
-    job = await session.get(Job, opportunity_id)
+    job = (await visible_jobs(session, [opportunity_id], chosen_counts=chosen_counts)).get(opportunity_id)
     if job is None:
         raise _not_found(opportunity_id)
-    hidden = await session.scalar(
-        select(
-            exists().where(TrackedCompany.slug == job.company, TrackedCompany.visible.is_(False))
-        )
-    )
-    if hidden and not chosen_counts:
-        raise _not_found(opportunity_id)
-    if hidden:
-        chosen = await session.scalar(
-            select(
-                or_(
-                    exists().where(Favorite.job_id == opportunity_id),
-                    exists().where(Pursuit.job_id == opportunity_id),
-                )
-            )
-        )
-        if not chosen:
-            raise _not_found(opportunity_id)
     return job
 
 
@@ -598,3 +617,115 @@ async def history(
     if found is None:
         raise _not_found(opportunity_id)
     return ListingHistory.model_validate(found)
+
+
+# --- get-many ---------------------------------------------------------------- #
+
+#: The most ids one get-many reads. More is refused, never cut to the bound.
+GET_MANY_MAX_IDS = 100
+
+
+class GetManyInput(Shape):
+    ids: list[Annotated[int, Field(ge=1)]] = Field(
+        min_length=1, max_length=GET_MANY_MAX_IDS,
+        description=f"Opportunity ids, as search returns them; 1 to {GET_MANY_MAX_IDS}. A repeated id is read once.",
+    )
+    tier: ToolTier = Field(default="small", description="The caller's tool tier, which bounds the answer.")
+
+
+class GetManyPage(Shape):
+    #: Rows in this answer.
+    count: int = Field(ge=0)
+    columns: list[str] = Field(json_schema_extra=_CODE)
+    rows: list[PageRow] = Field(
+        json_schema_extra={"x-text": "content"},
+        description="One array per opportunity found, in the order asked, its values in the order `columns` names.",
+    )
+    #: Ids that name no opportunity this connection may read.
+    not_found: list[int]
+    #: The call that reads the found ids this answer had no room for; empty when every one is here.
+    continue_with: list[NextAction]
+
+
+OPPORTUNITIES_GET_MANY = OperationDescriptor(
+    id="opportunities.get_many",
+    summary="Read several opportunities by id in one call, as search's summary rows.",
+    input=GetManyInput,
+    result=GetManyPage,
+    access="read",
+    idempotency="read",
+    engine_effects=EngineEffects(),
+    tool_tiers=_EVERY_TIER,
+    data_classes=("public_posting", "market_statistic", "private_pursuit"),
+    examples=({"ids": [4821, 4822, 4907]},),
+)
+
+OPERATIONS: tuple[OperationDescriptor, ...] = (OPPORTUNITIES_GET, OPPORTUNITIES_HISTORY, OPPORTUNITIES_GET_MANY)
+
+
+@dataclass(frozen=True)
+class GetManyAnswer:
+    page: GetManyPage
+    #: True when the tier's budget ended the answer before every found id.
+    shortened: bool
+    #: True when the first row was longer than the budget and its longest text was cut.
+    row_cut: bool
+
+
+async def get_many(
+    session: AsyncSession, params: GetManyInput, *, withheld: Collection[DataClass] = (), now: datetime | None = None,
+) -> GetManyAnswer:
+    """The opportunities of `params.ids`, readable as `opportunities.get`
+    reads one, as search rows in the order asked, without the columns of the
+    `withheld` categories. Every unknown id is named in `not_found`; when none
+    is known the read is `not_found`. Rows past the tier's budget are left to
+    the `continue_with` call, never cut away."""
+    pursuits = "private_pursuit" not in withheld
+    ids = list(dict.fromkeys(params.ids))
+    found = await visible_jobs(session, ids, summary=True, chosen_counts=pursuits)
+    missing = [job_id for job_id in ids if job_id not in found]
+    if not found:
+        raise OperationError(
+            "not_found", "There is no opportunity with any of these ids.", details={"opportunity_ids": missing}
+        )
+    ordered = [found[job_id] for job_id in ids if job_id in found]
+    columns = shared_columns(withheld)
+    rows = only_columns(await summary_rows(session, ordered, now=now or datetime.now(UTC), pursuits=pursuits), columns)
+    page = GetManyPage(count=0, columns=columns, rows=[], not_found=missing, continue_with=[])
+    # Measured with the call that would read every row but the first, the
+    # largest `continue_with` this answer can carry.
+    widest = page.model_copy(update={"continue_with": read_rest(ordered[1:], params.tier)})
+    room = PAGE_BUDGET_BYTES[params.tier] - _size(widest.model_dump(mode="json"))
+    kept, cut = rows_within_budget(rows, room)
+    if room <= 0 or _size(kept[0]) + 1 > room:
+        raise OperationError(
+            "invalid_input",
+            "These ids leave no room for a row in the tier's budget; pass fewer ids or a larger tier.",
+            details={"field": "tier", "reason": "over_budget", "budget_bytes": PAGE_BUDGET_BYTES[params.tier]},
+        )
+    rest = ordered[len(kept):]
+    page.count, page.rows = len(kept), kept
+    page.continue_with = read_rest(rest, params.tier)
+    return GetManyAnswer(page, shortened=bool(rest), row_cut=cut)
+
+
+def read_rest(jobs: list[Job], tier: ToolTier) -> list[NextAction]:
+    """The get-many calls that read `jobs`, which an answer had no room for:
+    one per `GET_MANY_MAX_IDS` ids, since a call naming more is refused."""
+    ids = [job.id for job in jobs]
+    return [
+        NextAction(
+            operation=OPPORTUNITIES_GET_MANY.id,
+            arguments={"ids": ids[start:start + GET_MANY_MAX_IDS], "tier": tier},
+        )
+        for start in range(0, len(ids), GET_MANY_MAX_IDS)
+    ]
+
+
+def missing_ids(page: GetManyPage, asked: list[int]) -> OperationError:
+    """The partial-batch error for a get-many that found some ids and not others."""
+    return OperationError(
+        "partial_result",
+        "Some ids name no opportunity; data.not_found lists them and data.rows holds the rest.",
+        details={"asked": len(dict.fromkeys(asked)), "not_found": len(page.not_found)},
+    )

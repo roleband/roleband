@@ -55,6 +55,7 @@ from tracker.agents.operations.envelope import (
     NextAction,
     OperationError,
     failure,
+    partial,
     request_id_or_new,
     success,
 )
@@ -150,6 +151,24 @@ class OperationContext:
             data_classes=self.answered_classes,
             warnings=warnings,
         )
+
+    def partial(
+        self, data: BaseModel, error: OperationError, *, warnings: list[EnvelopeNotice] | None = None,
+        truncated: bool = False,
+    ) -> JSONResponse:
+        """A batch answered in part: `partial_result` with the per-item outcomes
+        in `data`, at the code's HTTP status."""
+        envelope = partial(
+            self.descriptor.id,
+            data,
+            error,
+            request_id=self.request_id,
+            workspace_id=self.workspace_id,
+            data_classes=self.answered_classes,
+            warnings=warnings,
+            truncated=truncated,
+        )
+        return JSONResponse(envelope.model_dump(mode="json"), status_code=outcome(error.code).http_status)
 
     async def write(
         self,

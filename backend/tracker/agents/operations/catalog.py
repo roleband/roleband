@@ -14,6 +14,7 @@ from typing import Any
 from tracker.agents.operations import (
     applications,
     changes,
+    companies,
     export,
     insights,
     meta,
@@ -23,6 +24,7 @@ from tracker.agents.operations import (
     radar,
     receipts,
     recipes,
+    relations,
     search,
     vocabulary,
 )
@@ -40,6 +42,8 @@ REGISTERED: tuple[OperationDescriptor, ...] = (
     *changes.OPERATIONS,
     *search.OPERATIONS,
     *vocabulary.OPERATIONS,
+    *companies.OPERATIONS,
+    *relations.OPERATIONS,
     *offer.OPERATIONS,
     *applications.OPERATIONS,
     *export.OPERATIONS,
