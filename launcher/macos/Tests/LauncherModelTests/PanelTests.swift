@@ -65,6 +65,30 @@ private actor Engine {
     restored.stop()
 }
 
+private final class PanelClock: @unchecked Sendable {
+    var now = Date(timeIntervalSince1970: 1_800_000_000)
+}
+
+@MainActor @Test func aFailedUpdateSetAsideWithLaterOpensItsWindowAgainAfterThreeDays() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("panel-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: root) }
+    let clock = PanelClock()
+    let defaults = preferences()
+    defaults.set(true, forKey: "setupCompleted")
+    let updates = LauncherUpdates(preferences: defaults, fetch: { release("0.1.1") }, now: { clock.now }, authenticate: { _ in nil })
+    let model = LauncherModel(launcherVersion: "0.1.0", preferences: defaults, updates: updates,
+                              installOperations: operations(home: root, handOffs: HandOffs()))
+    defer { model.stop(); updates.stop() }
+    await updates.checkManuallyAndWait()
+    try #require(model.installer).show(.failed(.download), version: "0.1.1")
+    #expect(model.updateFound("0.1.1", automatic: true))
+    updates.later("0.1.1")
+    clock.now = clock.now.addingTimeInterval(3 * 86400 - 1)
+    #expect(!model.updateFound("0.1.1", automatic: true))
+    clock.now = clock.now.addingTimeInterval(1)
+    #expect(model.updateFound("0.1.1", automatic: true))
+}
+
 @MainActor @Test func onlyADailyFindOpensTheUpdateWindowAndNeverDuringSetupAnUpdateOrWhenSwitchedOff() async throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent("panel-\(UUID().uuidString)")
     defer { try? FileManager.default.removeItem(at: root) }
