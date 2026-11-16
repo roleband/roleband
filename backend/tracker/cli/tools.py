@@ -27,6 +27,7 @@ import errno
 import hashlib
 import json
 import os
+import secrets
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
@@ -177,10 +178,16 @@ def _write(path: Path, data: bytes, *, overwrite: bool) -> dict[str, Any]:
     nothing already at `path` is replaced, a link included, and a link is
     never followed."""
     target = Path(os.path.abspath(path))
-    partial = target.with_name(f".{target.name}.{os.getpid()}.partial")
+    partial = target.with_name(f".{target.name}.{secrets.token_hex(8)}.partial")
+    created = False
     try:
         try:
-            descriptor = os.open(partial, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+            try:
+                descriptor = os.open(partial, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+            except FileExistsError:
+                raise ClientError("internal_error", f"Could not write {path}; run it again.",
+                                  details={"path": str(target)}) from None
+            created = True
             with os.fdopen(descriptor, "wb") as handle:
                 handle.write(data)
                 handle.flush()
@@ -188,9 +195,10 @@ def _write(path: Path, data: bytes, *, overwrite: bool) -> dict[str, Any]:
             if overwrite:
                 os.replace(partial, target)
             else:
-                _place_new(partial, target, data)
+                _place_new(partial, target)
         finally:
-            partial.unlink(missing_ok=True)
+            if created:
+                partial.unlink(missing_ok=True)
     except FileExistsError:
         raise ClientError(
             "invalid_arguments", f"{path} exists; choose another file or pass --overwrite to replace it.",
@@ -204,22 +212,22 @@ def _write(path: Path, data: bytes, *, overwrite: bool) -> dict[str, Any]:
     return {"path": str(target), "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()}
 
 
-def _place_new(partial: Path, target: Path, data: bytes) -> None:
-    """Give `partial` the name `target` unless something has that name."""
+def _place_new(partial: Path, target: Path) -> None:
+    """Give the written `partial` the name `target` unless something has that
+    name. A hard link is the one portable way to do both at once."""
     try:
         os.link(partial, target)
-        return
     except OSError as error:
         if error.errno not in _NO_LINKS:
             raise
-    # No hard links here: create the file exclusively and write it in place.
-    descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o644)
-    try:
-        with os.fdopen(descriptor, "wb") as handle:
-            handle.write(data)
-    except OSError:
-        target.unlink(missing_ok=True)
-        raise
+        # Creating `target` and writing it in place would let a reader, or a
+        # killed process, leave half a document under the name.
+        raise ClientError(
+            "unsupported_operation",
+            f"The folder of {target.name} cannot take a new file without risking an existing one; "
+            "write it elsewhere, or pass --overwrite.",
+            details={"path": str(target)},
+        ) from None
 
 
 def human_lines(data: dict[str, Any], escape: Callable[[object], str]) -> list[str]:

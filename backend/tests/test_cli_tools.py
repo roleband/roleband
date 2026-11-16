@@ -347,19 +347,30 @@ def test_overwrite_without_output_is_refused(home):
     assert result.envelope["error"]["code"] == "invalid_arguments"
 
 
-def test_a_filesystem_without_hard_links_still_gets_a_new_file_and_keeps_an_old_one(tmp_path, monkeypatch):
+def test_a_filesystem_without_hard_links_is_refused_rather_than_written_in_place(tmp_path, monkeypatch):
     def no_links(*_args: object) -> None:
         raise OSError(errno.ENOTSUP, "no hard links")
 
     monkeypatch.setattr(os, "link", no_links)
     target = tmp_path / "tools.json"
-    written = tools._write(target, b"{}\n", overwrite=False)
-    assert target.read_bytes() == b"{}\n" and written["bytes"] == 3
     with pytest.raises(ClientError) as refused:
-        tools._write(target, b"[]\n", overwrite=False)
-    assert refused.value.code == "invalid_arguments"
-    assert target.read_bytes() == b"{}\n"
+        tools._write(target, b"{}\n", overwrite=False)
+    assert refused.value.code == "unsupported_operation"
+    assert os.listdir(tmp_path) == []
+    # --overwrite replaces atomically without a link, so it still writes.
+    assert tools._write(target, b"{}\n", overwrite=True)["bytes"] == 3
     assert sorted(os.listdir(tmp_path)) == ["tools.json"]
+
+
+def test_a_partial_file_this_call_did_not_make_is_left_alone(tmp_path, monkeypatch):
+    target = tmp_path / "tools.json"
+    stranger = tmp_path / ".tools.json.0000000000000000.partial"
+    stranger.write_bytes(b"someone else's")
+    monkeypatch.setattr(tools.secrets, "token_hex", lambda _n: "0000000000000000")
+    with pytest.raises(ClientError) as refused:
+        tools._write(target, b"{}\n", overwrite=False)
+    assert refused.value.code == "internal_error"
+    assert stranger.read_bytes() == b"someone else's" and not target.exists()
 
 
 # --------------------------------------------------------------------------- #

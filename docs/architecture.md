@@ -1354,7 +1354,8 @@ with availability unknown. The connection's own operations (`status`,
 tool name to its operation and command words, since a tool name cannot be read
 back as an id: a call's arguments are that command's `--input`. `--output FILE`
 writes the document atomically, refuses to replace a file or follow a link unless
-`--overwrite` is given, and reports its path, size and SHA-256. The export grants
+`--overwrite` is given (a folder without hard links cannot place a new file
+atomically, so there only `--overwrite` writes), and reports its path, size and SHA-256. The export grants
 nothing: the switches still decide each call.
 
 A read takes its input from the path and query; one that takes a document
