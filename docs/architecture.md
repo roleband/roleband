@@ -311,7 +311,11 @@ Ed25519 key signed for the installed package's feed and identity, and whose pack
 matches the signed digest; [decision 0009](decisions/0009-windows-release-authorization.md)
 owns the release files and checks. An update is journaled before the package switches
 and settled by the version that runs next; [decision 0010](decisions/0010-windows-update-journal.md)
-owns the phases and what each entry point refuses.
+owns the phases and what each entry point refuses. The update window
+([decision 0021](decisions/0021-update-window-replaces-notifications.md)) is a window the app shows
+above the others without activating it; its switch and each version's Laters live in
+`launcher\update-window.json` in the account's state, and it opens only for a release an automatic
+check found and verified.
 
 The Windows app ships as one signed MSIX per release;
 [decision 0011](decisions/0011-windows-msix-packaging.md) owns what the package and

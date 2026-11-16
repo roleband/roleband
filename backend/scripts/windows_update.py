@@ -367,7 +367,7 @@ def main(argv: list[str] | None = None) -> int:
 
     kept = status(args.state, identity, running_version(), _held_back(update))
     print(json.dumps({"status": result.status, "until": result.until, "checked_at": kept["checked_at"],
-                      "automatic": kept["automatic"],
+                      "automatic": kept["automatic"], "release_page": kept["release_page"],
                       "offer": dataclasses.asdict(result.offer) if result.offer else None, "update": update}))
     return 0
 

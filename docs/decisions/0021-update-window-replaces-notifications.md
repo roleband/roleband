@@ -19,6 +19,9 @@ middle of the screen, with Later and Update. It never takes focus or the keyboar
 - About's notices switch becomes the window's switch and keeps its stored value.
 - The app no longer posts desktop notifications or asks macOS for their permission.
   This replaces the notices bullet of [0019](0019-update-checks-on-by-default.md).
+- The Windows app opens the same window by the same rules. It never told anyone of an
+  update outside its flyout and Settings, so there the window replaces nothing: a switch
+  in Settings turns it off, it starts on, and What's new opens the release's page.
 
 ## Consequences
 
@@ -26,8 +29,9 @@ middle of the screen, with Later and Update. It never takes focus or the keyboar
   macOS, and the person can update from the window without opening the panel.
 - A person who ignores the window three times keeps only the badge for that version.
 - A source checkout has no installer, so it gets no window; its banner and badge stay.
-- Enforced by `launcher/macos/Tests/LauncherModelTests/UpdateWindowTests.swift` and the
-  update-window tests in `PanelTests.swift`; described in [ui.md](../ui.md#native-launcher-updates)
+- Enforced by `launcher/macos/Tests/LauncherModelTests/UpdateWindowTests.swift`, the
+  update-window tests in `PanelTests.swift` and
+  `launcher/windows/RoleBand.EngineHost.Tests/UpdateWindowTests.cs`; described in [ui.md](../ui.md#native-launcher-updates)
   and [architecture.md](../architecture.md).
 
 ## Alternatives considered
