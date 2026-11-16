@@ -9,9 +9,8 @@ people who turn them on want the help, and many already give their CV to a
 cloud model. A few want to keep some of their data, or some kinds of action,
 away from an agent, or within models that run on their own computer.
 
-Only the two switches exist today. The categories and action groups below are
-built with the agent operations that read and write them, and
-`docs/architecture.md` describes them in that change.
+`docs/architecture.md` describes how the engine applies the categories and
+action groups below.
 
 ## Decision
 
@@ -40,8 +39,9 @@ open, and the person switches off what they do not want.
 
 ## Consequences
 
-- The enablement screen lists every category and group, switched on; nothing
-  else asks the person again.
+- The enablement step is one switch, which turns everything on; nothing else
+  asks the person again. Every category and group is listed, switched on, in
+  Customize beside it, where the person holds any of them back.
 - An operation declares the categories it reads and the action group it
   belongs to, so the engine can refuse it from the stored choices, and a test
   can fail when an operation declares neither.

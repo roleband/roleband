@@ -73,6 +73,7 @@ PATCH = OperationDescriptor(
     input=PatchInput,
     result=PatchResult,
     access="write",
+    action_group="tracking_progress",
     idempotency="required_key",
     engine_effects=EngineEffects(state_write=True),
     tool_tiers=("full",),
@@ -511,7 +512,7 @@ class _OptionalRevision(Shape):
         ({"input": _NoRevision}, "takes a required int 'if_revision'"),
         ({"input": _OptionalRevision}, "takes a required int 'if_revision'"),
         (
-            {"access": "read", "idempotency": "read", "engine_effects": EngineEffects()},
+            {"access": "read", "idempotency": "read", "engine_effects": EngineEffects(), "action_group": None},
             "only a write states the revision",
         ),
     ],
@@ -520,7 +521,7 @@ def test_a_write_that_expects_a_revision_must_take_one(overrides, reason):
     fields = {
         "id": "testing.other", "summary": "s", "input": PatchInput, "result": PatchResult, "access": "write",
         "idempotency": "required_key", "engine_effects": EngineEffects(state_write=True),
-        "tool_tiers": ("full",), "expects_revision": True,
+        "tool_tiers": ("full",), "action_group": "tracking_progress", "expects_revision": True,
     }
     with pytest.raises(ValueError, match=reason):
         OperationDescriptor(**{**fields, **overrides})
@@ -552,7 +553,7 @@ class _NestedInput(Shape):
 NESTED = OperationDescriptor(
     id="testing.nested", summary="s", input=_NestedInput, result=PatchResult, access="write",
     idempotency="required_key", engine_effects=EngineEffects(state_write=True), tool_tiers=("full",),
-    expects_revision=True,
+    action_group="tracking_progress", expects_revision=True,
 )
 
 

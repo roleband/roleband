@@ -595,30 +595,130 @@ describe("ranking card", () => {
 });
 
 describe("assistants card", () => {
-  it("keeps setup unreachable until the gate is on, then writes stay a second choice", async () => {
-    mocked.setAgentAccess.mockResolvedValue({ ...agentAccessFixture, enabled: true });
+  const card = () => screen.findByRole("region", { name: msg("ai-assistants-card-assistant-apps-2") });
+
+  it("keeps setup unreachable until the one switch is on, which allows changes too", async () => {
+    mocked.setAgentAccess.mockResolvedValue({ ...agentAccessFixture, enabled: true, allow_writes: true });
     mount();
 
-    const card = await screen.findByRole("region", { name: msg("ai-assistants-card-assistant-apps-2") });
+    const region = await card();
     // Three tiles: the two hosts `roleband connect` sets up plus the open
     // door, so the card may not imply only two products can connect.
-    const setup = within(card).getAllByRole("button", { name: msg("ai-assistants-card-set-up") });
+    const setup = within(region).getAllByRole("button", { name: msg("ai-assistants-card-set-up") });
     expect(setup).toHaveLength(3);
-    expect(within(card).getByText("Other app")).toBeInTheDocument();
-    expect(within(card).getByText(msg("ai-assistants-card-any-app-that-can-run-commands"), { exact: false })).toBeInTheDocument();
+    expect(within(region).getByText("Other app")).toBeInTheDocument();
     for (const button of setup) expect(button).toBeDisabled();
-    // The write grant gates nothing while nothing may connect: it is absent,
-    // not present-but-greyed.
-    expect(
-      within(card).queryByLabelText("Allow assistant apps to update your progress"),
-    ).toBeNull();
+    // One switch, not two: changes are not a second consent.
+    expect(within(region).getAllByRole("checkbox")).toHaveLength(1);
+    expect(within(region).getByText(msg("ai-assistants-card-what-apps-do"))).toBeInTheDocument();
+    expect(within(region).getByText(msg("ai-assistants-card-everything-shared"))).toBeInTheDocument();
 
-    await userEvent.click(within(card).getByLabelText("Allow assistant apps to connect"));
-    expect(mocked.setAgentAccess).toHaveBeenCalledWith(true, false);
+    await userEvent.click(within(region).getByLabelText("Allow assistant apps to connect"));
+    // The save names both switches and leaves the choices out, so the engine
+    // keeps whatever the person held back in Customize.
+    expect(mocked.setAgentAccess).toHaveBeenCalledWith({ enabled: true, allow_writes: true });
     await waitFor(() => {
-      expect(within(card).getAllByRole("button", { name: msg("ai-assistants-card-set-up") })[0]).toBeEnabled();
+      expect(within(region).getAllByRole("button", { name: msg("ai-assistants-card-set-up") })[0]).toBeEnabled();
     });
-    expect(within(card).getByLabelText("Allow assistant apps to update your progress")).toBeEnabled();
+    // Once on with nothing held back, the last line says nothing at all.
+    expect(within(region).queryByText(msg("ai-assistants-card-everything-shared"))).toBeNull();
+    expect(within(region).queryByText(msg("ai-assistants-card-what-apps-do"))).toBeNull();
+    expect(within(region).getByText(msg("ai-assistants-card-up-to-the-app"))).toBeInTheDocument();
+  });
+
+  it("names only what the person held back", async () => {
+    mocked.agentAccess.mockResolvedValue({
+      ...agentAccessFixture,
+      enabled: true,
+      allow_writes: true,
+      categories: { ...agentAccessFixture.categories, offer: "not_shared", candidate: "local_only" },
+      groups: { ...agentAccessFixture.groups, controlling_collection: "off" },
+    });
+    mount();
+
+    const region = await card();
+    expect(await within(region).findByText(msg("ai-assistants-card-not-shared", { list: "Offer" }))).toBeInTheDocument();
+    expect(within(region).getByText(msg("ai-assistants-card-local-only", { list: "Profile" }))).toBeInTheDocument();
+    expect(
+      within(region).getByText(msg("ai-assistants-card-changes-off", { list: "Controlling collection" })),
+    ).toBeInTheDocument();
+    // What was left open is not listed.
+    expect(within(region).queryByText(/Postings|Tracking progress/)).toBeNull();
+    expect(within(region).queryByText(msg("ai-assistants-card-everything-shared"))).toBeNull();
+  });
+
+  it("says apps only read when every kind of change is off, instead of listing them all", async () => {
+    mocked.agentAccess.mockResolvedValue({
+      ...agentAccessFixture,
+      enabled: true,
+      groups: { tracking_progress: "off", keeping_findings: "off", tuning_radar: "off", controlling_collection: "off" },
+    });
+    mount();
+
+    const region = await card();
+    expect(await within(region).findByText(msg("ai-assistants-card-read-only"))).toBeInTheDocument();
+    expect(within(region).queryByText(/Changes off/)).toBeNull();
+  });
+
+  it("stores each Customize choice at once, with both whole maps", async () => {
+    mocked.agentAccess.mockResolvedValue({ ...agentAccessFixture, enabled: true, allow_writes: true });
+    mocked.setAgentAccess.mockImplementation(async (access) => ({ ...agentAccessFixture, ...access }));
+    mount();
+
+    const region = await card();
+    await userEvent.click(within(region).getByRole("button", { name: msg("ai-assistants-card-customize") }));
+    const dialog = screen.getByRole("dialog", { name: msg("ai-access-dialog-title") });
+    // Every category and every group is a row, each choice a radio under a
+    // heading said once: 5 by 3 and 4 by 2.
+    expect(within(dialog).getAllByRole("radio")).toHaveLength(23);
+    expect(within(dialog).getAllByRole("columnheader", { name: msg("ai-access-dialog-not-shared") })).toHaveLength(1);
+    expect(within(dialog).getByRole("radio", { name: "Offer: Any model" })).toBeChecked();
+    // Nothing is held back yet, so there is nothing to share again, and no Save.
+    expect(within(dialog).queryByRole("button", { name: msg("ai-access-dialog-share-everything") })).toBeNull();
+    expect(within(dialog).queryByRole("button", { name: /Save/ })).toBeNull();
+
+    await userEvent.click(within(dialog).getByRole("radio", { name: "Offer: Not shared" }));
+    expect(mocked.setAgentAccess).toHaveBeenLastCalledWith({
+      enabled: true,
+      allow_writes: true,
+      categories: { ...agentAccessFixture.categories, offer: "not_shared" },
+      groups: agentAccessFixture.groups,
+    });
+    await waitFor(() => expect(within(dialog).getByRole("radio", { name: "Offer: Not shared" })).toBeChecked());
+
+    await userEvent.click(within(dialog).getByRole("radio", { name: "Tuning the radar: Off" }));
+    expect(mocked.setAgentAccess).toHaveBeenLastCalledWith({
+      enabled: true,
+      allow_writes: true,
+      categories: { ...agentAccessFixture.categories, offer: "not_shared" },
+      groups: { ...agentAccessFixture.groups, tuning_radar: "off" },
+    });
+
+    await userEvent.click(await within(dialog).findByRole("button", { name: msg("ai-access-dialog-share-everything") }));
+    expect(mocked.setAgentAccess).toHaveBeenLastCalledWith({
+      enabled: true,
+      allow_writes: true,
+      categories: agentAccessFixture.categories,
+      groups: agentAccessFixture.groups,
+    });
+
+    await userEvent.click(within(dialog).getByRole("button", { name: msg("ai-assistants-card-done") }));
+    expect(screen.queryByRole("dialog", { name: msg("ai-access-dialog-title") })).toBeNull();
+  });
+
+  it("keeps the choice on screen and says why when a save fails", async () => {
+    mocked.agentAccess.mockResolvedValue({ ...agentAccessFixture, enabled: true, allow_writes: true });
+    mocked.setAgentAccess.mockRejectedValue(new Error("boom"));
+    mount();
+
+    const region = await card();
+    await userEvent.click(within(region).getByRole("button", { name: msg("ai-assistants-card-customize") }));
+    const dialog = screen.getByRole("dialog", { name: msg("ai-access-dialog-title") });
+    await userEvent.click(within(dialog).getByRole("radio", { name: "Offer: Not shared" }));
+
+    expect(await within(dialog).findByRole("alert")).toBeInTheDocument();
+    // The stored choice did not change, so the dialog still shows it.
+    expect(within(dialog).getByRole("radio", { name: "Offer: Any model" })).toBeChecked();
   });
 
   it("hands each host the connect command the engine serves for it", async () => {
@@ -654,21 +754,6 @@ describe("assistants card", () => {
     expect(within(dialog).getByText("roleband capabilities")).toBeInTheDocument();
     expect(within(dialog).getByText(msg("ai-assistants-card-let-the-app-run-commands"), { exact: false })).toBeInTheDocument();
     expect(within(dialog).queryByText(/roleband connect/)).toBeNull();
-  });
-
-  it("states what will be seen before anything can connect", async () => {
-    mount();
-    const card = await screen.findByRole("region", { name: msg("ai-assistants-card-assistant-apps-2") });
-    expect(within(card).getByText("What will be shared")).toBeInTheDocument();
-    expect(within(card).getByText("What will not be shared")).toBeInTheDocument();
-    expect(within(card).getByText(/full posting/)).toBeInTheDocument();
-    expect(within(card).getByText(msg("ai-assistants-card-never-your-profile-and-intent-statement"))).toBeInTheDocument();
-    // A "never sees" list may not carry an exception inside it.
-    expect(within(card).queryByText(/Anything at all, unless/)).toBeNull();
-    // The lists say WHAT is visible, not how much of it: no live tally sits
-    // among the shared items, and the card asks for no stats to build one.
-    expect(within(card).queryByText(/Counts:/)).toBeNull();
-    expect(mocked.stats).not.toHaveBeenCalled();
   });
 });
 

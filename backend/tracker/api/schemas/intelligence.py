@@ -36,6 +36,8 @@ from typing import Any, Literal
 
 from pydantic import ConfigDict, Field, RootModel
 
+from tracker.agents.config import CategoryChoice, GroupChoice
+from tracker.agents.operations.descriptor import ActionGroup, DataClass
 from tracker.api.schemas.base import Built
 from tracker.api.schemas.jobs import JobRow
 from tracker.api.schemas.local_models import LocalModelMetrics, LocalModelProvider
@@ -328,10 +330,17 @@ class AgentConnectCommand(Built):
 
 
 class AgentAccessResponse(Built):
-    """Both gates as saved, and the command that connects each agent host."""
+    """Both gates as saved, the choice for every data category and action
+    group, and the command that connects each agent host.
+
+    `categories` and `groups` name every category and group, a missing choice
+    filled in as open. A group reads as off while the connection is on and
+    `allow_writes` is off, since no change is allowed then whatever it says."""
 
     enabled: bool
     allow_writes: bool
+    categories: dict[DataClass, CategoryChoice]
+    groups: dict[ActionGroup, GroupChoice]
     connect: list[AgentConnectCommand]
 
 

@@ -22,6 +22,10 @@ from pydantic import BaseModel, ConfigDict
 from tracker.agents.operations.outcomes import CONTRACT_VERSION
 
 DataClass = Literal["public_posting", "market_statistic", "private_pursuit", "offer", "candidate"]
+#: The kinds of change the person turns on or off for assistants as one
+#: (`docs/decisions/0017-agent-access-open-by-default.md`). Every write
+#: belongs to exactly one.
+ActionGroup = Literal["tracking_progress", "keeping_findings", "tuning_radar", "controlling_collection"]
 ToolTier = Literal["small", "standard", "full"]
 Idempotency = Literal["read", "required_key", "natural_key"]
 ClientEffect = Literal["file_write", "browser_open", "app_open"]
@@ -71,6 +75,8 @@ class OperationDescriptor:
     tool_tiers: tuple[ToolTier, ...]
     #: The data classes a result can contain. A handshake operation names none.
     data_classes: tuple[DataClass, ...] = ()
+    #: The action group a write belongs to; a read belongs to none.
+    action_group: ActionGroup | None = None
     client_effects: tuple[ClientEffect, ...] = ()
     #: The contract version this operation's shapes belong to.
     version: str = CONTRACT_VERSION
@@ -101,6 +107,8 @@ class OperationDescriptor:
             raise ValueError(f"{self.id}: a read is idempotent as a read")
         if self.access == "write" and self.idempotency == "read":
             raise ValueError(f"{self.id}: a write declares its idempotency key")
+        if (self.access == "write") != (self.action_group is not None):
+            raise ValueError(f"{self.id}: a write belongs to one action group, and a read to none")
         if self.input.model_config.get("extra") != "forbid":
             raise ValueError(f"{self.id}: its input must refuse unknown keys")
         if self.expects_revision:

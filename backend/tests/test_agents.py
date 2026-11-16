@@ -57,11 +57,12 @@ def test_agent_access_defaults_off_and_round_trips_both_gates():
     session = ConfigSession()
     saved = asyncio.run(set_agent_access(session, AgentAccessConfig(enabled=True, allow_writes=True)))
     assert saved.allow_writes is True
-    # A save of the switches alone keeps the stored category choices, none here.
+    # A save of the switches alone keeps the stored choices, none here.
     assert session.executed[-1].compile().params["value"] == {
         "enabled": True,
         "allow_writes": True,
         "categories": {},
+        "groups": {},
     }
 
 
@@ -77,7 +78,7 @@ def test_settings_offers_the_connect_command_for_exactly_the_hosts_connect_sets_
         assert shlex.split(item["command"]) == ["roleband", "connect", item["host"], "--apply"]
     # The control: a host `connect` refuses as unmeasured is never offered.
     assert connect.UNTESTED and not set(connect.UNTESTED) & {item["host"] for item in state["connect"]}
-    assert set(state) == {"enabled", "allow_writes", "connect"}
+    assert set(state) == {"enabled", "allow_writes", "categories", "groups", "connect"}
     assert "api_key" not in str(state).lower() and "token" not in str(state).lower()
 
 

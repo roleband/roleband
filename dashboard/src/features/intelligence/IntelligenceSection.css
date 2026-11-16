@@ -357,110 +357,41 @@
   background: var(--app-bar);
 }
 
-/* ---- assistants: the data sheet and the gate ----------------------------- */
+/* ---- assistants: the gate, the apps, and what is held back ---------------- */
 
-/* Two columns for the sheet and the tiles; the grants span both. The grants
-   are the card's control rather than a note beside the sheet, so they get the
-   card's full width: the gate's note stays a clause on the gate's own line
-   (intelligence.spec.ts asserts it does) whatever width the tiles take. */
-.intel-split {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 372px;
-  gap: 0 var(--app-space-6);
-  align-items: start;
-}
-
-.intel-split > .intel-grants {
-  grid-column: 1 / -1;
-  margin-top: var(--app-space-4);
-}
-
-.intel-sheet {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 var(--app-space-5);
-}
-
-.intel-sheet h3 {
-  margin: 0 0 var(--app-space-1);
-  color: var(--app-text-muted);
-  font-family: var(--app-font-mono);
-  font-size: var(--app-type-whisper);
-  line-height: 1.3;
-  font-weight: var(--app-type-whisper-weight);
-  letter-spacing: var(--app-type-whisper-track);
-  text-transform: uppercase;
-}
-
-.intel-sheet ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.intel-sheet li {
+/* The one consent. Its frame is the gold hairline the gate has always worn:
+   this row is the decision, the rest of the card follows from it. */
+.intel-access-gate {
   display: flex;
-  align-items: baseline;
-  gap: var(--app-space-2);
-  padding: var(--app-space-2) 0;
-  border-top: 1px solid var(--app-border);
-  font-size: var(--app-type-body);
-  line-height: 1.4;
-}
-
-.intel-sheet li .intel-sheet-glyph {
-  flex: none;
-  width: 14px;
-  display: inline-flex;
-  justify-content: center;
-  color: var(--app-text);
-  position: relative;
-  top: 2px;
-}
-
-/* The two lists are one rank: both state what an assistant app does with the
- * user's data, and the second is the half a person actually needs to trust.
- * Muting it would make the privacy guarantee the quieter of the two claims.
- * The lists are told apart by their heading and their glyph (a shape
- * difference, which is what the glyph is for), never by fading one of them. */
-.intel-sheet li.is-never .intel-sheet-glyph { color: var(--app-text-muted); }
-
-/* One frame around both grants: the write permission is a narrower grant of
-   the same thing the gate opens, and a shared border is what says so. The
-   rows are divided by a hairline, not by a gap. */
-.intel-grants {
+  align-items: center;
+  gap: var(--app-space-4);
   margin-top: var(--app-space-4);
+  padding: 14px var(--app-space-4);
   border: 1px solid var(--app-action-line);
   border-radius: var(--app-radius-md);
 }
 
-/* Horizontal spacing is deliberately tighter than the vertical: the row has to
-   hold the switch, its label and its clause on one line, and the clause is
-   what says what the gate opens. When it
-   wraps, the gate becomes three lines beside a one-line grant and the pair
-   stops reading as two decisions of the same rank. */
-.intel-gate {
+.intel-access-gate-copy {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--app-space-3);
-  padding: 14px var(--app-space-3);
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
-/* Both grants wear ONE label treatment: two decisions of the same rank, inside
- * one frame built to say so, may not be typed as if one outranked the other. */
-.intel-grants .intel-grant-name { font-weight: var(--app-weight-name); }
+.intel-access-gate .intel-grant-name { font-weight: var(--app-weight-name); }
 
-.intel-gate .intel-gate-note {
-  margin-left: auto;
+.intel-access-gate-note {
   color: var(--app-text-muted);
-  font-family: var(--app-font-mono);
   font-size: var(--app-type-meta);
+  line-height: 1.45;
 }
+
+.intel-tiles { margin-top: var(--app-space-4); }
 
 .intel-tiles {
   display: grid;
-  gap: var(--app-space-2);
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--app-space-3);
 }
 
 .intel-tile {
@@ -506,26 +437,86 @@
   font-size: var(--app-type-meta);
 }
 
-.intel-perm {
+/* The card's last line: what the person held back, if anything, and the way
+   in to Customize. Each held-back kind is its own sentence. */
+.intel-access-foot {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--app-space-3);
-  padding: 12px var(--app-space-4);
+  align-items: baseline;
+  gap: var(--app-space-4);
+  margin-top: var(--app-space-4);
+  padding-top: var(--app-space-3);
   border-top: 1px solid var(--app-border);
-  min-height: 32px;
 }
 
-.intel-perm .intel-perm-note {
-  margin-left: auto;
+.intel-access-held {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--app-space-2);
   color: var(--app-text-muted);
-  font-family: var(--app-font-mono);
   font-size: var(--app-type-body);
 }
 
-/* No `.is-off` rule: the write grant is not rendered while it gates nothing,
- * so there is no unavailable state for it to have, and the card keeps one way
- * of saying "unavailable". */
+/* Customize: two grids whose choices are column headings, said once. */
+.intel-access { gap: var(--app-space-5); }
+
+.intel-access-grid {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.intel-access-grid caption,
+.intel-access-grid thead th {
+  color: var(--app-text-muted);
+  font-family: var(--app-font-mono);
+  font-size: var(--app-type-whisper);
+  font-weight: var(--app-type-whisper-weight);
+  letter-spacing: var(--app-type-whisper-track);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.intel-access-grid caption {
+  padding-bottom: var(--app-space-2);
+  text-align: left;
+}
+
+/* Fixed choice columns, so both grids line their controls up. */
+.intel-access-grid thead th {
+  width: 120px;
+  padding: 0 0 var(--app-space-2);
+  text-align: center;
+  vertical-align: bottom;
+}
+
+.intel-access-grid tbody th,
+.intel-access-grid tbody td {
+  height: 44px;
+  border-top: 1px solid var(--app-border);
+}
+
+.intel-access-grid tbody th {
+  text-align: left;
+  font-size: var(--app-type-body);
+  font-weight: var(--app-weight-name);
+}
+
+.intel-access-grid tbody td { text-align: center; }
+
+.intel-access-grid thead .intel-access-pad { width: 120px; }
+
+.intel-access-cell {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--app-action);
+  cursor: pointer;
+}
+
+.intel-access-cell:disabled { cursor: default; }
+
+.intel-access-actions > .ui-btn-link { margin-right: auto; }
 
 /* ---- extended capabilities ----------------------------------------------- */
 
@@ -824,13 +815,10 @@
 /* ---- narrow ------------------------------------------------------------- */
 
 @media (max-width: 1100px) {
-  .intel-field,
-  .intel-split { grid-template-columns: minmax(0, 1fr); gap: var(--app-space-5) 0; }
-  .intel-sheet { gap: 0 var(--app-space-4); }
+  .intel-field { grid-template-columns: minmax(0, 1fr); gap: var(--app-space-5) 0; }
 }
 
 @media (max-width: 640px) {
-  .intel-sheet { grid-template-columns: minmax(0, 1fr); }
   .intel-origin .intel-origin-to { display: none; }
   .intel-cap {
     grid-template-columns: 28px minmax(0, 1fr) auto;

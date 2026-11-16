@@ -645,6 +645,15 @@ async def test_agent_access_is_off_until_saved_and_names_each_hosts_connect_comm
     assert body == {
         "enabled": False,
         "allow_writes": False,
+        # Every category and group is named, open until the person holds it back.
+        "categories": {
+            "public_posting": "any_model", "market_statistic": "any_model", "private_pursuit": "any_model",
+            "offer": "any_model", "candidate": "any_model",
+        },
+        "groups": {
+            "tracking_progress": "on", "keeping_findings": "on", "tuning_radar": "on",
+            "controlling_collection": "on",
+        },
         "connect": [
             {"host": "claude-code", "command": "roleband connect claude-code --apply"},
             {"host": "codex", "command": "roleband connect codex --apply"},

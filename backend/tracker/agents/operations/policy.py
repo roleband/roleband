@@ -18,6 +18,10 @@ off is absent, not masked:
 Every caller of these operations is an assistant outside the engine, which
 RoleBand cannot hold to models on this computer, so `local_only` reads as not
 shared here.
+
+The person also chooses per action group whether assistants may make that kind
+of change. A write whose group is off is refused as `writes_disabled`, with
+`details.setting` naming the group's choice rather than `allow_writes`.
 """
 
 from __future__ import annotations
@@ -27,6 +31,7 @@ from typing import Protocol
 
 from tracker.agents.operations.descriptor import (
     AVAILABLE,
+    ActionGroup,
     Availability,
     DataClass,
     OperationDescriptor,
@@ -44,6 +49,9 @@ class AgentSwitches(Protocol):
     @property
     def categories(self) -> Mapping[DataClass, str]: ...
 
+    @property
+    def groups(self) -> Mapping[ActionGroup, str]: ...
+
 
 #: How each category is named to the caller.
 CATEGORY_NAMES: dict[DataClass, str] = {
@@ -55,10 +63,25 @@ CATEGORY_NAMES: dict[DataClass, str] = {
 }
 
 
+#: How each action group is named to the caller.
+GROUP_NAMES: dict[ActionGroup, str] = {
+    "tracking_progress": "tracking progress",
+    "keeping_findings": "keeping findings",
+    "tuning_radar": "tuning the radar",
+    "controlling_collection": "controlling collection",
+}
+
+
 def shared(switches: AgentSwitches, category: DataClass) -> bool:
     """Whether an assistant outside the engine may read `category`. A
     category with no stored choice is shared; `enabled` off shares nothing."""
     return switches.enabled and switches.categories.get(category, "any_model") == "any_model"
+
+
+def acts(switches: AgentSwitches, group: ActionGroup) -> bool:
+    """Whether an assistant may make the changes of `group`. A group with no
+    stored choice is on; either master switch off turns every group off."""
+    return switches.enabled and switches.allow_writes and switches.groups.get(group, "on") == "on"
 
 
 def withheld(descriptor: OperationDescriptor, switches: AgentSwitches) -> frozenset[DataClass]:
@@ -72,6 +95,8 @@ def availability(descriptor: OperationDescriptor, switches: AgentSwitches) -> Av
     if descriptor.data_classes and not shared(switches, descriptor.data_classes[0]):
         return Availability("unavailable", "category_disabled")
     if descriptor.access == "write" and not switches.allow_writes:
+        return Availability("unavailable", "writes_disabled")
+    if descriptor.action_group is not None and not acts(switches, descriptor.action_group):
         return Availability("unavailable", "writes_disabled")
     return AVAILABLE
 
@@ -104,9 +129,18 @@ def admit(descriptor: OperationDescriptor, switches: AgentSwitches) -> None:
         )
     if state.reason == "category_disabled":
         raise category_disabled(descriptor.data_classes[0])
+    group = descriptor.action_group
+    if not switches.allow_writes or group is None:
+        raise OperationError(
+            "writes_disabled",
+            "Agent changes are off. The person can allow them in Settings.",
+            details={"setting": "agent_access.allow_writes"},
+            next_actions=[NextAction(operation="describe", arguments={"operation": descriptor.id})],
+        )
     raise OperationError(
         "writes_disabled",
-        "Agent changes are off. The person can allow them in Settings.",
-        details={"setting": "agent_access.allow_writes"},
+        f"The person does not let assistants make changes for {GROUP_NAMES[group]}. "
+        "They can allow them in Settings.",
+        details={"group": group, "setting": f"agent_access.groups.{group}"},
         next_actions=[NextAction(operation="describe", arguments={"operation": descriptor.id})],
     )

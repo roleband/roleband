@@ -11,7 +11,7 @@ import logging
 from collections.abc import Awaitable, Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, get_args
 
 import httpx
 from fastapi import APIRouter
@@ -20,6 +20,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.agents.config import AgentAccessConfig, get_agent_access, set_agent_access
+from tracker.agents.operations.descriptor import ActionGroup, DataClass
 from tracker.api.deps import OffBoardDep, SessionDep, end_read
 from tracker.api.errors import ErrorCode, api_error
 from tracker.api.schemas.intelligence import (
@@ -541,9 +542,14 @@ CONNECT_HOSTS = ("claude-code", "codex")
 
 
 def _agent_connection_state(config: AgentAccessConfig) -> dict:
+    read_only = config.enabled and not config.allow_writes
     return {
         "enabled": config.enabled,
         "allow_writes": config.allow_writes,
+        "categories": {name: config.categories.get(name, "any_model") for name in get_args(DataClass)},
+        "groups": {
+            name: "off" if read_only else config.groups.get(name, "on") for name in get_args(ActionGroup)
+        },
         "connect": [
             {"host": host, "command": shell_join(["roleband", "connect", host, "--apply"])}
             for host in CONNECT_HOSTS

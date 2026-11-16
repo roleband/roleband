@@ -188,6 +188,26 @@
       "default": false,
       "title": "Enabled",
       "type": "boolean"
+     },
+     "groups": {
+      "additionalProperties": {
+       "enum": [
+        "on",
+        "off"
+       ],
+       "type": "string"
+      },
+      "default": {},
+      "propertyNames": {
+       "enum": [
+        "tracking_progress",
+        "keeping_findings",
+        "tuning_radar",
+        "controlling_collection"
+       ]
+      },
+      "title": "Groups",
+      "type": "object"
      }
     },
     "title": "AgentAccessConfig",
@@ -195,11 +215,32 @@
    },
    "AgentAccessResponse": {
     "additionalProperties": false,
-    "description": "Both gates as saved, and the command that connects each agent host.",
+    "description": "Both gates as saved, the choice for every data category and action\ngroup, and the command that connects each agent host.\n\n`categories` and `groups` name every category and group, a missing choice\nfilled in as open. A group reads as off while the connection is on and\n`allow_writes` is off, since no change is allowed then whatever it says.",
     "properties": {
      "allow_writes": {
       "title": "Allow Writes",
       "type": "boolean"
+     },
+     "categories": {
+      "additionalProperties": {
+       "enum": [
+        "any_model",
+        "local_only",
+        "not_shared"
+       ],
+       "type": "string"
+      },
+      "propertyNames": {
+       "enum": [
+        "public_posting",
+        "market_statistic",
+        "private_pursuit",
+        "offer",
+        "candidate"
+       ]
+      },
+      "title": "Categories",
+      "type": "object"
      },
      "connect": {
       "items": {
@@ -211,11 +252,32 @@
      "enabled": {
       "title": "Enabled",
       "type": "boolean"
+     },
+     "groups": {
+      "additionalProperties": {
+       "enum": [
+        "on",
+        "off"
+       ],
+       "type": "string"
+      },
+      "propertyNames": {
+       "enum": [
+        "tracking_progress",
+        "keeping_findings",
+        "tuning_radar",
+        "controlling_collection"
+       ]
+      },
+      "title": "Groups",
+      "type": "object"
      }
     },
     "required": [
      "enabled",
      "allow_writes",
+     "categories",
+     "groups",
      "connect"
     ],
     "title": "AgentAccessResponse",

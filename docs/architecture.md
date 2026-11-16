@@ -1301,9 +1301,17 @@ statement and the saved, pursued and dismissed roles into the person's intent,
 each only while its class is shared, and without pursuits search lists the
 roles the person dismissed like any other; without market statistics its base
 pay bounds and pay sort read only the range a posting states, never the
-estimate a row falls back to. A Settings save of the two switches
-keeps stored choices the engine cannot read as they are, so the row still
-reads as everything off. A keyed write's receipt keeps the whole result; its
+estimate a row falls back to. Beside the categories, `agent_access.groups`
+holds the person's choice per action group, `on` or `off`. Every write
+declares the one group it belongs to (`OperationDescriptor.action_group`; a
+read declares none), and a write whose group is off is refused as
+`writes_disabled` with `details.setting` naming that group's choice. A group
+with no choice is on, and with `allow_writes` off every group is off. The
+Settings route answers every category and group with a missing choice filled
+in as open, and a group as off while the connection is on and `allow_writes`
+off. A Settings save of the two switches keeps the stored choices, those the
+engine cannot read as they are, so the row still reads as everything off. A
+keyed write's receipt keeps the whole result; its
 answer, fresh or replayed, leaves the part out. Every operation but the
 handshake declares at least one data class.
 A class covers what its part reveals, not where the part is stored. Public
