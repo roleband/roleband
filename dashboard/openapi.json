@@ -2213,6 +2213,16 @@
        }
       ]
      },
+     "plugin": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PluginHealthChange"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "sequence": {
       "title": "Sequence",
       "type": "string",
@@ -25743,6 +25753,62 @@
      "fingerprint"
     ],
     "title": "PluginDetail",
+    "type": "object"
+   },
+   "PluginHealthChange": {
+    "additionalProperties": false,
+    "properties": {
+     "job": {
+      "title": "Job",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "outcome": {
+      "title": "Outcome",
+      "type": "string",
+      "x-text": "code"
+     },
+     "plugin": {
+      "title": "Plugin",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "previous_state": {
+      "anyOf": [
+       {
+        "enum": [
+         "healthy",
+         "degraded",
+         "failing"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Previous State",
+      "x-text": "code"
+     },
+     "state": {
+      "enum": [
+       "healthy",
+       "degraded",
+       "failing"
+      ],
+      "title": "State",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "state",
+     "previous_state",
+     "outcome",
+     "plugin",
+     "job"
+    ],
+    "title": "PluginHealthChange",
     "type": "object"
    },
    "PluginJobView": {

@@ -2784,6 +2784,37 @@ class PluginRun(Base):
     )
 
 
+class PluginRunEnd(Base):
+    """How one plugin run ended, recorded by the transaction that closed it.
+
+    `plugin_run` is rewritten while a run goes and when it ends, so its row
+    holds no place in commit order; this table is the changes feed's record of
+    each end: one row per run, inserted and never updated. The first close of a
+    run is its record: a later rewrite of the run's outcome (a host that closes
+    a run the dead-run sweep closed first) changes `plugin_run` only.
+    """
+
+    __tablename__ = "plugin_run_ends"
+    __table_args__ = (
+        UniqueConstraint("run_id", name="uq_plugin_run_ends_run"),
+        Index(
+            "ix_plugin_run_ends_change_position",
+            "change_xact",
+            "id",
+            postgresql_where=text("change_xact IS NOT NULL"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("plugin_run.id", ondelete="CASCADE"))
+    plugin_id: Mapped[str] = mapped_column(String(32))
+    job: Mapped[str] = mapped_column(String(32))
+    outcome: Mapped[str] = mapped_column(String(16))
+    ended_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    change_xact: Mapped[int | None] = _change_xact_column()
+    change_cluster: Mapped[int | None] = _change_cluster_column()
+
+
 class PluginState(Base):
     """A plugin's own small key/value store (`ctx.state`), kept between runs."""
 

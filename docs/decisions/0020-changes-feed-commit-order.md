@@ -4,7 +4,7 @@
 
 `changes.list` gives an agent what changed after a position it holds, and the
 position must neither lose nor repeat an event. The records it reads
-(`job_lifecycle_events`, `scrape_source_runs`) are ordered by a bigint id from
+(`job_lifecycle_events`, `scrape_source_runs`, `plugin_run_ends`) are ordered by a bigint id from
 a sequence, but the id is taken when the row is inserted, not when it commits.
 Two writers run at once (a scrape run and a page read, say): the first takes id
 10 and stays open, the second takes id 11 and commits. A reader that answers
@@ -45,10 +45,13 @@ commit there. `xid8` gives that id in 64 bits, so it never wraps.
 - Rows written before the columns existed (NULL), and rows restored from
   another cluster, carry no position this cluster can order. They are history
   that a read from the beginning or from a `start_time` answers first, by id.
-- A kind with no ordered record is derived at the read and labelled so
-  (a repost label, a source's health move, a pursuit's due time) or reported
-  unavailable (a plugin's health, whose run row is rewritten when it ends).
-  None is synthesized as a recorded event.
+- A record is inserted, never updated: a row its writer rewrites has no place
+  in commit order. A plugin run's row is rewritten while it runs and when it
+  ends, so the transaction that closes a run also inserts its end into
+  `plugin_run_ends`, once per run; that table is the plugin record.
+- A kind with no ordered record of its own is derived at the read and labelled
+  so (a repost label, a source's or a plugin job's health move, a pursuit's due
+  time) or reported unavailable. None is synthesized as a recorded event.
 
 ## Consequences
 
@@ -57,7 +60,11 @@ commit there. `xid8` gives that id in 64 bits, so it never wraps.
 - A restore into a new cluster, or a major Postgres upgrade that changes the
   system identifier, expires every position given out before; the refusal names
   the time to start again from. Rows written while the schema is downgraded read
-  as history after the upgrade, as rows from before the columns do.
+  as history after the upgrade, as rows from before the columns do. A plugin
+  run closed before `plugin_run_ends` existed, or by code that does not know
+  it, has no end there and is never reported; the next recorded end of its job
+  is still compared with it, unless it was stopped, since a stopped run is left
+  out of every comparison.
 - Delivery is at least once: the same `since` answers the same page again, and
   each event's `sequence` is stable for deduplication.
 - `tests/test_agent_changes_db.py` holds the order with two writers, one held

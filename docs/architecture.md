@@ -1406,10 +1406,11 @@ opens no posting at a hidden company.
 `changes.list` (`backend/tracker/agents/operations/changes.py`) reads what changed
 after a position, in commit order: openings, closings, reopenings and reposts
 from `job_lifecycle_events`, stated-pay changes from its `disclosed_base`
-detail, source health from `scrape_source_runs`, and pursuit actions falling
-due from `pursuits.next_action_due`. Each event says whether it is recorded or
-derived at the read (a repost label, a health move, a due time); a plugin's
-health has no ordered record and is reported unavailable. Both records carry the
+detail, source health from `scrape_source_runs`, a plugin job's health from
+`plugin_run_ends` (one row per plugin run closed since the table exists,
+inserted by the transaction that closes it), and pursuit actions falling due from
+`pursuits.next_action_due`. Each event says whether it is recorded or derived
+at the read (a repost label, a health move, a due time). The records carry the
 inserting transaction (`change_xact`, `xid8`, and `change_cluster`), and a read
 stops below the oldest transaction of the database still running, so a row that
 commits late is read later, never passed over

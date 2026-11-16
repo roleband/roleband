@@ -1,7 +1,7 @@
 {
  "_why": "The schema as the models declare it, frozen so a change to a column, index, constraint or default cannot land without showing up in a reviewer's diff. `alembic check` already answers 'do the models and the migrations agree?', but only against a live cluster and only in a CI log; this fixture answers 'did the models change at all?' with no database, in the pull request itself. The two claims are independent: a model edit WITH a matching migration keeps `check` green and still belongs in review, which is what this catches. Regenerate deliberately, in the same change as the migration: `.venv/bin/python -m scripts.freeze_schema_metadata`.",
  "embedding_dim": 768,
- "table_count": 75,
+ "table_count": 76,
  "classes": {
   "AiTaskLog": "ai_task_log",
   "AppSetting": "app_settings",
@@ -51,6 +51,7 @@
   "PluginInstall": "plugin_install",
   "PluginReport": "plugin_report",
   "PluginRun": "plugin_run",
+  "PluginRunEnd": "plugin_run_ends",
   "PluginState": "plugin_state",
   "PostingInventory": "posting_inventory",
   "PriceFeedRequest": "price_feed_requests",
@@ -1572,6 +1573,30 @@
     "published": "dict()",
     "refusals": "list()"
    },
+   "python_onupdate": {},
+   "comment": null,
+   "column_comments": {}
+  },
+  "plugin_run_ends": {
+   "create": [
+    "CREATE TABLE plugin_run_ends (",
+    "    id BIGSERIAL NOT NULL,",
+    "    run_id BIGINT NOT NULL,",
+    "    plugin_id VARCHAR(32) NOT NULL,",
+    "    job VARCHAR(32) NOT NULL,",
+    "    outcome VARCHAR(16) NOT NULL,",
+    "    ended_at TIMESTAMP WITH TIME ZONE NOT NULL,",
+    "    change_xact xid8 DEFAULT pg_current_xact_id(),",
+    "    change_cluster BIGINT DEFAULT (pg_control_system()).system_identifier,",
+    "    PRIMARY KEY (id),",
+    "    CONSTRAINT uq_plugin_run_ends_run UNIQUE (run_id),",
+    "    FOREIGN KEY(run_id) REFERENCES plugin_run (id) ON DELETE CASCADE",
+    ")"
+   ],
+   "indexes": [
+    "CREATE INDEX ix_plugin_run_ends_change_position ON plugin_run_ends (change_xact, id) WHERE change_xact IS NOT NULL"
+   ],
+   "python_defaults": {},
    "python_onupdate": {},
    "comment": null,
    "column_comments": {}
