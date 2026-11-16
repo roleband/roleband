@@ -160,7 +160,11 @@ final class LauncherUpdates: ObservableObject {
                 if release.filesReady {
                     do {
                         let notice = try await authenticate(release.version)
-                        signed = release.signed(notice: notice, important: release.markListed ? await important(release.version) : false)
+                        // A mark cannot be withdrawn, so one this version already showed stays when a
+                        // later read of it fails; a newer version starts unmarked.
+                        let kept = offered.map { $0.version == release.version && $0.important } ?? false
+                        let marked = release.markListed ? await important(release.version) : false
+                        signed = release.signed(notice: notice, important: marked || kept)
                     } catch is ArtifactProblem { signed = nil }
                 } else { signed = nil }
                 try Task.checkCancellation()

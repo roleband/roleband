@@ -387,6 +387,7 @@ private actor ReleaseSignatures {
     var marks: Set<String> = []
     var marksRead: [String] = []
     func mark(_ version: String) { marks.insert(version) }
+    func unmark(_ version: String) { marks.remove(version) }
     func important(_ version: String) -> Bool { marksRead.append(version); return marks.contains(version) }
     func check(_ version: String) throws -> String? {
         asked.append(version)
@@ -509,6 +510,11 @@ private actor ReleaseSignatures {
     #expect(updates.offered?.important == true)
     #expect(await signatures.marksRead == ["0.3.0", "0.3.0"])
     #expect(launcher().offered?.important == true)
+
+    // A later check that cannot read the mark keeps it for this version.
+    await signatures.unmark("0.3.0")
+    await updates.checkManuallyAndWait()
+    #expect(updates.offered?.important == true && launcher().offered?.important == true)
 
     await transport.set(version: "0.4.0")
     await transport.set(marked: false)

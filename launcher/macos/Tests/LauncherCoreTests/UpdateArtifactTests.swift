@@ -40,6 +40,32 @@ func updateTrustComesOnlyFromTheInstalledReleaseBundle(kind: String) throws {
     else { #expect(throws: ArtifactProblem.self) { _ = try VerifiedArtifact.installedPublicKey(in: bundle) } }
 }
 
+/// Marks are checked with the keys the release bundle holds: its current key alone when it has no
+/// spare, both when it has one, and none when a key it holds cannot be read.
+@Test(arguments: ["no-spare", "spare", "bad-spare", "candidate"])
+func anImportantMarkIsCheckedWithTheBundlesReleaseKeys(kind: String) throws {
+    let fixture = try ArtifactFixture.load()
+    let spare = Curve25519.Signing.PrivateKey().publicKey.rawRepresentation
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let contents = root.appendingPathComponent("RoleBand.app/Contents")
+    try FileManager.default.createDirectory(at: contents, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    var info: [String: Any] = ["CFBundleIdentifier": "com.roleband.launcher", "RoleBandPackagedEngine": true,
+                               "RoleBandUpdatePublicKey": fixture.publicKey.base64EncodedString()]
+    if kind == "spare" { info["RoleBandUpdateSpareKey"] = spare.base64EncodedString() }
+    if kind == "bad-spare" { info["RoleBandUpdateSpareKey"] = "not-base64" }
+    if kind == "candidate" { info["RoleBandReleaseCandidate"] = true }
+    try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0)
+        .write(to: contents.appendingPathComponent("Info.plist"))
+    let bundle = try #require(Bundle(url: contents.deletingLastPathComponent()))
+    let keys = UpdateDownloader.markKeys(in: bundle)
+    switch kind {
+    case "no-spare": #expect(keys?.publicKey == fixture.publicKey && keys?.spareKey == nil)
+    case "spare": #expect(keys?.publicKey == fixture.publicKey && keys?.spareKey == spare)
+    default: #expect(keys == nil)
+    }
+}
+
 @Test func nativeUpdaterAcceptsThePythonReleaseToolsExactSignedBytes() throws {
     let fixture = try ArtifactFixture.load()
     let artifact = try fixture.authenticate()

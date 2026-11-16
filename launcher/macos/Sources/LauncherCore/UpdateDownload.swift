@@ -228,10 +228,16 @@ public actor UpdateDownloader {
     /// missing, unreadable or not signed by those keys counts as none: the next check reads it again.
     public static func important(version: String, in bundle: Bundle = .main) async -> Bool {
         guard let repository = UpdateRepository.stamped(in: bundle), let base = try? repository.releaseURL(version: version),
-              let publicKey = try? VerifiedArtifact.installedPublicKey(in: bundle),
-              let spareKey = try? VerifiedArtifact.installedSpareKey(in: bundle) else { return false }
-        return await important(version: version, publicKey: publicKey, spareKey: spareKey,
+              let keys = markKeys(in: bundle) else { return false }
+        return await important(version: version, publicKey: keys.publicKey, spareKey: keys.spareKey,
                                origin: AssetOrigin(base: base, loopback: false))
+    }
+
+    /// The release keys a mark may be signed with. An app without a spare key still checks marks
+    /// with its current one; a key the bundle holds but cannot read means no mark is trusted.
+    static func markKeys(in bundle: Bundle) -> (publicKey: Data, spareKey: Data?)? {
+        do { return (try VerifiedArtifact.installedPublicKey(in: bundle), try VerifiedArtifact.installedSpareKey(in: bundle)) }
+        catch { return nil }
     }
 
     static func important(version: String, publicKey: Data, spareKey: Data? = nil, origin: AssetOrigin) async -> Bool {

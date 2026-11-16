@@ -31,8 +31,9 @@ person it is for may never open the panel. A release's Before you update notice 
 the window itself, so Update needs no Read first step there. Later hides that version's
 window for three days; after the third Later only the menu-bar badge carries it, and a
 newer version starts again. A release marked important says instead "This update includes
-important fixes and is recommended for all users." and comes back a day after each Later,
-however many there were; like any other, it installs only when the person presses Update.
+important improvements and fixes, and is recommended for all users." and comes back a day
+after each Later, however many there were; like any other, it installs only when the
+person presses Update.
 Check now never opens the window; its answer is the status row.
 The window waits while setup is open or unfinished and while an update runs, and About's
 update-window switch turns it off. A source checkout gets no window: its offer stays in the

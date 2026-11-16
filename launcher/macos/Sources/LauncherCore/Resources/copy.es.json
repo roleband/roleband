@@ -346,7 +346,7 @@
   "panel-status-failed": "No se pudo comprobar",
   "update-ready": "La versión {version} está lista",
   "update-window-body": "Esta actualización incluye mejoras y correcciones de errores.",
-  "update-window-body-important": "Esta actualización incluye correcciones importantes y se recomienda a todos los usuarios.",
+  "update-window-body-important": "Esta actualización incluye mejoras y correcciones importantes, y se recomienda a todos los usuarios.",
   "update-install": "Actualizar",
   "update-read-first": "Leer primero",
   "update-released": "Publicada el {date}",
