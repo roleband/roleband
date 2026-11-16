@@ -78,11 +78,11 @@ def _capabilities(data: dict[str, Any]) -> list[str]:
                 state = "unknown" if unavailable is None else (
                     "unavailable" if operation in unavailable else "available")
                 lines.append(f"    {escape(operation):<28} {escape(state)}")
-        return lines
-    for entry in data["operations"]:
-        state = entry["availability"]["state"]
-        lines.append(f"  {escape(entry['operation']):<16} {escape(state):<12} {escape(entry['summary'])}")
-    return lines
+    else:
+        for entry in data["operations"]:
+            state = entry["availability"]["state"]
+            lines.append(f"  {escape(entry['operation']):<16} {escape(state):<12} {escape(entry['summary'])}")
+    return [*lines, "tools for your own agent: roleband tools export --dialect openai|anthropic"]
 
 
 def _describe(data: dict[str, Any]) -> list[str]:
@@ -105,6 +105,12 @@ def _describe(data: dict[str, Any]) -> list[str]:
 
 def _generic(data: object) -> list[str]:
     return [escape(line) for line in json.dumps(data, ensure_ascii=False, indent=2).splitlines()]
+
+
+def _tools(data: dict[str, Any]) -> list[str]:
+    from tracker.cli.tools import human_lines
+
+    return human_lines(data, escape)
 
 
 def _connect(data: dict[str, Any]) -> list[str]:
@@ -161,6 +167,6 @@ def _vocabulary(data: dict[str, Any]) -> list[str]:
 
 
 _HUMAN = {
-    "status": _status, "capabilities": _capabilities, "describe": _describe, "connect": _connect,
+    "status": _status, "capabilities": _capabilities, "describe": _describe, "connect": _connect, "tools.export": _tools,
     "opportunities.search": _search, "vocabulary.list": _vocabulary,
 }

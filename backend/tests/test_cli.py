@@ -666,6 +666,21 @@ def test_a_human_describe_names_the_command_that_shows_the_output_schema(home):
     assert cli(home, *command).envelope["data"]["output_schema"]["title"] == "StatusResult"
 
 
+@pytest.mark.parametrize("view", ["summary", "full"])
+def test_human_capabilities_names_the_export_for_a_persons_own_agent(home, view):
+    shown = cli(home, "capabilities", "--offline", "--view", view, "--format", "human")
+    assert shown.status == 0
+    line = next(line for line in shown.stdout.splitlines() if "tools export" in line)
+    words = line.split("roleband ", 1)[1].split()
+    assert words[:3] == ["tools", "export", "--dialect"]
+    # Each dialect it names is one the command takes.
+    for dialect in words[3].split("|"):
+        exported = cli(home, *words[:3], dialect, "--offline", "--json")
+        assert exported.status == 0 and exported.envelope["data"]["tool_count"] > 0, dialect
+    # The agent's own JSON index carries no such line: it costs every session.
+    assert "tools export" not in cli(home, "capabilities", "--offline", "--json").stdout
+
+
 def test_capabilities_answers_where_no_home_folder_can_be_found(monkeypatch):
     """Keeping an installed skill current never fails the call: an environment
     that names no home folder (a Windows service, a stripped CI job) has no
