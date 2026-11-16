@@ -70,7 +70,14 @@ def _status(data: dict[str, Any]) -> list[str]:
 def _capabilities(data: dict[str, Any]) -> list[str]:
     source = data["metadata_source"]
     lines = [f"contract {escape(data['contract_version'])}, metadata from {escape(source)}"]
-    for entry in data["operations"]:
+    operations = data["operations"]
+    if isinstance(operations, dict):
+        unavailable = data.get("unavailable")
+        for name, summary in operations.items():
+            state = "unknown" if unavailable is None else ("unavailable" if name in unavailable else "available")
+            lines.append(f"  {escape(name):<16} {escape(state):<12} {escape(summary)}")
+        return lines
+    for entry in operations:
         state = entry["availability"]["state"]
         lines.append(f"  {escape(entry['operation']):<16} {escape(state):<12} {escape(entry['summary'])}")
     return lines
@@ -78,7 +85,7 @@ def _capabilities(data: dict[str, Any]) -> list[str]:
 
 def _describe(data: dict[str, Any]) -> list[str]:
     effects = [name for name, on in data["engine_effects"].items() if on]
-    return [
+    lines = [
         f"{escape(data['operation'])}: {escape(data['summary'])}",
         f"  access         {escape(data['access'])} ({', '.join(escape(s) for s in data['required_scopes'])})",
         f"  availability   {escape(data['availability']['state'])}",
@@ -88,6 +95,9 @@ def _describe(data: dict[str, Any]) -> list[str]:
         f"  tool tiers     {', '.join(escape(t) for t in data['tool_tiers'])}",
         f"  metadata from  {escape(data['metadata_source'])}",
     ]
+    if "output_schema" not in data:
+        lines.append(f"  output schema  roleband describe {escape(data['operation'])} --view full")
+    return lines
 
 
 def _generic(data: object) -> list[str]:

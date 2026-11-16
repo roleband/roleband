@@ -44,6 +44,9 @@ class Home:
                 for path in sorted(self.root.rglob("*")) if path.is_file()}
 
     def connect(self, host: str, mode: str, *, path: str | None = None) -> tuple[int, dict]:
+        return self.run("connect", host, f"--{mode}", path=path)
+
+    def run(self, *args: str, path: str | None = None) -> tuple[int, dict]:
         env = {
             "PATH": path if path is not None else "/usr/bin:/bin",
             "HOME": str(self.root),
@@ -52,7 +55,7 @@ class Home:
             "ROLEBAND_CLI_CONFIG": str(self.root / "no-contexts.json"),
         }
         process = subprocess.run(
-            [sys.executable, "-m", "tracker.cli", "connect", host, f"--{mode}", "--json"],
+            [sys.executable, "-m", "tracker.cli", *args, "--json"],
             cwd=self.root, env=env, capture_output=True, text=True, timeout=30,
         )
         lines = process.stdout.splitlines()
@@ -294,6 +297,110 @@ def test_a_skill_saved_after_connect_read_it_is_kept(tmp_path, monkeypatch):
     assert not (directory / ".roleband-skill.json").exists()
 
 
+# --------------------------------------------------------------------------- #
+# Keeping an installed skill current without a second connect
+# --------------------------------------------------------------------------- #
+
+OLDER_SKILL = b"---\nname: roleband\n---\n<!-- roleband skill, version 4. -->\nAn older version.\n"
+
+
+def _installed(home: Home, host: str, content: bytes, *, version: int, recorded: bytes | None = None) -> Path:
+    """A skill as `connect` of `version` left it; `recorded` is what it wrote,
+    when the file has changed since."""
+    skill = home.skill(host)
+    skill.parent.mkdir(parents=True, exist_ok=True)
+    skill.write_bytes(content)
+    sha = hashlib.sha256(recorded if recorded is not None else content).hexdigest()
+    (skill.parent / ".roleband-skill.json").write_text(json.dumps({"format": 1, "version": version, "sha256": sha}))
+    return skill
+
+
+def _record(skill: Path) -> dict:
+    return json.loads((skill.parent / ".roleband-skill.json").read_text())
+
+
+def _notices(envelope: dict) -> list[str]:
+    return [notice["code"] for notice in envelope["warnings"]]
+
+
+def test_capabilities_updates_an_unedited_older_skill_for_each_host(home):
+    from tracker.cli.connect import SKILL_VERSION
+
+    claude = _installed(home, "claude-code", OLDER_SKILL, version=SKILL_VERSION - 1)
+    codex = _installed(home, "codex", OLDER_SKILL, version=SKILL_VERSION - 1)
+    status, envelope = home.run("capabilities", "--offline")
+    assert status == 0 and envelope["ok"] is True
+    for skill in (claude, codex):
+        assert skill.read_bytes() == SHIPPED_SKILL.read_bytes()
+        assert _record(skill) == {"format": 1, "version": SKILL_VERSION,
+                                  "sha256": hashlib.sha256(SHIPPED_SKILL.read_bytes()).hexdigest()}
+    assert _notices(envelope) == ["skill_updated", "skill_updated"]
+    assert f"now version {SKILL_VERSION}" in envelope["warnings"][0]["message"]
+    # Current now: a second call changes nothing and says nothing.
+    before = home.files()
+    status, envelope = home.run("capabilities", "--offline")
+    assert status == 0 and envelope["warnings"] == [] and home.files() == before
+
+
+def test_capabilities_keeps_an_edited_older_skill_and_says_so(home):
+    from tracker.cli.connect import SKILL_VERSION
+
+    edited = OLDER_SKILL + b"Always answer in French.\n"
+    skill = _installed(home, "claude-code", edited, version=SKILL_VERSION - 1, recorded=OLDER_SKILL)
+    before = home.files()
+    status, envelope = home.run("capabilities", "--offline")
+    assert status == 0
+    assert home.files() == before
+    assert _notices(envelope) == ["skill_outdated"]
+    assert str(skill) in envelope["warnings"][0]["message"]
+
+
+@pytest.mark.parametrize("case", ["newer", "unrecorded", "deleted", "other_command"])
+def test_capabilities_leaves_alone_a_skill_it_does_not_own_at_an_older_version(home, case):
+    """A newer client's copy (two clients on one computer would trade the file
+    back and forth), a copy connect never installed, one the person deleted,
+    and any call but capabilities."""
+    from tracker.cli.connect import SKILL_VERSION
+
+    skill = _installed(home, "codex", OLDER_SKILL, version=SKILL_VERSION + 1 if case == "newer" else SKILL_VERSION - 1)
+    if case == "unrecorded":
+        (skill.parent / ".roleband-skill.json").unlink()
+    if case == "deleted":
+        skill.unlink()
+    before = home.files()
+    status, envelope = home.run(*(("describe", "status", "--offline") if case == "other_command"
+                                  else ("capabilities", "--offline")))
+    assert status == 0
+    assert home.files() == before
+    assert envelope["warnings"] == []
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root writes through a read-only folder")
+def test_a_skill_that_cannot_be_written_leaves_capabilities_answering(home):
+    from tracker.cli.connect import SKILL_VERSION
+
+    skill = _installed(home, "codex", OLDER_SKILL, version=SKILL_VERSION - 1)
+    skill.parent.chmod(0o500)
+    try:
+        status, envelope = home.run("capabilities", "--offline")
+    finally:
+        skill.parent.chmod(0o700)
+    assert status == 0 and envelope["ok"] is True
+    assert skill.read_bytes() == OLDER_SKILL
+    assert _notices(envelope) == ["skill_outdated"]
+    assert "roleband connect codex --apply" in envelope["warnings"][0]["message"]
+
+
+def test_capabilities_refreshes_the_skill_when_no_engine_answers(home):
+    from tracker.cli.connect import SKILL_VERSION
+
+    skill = _installed(home, "claude-code", OLDER_SKILL, version=SKILL_VERSION - 1)
+    status, envelope = home.run("capabilities")
+    assert status == 2 and envelope["error"]["code"] == "context_required"
+    assert skill.read_bytes() == SHIPPED_SKILL.read_bytes()
+    assert _notices(envelope) == ["skill_updated"]
+
+
 def test_the_shipped_skill_starts_from_capabilities_and_describe():
     text = SHIPPED_SKILL.read_text()
     assert text.startswith("---\nname: roleband\ndescription: ")
@@ -306,6 +413,16 @@ def test_the_shipped_skill_starts_from_capabilities_and_describe():
     from tracker.cli.connect import SKILL_VERSION
 
     assert f"<!-- roleband skill, version {SKILL_VERSION}." in text
+
+
+def test_the_shipped_skill_says_any_answer_names_its_continuation_and_exit_9_is_partial():
+    text = SHIPPED_SKILL.read_text()
+    assert "Any answer may end in more to read. Its `data.continue_with`" in text
+    rows = {line.split("|")[1].strip(): line for line in text.splitlines() if line.startswith("| ")}
+    assert "not a failure" in rows["9"]
+    # The index names what the person turned off; describe no longer carries the output schema.
+    assert "`data.unavailable`" in text
+    assert "input and output schemas" not in text
 
 
 def _skill_commands() -> list[str]:

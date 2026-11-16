@@ -33,6 +33,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from tracker.agents.operations.catalog import CATALOG
+from tracker.agents.operations.index import first_sentence
 
 BACKEND = Path(__file__).resolve().parents[1]
 WORKSPACE = re.compile(r"^ws_[0-9a-f]{32}$")
@@ -152,15 +153,24 @@ def test_offline_capabilities_and_describe_read_the_bundle(home):
     assert body["workspace_id"] is None
     assert body["data"]["metadata_source"] == "bundled"
     assert body["data"]["engine_version"] is None
-    assert {entry["operation"] for entry in body["data"]["operations"]} == {descriptor.id for descriptor in CATALOG}
-    # Offline availability is unknown, never false.
-    assert {entry["availability"]["state"] for entry in body["data"]["operations"]} == {"unknown"}
+    assert body["data"]["view"] == "summary"
+    assert body["data"]["operations"] == {descriptor.id: first_sentence(descriptor.summary) for descriptor in CATALOG}
+    # Offline availability is unknown, never false: not an empty list of unavailable operations.
+    assert body["data"]["unavailable"] is None
+
+    full = cli(home, "capabilities", "--offline", "--view", "full", "--json").envelope["data"]
+    assert full["view"] == "full"
+    assert [entry["operation"] for entry in full["operations"]] == [descriptor.id for descriptor in CATALOG]
+    assert {entry["availability"]["state"] for entry in full["operations"]} == {"unknown"}
 
     described = cli(home, "describe", "status", "--offline", "--json")
     assert described.status == 0
     data = described.envelope["data"]
     assert data["operation"] == "status" and data["metadata_source"] == "bundled"
-    assert data["output_schema"]["title"] == "StatusResult"
+    assert data["view"] == "summary" and "output_schema" not in data
+    assert data["continue_with"] == [{"operation": "describe", "arguments": {"operation": "status", "view": "full"}}]
+    whole = cli(home, "describe", "status", "--offline", "--view", "full", "--json").envelope["data"]
+    assert whole["view"] == "full" and whole["output_schema"]["title"] == "StatusResult"
 
     unknown = cli(home, "describe", "no.such", "--offline", "--json")
     assert unknown.status == 2
@@ -622,6 +632,39 @@ def test_a_reply_that_trickles_past_the_deadline_is_a_deadline_with_exit_8(home)
     assert elapsed < 4, "the client waited past its deadline"
 
 
+#: The most one discovery answer may take: the capability index budget of the
+#: standard tool tier, 1,500 tokens at four bytes each.
+DISCOVERY_BUDGET = 1_500 * 4
+
+
+def test_offline_discovery_fits_the_capability_index_budget(home):
+    """Every trial reads the index and a describe or two, and a small model
+    pays for each byte on every later turn."""
+    listed = cli(home, "capabilities", "--offline", "--json")
+    assert len(listed.stdout.encode()) <= DISCOVERY_BUDGET
+    for descriptor in CATALOG:
+        described = cli(home, "describe", descriptor.id, "--offline", "--json")
+        assert described.status == 0
+        assert len(described.stdout.encode()) <= DISCOVERY_BUDGET, descriptor.id
+    # The full views are one call away and may be larger.
+    assert len(cli(home, "capabilities", "--offline", "--view", "full", "--json").stdout) > DISCOVERY_BUDGET
+
+
+def test_the_client_asks_for_a_full_view_only_when_told(home):
+    with Stub(Reply(503)) as stub:
+        home.contexts(current="dev", dev={"url": stub.url})
+        for args in (("describe", "status"), ("describe", "status", "--view", "full"),
+                     ("capabilities", "--tier", "small"), ("capabilities", "--view", "full")):
+            cli(home, *args, "--json")
+    # The default view sends no parameter, so an engine that predates views answers too.
+    assert stub.requests == [
+        "/api/agent/v1/operations/status",
+        "/api/agent/v1/operations/status?view=full",
+        "/api/agent/v1/capabilities?tier=small",
+        "/api/agent/v1/capabilities?view=full",
+    ]
+
+
 def test_the_client_sends_its_request_id_and_reaches_only_the_operations_route(home):
     with Stub(Reply(200, _envelope("describe", data={"operation": "status"}))) as stub:
         home.contexts(current="dev", dev={"url": stub.url})
@@ -789,13 +832,17 @@ def test_a_real_engine_refuses_until_the_switch_and_then_names_its_workspace(hom
     assert data["trust"] == {"mode": "local_loopback", "verified": False}
     assert body["meta"]["context"]["name"] == "dev"
 
-    capabilities = cli(home, "capabilities", "--tier", "small", "--json")
+    capabilities = cli(home, "capabilities", "--tier", "small", "--view", "full", "--json")
     assert capabilities.status == 0
     assert capabilities.envelope["data"]["metadata_source"] == "engine"
     # Reads are available; writes wait for the second switch, which is still off.
     assert {
         (e["access"], e["availability"]["state"]) for e in capabilities.envelope["data"]["operations"]
     } == {("read", "available"), ("write", "unavailable")}
+    index = cli(home, "capabilities", "--json")
+    assert len(index.stdout.encode()) <= DISCOVERY_BUDGET
+    writes = {descriptor.id for descriptor in CATALOG if descriptor.access == "write"}
+    assert index.envelope["data"]["unavailable"] == dict.fromkeys(sorted(writes), "writes_disabled")
 
     described = cli(home, "describe", "capabilities", "--json")
     assert described.status == 0

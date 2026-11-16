@@ -191,7 +191,7 @@
   {
    "method": "GET",
    "path": "/api/agent/v1/operations/{operation}",
-   "response_schema": "Envelope[OperationDetail]"
+   "response_schema": "Envelope[OperationView]"
   },
   {
    "method": "GET",

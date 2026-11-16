@@ -974,7 +974,7 @@ async def bench_engine(workdir: Path, database_url: str, log_path: Path, *,
                     if time.monotonic() > deadline:
                         raise RuntimeError(f"the engine did not answer within {ready_timeout:.0f} s")
                     await asyncio.sleep(0.25)
-                capabilities = (await client.get(f"{url}{AGENT_PREFIX}/capabilities")).json()
+                capabilities = (await client.get(f"{url}{AGENT_PREFIX}/capabilities", params={"view": "full"})).json()
             operations = [entry["operation"] for entry in (capabilities.get("data") or {}).get("operations", [])]
             async with recording_proxy(url) as (proxy_url, proxy):
                 yield Engine(url=proxy_url, workspace_id=body.get("workspace_id"), operations=operations,

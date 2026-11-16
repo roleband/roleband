@@ -1339,7 +1339,21 @@ Claude Code the sandbox exclusion `roleband *` and the rule `Bash(roleband *)`,
 for Codex `network_access` in workspace-write mode. It merges into the person's
 file, keeps a backup, changes nothing on a second run, and installs the skill in
 `backend/tracker/cli/skills/` unless the person edited their copy. Any other host
-is refused as `unsupported_host`.
+is refused as `unsupported_host`. `roleband capabilities`, the skill's first
+call, brings an installed skill whose recorded version is older than the
+client's up to date under the same rule, and says so in `warnings`
+(`skill_updated`, or `skill_outdated` for a copy it leaves); a newer copy, one
+connect never installed and one the person deleted stay as they are.
+
+Discovery answers fit the standard tier's capability index budget, 1,500
+tokens (`tests/test_agent_operations.py`, `tests/test_cli.py`), because every
+session reads them and a small model carries them on every turn. By default
+`capabilities` maps each operation's id to its summary's first sentence and
+lists only the effects beyond reading and the operations the switches turn
+off; `describe` gives how to call one, its input schema without generated
+titles and no output schema. Each names its `view` `full` in `continue_with`
+(`backend/tracker/agents/operations/index.py`, shared with the client's
+offline answers).
 
 A read takes its input from the path and query; one that takes a document
 (`recipes.validate`) takes it as a POST body, one JSON object.

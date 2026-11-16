@@ -478,6 +478,15 @@ def _no_test_touches_the_machines_secret_key(monkeypatch, tmp_path):
 
 
 @pytest.fixture(autouse=True)
+def _no_test_touches_the_persons_agent_hosts(monkeypatch, tmp_path):
+    """`roleband capabilities` updates the skill `connect` installed in an
+    agent host's folder. No test reaches the person's own: each run of the
+    client in this process, and every process it starts, gets scratch ones."""
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "hosts" / "claude"))
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "hosts" / "codex"))
+
+
+@pytest.fixture(autouse=True)
 def _usage_sharing_stays_off(monkeypatch):
     """No test records or sends usage events unless it says so: the product's
     own kill switch is on everywhere (docs/architecture.md). Usage tests

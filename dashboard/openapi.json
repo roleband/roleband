@@ -2060,7 +2060,7 @@
     "title": "CalendarStepEntry",
     "type": "object"
    },
-   "CapabilitiesResult": {
+   "CapabilitiesFull": {
     "additionalProperties": false,
     "properties": {
      "contract_version": {
@@ -2103,6 +2103,12 @@
       "title": "Supported Contract Versions",
       "type": "array",
       "x-text": "identifier"
+     },
+     "view": {
+      "const": "full",
+      "title": "View",
+      "type": "string",
+      "x-text": "code"
      }
     },
     "required": [
@@ -2110,9 +2116,125 @@
      "supported_contract_versions",
      "engine_version",
      "metadata_source",
+     "view",
      "operations"
     ],
-    "title": "CapabilitiesResult",
+    "title": "CapabilitiesFull",
+    "type": "object"
+   },
+   "CapabilitiesResult": {
+    "description": "The operation index in the view asked for; `view` names which.",
+    "discriminator": {
+     "mapping": {
+      "full": "#/components/schemas/CapabilitiesFull",
+      "summary": "#/components/schemas/CapabilitiesSummary"
+     },
+     "propertyName": "view"
+    },
+    "oneOf": [
+     {
+      "$ref": "#/components/schemas/CapabilitiesSummary"
+     },
+     {
+      "$ref": "#/components/schemas/CapabilitiesFull"
+     }
+    ],
+    "title": "CapabilitiesResult"
+   },
+   "CapabilitiesSummary": {
+    "additionalProperties": false,
+    "properties": {
+     "continue_with": {
+      "items": {
+       "$ref": "#/components/schemas/NextAction"
+      },
+      "title": "Continue With",
+      "type": "array"
+     },
+     "contract_version": {
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "effects": {
+      "additionalProperties": {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      "title": "Effects",
+      "type": "object"
+     },
+     "engine_version": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Engine Version",
+      "x-text": "identifier"
+     },
+     "metadata_source": {
+      "enum": [
+       "bundled",
+       "engine"
+      ],
+      "title": "Metadata Source",
+      "type": "string",
+      "x-text": "code"
+     },
+     "operations": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Operations",
+      "type": "object"
+     },
+     "supported_contract_versions": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Supported Contract Versions",
+      "type": "array",
+      "x-text": "identifier"
+     },
+     "unavailable": {
+      "anyOf": [
+       {
+        "additionalProperties": {
+         "type": "string"
+        },
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Unavailable"
+     },
+     "view": {
+      "const": "summary",
+      "title": "View",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "contract_version",
+     "supported_contract_versions",
+     "engine_version",
+     "metadata_source",
+     "view",
+     "operations",
+     "effects",
+     "unavailable",
+     "continue_with"
+    ],
+    "title": "CapabilitiesSummary",
     "type": "object"
    },
    "CapabilityView": {
@@ -9254,7 +9376,7 @@
     "title": "Envelope[OfferRead]",
     "type": "object"
    },
-   "Envelope_OperationDetail_": {
+   "Envelope_OperationView_": {
     "additionalProperties": false,
     "properties": {
      "contract_version": {
@@ -9266,7 +9388,7 @@
      "data": {
       "anyOf": [
        {
-        "$ref": "#/components/schemas/OperationDetail"
+        "$ref": "#/components/schemas/OperationView"
        },
        {
         "type": "null"
@@ -9329,7 +9451,7 @@
      "meta",
      "error"
     ],
-    "title": "Envelope[OperationDetail]",
+    "title": "Envelope[OperationView]",
     "type": "object"
    },
    "Envelope_OpportunityView_": {
@@ -22583,6 +22705,167 @@
     "title": "OfferTermsResponse",
     "type": "object"
    },
+   "OperationBrief": {
+    "additionalProperties": false,
+    "description": "How to call one operation. Its input schema leaves out the titles\nderived from field names; its output schema is in the full view.",
+    "properties": {
+     "access": {
+      "enum": [
+       "read",
+       "write"
+      ],
+      "title": "Access",
+      "type": "string",
+      "x-text": "code"
+     },
+     "availability": {
+      "$ref": "#/components/schemas/AvailabilityShape"
+     },
+     "client_effects": {
+      "items": {
+       "enum": [
+        "file_write",
+        "browser_open",
+        "app_open"
+       ],
+       "type": "string"
+      },
+      "title": "Client Effects",
+      "type": "array",
+      "x-text": "code"
+     },
+     "continue_with": {
+      "items": {
+       "$ref": "#/components/schemas/NextAction"
+      },
+      "title": "Continue With",
+      "type": "array"
+     },
+     "contract_version": {
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data_classes": {
+      "items": {
+       "enum": [
+        "public_posting",
+        "market_statistic",
+        "private_pursuit",
+        "offer",
+        "candidate"
+       ],
+       "type": "string"
+      },
+      "title": "Data Classes",
+      "type": "array",
+      "x-text": "code"
+     },
+     "engine_effects": {
+      "$ref": "#/components/schemas/EffectsShape"
+     },
+     "examples": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Examples",
+      "type": "array"
+     },
+     "idempotency": {
+      "enum": [
+       "read",
+       "required_key",
+       "natural_key"
+      ],
+      "title": "Idempotency",
+      "type": "string",
+      "x-text": "code"
+     },
+     "input_schema": {
+      "additionalProperties": true,
+      "title": "Input Schema",
+      "type": "object"
+     },
+     "introduced": {
+      "title": "Introduced",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "metadata_source": {
+      "enum": [
+       "bundled",
+       "engine"
+      ],
+      "title": "Metadata Source",
+      "type": "string",
+      "x-text": "code"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "required_scopes": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Required Scopes",
+      "type": "array",
+      "x-text": "code"
+     },
+     "summary": {
+      "title": "Summary",
+      "type": "string",
+      "x-text": "diagnostic"
+     },
+     "supports_dry_run": {
+      "title": "Supports Dry Run",
+      "type": "boolean"
+     },
+     "tool_tiers": {
+      "items": {
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "type": "string"
+      },
+      "title": "Tool Tiers",
+      "type": "array",
+      "x-text": "code"
+     },
+     "view": {
+      "const": "summary",
+      "title": "View",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "operation",
+     "contract_version",
+     "introduced",
+     "summary",
+     "access",
+     "input_schema",
+     "required_scopes",
+     "engine_effects",
+     "client_effects",
+     "data_classes",
+     "tool_tiers",
+     "idempotency",
+     "supports_dry_run",
+     "availability",
+     "metadata_source",
+     "examples",
+     "view",
+     "continue_with"
+    ],
+    "title": "OperationBrief",
+    "type": "object"
+   },
    "OperationDetail": {
     "additionalProperties": false,
     "properties": {
@@ -22715,6 +22998,12 @@
       "title": "Tool Tiers",
       "type": "array",
       "x-text": "code"
+     },
+     "view": {
+      "const": "full",
+      "title": "View",
+      "type": "string",
+      "x-text": "code"
      }
     },
     "required": [
@@ -22724,8 +23013,6 @@
      "summary",
      "access",
      "input_schema",
-     "output_schema_ref",
-     "output_schema",
      "required_scopes",
      "engine_effects",
      "client_effects",
@@ -22735,7 +23022,10 @@
      "supports_dry_run",
      "availability",
      "metadata_source",
-     "examples"
+     "examples",
+     "view",
+     "output_schema_ref",
+     "output_schema"
     ],
     "title": "OperationDetail",
     "type": "object"
@@ -22833,6 +23123,25 @@
     ],
     "title": "OperationSummary",
     "type": "object"
+   },
+   "OperationView": {
+    "description": "One operation in the view asked for; `view` names which.",
+    "discriminator": {
+     "mapping": {
+      "full": "#/components/schemas/OperationDetail",
+      "summary": "#/components/schemas/OperationBrief"
+     },
+     "propertyName": "view"
+    },
+    "oneOf": [
+     {
+      "$ref": "#/components/schemas/OperationBrief"
+     },
+     {
+      "$ref": "#/components/schemas/OperationDetail"
+     }
+    ],
+    "title": "OperationView"
    },
    "OpportunityDetail": {
     "additionalProperties": false,
@@ -37763,6 +38072,21 @@
        ],
        "title": "Tier"
       }
+     },
+     {
+      "description": "summary (each operation's id and summary) or full (also its access, availability, effects, data classes, tiers and idempotency).",
+      "in": "query",
+      "name": "view",
+      "required": false,
+      "schema": {
+       "default": "summary",
+       "enum": [
+        "summary",
+        "full"
+       ],
+       "title": "View",
+       "type": "string"
+      }
      }
     ],
     "responses": {
@@ -39495,6 +39819,21 @@
        "title": "Operation",
        "type": "string"
       }
+     },
+     {
+      "description": "summary (how to call it: input schema, effects, scopes, examples) or full (also its output schema).",
+      "in": "query",
+      "name": "view",
+      "required": false,
+      "schema": {
+       "default": "summary",
+       "enum": [
+        "summary",
+        "full"
+       ],
+       "title": "View",
+       "type": "string"
+      }
      }
     ],
     "responses": {
@@ -39502,7 +39841,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/Envelope_OperationDetail_"
+         "$ref": "#/components/schemas/Envelope_OperationView_"
         }
        }
       },

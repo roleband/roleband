@@ -2,16 +2,17 @@
 name: roleband
 description: Read and update the person's job search in RoleBand (opportunities, pursuits, recipes, radar) through the `roleband` command. Use when the person asks about roles, companies, pay or applications they track in RoleBand.
 ---
-<!-- roleband skill, version 4. `roleband connect` installed this file; once you edit it, connect leaves it as it is. -->
+<!-- roleband skill, version 5. `roleband connect` installed this file and `roleband capabilities` keeps it current; once you edit it, neither changes it. -->
 
 # RoleBand
 
 `roleband` reaches the RoleBand engine running on this computer. Pass `--json` on every call and start the command with `roleband` itself: a variable set before it (`ROLEBAND_AGENT=1 roleband ...`) makes the host ask the person first. Where `roleband` is a tool rather than a shell command, call the tool named `roleband` and put the words after `roleband` in its arguments, one each: `capabilities --json` is `["capabilities", "--json"]`. Every call prints exactly one JSON envelope: read `ok` first, then `data`, or `error.code` and `error.message` when `ok` is false.
 
-1. Start with the `capabilities` command to see the operations this engine offers and which of them the person has turned on.
-2. Before calling an operation, run the `describe` command with an id from that list. It gives the input and output schemas, the effects and the setting that controls it.
+1. Start with the `capabilities` command to see the operations this engine offers: `data.operations` gives each one's summary by id, and `data.unavailable` names those the person's settings turn off.
+2. Before calling an operation, run the `describe` command with an id from that list. It gives the input schema, the effects and the setting that controls it.
 3. Call an operation by its id as words: `opportunities.search` is `roleband opportunities search`. A field the operation's address names is an argument (`roleband opportunities get 4821`); a plain value or list field is a flag (`level_band` is `--level-band`; repeat a list flag for more values). A nested field, such as the `document` of `recipes validate`, has no flag: give it in one JSON object with `--input @FILE`, or `--input -` reading `echo '{...}' | roleband ...`. Arguments and flags add the fields that object leaves out; a field given both ways fails with exit 2. `--help` after the command lists the flags.
-4. A filter value that names nothing fails with exit 2, and `error.next_actions` names the lookup that lists the accepted values, such as `roleband vocabulary list --kind location`. When `meta.next_cursor` is set, pass it as `--cursor` for the next page. `opportunities get ID` is the posting's facts; its text is `--view detail`, which `data.continue_with` names. When `meta.truncated` is true on a detail view, `data.excerpt.continue_with` lists the calls that read the rest, an operation and its arguments: make them as given (`description_from` is `--description-from`).
+4. A filter value that names nothing fails with exit 2, and `error.next_actions` names the lookup that lists the accepted values, such as `roleband vocabulary list --kind location`. When `meta.next_cursor` is set, pass it as `--cursor` for the next page.
+5. Any answer may end in more to read. Its `data.continue_with` (on a cut detail view, `data.excerpt.continue_with`) lists the calls that read the rest, each an operation and its arguments: make them as given, laid out as in step 3 (`description_from` is `--description-from`). `opportunities get ID` is the posting's facts and names its text that way, and `describe` names the output schema.
 
 ## Changing data
 
@@ -32,5 +33,6 @@ The exit status says what to do next:
 | 6 | It changed since you read it | Read it again, then decide |
 | 7 | The person has to decide | Show them the proposal |
 | 8 | Out of time, or too many calls | Retry once, a change under its key; then tell the person |
+| 9 | Part of a batch answered, not a failure | Use what `data` holds; `error.message` names where the items that did not resolve are listed, such as `data.not_found` |
 
 Never repeat a change under a new key after a failure, and never reach the engine's database or web routes another way.
