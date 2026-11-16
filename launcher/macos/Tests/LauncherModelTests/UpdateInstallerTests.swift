@@ -273,3 +273,24 @@ private final class ReserveThreads: @unchecked Sendable {
     #expect(h.handedOff.count == 3 && h.handedOff[2].to == "0.1.2" && h.handedOff[2].id != held.id)
     #expect(!FileManager.default.fileExists(atPath: held.paths.directory.path))
 }
+
+@MainActor @Test func anOlderPlanThatCannotBeDeletedHoldsBackTheNewerUpdateUntilItIs() async throws {
+    let h = Harness()
+    await h.installer.installAndWait("0.1.1")
+    h.installer.quitRefused()
+    let held = h.handedOff[0]
+    // A file the plan's folder cannot let go of, as a helper starting on it would leave.
+    let stuck = held.candidate.appendingPathComponent("stuck")
+    FileManager.default.createFile(atPath: stuck.path, contents: Data())
+    try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: held.candidate.path)
+    defer { try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: held.candidate.path) }
+    await h.installer.installAndWait("0.1.2")
+    #expect(h.installer.activity == .failed(.restart))
+    #expect(h.handedOff.count == 1)
+    #expect(FileManager.default.fileExists(atPath: held.paths.directory.path))
+
+    try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: held.candidate.path)
+    await h.installer.installAndWait("0.1.2")
+    #expect(h.installer.activity == .restarting && h.handedOff.count == 2 && h.handedOff[1].to == "0.1.2")
+    #expect(!FileManager.default.fileExists(atPath: held.paths.directory.path))
+}

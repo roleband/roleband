@@ -86,7 +86,16 @@ final class UpdateInstaller: ObservableObject {
                 activity = .verifying
                 let plan = try await operations.prepare(update)
                 // The set-aside plan's helper would run once this app quits, so the new plan waits for it.
-                if let held = setAside, await operations.retire(held), setAside?.id == held.id { setAside = nil }
+                // A plan that could not be deleted may have a helper starting on it, so nothing is
+                // handed over until it is gone; Try again waits for it again.
+                if let held = setAside {
+                    guard await operations.retire(held) else {
+                        try? FileManager.default.removeItem(at: plan.paths.directory)
+                        if generation == token { activity = .failed(.restart) }
+                        return
+                    }
+                    if setAside?.id == held.id { setAside = nil }
+                }
                 guard generation == token else {
                     try? FileManager.default.removeItem(at: plan.paths.directory)
                     return
