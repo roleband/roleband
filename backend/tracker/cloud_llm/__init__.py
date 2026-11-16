@@ -1,1 +1,1 @@
-"""Optional direct cloud-model connections. Separate from subscription MCP clients."""
+"""Optional direct cloud-model connections. Separate from the agent hosts a person connects."""

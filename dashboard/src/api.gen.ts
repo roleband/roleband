@@ -2076,8 +2076,8 @@ export interface paths {
         get?: never;
         /**
          * Set Pursuit Ep
-         * @description Create/update the pursuit for one opportunity. Same helper the MCP
-         *     write tool uses (one transaction: current row + append-only event), actor
+         * @description Create/update the pursuit for one opportunity. Same helper the agent
+         *     pursuit writes use (one transaction: current row + append-only event), actor
          *     recorded as `user`. There is deliberately no DELETE: `withdrawn` is a
          *     stage, and history is the point.
          */
@@ -3990,29 +3990,28 @@ export interface components {
         };
         /**
          * AgentAccessResponse
-         * @description Both gates as saved, and what a client needs to connect over STDIO.
+         * @description Both gates as saved, and the command that connects each agent host.
          */
         AgentAccessResponse: {
             /** Allow Writes */
             allow_writes: boolean;
-            /** Args */
-            args: string[];
-            claude_json: components["schemas"]["ClaudeDesktopConfig"];
-            /** Codex Command */
-            codex_command: string;
-            /** Command */
-            command: string;
-            /** Cwd */
-            cwd: string;
+            /** Connect */
+            connect: components["schemas"]["AgentConnectCommand"][];
             /** Enabled */
             enabled: boolean;
-            /** Tools */
-            tools: components["schemas"]["AgentTool"][];
+        };
+        /**
+         * AgentConnectCommand
+         * @description The command that sets up one agent host to run `roleband`.
+         */
+        AgentConnectCommand: {
+            /** Command */
+            command: string;
             /**
-             * Transport
-             * @constant
+             * Host
+             * @enum {string}
              */
-            transport: "stdio";
+            host: "claude-code" | "codex";
         };
         /** AgentSwitchState */
         AgentSwitchState: {
@@ -4020,16 +4019,6 @@ export interface components {
             allow_writes: boolean;
             /** Enabled */
             enabled: boolean;
-        };
-        /** AgentTool */
-        AgentTool: {
-            /**
-             * Access
-             * @enum {string}
-             */
-            access: "status" | "read" | "write";
-            /** Name */
-            name: string;
         };
         /**
          * AgreementPayload
@@ -4718,17 +4707,6 @@ export interface components {
             next_since: string;
             /** Unavailable */
             unavailable: components["schemas"]["UnavailableKind"][];
-        };
-        /**
-         * ClaudeDesktopConfig
-         * @description The `claude_desktop_config.json` fragment, served under its own key names.
-         */
-        ClaudeDesktopConfig: {
-            mcpServers: components["schemas"]["ClaudeMcpServers"];
-        };
-        /** ClaudeMcpServers */
-        ClaudeMcpServers: {
-            roleband: components["schemas"]["McpServerCommand"];
         };
         /** CloudLLMProfileInput */
         CloudLLMProfileInput: {
@@ -10650,15 +10628,6 @@ export interface components {
             tiers: components["schemas"]["MatchingTierOption"][];
             /** Total Bytes */
             total_bytes: number;
-        };
-        /** McpServerCommand */
-        McpServerCommand: {
-            /** Args */
-            args: string[];
-            /** Command */
-            command: string;
-            /** Cwd */
-            cwd: string;
         };
         /**
          * MoveBoardPayload

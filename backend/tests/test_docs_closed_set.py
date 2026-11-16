@@ -31,11 +31,11 @@ ROOT_DOCS = frozenset({
 
 DOCS = frozenset({
     "docs/architecture.md",
+    "docs/cli.md",
     "docs/copy.md",
     "docs/decisions/0000-template.md",
     "docs/development.md",
     "docs/field-authority.md",
-    "docs/mcp.md",
     "docs/pay.md",
     "docs/plugins.md",
     "docs/sources.md",

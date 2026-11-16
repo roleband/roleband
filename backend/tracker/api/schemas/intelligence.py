@@ -22,7 +22,7 @@ connections, the local server's status and control, and both connection tests.
   provider origins (the enums in `intelligence.provider`, held by the contract
   test), the embedding tiers (`semantic.provision.TIERS`), the provisioning
   status, `chosen_by`, `job_phase`, fit band keys, the stop outcomes a switch
-  can end with, and agent tool access. Route reasons, failure classes and
+  can end with, and the agent hosts `roleband connect` sets up. Route reasons, failure classes and
   attempt outcomes stay `str`: `policy.RouteReason` is documented as a vocabulary
   that gains values.
 - Counts, byte sizes and durations are integers the handlers compute. The fit
@@ -66,7 +66,8 @@ MatchingTierName = Literal["fp32", "int8"]
 FitBandKey = Literal["strong", "good", "some", "weak"]
 #: What a stop can have ended: the switch it signalled, or one that had already exited.
 SwitchStopOutcome = Literal["stopped", "not_running"]
-AgentToolAccess = Literal["status", "read", "write"]
+#: The hosts `roleband connect` sets up.
+AgentHost = Literal["claude-code", "codex"]
 
 
 # --------------------------------------------------------------------------- #
@@ -319,39 +320,19 @@ class IntelligenceFitBandResponse(Built):
 # --------------------------------------------------------------------------- #
 
 
-class AgentTool(Built):
-    name: str = Field(json_schema_extra=text("code"))
-    access: AgentToolAccess
+class AgentConnectCommand(Built):
+    """The command that sets up one agent host to run `roleband`."""
 
-
-class McpServerCommand(Built):
-    command: str
-    args: list[str]
-    cwd: str
-
-
-class ClaudeMcpServers(Built):
-    roleband: McpServerCommand
-
-
-class ClaudeDesktopConfig(Built):
-    """The `claude_desktop_config.json` fragment, served under its own key names."""
-
-    mcp_servers: ClaudeMcpServers = Field(alias="mcpServers")
+    host: AgentHost
+    command: str = Field(json_schema_extra=text("code"))
 
 
 class AgentAccessResponse(Built):
-    """Both gates as saved, and what a client needs to connect over STDIO."""
+    """Both gates as saved, and the command that connects each agent host."""
 
     enabled: bool
     allow_writes: bool
-    transport: Literal["stdio"]
-    command: str
-    args: list[str]
-    cwd: str
-    tools: list[AgentTool]
-    codex_command: str
-    claude_json: ClaudeDesktopConfig
+    connect: list[AgentConnectCommand]
 
 
 # --------------------------------------------------------------------------- #

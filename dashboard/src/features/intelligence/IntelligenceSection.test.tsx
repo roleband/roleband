@@ -107,10 +107,7 @@ function primeHappyPath() {
     ],
   } as never);
   mocked.stats.mockResolvedValue({ open_total: 1410, saved_total: 2 } as never);
-  mocked.agentAccess.mockResolvedValue({
-    ...agentAccessFixture,
-    codex_command: "codex mcp add roleband -- python -m tracker.mcp.server",
-  });
+  mocked.agentAccess.mockResolvedValue(agentAccessFixture);
   mocked.localLLMProfiles.mockResolvedValue({
     enabled: false,
     active_profile_id: "p1",
@@ -599,21 +596,16 @@ describe("ranking card", () => {
 
 describe("assistants card", () => {
   it("keeps setup unreachable until the gate is on, then writes stay a second choice", async () => {
-    mocked.setAgentAccess.mockResolvedValue({
-      enabled: true,
-      allow_writes: false,
-      codex_command: "codex mcp add roleband",
-      claude_json: {},
-    } as never);
+    mocked.setAgentAccess.mockResolvedValue({ ...agentAccessFixture, enabled: true });
     mount();
 
-    const card = await screen.findByRole("region", { name: msg("ai-assistants-card-mcp-server-2") });
-    // Three tiles: the two named clients plus the open door — MCP is a
-    // protocol, so the card may not imply only two products can speak it.
+    const card = await screen.findByRole("region", { name: msg("ai-assistants-card-assistant-apps-2") });
+    // Three tiles: the two hosts `roleband connect` sets up plus the open
+    // door, so the card may not imply only two products can connect.
     const setup = within(card).getAllByRole("button", { name: "Set up" });
     expect(setup).toHaveLength(3);
     expect(within(card).getByText("Other app")).toBeInTheDocument();
-    expect(within(card).getByText(msg("ai-assistants-card-any-client-that-speaks-mcp"), { exact: false })).toBeInTheDocument();
+    expect(within(card).getByText(msg("ai-assistants-card-any-app-that-can-run-commands"), { exact: false })).toBeInTheDocument();
     for (const button of setup) expect(button).toBeDisabled();
     // The write grant gates nothing while nothing may connect: it is absent,
     // not present-but-greyed.
@@ -629,9 +621,44 @@ describe("assistants card", () => {
     expect(within(card).getByLabelText("Allow assistant apps to update your progress")).toBeEnabled();
   });
 
+  it("hands each host the connect command the engine serves for it", async () => {
+    mocked.agentAccess.mockResolvedValue({
+      ...agentAccessFixture,
+      enabled: true,
+      connect: [
+        { host: "claude-code", command: "roleband connect claude-code --apply --from-engine" },
+        { host: "codex", command: "roleband connect codex --apply --from-engine" },
+      ],
+    });
+    mount();
+    const card = await screen.findByRole("region", { name: msg("ai-assistants-card-assistant-apps-2") });
+    const [claude, codex, other] = within(card).getAllByRole("button", { name: "Set up" });
+    await waitFor(() => expect(claude).toBeEnabled());
+
+    await userEvent.click(claude);
+    let dialog = screen.getByRole("dialog", { name: msg("ai-assistants-card-set-up-claude-code") });
+    // The engine's string, not one the card spells itself, and never another host's.
+    expect(within(dialog).getByText("roleband connect claude-code --apply --from-engine")).toBeInTheDocument();
+    expect(within(dialog).queryByText(/connect codex/)).toBeNull();
+    expect(within(dialog).queryByText(/mcpServers|codex mcp add/)).toBeNull();
+    await userEvent.click(within(dialog).getByRole("button", { name: msg("ai-assistants-card-done") }));
+
+    await userEvent.click(codex);
+    dialog = screen.getByRole("dialog", { name: msg("ai-assistants-card-set-up-the-codex-app") });
+    expect(within(dialog).getByText("roleband connect codex --apply --from-engine")).toBeInTheDocument();
+    expect(within(dialog).queryByText(/connect claude-code/)).toBeNull();
+    await userEvent.click(within(dialog).getByRole("button", { name: msg("ai-assistants-card-done") }));
+
+    await userEvent.click(other);
+    dialog = screen.getByRole("dialog", { name: msg("ai-assistants-card-set-up-another-app") });
+    expect(within(dialog).getByText("roleband capabilities")).toBeInTheDocument();
+    expect(within(dialog).getByText(msg("ai-assistants-card-let-the-app-run-commands"), { exact: false })).toBeInTheDocument();
+    expect(within(dialog).queryByText(/roleband connect/)).toBeNull();
+  });
+
   it("states what will be seen before anything can connect", async () => {
     mount();
-    const card = await screen.findByRole("region", { name: msg("ai-assistants-card-mcp-server-2") });
+    const card = await screen.findByRole("region", { name: msg("ai-assistants-card-assistant-apps-2") });
     expect(within(card).getByText("What will be shared")).toBeInTheDocument();
     expect(within(card).getByText("What will not be shared")).toBeInTheDocument();
     expect(within(card).getByText(/full posting/)).toBeInTheDocument();
@@ -666,7 +693,7 @@ describe("capabilities card", () => {
     expect(within(card).getByText(msg("ai-capabilities-card-online-model-services"))).toBeInTheDocument();
     expect(within(card).getAllByText(msg("ai-origin-badge-cloud-connected", { choice: "no" }))).toHaveLength(1);
     // The gate is a standing permission: answerable BEFORE a service exists,
-    // like the MCP connect gate, and it writes the same egress flag the
+    // like the assistant card's connect gate, and it writes the same egress flag the
     // connected-service row toggles.
     const gate = within(card).getByLabelText(msg("ai-capabilities-card-send-postings-to-online-services"));
     expect(gate).toBeEnabled();

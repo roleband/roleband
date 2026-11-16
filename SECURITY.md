@@ -33,10 +33,9 @@ RoleBand is a single-user application that runs on your own computer.
   made them.
 - The dashboard is served with a Content-Security-Policy
   (`backend/tracker/api/csp.py`): it loads scripts only from the app itself.
-- The local MCP server (`docs/mcp.md`) runs over standard input and output for an
-  agent you start yourself; its read and write access are separate switches, both off
-  until you turn them on.
-- The agent operations under `/api/agent/v1/` answer under the same two switches.
+- An agent you run yourself reaches RoleBand through the `roleband` command
+  (`docs/cli.md`), which calls the agent operations under `/api/agent/v1/`. Their
+  read and write access are separate switches, both off until you turn them on.
   Each data category (postings, market statistics, pursuits and notes, the offer,
   the candidate profile) can be kept from assistants: an operation that reads a
   kept-back category is refused, or answers without that part, with none of it
@@ -127,7 +126,7 @@ make a certificate with RoleBand's name, so the publisher alone proves nothing.
 | A search query sent for parsing | Only after you turn on AI egress, and only with `search_llm_enabled` and an API key; off by default. | `backend/tracker/search/llm.py` |
 | Requests for daily stock prices | Only if you add a price-data key. | `backend/tracker/prices/provider.py` |
 | Plugin requests | Only from plugins you approved, only to the hosts their manifest declares. | `backend/tracker/plugins/host.py` |
-| Pages an AI agent asks for | Only with agent access on, when an agent calls `inspect_source` or `validate_recipe`, or their engine operations `sources.inspect` (`GET /api/agent/v1/sources/inspect`) or `recipes.validate` (`POST /api/agent/v1/recipes/validate`); public addresses only. | `docs/mcp.md`; `backend/tracker/agents/operations/recipes.py` |
+| Pages an AI agent asks for | Only with agent access on, when an agent calls the operations `sources.inspect` (`GET /api/agent/v1/sources/inspect`) or `recipes.validate` (`POST /api/agent/v1/recipes/validate`); public addresses only. | `docs/cli.md`; `backend/tracker/agents/operations/recipes.py` |
 | Anonymous usage events | Only if you opt in; exactly what is sent is listed in `docs/usage-data.md`. | `backend/tracker/usage_stats/` |
 | A Mac app's update check: the release listing at `api.github.com/repos/roleband/roleband/releases/latest`, then the newest release's checksum, metadata and signature (no disk image) from that release on `github.com` and GitHub's asset host `release-assets.githubusercontent.com` | Once a day unless the user turns automatic checks off, and when the user selects Check now. GitHub receives the network address and a generic launcher User-Agent; no RoleBand postings, settings, credentials or personal data are sent. A release is offered only when its metadata verifies with one of the installed app's two release keys, the current one or its spare; a check installs nothing. Release notes show as text, and opening a release page in the browser is a separate explicit action. | Launcher preferences; `launcher/macos/Sources/LauncherCore/Updates.swift` |
 | A Windows app's update check: the twenty most recent releases at `api.github.com/repos/roleband/roleband/releases?per_page=20`, then the checksum, metadata and signature of the newest published stable release among them that carries Windows files, from `github.com` and `release-assets.githubusercontent.com` | At most once a day when automatic checks are on, or when the user selects Check for updates. Requests carry the User-Agent `RoleBand-Launcher` and no credentials, cookies, postings, settings or personal data; only HTTPS release URLs on those two hosts are followed. A release is offered only when its metadata verifies with the build's release key; a check installs nothing. | Windows Settings; `backend/tracker/platform/windows_updates.py` |

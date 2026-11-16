@@ -105,7 +105,7 @@ def overdue_pursuit_clause(now: datetime):
 
     Three decisions live in here and none of them is obvious enough to restate:
     a pursuit with no `next_action_due` owes nothing; `<=` means a follow-up due
-    exactly now IS owed; and `offer` is not terminal. Every counter, the MCP
+    exactly now IS owed; and `offer` is not terminal. Every counter, the agent
     radar summary included, reads it here, so none can miss the overdue
     follow-up the product considers most expensive.
     """
@@ -143,7 +143,7 @@ async def generate_pursuit_due_notifications(
     """Reconcile `pursuit_due` rows against currently-overdue pursuits.
 
     Callers: every run's finalization, every pursuit write (HTTP
-    and MCP, in the write's transaction, so ending a pursuit retracts its
+    and agent, in the write's transaction, so ending a pursuit retracts its
     reminder with the write), and the scheduler's idle tick, so a follow-up
     that falls due rings with no scan. Serialized by `PURSUIT_DUE_LOCK_KEY`.
     `names` is the register's `slug -> display`, read here when not passed.

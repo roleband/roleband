@@ -58,7 +58,7 @@ export const profileApi = {
     postJSON<Schemas["ProfileSuggestionAcceptResponse"]>(`/api/profile/suggestions/${id}/accept`, {}),
   dismissProfileSuggestion: (id: number) =>
     postJSON<Schemas["ProfileSuggestionDismissResponse"]>(`/api/profile/suggestions/${id}/dismiss`, {}),
-  /** Pursuits over HTTP — same helper the MCP write tool uses. No DELETE:
+  /** Pursuits over HTTP, through the same helper as the agent pursuit writes. No DELETE:
    *  `withdrawn` is a stage, and history is the point. */
   pursuits: (stage?: PursuitStage) =>
     getJSON<Schemas["PursuitListResponse"]>(

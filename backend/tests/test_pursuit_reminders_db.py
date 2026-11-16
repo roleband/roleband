@@ -126,18 +126,27 @@ async def test_the_same_follow_up_stays_dismissed(api_client, db_session):
     assert row.id == first.id and row.dismissed_at is not None
 
 
-async def test_the_agent_setting_an_owed_follow_up_rings(db_session, scratch_scope):
-    import tracker.mcp.server as server
+async def test_the_agent_setting_an_owed_follow_up_rings(api_client, db_session, scratch_scope):
     from tracker.agents.config import AgentAccessConfig, set_agent_access
+    from tracker.agents.operations.workspace import ensure_workspace_id
+    from tracker.api.agent_operations import IDEMPOTENCY_KEY_HEADER, PREFIX
 
     await set_agent_access(db_session, AgentAccessConfig(enabled=True, allow_writes=True))
+    await ensure_workspace_id(db_session)
     await db_session.commit()
     job = await _job(db_session)
+    assert await _reminders(db_session) == []
 
-    await server.update_pursuit(
-        job.id, stage="applied", next_action_due=datetime.now(UTC) - timedelta(hours=2)
+    response = await api_client.patch(
+        f"{PREFIX}/pursuits/{job.id}",
+        json={"if_revision": 0, "stage": "applied",
+              "next_action_due": (datetime.now(UTC) - timedelta(hours=2)).isoformat()},
+        headers={IDEMPOTENCY_KEY_HEADER: "idk_" + "d" * 32},
     )
-    assert len(await _reminders(db_session)) == 1
+
+    assert response.status_code == 200, response.text
+    (row,) = await _reminders(db_session)
+    assert row.job_id == job.id
 
 
 async def test_an_idle_tick_rings_a_follow_up_that_fell_due(db_session, scratch_scope, monkeypatch):

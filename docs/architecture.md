@@ -23,7 +23,7 @@ Everything runs locally against one database.
 | Scan tick | `backend/tracker/workflows/scheduler.py` | The supervisor's `scan` job: a short tick that runs what is due, a full read when the computer wakes or the last one is old, the rest of a full read something stopped, a quick discovery check on a repeat while it is on (`backend/tracker/workflows/schedule_plan.py`). |
 | API | `backend/tracker/api/app.py` | FastAPI on `127.0.0.1:8010` by default (the Mac app can move it, see `EnginePort`): dashboard reads, the user's own writes, requests for background work, and the built dashboard from `dashboard/dist`. It starts no process: what it asks for, the supervisor runs. |
 | Dashboard | `dashboard/src/` | React 19, TypeScript, Vite. In development Vite serves `:5173` and proxies `/api` to `:8010`. |
-| MCP server | `backend/tracker/mcp/server.py` | Local STDIO server for external agents, reads and pursuit writes gated separately. See [mcp.md](mcp.md). The `roleband` command (`backend/tracker/cli/`), a client of the running engine through `/api/agent/v1/`, is to replace it ([0015](decisions/0015-agents-use-the-cli.md), with its trust and identity in [0016](decisions/0016-agent-trust-and-workspace-identity.md) and its access choices in [0017](decisions/0017-agent-access-open-by-default.md)). The command answers `status`, `capabilities`, `describe`, `connect` (which sets up an agent host and asks no engine), `tools export` (the operations as tool definitions for someone's own agent) and one generated command per catalog operation; this server stays the agent interface until the command does everything it does (`backend/tests/fixtures/mcp_parity_checklist.json`). |
+| The `roleband` command | `backend/tracker/cli/` | The agent interface ([0015](decisions/0015-agents-use-the-cli.md), [0022](decisions/0022-the-mcp-server-is-removed.md)): a client of the running engine through `/api/agent/v1/`, with its trust and identity in [0016](decisions/0016-agent-trust-and-workspace-identity.md) and its access choices in [0017](decisions/0017-agent-access-open-by-default.md). It answers `status`, `capabilities`, `describe`, `connect` (which sets up an agent host and asks no engine), `tools export` (the operations as tool definitions for someone's own agent) and one generated command per catalog operation. See [cli.md](cli.md). |
 | Health | `backend/tracker/workflows/watchdog.py` | The supervisor's `health` job: database reachability, stuck runs, stale data (asks for a scan), a stale backup, desktop alerts. |
 
 On macOS, `deploy/install.sh` installs one per-user background item,
@@ -319,8 +319,8 @@ Windows own and what RoleBand's own records must carry.
 
 ### Packaged engine
 
-`backend/packaged.py`, the entry point for the app's supervisor, for external
-MCP clients and for the `roleband` command, sets `ROLEBAND_PACKAGED=1` before importing the engine and disables
+`backend/packaged.py`, the entry point for the app's supervisor, for the `roleband`
+command and for the retired MCP entry point older agent hosts launch, sets `ROLEBAND_PACKAGED=1` before importing the engine and disables
 bytecode writes, which child processes inherit. Source entry points keep their
 defaults, and packaged settings load no `.env`. `Contents/Resources` holds
 `engine` (code, Alembic files, constraints and `release.json`, whose version
@@ -1239,7 +1239,7 @@ a read several surfaces share lives in its domain module (job visibility, filter
 and sort in `backend/tracker/db/queries/jobs.py`, Best match in
 `backend/tracker/search/best_match.py`). A serializer lives in the router that
 sends it, or in `backend/tracker/api/serializers/` when more than one router sends
-that shape; MCP never imports one.
+that shape.
 
 **Transactions.** Each request gets one session. A route that waits on the
 outside (a careers site, a model server, a cloud provider) reads what it needs,
@@ -1405,9 +1405,10 @@ summary view's `continue_with` names the detail read the same way. `describe`
 of a partial id, such as a resource's name, lists the operations it starts.
 A list cursor (`pursuits.list`) resumes after its last row in the current
 order, with no snapshot; a whole list is read from the first page.
-Each read that replaces an MCP tool reuses that tool's query owner, and
-`backend/tests/test_agent_parity_reads.py` holds the two to the same rows.
-The MCP writes have theirs: `pursuits.save` (PUT) and `pursuits.patch` (PATCH)
+The radar, posting, history and pursuit reads reuse the dashboard's query
+owners, and `backend/tests/test_agent_reads.py` holds each to the rows and
+routes that own the same answer. The pursuit writes are `pursuits.save` (PUT)
+and `pursuits.patch` (PATCH), which
 write through `upsert_pursuit` as the agent, and their event records
 `via: agent_api`; `recipes.draft.save` appends a draft revision and never
 activates. A pursuit is addressed by its opportunity's id, and a pursuit
@@ -1424,7 +1425,8 @@ stage or priority is an input error. A save may state the revision; without
 one it is last-writer-wins on priority. `receipts.get` reads a write's receipt
 back by operation and key, in this workspace and for the engine's principal;
 it is a read, so it answers with writes off.
-`backend/tests/test_agent_parity_writes.py` holds each to its MCP tool.
+`backend/tests/test_agent_pursuit_and_draft_writes.py` holds each write to
+the rows it changes.
 The company reads (`companies.list`, `companies.get`, `companies.facts.list`,
 `companies.prices.get`, `agents/operations/companies.py`) and the posting
 relations (`opportunities.similar`, `opportunities.duplicates`,

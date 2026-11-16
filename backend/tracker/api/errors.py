@@ -7,7 +7,7 @@ a router never sends English for a person to read. It raises
     raise api_error(404, ErrorCode.JOB_NOT_FOUND, "job not found")
 
 which answers `{"detail": {"code": "job-not-found", "params": {}, "message": "job not found"}}`.
-`message` is English for logs and the MCP server; `params` carries what a
+`message` is English for logs and agent clients; `params` carries what a
 message needs (slugs, never display names: the client names them). The codes
 reach the dashboard through `openapi.json` (`ErrorDetail`), where a test fails
 on a code with no catalog message.
@@ -104,7 +104,7 @@ class ErrorDetail(BaseModel):
 
     code: ErrorCode
     params: dict[str, str | int | list[str]]
-    #: English, for logs and the MCP server. Never shown to a person.
+    #: English, for logs and agent clients. Never shown to a person.
     message: str = Field(json_schema_extra=text("diagnostic"))
 
 

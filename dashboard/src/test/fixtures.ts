@@ -728,21 +728,10 @@ export const intelligenceFitFixture: IntelligenceFit = {
 export const agentAccessFixture: AgentAccessState = {
   enabled: false,
   allow_writes: false,
-  transport: "stdio",
-  command: "/repo/backend/.venv/bin/python",
-  args: ["-m", "tracker.mcp.server"],
-  cwd: "/repo/backend",
-  tools: [
-    { name: "search_opportunities", access: "read" },
-    { name: "update_pursuit", access: "write" },
+  connect: [
+    { host: "claude-code", command: "roleband connect claude-code --apply" },
+    { host: "codex", command: "roleband connect codex --apply" },
   ],
-  codex_command: "codex mcp add roleband -- /repo/backend/.venv/bin/python -m tracker.mcp.server",
-  claude_json: {
-    mcpServers: {
-      roleband: { command: "/repo/backend/.venv/bin/python", args: ["-m", "tracker.mcp.server"], cwd: "/repo/backend" },
-    },
-  },
-  
 };
 
 /** A saved oMLX connection as the local-model routes serve it: the default

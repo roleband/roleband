@@ -35,9 +35,9 @@ adds them.
   in the app.
 - The consumer surface has no SQL, no migration, no mass delete, no secret
   export, no general HTTP passthrough and no general process execution.
-- Each tool of the MCP server has a row in
-  `backend/tests/fixtures/mcp_parity_checklist.json` naming the operation that
-  replaces it under the same switch, with every deliberate difference.
+- Each tool of the MCP server has an operation that replaces it under the
+  same switch, with every deliberate difference stated, before the server is
+  removed ([0022](0022-the-mcp-server-is-removed.md)).
 
 ## Consequences
 
@@ -50,10 +50,8 @@ adds them.
 - `tests/test_agent_coverage_ledger.py` fails when a route has no row, when a
   row names a route that is gone, and when an exclusion has no reason, so a new
   route cannot ship without a decision about agents.
-  `tests/test_mcp_parity_checklist.py` fails when an MCP tool has no row or its
-  row names another switch than the one the tool answers under. Neither test
-  can yet check that a named operation exists; that check follows the
-  operation catalog.
+  The test cannot yet check that a named operation exists; that check follows
+  the operation catalog.
 - The `tracker.cli` package lands with an import contract that refuses database
   modules.
 
