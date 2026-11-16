@@ -25,18 +25,36 @@ How the operations and the command are built is in
    Assistant apps card, turn on **Allow assistant apps to connect**. Turn on
    **Allow assistant apps to update your progress** as well if the agent should
    save roles and update pursuits.
-2. Run the command the card shows for the agent's host, once, in a terminal:
+2. Run the command the card shows for the agent's host, once, in a terminal.
+   Each widens what the host allows, beyond reaching the engine:
+
+   - Claude Code: a command that starts with `roleband ` runs outside Claude
+     Code's sandbox, with no limit on the files or network it reaches, and a
+     permission rule lets Claude Code run it without asking.
+   - Codex: `network_access = true` opens all network access, not only the
+     engine's, to every command Codex runs in its workspace-write mode. Codex
+     has no setting for loopback alone.
 
    ```bash
    roleband connect claude-code --apply
    ```
 
-   or `roleband connect codex --apply`. `--print` shows the change without
-   making it. Claude Code gets a sandbox exclusion and a permission rule for
-   commands that start with `roleband `; Codex gets network access in its
-   workspace-write mode. Both get the RoleBand skill, which tells the agent how
-   to use the command. Any other host is refused as `unsupported_host`.
+   or `roleband connect codex --apply`. `--print` shows the change, and these
+   costs, without making it. Both hosts get the RoleBand skill, which tells the
+   agent how to use the command. Any other host is refused as
+   `unsupported_host`.
 3. Restart the host and ask the agent to run `roleband capabilities`.
+
+The command reaches an engine only through a named context, read from
+`ROLEBAND_CLI_CONFIG`, else `~/.config/roleband/cli.json`; there is no default
+engine, and a command with no context answers `context_required`. Neither the
+Mac app nor `connect` writes that file, so on a new machine create it with the
+app's engine as the current context (port 8010, unless the person chose
+another in the app's Settings):
+
+```json
+{"format": 1, "current": "app", "contexts": {"app": {"url": "http://127.0.0.1:8010"}}}
+```
 
 The Mac app writes the `roleband` command to `~/.local/bin` each time it starts
 its engine. That folder must be on `PATH`, since the host runs the command by
