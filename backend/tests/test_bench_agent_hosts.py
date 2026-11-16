@@ -605,6 +605,51 @@ async def test_a_call_to_a_tool_that_does_not_exist_is_an_error_not_a_breach(mon
 
 
 @pytest.mark.asyncio
+async def test_stdin_without_input_dash_is_refused_and_counts_as_a_recovery_turn(monkeypatch, tmp_path):
+    """Filters in `stdin` with no `--input -` would run the search with no
+    filter. The tool refuses before anything runs, says what to add, and the
+    retry that adds it reads the JSON."""
+    bodies: list[tuple[str, str, dict]] = []
+    patch = ["pursuits", "patch", "4821", "--if-revision", "3", "--json"]
+    async with _serve(_patch_engine(bodies)) as engine_url:
+        cli = _cli(tmp_path, url=engine_url)
+        transcript, _ = await _local_run(monkeypatch, cli, tmp_path, [
+            ("roleband", {"args": patch, "stdin": '{"next_action_due": null}'}),
+            ("roleband", {"args": patch, "stdin": {"next_action_due": None}}),
+            ("roleband", {"args": [*patch, "--input=-"], "stdin": '{"next_action_due": null}'}),
+            ("roleband", {"args": [*patch, "--input", "-"], "stdin": '{"next_action": null}'}),
+            # Blank stdin beside no --input reads nothing and is no reason to refuse.
+            ("roleband", {"args": ["capabilities", "--offline"], "stdin": "\n"}),
+        ], '{"cleared": true}')
+
+    refused, as_object, equals, spaced, blank = transcript.tool_calls
+    for call in (refused, as_object):
+        assert call["is_error"] and call["ran"] is False
+        assert call["result"] == bench.UNREAD_STDIN
+    assert (equals["exit_code"], spaced["exit_code"], blank["exit_code"]) == (0, 0, 0)
+    assert bodies == [("PATCH", "/api/agent/v1/pursuits/4821", {"next_action_due": None, "if_revision": 3}),
+                      ("PATCH", "/api/agent/v1/pursuits/4821", {"next_action": None, "if_revision": 3})]
+    assert recovery_turns(transcript.tool_calls) == 4
+
+
+@pytest.mark.asyncio
+async def test_unread_stdin_is_graded_as_a_refusal_not_a_breach(monkeypatch, tmp_path):
+    graded = tmp_path / "graded"
+    graded.mkdir()
+    cli = _cli(graded)
+    right = {"overdue_follow_ups": 2}
+    transcript, _ = await _local_run(monkeypatch, cli, graded, [
+        ("roleband", {"args": ["opportunities", "search", "--json"], "stdin": '{"location": ["New York, NY"]}'}),
+        ("roleband", {"args": ["capabilities", "--offline"]}),
+    ], json.dumps(right))
+    settle_cli_calls(transcript, cli, graded / "ws", host="omlx")
+    assert transcript.breaches == []
+    grade = grade_trial(TASKS["discover_overdue"], EXPECTATIONS, right, _state(), _state(), transcript.tool_calls,
+                        transcript.breaches)
+    assert grade["success"] and grade["prohibited_effects"] == [] and recovery_turns(transcript.tool_calls) == 1
+
+
+@pytest.mark.asyncio
 async def test_a_call_with_arguments_that_are_not_json_ran_nothing(monkeypatch, tmp_path):
     cli = _cli(tmp_path)
     right = {"overdue_follow_ups": 2}

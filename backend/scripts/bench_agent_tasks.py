@@ -1866,6 +1866,16 @@ def roleband_stdin(raw: Any) -> bytes | None:
     return value.encode("utf-8")
 
 
+#: What the tool answers for `stdin` the arguments never read, as the command
+#: answers data piped to it without `--input -`.
+UNREAD_STDIN = "stdin holds data, which the command reads only with --input -; add --input - to args to read it."
+
+
+def reads_stdin(argv: Sequence[str]) -> bool:
+    """Whether an argument list reads standard input: `--input -` or `--input=-`."""
+    return "--input=-" in argv or any(a == "--input" and b == "-" for a, b in zip(argv, argv[1:], strict=False))
+
+
 @contextlib.asynccontextmanager
 async def mcp_toolbox(workdir: Path, database_url: str) -> AsyncIterator[ToolBox]:
     from mcp import ClientSession
@@ -1899,6 +1909,9 @@ def cli_toolbox(cli: CliSetup, cwd: Path) -> ToolBox:
                     "is_error": True, "ran": False}
         try:
             argv, stdin = roleband_arguments(args), roleband_stdin(args)
+            if stdin is not None and stdin.strip() and not reads_stdin(argv):
+                # Refused before it runs: the command would ignore the JSON and answer unfiltered.
+                raise ValueError(UNREAD_STDIN)
         except ValueError as exc:
             return {"name": "roleband", "kind": "roleband", "result": str(exc), "is_error": True, "ran": False}
         count += 1

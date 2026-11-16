@@ -83,6 +83,11 @@ WINDOWS_SKIPS: tuple[tuple[re.Pattern[str], str], ...] = (
         "Linux lane runs it (tests/test_cli.py)",
     ),
     (
+        re.compile(r"Windows pipes cannot be polled, so piped data runs as given"),
+        "the client refuses piped data without --input - only where it can poll standard input without "
+        "waiting; on Windows the call runs as given, and the Linux lane runs the refusal (tests/test_cli_commands.py)",
+    ),
+    (
         re.compile(r"macOS bundle state redirects through HOME"),
         "the Mac app bundle's state; the Windows package keeps its own (tests/test_windows_state.py)",
     ),

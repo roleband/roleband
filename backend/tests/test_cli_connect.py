@@ -297,7 +297,12 @@ def test_a_skill_saved_after_connect_read_it_is_kept(tmp_path, monkeypatch):
 def test_the_shipped_skill_starts_from_capabilities_and_describe():
     text = SHIPPED_SKILL.read_text()
     assert text.startswith("---\nname: roleband\ndescription: ")
-    assert "roleband capabilities" in text and "roleband describe OPERATION" in text
+    first, second = [line for line in text.splitlines() if line.startswith(("1. ", "2. "))][:2]
+    assert "`capabilities` command" in first
+    assert "`describe` command with an id" in second
+    # A small model given a tool copies a backticked `roleband capabilities --json`
+    # here into the tool's name; the opening steps name the command word alone.
+    assert "`roleband " not in first + second
     from tracker.cli.connect import SKILL_VERSION
 
     assert f"<!-- roleband skill, version {SKILL_VERSION}." in text
