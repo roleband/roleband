@@ -33,8 +33,9 @@ from tracker.agents.operations import (
     search,
     vocabulary,
 )
-from tracker.agents.operations.catalog import CATALOG
+from tracker.agents.operations.catalog import CATALOG, resources
 from tracker.agents.operations.envelope import Envelope, EnvelopeNotice, NextAction, OperationError
+from tracker.agents.operations.index import capabilities_summary, describe_view
 from tracker.agents.operations.meta import (
     CAPABILITIES,
     DESCRIBE,
@@ -44,8 +45,8 @@ from tracker.agents.operations.meta import (
     CapabilitiesResult,
     DescribeInput,
     EngineTrust,
-    OperationDetail,
     OperationSummary,
+    OperationView,
     StatusResult,
 )
 from tracker.agents.operations.outcomes import CONTRACT_VERSION
@@ -96,30 +97,31 @@ async def status(
 async def capabilities(
     op: Annotated[OperationContext, Depends(admitted(CAPABILITIES))],
 ) -> Envelope[Any]:
-    tier = op.input_as(CapabilitiesInput).tier
-    return op.ok(
-        CapabilitiesResult(
-            contract_version=CONTRACT_VERSION,
-            supported_contract_versions=[CONTRACT_VERSION],
-            engine_version=__version__,
-            metadata_source="engine",
-            operations=[
-                OperationSummary.model_validate(descriptor.summary_entry(availability(descriptor, op.switches)))
-                for descriptor in CATALOG.in_tier(tier)
-            ],
-        )
-    )
+    params = op.input_as(CapabilitiesInput)
+    entries = [descriptor.summary_entry(availability(descriptor, op.switches)) for descriptor in CATALOG.in_tier(params.tier)]
+    versions = {
+        "contract_version": CONTRACT_VERSION,
+        "supported_contract_versions": [CONTRACT_VERSION],
+        "engine_version": __version__,
+        "metadata_source": "engine",
+    }
+    if params.view == "full":
+        listed: dict[str, Any] = {"view": "full", "operations": [OperationSummary.model_validate(entry) for entry in entries]}
+    else:
+        listed = capabilities_summary(entries, resources=resources(), availability_known=True, tier=params.tier)
+    return op.ok(CapabilitiesResult.model_validate({**versions, **listed}))
 
 
 @router.get(
     f"{PREFIX}/operations/{{operation}}",
-    response_model=Envelope[OperationDetail],
+    response_model=Envelope[OperationView],
     openapi_extra=operation_route(DESCRIBE),
 )
 async def describe(
     op: Annotated[OperationContext, Depends(admitted(DESCRIBE))],
 ) -> Envelope[Any]:
-    wanted = op.input_as(DescribeInput).operation
+    params = op.input_as(DescribeInput)
+    wanted = params.operation
     descriptor = CATALOG.get(wanted)
     if descriptor is None:
         # A partial id, such as a resource's name, names the operations under it.
@@ -132,9 +134,8 @@ async def describe(
             next_actions=[*(NextAction(operation=DESCRIBE.id, arguments={"operation": entry}) for entry in under),
                           NextAction(operation=CAPABILITIES.id, arguments={})],
         )
-    return op.ok(
-        OperationDetail.model_validate(descriptor.full_entry(availability(descriptor, op.switches), source="engine"))
-    )
+    entry = descriptor.full_entry(availability(descriptor, op.switches), source="engine")
+    return op.ok(OperationView.model_validate(describe_view(entry, params.view)))
 
 
 @router.get(

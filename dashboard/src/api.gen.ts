@@ -4606,8 +4606,8 @@ export interface components {
             /** Step */
             step: string;
         };
-        /** CapabilitiesResult */
-        CapabilitiesResult: {
+        /** CapabilitiesFull */
+        CapabilitiesFull: {
             /** Contract Version */
             contract_version: string;
             /** Engine Version */
@@ -4621,6 +4621,49 @@ export interface components {
             operations: components["schemas"]["OperationSummary"][];
             /** Supported Contract Versions */
             supported_contract_versions: string[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            view: "full";
+        };
+        /**
+         * CapabilitiesResult
+         * @description The operation index in the view asked for; `view` names which.
+         */
+        CapabilitiesResult: components["schemas"]["CapabilitiesSummary"] | components["schemas"]["CapabilitiesFull"];
+        /** CapabilitiesSummary */
+        CapabilitiesSummary: {
+            /** Continue With */
+            continue_with: components["schemas"]["NextAction"][];
+            /** Contract Version */
+            contract_version: string;
+            /** Effects */
+            effects: {
+                [key: string]: string[];
+            };
+            /** Engine Version */
+            engine_version: string | null;
+            /**
+             * Metadata Source
+             * @enum {string}
+             */
+            metadata_source: "bundled" | "engine";
+            /** Resources */
+            resources: {
+                [key: string]: components["schemas"]["ResourceIndex"];
+            };
+            /** Supported Contract Versions */
+            supported_contract_versions: string[];
+            /** Unavailable */
+            unavailable: {
+                [key: string]: string;
+            } | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            view: "summary";
         };
         /** CapabilityView */
         CapabilityView: {
@@ -6897,14 +6940,14 @@ export interface components {
             /** Workspace Id */
             workspace_id: string | null;
         };
-        /** Envelope[OperationDetail] */
-        Envelope_OperationDetail_: {
+        /** Envelope[OperationView] */
+        Envelope_OperationView_: {
             /**
              * Contract Version
              * @default 1.0
              */
             contract_version: string;
-            data: components["schemas"]["OperationDetail"] | null;
+            data: components["schemas"]["OperationView"] | null;
             error: components["schemas"]["EnvelopeError"] | null;
             meta: components["schemas"]["EnvelopeMeta"];
             /** Ok */
@@ -10939,6 +10982,63 @@ export interface components {
             /** Feed Configured */
             feed_configured: boolean;
         };
+        /**
+         * OperationBrief
+         * @description How to call one operation. Its input schema leaves out the titles
+         *     derived from field names; its output schema is in the full view.
+         */
+        OperationBrief: {
+            /**
+             * Access
+             * @enum {string}
+             */
+            access: "read" | "write";
+            availability: components["schemas"]["AvailabilityShape"];
+            /** Client Effects */
+            client_effects: ("file_write" | "browser_open" | "app_open")[];
+            /** Continue With */
+            continue_with: components["schemas"]["NextAction"][];
+            /** Contract Version */
+            contract_version: string;
+            /** Data Classes */
+            data_classes: ("public_posting" | "market_statistic" | "private_pursuit" | "offer" | "candidate")[];
+            engine_effects: components["schemas"]["EffectsShape"];
+            /** Examples */
+            examples: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Idempotency
+             * @enum {string}
+             */
+            idempotency: "read" | "required_key" | "natural_key";
+            /** Input Schema */
+            input_schema: {
+                [key: string]: unknown;
+            };
+            /** Introduced */
+            introduced: string;
+            /**
+             * Metadata Source
+             * @enum {string}
+             */
+            metadata_source: "bundled" | "engine";
+            /** Operation */
+            operation: string;
+            /** Required Scopes */
+            required_scopes: string[];
+            /** Summary */
+            summary: string;
+            /** Supports Dry Run */
+            supports_dry_run: boolean;
+            /** Tool Tiers */
+            tool_tiers: ("small" | "standard" | "full")[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            view: "summary";
+        };
         /** OperationDetail */
         OperationDetail: {
             /**
@@ -10990,6 +11090,11 @@ export interface components {
             supports_dry_run: boolean;
             /** Tool Tiers */
             tool_tiers: ("small" | "standard" | "full")[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            view: "full";
         };
         /** OperationSummary */
         OperationSummary: {
@@ -11016,6 +11121,11 @@ export interface components {
             /** Tool Tiers */
             tool_tiers: ("small" | "standard" | "full")[];
         };
+        /**
+         * OperationView
+         * @description One operation in the view asked for; `view` names which.
+         */
+        OperationView: components["schemas"]["OperationBrief"] | components["schemas"]["OperationDetail"];
         /** OpportunityDetail */
         OpportunityDetail: {
             /** Company */
@@ -13356,6 +13466,13 @@ export interface components {
             proficiency: string;
             /** Slug */
             slug: string;
+        };
+        /** ResourceIndex */
+        ResourceIndex: {
+            /** Operations */
+            operations: string[];
+            /** Summary */
+            summary: string;
         };
         /**
          * RetentionChoice
@@ -15858,6 +15975,8 @@ export interface operations {
             query?: {
                 /** @description List only the operations in this tool tier. */
                 tier?: ("small" | "standard" | "full") | null;
+                /** @description summary (each resource's summary and operation ids) or full (each operation's summary, access, availability, effects, data classes, tiers and idempotency). */
+                view?: "summary" | "full";
             };
             header?: never;
             path?: never;
@@ -16436,7 +16555,10 @@ export interface operations {
     };
     describe_api_agent_v1_operations__operation__get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description summary (how to call it: input schema, effects, scopes, examples) or full (also its output schema). */
+                view?: "summary" | "full";
+            };
             header?: never;
             path: {
                 /** @description A dotted operation id from capabilities. */
@@ -16452,7 +16574,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Envelope_OperationDetail_"];
+                    "application/json": components["schemas"]["Envelope_OperationView_"];
                 };
             };
         };

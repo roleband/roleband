@@ -16,7 +16,9 @@ on a second run. A value the person set the other way, or a layout this command 
 safely, is theirs to change: the command stops with `approval_required` and touches nothing.
 
 Each host also gets the versioned skill in `skills/roleband/SKILL.md`. A sidecar beside the
-installed copy records its hash, so a copy the person edited is never replaced.
+installed copy records its hash and version, so a copy the person edited is never replaced.
+`capabilities` brings an unedited copy of an older version up to this client's
+(`refresh_installed_skills`), so a new skill reaches a host without a second connect.
 """
 
 from __future__ import annotations
@@ -43,7 +45,7 @@ CLAUDE_EXCLUDED = "roleband *"
 CLAUDE_RULE = "Bash(roleband *)"
 
 SKILL_SOURCE = Path(__file__).with_name("skills") / "roleband" / "SKILL.md"
-SKILL_VERSION = 4
+SKILL_VERSION = 5
 SKILL_RECORD = ".roleband-skill.json"
 
 COSTS = {
@@ -344,6 +346,64 @@ def _install_skill(plan: SkillPlan, applied: list[str]) -> None:
         if current != text:
             _replace(record, text.encode(), mode=0o644)
             applied.append(str(record))
+
+
+def _recorded(directory: Path) -> object:
+    """The sidecar connect wrote beside the skill in `directory`; None when there is none to read."""
+    try:
+        return json.loads((directory / SKILL_RECORD).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def refresh_installed_skills() -> list[dict[str, str]]:
+    """Bring each skill `connect` installed up to this client's version, and
+    return a notice for each one it updated or could not.
+
+    Only a copy whose sidecar records an older version is touched, so two
+    clients of different versions on one computer never trade the file back
+    and forth. A copy the person edited stays as it is, as `connect` keeps it,
+    and so does one they deleted. Nothing here fails the call it runs in."""
+    notices: list[dict[str, str]] = []
+    for host, base in (("claude-code", claude_dir), ("codex", codex_dir)):
+        try:
+            directory = base() / "skills" / "roleband"
+        except (OSError, RuntimeError):
+            # No home folder to find (`Path.home()` raises where the
+            # environment names none): no installed skill to keep current.
+            continue
+        record = _recorded(directory)
+        installed = record.get("version") if isinstance(record, dict) else None
+        if not isinstance(installed, int) or isinstance(installed, bool) or installed >= SKILL_VERSION:
+            continue
+        try:
+            plan = _skill(directory)
+            # Another client may have installed its own version since the
+            # record was read; that copy is not this client's to replace.
+            if _recorded(directory) != record:
+                continue
+            if plan.action in ("update", "unchanged"):
+                _install_skill(plan, [])
+        except OSError as error:
+            notices.append({
+                "code": "skill_outdated",
+                "message": f"The roleband skill installed for {host} is version {installed} and could not be "
+                f"updated to {SKILL_VERSION} ({error.strerror or error}); run roleband connect {host} --apply.",
+            })
+            continue
+        if plan.action == "update":
+            notices.append({
+                "code": "skill_updated",
+                "message": f"The roleband skill installed for {host} is now version {SKILL_VERSION}, "
+                f"was {installed}; the host reads it from its next session.",
+            })
+        elif plan.action == "kept_edited":
+            notices.append({
+                "code": "skill_outdated",
+                "message": f"The roleband skill installed for {host} at {plan.path} was edited, so it stays "
+                f"at version {installed}; this client ships version {SKILL_VERSION}.",
+            })
+    return notices
 
 
 # --------------------------------------------------------------------------- #

@@ -29,6 +29,7 @@ from tracker.agents.operations import (
     vocabulary,
 )
 from tracker.agents.operations.descriptor import UNKNOWN, OperationDescriptor, ToolTier
+from tracker.agents.operations.index import resource_of
 from tracker.agents.operations.outcomes import CONTRACT_VERSION
 
 #: The one registration list.
@@ -74,11 +75,44 @@ class Catalog:
 
 CATALOG = Catalog(REGISTERED)
 
+#: What each resource is for, in one line: the index `capabilities` answers
+#: by default lists these and the ids under them, and leaves each operation's
+#: own summary to `describe`. Every resource of the catalog has one.
+RESOURCES: dict[str, str] = {
+    "applications": "The person's applications: the board of stages and the calendar of interviews.",
+    "capabilities": "The operations this engine offers.",
+    "changes": "What changed after a position: postings, stated pay, follow-ups due, source health.",
+    "companies": "Companies the person follows: profiles, facts with their sources, share prices.",
+    "context": "Everything about one opportunity as one hashed packet.",
+    "describe": "How to call one operation.",
+    "doctor": "The engine's checks and settings.",
+    "insights": "Market figures: open roles, pay by level and country, trends, skills asked for.",
+    "offer": "The person's own offer.",
+    "opportunities": "Open roles: search, one posting, its history, similar and duplicate postings.",
+    "pursuits": "Roles the person saved or pursues: stage, priority, notes, next action.",
+    "radar": "Counts of open and saved roles, pursuits by stage, overdue follow-ups.",
+    "receipts": "What a write sent under an idempotency key did.",
+    "recipes": "Listing recipes for a careers site: the contract, a live preview, drafts.",
+    "sources": "One public careers page, fetched.",
+    "status": "The workspace and engine answering.",
+    "vocabulary": "The values a search filter accepts.",
+}
+
+
+def resources(catalog: Catalog = CATALOG) -> dict[str, str]:
+    """The summary of each resource `catalog` has, by name."""
+    names = sorted({resource_of(descriptor.id) for descriptor in catalog})
+    if missing := [name for name in names if name not in RESOURCES]:
+        raise ValueError(f"resources without a summary in RESOURCES: {missing}")
+    return {name: RESOURCES[name] for name in names}
+
 
 def bundled_index(catalog: Catalog = CATALOG) -> dict[str, Any]:
-    """What the client ships: every descriptor in full, availability unknown."""
+    """What the client ships: every descriptor in full, availability unknown,
+    and each resource's summary."""
     return {
         "format": 1,
         "contract_version": CONTRACT_VERSION,
         "operations": [descriptor.full_entry(UNKNOWN, source="bundled") for descriptor in catalog],
+        "resources": resources(catalog),
     }

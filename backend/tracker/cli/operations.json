@@ -608,7 +608,9 @@
     "reason": "offline",
     "state": "unknown"
    },
-   "client_effects": [],
+   "client_effects": [
+    "file_write"
+   ],
    "contract_version": "1.0",
    "data_classes": [],
    "engine_effects": {
@@ -620,6 +622,9 @@
    "examples": [
     {
      "tier": "small"
+    },
+    {
+     "view": "full"
     }
    ],
    "idempotency": "read",
@@ -643,6 +648,16 @@
       "default": null,
       "description": "List only the operations in this tool tier.",
       "title": "Tier"
+     },
+     "view": {
+      "default": "summary",
+      "description": "summary (each resource's summary and operation ids) or full (each operation's summary, access, availability, effects, data classes, tiers and idempotency).",
+      "enum": [
+       "summary",
+       "full"
+      ],
+      "title": "View",
+      "type": "string"
      }
     },
     "title": "CapabilitiesInput",
@@ -686,6 +701,164 @@
       "title": "AvailabilityShape",
       "type": "object"
      },
+     "CapabilitiesFull": {
+      "additionalProperties": false,
+      "properties": {
+       "contract_version": {
+        "title": "Contract Version",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "engine_version": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Engine Version",
+        "x-text": "identifier"
+       },
+       "metadata_source": {
+        "enum": [
+         "bundled",
+         "engine"
+        ],
+        "title": "Metadata Source",
+        "type": "string",
+        "x-text": "code"
+       },
+       "operations": {
+        "items": {
+         "$ref": "#/$defs/OperationSummary"
+        },
+        "title": "Operations",
+        "type": "array"
+       },
+       "supported_contract_versions": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Supported Contract Versions",
+        "type": "array",
+        "x-text": "identifier"
+       },
+       "view": {
+        "const": "full",
+        "title": "View",
+        "type": "string",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "contract_version",
+       "supported_contract_versions",
+       "engine_version",
+       "metadata_source",
+       "view",
+       "operations"
+      ],
+      "title": "CapabilitiesFull",
+      "type": "object"
+     },
+     "CapabilitiesSummary": {
+      "additionalProperties": false,
+      "properties": {
+       "continue_with": {
+        "items": {
+         "$ref": "#/$defs/NextAction"
+        },
+        "title": "Continue With",
+        "type": "array"
+       },
+       "contract_version": {
+        "title": "Contract Version",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "effects": {
+        "additionalProperties": {
+         "items": {
+          "type": "string"
+         },
+         "type": "array"
+        },
+        "title": "Effects",
+        "type": "object"
+       },
+       "engine_version": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Engine Version",
+        "x-text": "identifier"
+       },
+       "metadata_source": {
+        "enum": [
+         "bundled",
+         "engine"
+        ],
+        "title": "Metadata Source",
+        "type": "string",
+        "x-text": "code"
+       },
+       "resources": {
+        "additionalProperties": {
+         "$ref": "#/$defs/ResourceIndex"
+        },
+        "title": "Resources",
+        "type": "object"
+       },
+       "supported_contract_versions": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Supported Contract Versions",
+        "type": "array",
+        "x-text": "identifier"
+       },
+       "unavailable": {
+        "anyOf": [
+         {
+          "additionalProperties": {
+           "type": "string"
+          },
+          "type": "object"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Unavailable"
+       },
+       "view": {
+        "const": "summary",
+        "title": "View",
+        "type": "string",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "contract_version",
+       "supported_contract_versions",
+       "engine_version",
+       "metadata_source",
+       "view",
+       "resources",
+       "effects",
+       "unavailable",
+       "continue_with"
+      ],
+      "title": "CapabilitiesSummary",
+      "type": "object"
+     },
      "EffectsShape": {
       "additionalProperties": false,
       "properties": {
@@ -713,6 +886,27 @@
        "external_action"
       ],
       "title": "EffectsShape",
+      "type": "object"
+     },
+     "NextAction": {
+      "additionalProperties": false,
+      "description": "A typed suggestion of an operation to call next. Never a shell string,\nand never a permission the caller did not already have.",
+      "properties": {
+       "arguments": {
+        "additionalProperties": true,
+        "title": "Arguments",
+        "type": "object"
+       },
+       "operation": {
+        "title": "Operation",
+        "type": "string",
+        "x-text": "identifier"
+       }
+      },
+      "required": [
+       "operation"
+      ],
+      "title": "NextAction",
       "type": "object"
      },
      "OperationSummary": {
@@ -808,61 +1002,49 @@
       ],
       "title": "OperationSummary",
       "type": "object"
-     }
-    },
-    "additionalProperties": false,
-    "properties": {
-     "contract_version": {
-      "title": "Contract Version",
-      "type": "string",
-      "x-text": "identifier"
      },
-     "engine_version": {
-      "anyOf": [
-       {
-        "type": "string"
+     "ResourceIndex": {
+      "additionalProperties": false,
+      "properties": {
+       "operations": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Operations",
+        "type": "array",
+        "x-text": "identifier"
        },
-       {
-        "type": "null"
+       "summary": {
+        "title": "Summary",
+        "type": "string",
+        "x-text": "diagnostic"
        }
-      ],
-      "title": "Engine Version",
-      "x-text": "identifier"
-     },
-     "metadata_source": {
-      "enum": [
-       "bundled",
-       "engine"
-      ],
-      "title": "Metadata Source",
-      "type": "string",
-      "x-text": "code"
-     },
-     "operations": {
-      "items": {
-       "$ref": "#/$defs/OperationSummary"
       },
-      "title": "Operations",
-      "type": "array"
-     },
-     "supported_contract_versions": {
-      "items": {
-       "type": "string"
-      },
-      "title": "Supported Contract Versions",
-      "type": "array",
-      "x-text": "identifier"
+      "required": [
+       "summary",
+       "operations"
+      ],
+      "title": "ResourceIndex",
+      "type": "object"
      }
     },
-    "required": [
-     "contract_version",
-     "supported_contract_versions",
-     "engine_version",
-     "metadata_source",
-     "operations"
+    "description": "The operation index in the view asked for; `view` names which.",
+    "discriminator": {
+     "mapping": {
+      "full": "#/$defs/CapabilitiesFull",
+      "summary": "#/$defs/CapabilitiesSummary"
+     },
+     "propertyName": "view"
+    },
+    "oneOf": [
+     {
+      "$ref": "#/$defs/CapabilitiesSummary"
+     },
+     {
+      "$ref": "#/$defs/CapabilitiesFull"
+     }
     ],
-    "title": "CapabilitiesResult",
-    "type": "object"
+    "title": "CapabilitiesResult"
    },
    "output_schema_ref": "#/output_schema",
    "required_scopes": [
@@ -1383,7 +1565,7 @@
    "required_scopes": [
     "agent_access.enabled"
    ],
-   "summary": "List what changed after a position, in commit order: new, closed, reopened and reposted postings, stated-pay changes, pursuit actions falling due and the health of built-in and plugin sources. Pass next_since back as since.",
+   "summary": "List what changed after a position, in commit order: new, closed, reopened and reposted postings, stated-pay changes, pursuit actions falling due and the health of built-in and plugin sources.",
    "supports_dry_run": false,
    "tool_tiers": [
     "small",
@@ -3718,6 +3900,10 @@
    "examples": [
     {
      "operation": "status"
+    },
+    {
+     "operation": "status",
+     "view": "full"
     }
    ],
    "idempotency": "read",
@@ -3730,6 +3916,16 @@
       "minLength": 1,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
       "title": "Operation",
+      "type": "string"
+     },
+     "view": {
+      "default": "summary",
+      "description": "summary (how to call it: input schema, effects, scopes, examples) or full (also its output schema).",
+      "enum": [
+       "summary",
+       "full"
+      ],
+      "title": "View",
       "type": "string"
      }
     },
@@ -3805,163 +4001,371 @@
       ],
       "title": "EffectsShape",
       "type": "object"
-     }
-    },
-    "additionalProperties": false,
-    "properties": {
-     "access": {
-      "enum": [
-       "read",
-       "write"
+     },
+     "NextAction": {
+      "additionalProperties": false,
+      "description": "A typed suggestion of an operation to call next. Never a shell string,\nand never a permission the caller did not already have.",
+      "properties": {
+       "arguments": {
+        "additionalProperties": true,
+        "title": "Arguments",
+        "type": "object"
+       },
+       "operation": {
+        "title": "Operation",
+        "type": "string",
+        "x-text": "identifier"
+       }
+      },
+      "required": [
+       "operation"
       ],
-      "title": "Access",
-      "type": "string",
-      "x-text": "code"
-     },
-     "availability": {
-      "$ref": "#/$defs/AvailabilityShape"
-     },
-     "client_effects": {
-      "items": {
-       "enum": [
-        "file_write",
-        "browser_open",
-        "app_open"
-       ],
-       "type": "string"
-      },
-      "title": "Client Effects",
-      "type": "array",
-      "x-text": "code"
-     },
-     "contract_version": {
-      "title": "Contract Version",
-      "type": "string",
-      "x-text": "identifier"
-     },
-     "data_classes": {
-      "items": {
-       "enum": [
-        "public_posting",
-        "market_statistic",
-        "private_pursuit",
-        "offer",
-        "candidate"
-       ],
-       "type": "string"
-      },
-      "title": "Data Classes",
-      "type": "array",
-      "x-text": "code"
-     },
-     "engine_effects": {
-      "$ref": "#/$defs/EffectsShape"
-     },
-     "examples": {
-      "items": {
-       "additionalProperties": true,
-       "type": "object"
-      },
-      "title": "Examples",
-      "type": "array"
-     },
-     "idempotency": {
-      "enum": [
-       "read",
-       "required_key",
-       "natural_key"
-      ],
-      "title": "Idempotency",
-      "type": "string",
-      "x-text": "code"
-     },
-     "input_schema": {
-      "additionalProperties": true,
-      "title": "Input Schema",
+      "title": "NextAction",
       "type": "object"
      },
-     "introduced": {
-      "title": "Introduced",
-      "type": "string",
-      "x-text": "identifier"
-     },
-     "metadata_source": {
-      "enum": [
-       "bundled",
-       "engine"
+     "OperationBrief": {
+      "additionalProperties": false,
+      "description": "How to call one operation. Its input schema leaves out the titles\nderived from field names; its output schema is in the full view.",
+      "properties": {
+       "access": {
+        "enum": [
+         "read",
+         "write"
+        ],
+        "title": "Access",
+        "type": "string",
+        "x-text": "code"
+       },
+       "availability": {
+        "$ref": "#/$defs/AvailabilityShape"
+       },
+       "client_effects": {
+        "items": {
+         "enum": [
+          "file_write",
+          "browser_open",
+          "app_open"
+         ],
+         "type": "string"
+        },
+        "title": "Client Effects",
+        "type": "array",
+        "x-text": "code"
+       },
+       "continue_with": {
+        "items": {
+         "$ref": "#/$defs/NextAction"
+        },
+        "title": "Continue With",
+        "type": "array"
+       },
+       "contract_version": {
+        "title": "Contract Version",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "data_classes": {
+        "items": {
+         "enum": [
+          "public_posting",
+          "market_statistic",
+          "private_pursuit",
+          "offer",
+          "candidate"
+         ],
+         "type": "string"
+        },
+        "title": "Data Classes",
+        "type": "array",
+        "x-text": "code"
+       },
+       "engine_effects": {
+        "$ref": "#/$defs/EffectsShape"
+       },
+       "examples": {
+        "items": {
+         "additionalProperties": true,
+         "type": "object"
+        },
+        "title": "Examples",
+        "type": "array"
+       },
+       "idempotency": {
+        "enum": [
+         "read",
+         "required_key",
+         "natural_key"
+        ],
+        "title": "Idempotency",
+        "type": "string",
+        "x-text": "code"
+       },
+       "input_schema": {
+        "additionalProperties": true,
+        "title": "Input Schema",
+        "type": "object"
+       },
+       "introduced": {
+        "title": "Introduced",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "metadata_source": {
+        "enum": [
+         "bundled",
+         "engine"
+        ],
+        "title": "Metadata Source",
+        "type": "string",
+        "x-text": "code"
+       },
+       "operation": {
+        "title": "Operation",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "required_scopes": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Required Scopes",
+        "type": "array",
+        "x-text": "code"
+       },
+       "summary": {
+        "title": "Summary",
+        "type": "string",
+        "x-text": "diagnostic"
+       },
+       "supports_dry_run": {
+        "title": "Supports Dry Run",
+        "type": "boolean"
+       },
+       "tool_tiers": {
+        "items": {
+         "enum": [
+          "small",
+          "standard",
+          "full"
+         ],
+         "type": "string"
+        },
+        "title": "Tool Tiers",
+        "type": "array",
+        "x-text": "code"
+       },
+       "view": {
+        "const": "summary",
+        "title": "View",
+        "type": "string",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "operation",
+       "contract_version",
+       "introduced",
+       "summary",
+       "access",
+       "input_schema",
+       "required_scopes",
+       "engine_effects",
+       "client_effects",
+       "data_classes",
+       "tool_tiers",
+       "idempotency",
+       "supports_dry_run",
+       "availability",
+       "metadata_source",
+       "examples",
+       "view",
+       "continue_with"
       ],
-      "title": "Metadata Source",
-      "type": "string",
-      "x-text": "code"
-     },
-     "operation": {
-      "title": "Operation",
-      "type": "string",
-      "x-text": "identifier"
-     },
-     "output_schema": {
-      "additionalProperties": true,
-      "title": "Output Schema",
+      "title": "OperationBrief",
       "type": "object"
      },
-     "output_schema_ref": {
-      "title": "Output Schema Ref",
-      "type": "string",
-      "x-text": "identifier"
-     },
-     "required_scopes": {
-      "items": {
-       "type": "string"
+     "OperationDetail": {
+      "additionalProperties": false,
+      "properties": {
+       "access": {
+        "enum": [
+         "read",
+         "write"
+        ],
+        "title": "Access",
+        "type": "string",
+        "x-text": "code"
+       },
+       "availability": {
+        "$ref": "#/$defs/AvailabilityShape"
+       },
+       "client_effects": {
+        "items": {
+         "enum": [
+          "file_write",
+          "browser_open",
+          "app_open"
+         ],
+         "type": "string"
+        },
+        "title": "Client Effects",
+        "type": "array",
+        "x-text": "code"
+       },
+       "contract_version": {
+        "title": "Contract Version",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "data_classes": {
+        "items": {
+         "enum": [
+          "public_posting",
+          "market_statistic",
+          "private_pursuit",
+          "offer",
+          "candidate"
+         ],
+         "type": "string"
+        },
+        "title": "Data Classes",
+        "type": "array",
+        "x-text": "code"
+       },
+       "engine_effects": {
+        "$ref": "#/$defs/EffectsShape"
+       },
+       "examples": {
+        "items": {
+         "additionalProperties": true,
+         "type": "object"
+        },
+        "title": "Examples",
+        "type": "array"
+       },
+       "idempotency": {
+        "enum": [
+         "read",
+         "required_key",
+         "natural_key"
+        ],
+        "title": "Idempotency",
+        "type": "string",
+        "x-text": "code"
+       },
+       "input_schema": {
+        "additionalProperties": true,
+        "title": "Input Schema",
+        "type": "object"
+       },
+       "introduced": {
+        "title": "Introduced",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "metadata_source": {
+        "enum": [
+         "bundled",
+         "engine"
+        ],
+        "title": "Metadata Source",
+        "type": "string",
+        "x-text": "code"
+       },
+       "operation": {
+        "title": "Operation",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "output_schema": {
+        "additionalProperties": true,
+        "title": "Output Schema",
+        "type": "object"
+       },
+       "output_schema_ref": {
+        "title": "Output Schema Ref",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "required_scopes": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Required Scopes",
+        "type": "array",
+        "x-text": "code"
+       },
+       "summary": {
+        "title": "Summary",
+        "type": "string",
+        "x-text": "diagnostic"
+       },
+       "supports_dry_run": {
+        "title": "Supports Dry Run",
+        "type": "boolean"
+       },
+       "tool_tiers": {
+        "items": {
+         "enum": [
+          "small",
+          "standard",
+          "full"
+         ],
+         "type": "string"
+        },
+        "title": "Tool Tiers",
+        "type": "array",
+        "x-text": "code"
+       },
+       "view": {
+        "const": "full",
+        "title": "View",
+        "type": "string",
+        "x-text": "code"
+       }
       },
-      "title": "Required Scopes",
-      "type": "array",
-      "x-text": "code"
-     },
-     "summary": {
-      "title": "Summary",
-      "type": "string",
-      "x-text": "diagnostic"
-     },
-     "supports_dry_run": {
-      "title": "Supports Dry Run",
-      "type": "boolean"
-     },
-     "tool_tiers": {
-      "items": {
-       "enum": [
-        "small",
-        "standard",
-        "full"
-       ],
-       "type": "string"
-      },
-      "title": "Tool Tiers",
-      "type": "array",
-      "x-text": "code"
+      "required": [
+       "operation",
+       "contract_version",
+       "introduced",
+       "summary",
+       "access",
+       "input_schema",
+       "required_scopes",
+       "engine_effects",
+       "client_effects",
+       "data_classes",
+       "tool_tiers",
+       "idempotency",
+       "supports_dry_run",
+       "availability",
+       "metadata_source",
+       "examples",
+       "view",
+       "output_schema_ref",
+       "output_schema"
+      ],
+      "title": "OperationDetail",
+      "type": "object"
      }
     },
-    "required": [
-     "operation",
-     "contract_version",
-     "introduced",
-     "summary",
-     "access",
-     "input_schema",
-     "output_schema_ref",
-     "output_schema",
-     "required_scopes",
-     "engine_effects",
-     "client_effects",
-     "data_classes",
-     "tool_tiers",
-     "idempotency",
-     "supports_dry_run",
-     "availability",
-     "metadata_source",
-     "examples"
+    "description": "One operation in the view asked for; `view` names which.",
+    "discriminator": {
+     "mapping": {
+      "full": "#/$defs/OperationDetail",
+      "summary": "#/$defs/OperationBrief"
+     },
+     "propertyName": "view"
+    },
+    "oneOf": [
+     {
+      "$ref": "#/$defs/OperationBrief"
+     },
+     {
+      "$ref": "#/$defs/OperationDetail"
+     }
     ],
-    "title": "OperationDetail",
-    "type": "object"
+    "title": "OperationView"
    },
    "output_schema_ref": "#/output_schema",
    "required_scopes": [
@@ -16755,6 +17159,25 @@
    ]
   }
  ],
+ "resources": {
+  "applications": "The person's applications: the board of stages and the calendar of interviews.",
+  "capabilities": "The operations this engine offers.",
+  "changes": "What changed after a position: postings, stated pay, follow-ups due, source health.",
+  "companies": "Companies the person follows: profiles, facts with their sources, share prices.",
+  "context": "Everything about one opportunity as one hashed packet.",
+  "describe": "How to call one operation.",
+  "doctor": "The engine's checks and settings.",
+  "insights": "Market figures: open roles, pay by level and country, trends, skills asked for.",
+  "offer": "The person's own offer.",
+  "opportunities": "Open roles: search, one posting, its history, similar and duplicate postings.",
+  "pursuits": "Roles the person saved or pursues: stage, priority, notes, next action.",
+  "radar": "Counts of open and saved roles, pursuits by stage, overdue follow-ups.",
+  "receipts": "What a write sent under an idempotency key did.",
+  "recipes": "Listing recipes for a careers site: the contract, a live preview, drafts.",
+  "sources": "One public careers page, fetched.",
+  "status": "The workspace and engine answering.",
+  "vocabulary": "The values a search filter accepts."
+ },
  "routes": {
   "applications.board": {
    "method": "GET",

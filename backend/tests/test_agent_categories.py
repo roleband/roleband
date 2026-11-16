@@ -219,14 +219,17 @@ async def test_capabilities_names_the_category_that_closes_an_operation(api_clie
 
     operations = {
         entry["operation"]: entry["availability"]
-        for entry in _data(*await _get(api_client, "/capabilities"))["operations"]
+        for entry in _data(*await _get(api_client, "/capabilities", view="full"))["operations"]
     }
+    unavailable = _data(*await _get(api_client, "/capabilities"))["unavailable"]
 
     for closed in ("pursuits.list", "pursuits.get", "pursuits.save", "pursuits.patch"):
         assert operations[closed] == {"state": "unavailable", "reason": "category_disabled"}
+        assert unavailable[closed] == "category_disabled"
     # Pursuits are a secondary category of these: they stay open.
     for open_ in ("opportunities.get", "opportunities.search", "radar.summary", "receipts.get"):
         assert operations[open_] == {"state": "available", "reason": None}
+        assert open_ not in unavailable
 
 
 def _routes() -> dict[str, AgentRoute]:

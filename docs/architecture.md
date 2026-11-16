@@ -1360,7 +1360,11 @@ Claude Code the sandbox exclusion `roleband *` and the rule `Bash(roleband *)`,
 for Codex `network_access` in workspace-write mode. It merges into the person's
 file, keeps a backup, changes nothing on a second run, and installs the skill in
 `backend/tracker/cli/skills/` unless the person edited their copy. Any other host
-is refused as `unsupported_host`.
+is refused as `unsupported_host`. `roleband capabilities`, the skill's first
+call, brings an installed skill whose recorded version is older than the
+client's up to date under the same rule, and says so in `warnings`
+(`skill_updated`, or `skill_outdated` for a copy it leaves); a newer copy, one
+connect never installed and one the person deleted stay as they are.
 `roleband tools export --dialect openai|anthropic [--tier small|standard|full]`
 (`backend/tracker/cli/tools.py`) gives someone who builds their own agent one
 tool per operation, in the OpenAI-compatible or Anthropic format. The tools come
@@ -1378,6 +1382,18 @@ writes the document atomically, refuses to replace a file or follow a link unles
 `--overwrite` is given (a folder without hard links cannot place a new file
 atomically, so there only `--overwrite` writes), and reports its path, size and SHA-256. The export grants
 nothing: the switches still decide each call.
+
+Discovery answers fit the standard tier's capability index budget, 1,500
+tokens, and the default index 1,000 (`tests/test_agent_operations.py`,
+`tests/test_cli.py`), because every session reads them and a small model
+carries them on every turn. By default `capabilities` lists each resource's
+one-line summary (`RESOURCES` in `catalog.py`) with the ids of its
+operations, the effects beyond reading and the operations the switches turn
+off, so an operation adds only its id; `describe` gives how to call one: its
+summary, its input schema without generated titles, and no output schema.
+Each names its `view` `full` in `continue_with`
+(`backend/tracker/agents/operations/index.py`, shared with the client's
+offline answers).
 
 A read takes its input from the path and query; one that takes a document
 (`recipes.validate`) takes it as a POST body, one JSON object.

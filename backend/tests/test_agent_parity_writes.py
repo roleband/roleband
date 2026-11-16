@@ -683,7 +683,7 @@ async def test_capabilities_lists_the_writes_unavailable_with_writes_off(api_cli
     await set_agent_access(db_session, AgentAccessConfig(enabled=True, allow_writes=False))
     await db_session.commit()
 
-    listed = {row["operation"]: row for row in _data(*await _get(api_client, "/capabilities"))["operations"]}
+    listed = {row["operation"]: row for row in _data(*await _get(api_client, "/capabilities?view=full"))["operations"]}
 
     for operation in ("pursuits.save", "pursuits.patch", "recipes.draft.save"):
         assert listed[operation]["availability"] == {"state": "unavailable", "reason": "writes_disabled"}

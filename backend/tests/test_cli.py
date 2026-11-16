@@ -32,7 +32,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from tracker.agents.operations.catalog import CATALOG
+from tracker.agents.operations.catalog import CATALOG, resources
 
 BACKEND = Path(__file__).resolve().parents[1]
 WORKSPACE = re.compile(r"^ws_[0-9a-f]{32}$")
@@ -152,15 +152,28 @@ def test_offline_capabilities_and_describe_read_the_bundle(home):
     assert body["workspace_id"] is None
     assert body["data"]["metadata_source"] == "bundled"
     assert body["data"]["engine_version"] is None
-    assert {entry["operation"] for entry in body["data"]["operations"]} == {descriptor.id for descriptor in CATALOG}
-    # Offline availability is unknown, never false.
-    assert {entry["availability"]["state"] for entry in body["data"]["operations"]} == {"unknown"}
+    assert body["data"]["view"] == "summary"
+    # The same index the engine answers, from the bundle.
+    assert body["data"]["resources"] == {
+        name: {"summary": summary, "operations": [d.id for d in CATALOG if d.id.split(".")[0] == name]}
+        for name, summary in resources().items()
+    }
+    # Offline availability is unknown, never false: not an empty list of unavailable operations.
+    assert body["data"]["unavailable"] is None
+
+    full = cli(home, "capabilities", "--offline", "--view", "full", "--json").envelope["data"]
+    assert full["view"] == "full"
+    assert [entry["operation"] for entry in full["operations"]] == [descriptor.id for descriptor in CATALOG]
+    assert {entry["availability"]["state"] for entry in full["operations"]} == {"unknown"}
 
     described = cli(home, "describe", "status", "--offline", "--json")
     assert described.status == 0
     data = described.envelope["data"]
     assert data["operation"] == "status" and data["metadata_source"] == "bundled"
-    assert data["output_schema"]["title"] == "StatusResult"
+    assert data["view"] == "summary" and "output_schema" not in data
+    assert data["continue_with"] == [{"operation": "describe", "arguments": {"operation": "status", "view": "full"}}]
+    whole = cli(home, "describe", "status", "--offline", "--view", "full", "--json").envelope["data"]
+    assert whole["view"] == "full" and whole["output_schema"]["title"] == "StatusResult"
 
     unknown = cli(home, "describe", "no.such", "--offline", "--json")
     assert unknown.status == 2
@@ -622,6 +635,86 @@ def test_a_reply_that_trickles_past_the_deadline_is_a_deadline_with_exit_8(home)
     assert elapsed < 4, "the client waited past its deadline"
 
 
+#: The most one discovery answer may take: the capability index budget of the
+#: standard tool tier, 1,500 tokens at four bytes each.
+DISCOVERY_BUDGET = 1_500 * 4
+#: The most the default index may take, with room under the budget for the
+#: operations still to come.
+INDEX_BUDGET = 1_000 * 4
+
+
+def test_offline_discovery_fits_the_capability_index_budget(home):
+    """Every trial reads the index and a describe or two, and a small model
+    pays for each byte on every later turn."""
+    listed = cli(home, "capabilities", "--offline", "--json")
+    assert len(listed.stdout.encode()) <= INDEX_BUDGET
+    for descriptor in CATALOG:
+        described = cli(home, "describe", descriptor.id, "--offline", "--json")
+        assert described.status == 0
+        assert len(described.stdout.encode()) <= DISCOVERY_BUDGET, descriptor.id
+    # The full views are one call away and may be larger.
+    assert len(cli(home, "capabilities", "--offline", "--view", "full", "--json").stdout) > DISCOVERY_BUDGET
+
+
+def test_a_human_describe_names_the_command_that_shows_the_output_schema(home):
+    shown = cli(home, "describe", "status", "--offline", "--format", "human")
+    assert shown.status == 0
+    hint = next(line for line in shown.stdout.splitlines() if "output schema" in line)
+    command = hint.split("roleband ", 1)[1].split()
+    # Read from the bundle, so the command it names reads the bundle too.
+    assert command == ["describe", "status", "--view", "full", "--offline", "--json"]
+    assert cli(home, *command).envelope["data"]["output_schema"]["title"] == "StatusResult"
+
+
+@pytest.mark.parametrize("view", ["summary", "full"])
+def test_human_capabilities_names_the_export_for_a_persons_own_agent(home, view):
+    shown = cli(home, "capabilities", "--offline", "--view", view, "--format", "human")
+    assert shown.status == 0
+    line = next(line for line in shown.stdout.splitlines() if "tools export" in line)
+    words = line.split("roleband ", 1)[1].split()
+    assert words[:3] == ["tools", "export", "--dialect"]
+    # Each dialect it names is one the command takes.
+    for dialect in words[3].split("|"):
+        exported = cli(home, *words[:3], dialect, "--offline", "--json")
+        assert exported.status == 0 and exported.envelope["data"]["tool_count"] > 0, dialect
+    # The agent's own JSON index carries no such line: it costs every session.
+    assert "tools export" not in cli(home, "capabilities", "--offline", "--json").stdout
+
+
+def test_capabilities_answers_where_no_home_folder_can_be_found(monkeypatch):
+    """Keeping an installed skill current never fails the call: an environment
+    that names no home folder (a Windows service, a stripped CI job) has no
+    installed skill to look at."""
+    from tracker.cli import connect
+    from tracker.cli import main as cli_main
+
+    def no_home() -> Path:
+        raise RuntimeError("Could not determine home directory.")
+
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    monkeypatch.delenv("CODEX_HOME", raising=False)
+    monkeypatch.setattr(connect, "_home", no_home)
+    assert connect.refresh_installed_skills() == []
+    out = io.StringIO()
+    status = cli_main.run(["capabilities", "--offline", "--json"], stdout=out, stderr=io.StringIO(), environ={})
+    assert status == 0 and json.loads(out.getvalue())["ok"] is True
+
+
+def test_the_client_asks_for_a_full_view_only_when_told(home):
+    with Stub(Reply(503)) as stub:
+        home.contexts(current="dev", dev={"url": stub.url})
+        for args in (("describe", "status"), ("describe", "status", "--view", "full"),
+                     ("capabilities", "--tier", "small"), ("capabilities", "--view", "full")):
+            cli(home, *args, "--json")
+    # The default view sends no parameter, so an engine that predates views answers too.
+    assert stub.requests == [
+        "/api/agent/v1/operations/status",
+        "/api/agent/v1/operations/status?view=full",
+        "/api/agent/v1/capabilities?tier=small",
+        "/api/agent/v1/capabilities?view=full",
+    ]
+
+
 def test_the_client_sends_its_request_id_and_reaches_only_the_operations_route(home):
     with Stub(Reply(200, _envelope("describe", data={"operation": "status"}))) as stub:
         home.contexts(current="dev", dev={"url": stub.url})
@@ -789,13 +882,17 @@ def test_a_real_engine_refuses_until_the_switch_and_then_names_its_workspace(hom
     assert data["trust"] == {"mode": "local_loopback", "verified": False}
     assert body["meta"]["context"]["name"] == "dev"
 
-    capabilities = cli(home, "capabilities", "--tier", "small", "--json")
+    capabilities = cli(home, "capabilities", "--tier", "small", "--view", "full", "--json")
     assert capabilities.status == 0
     assert capabilities.envelope["data"]["metadata_source"] == "engine"
     # Reads are available; writes wait for the second switch, which is still off.
     assert {
         (e["access"], e["availability"]["state"]) for e in capabilities.envelope["data"]["operations"]
     } == {("read", "available"), ("write", "unavailable")}
+    index = cli(home, "capabilities", "--json")
+    assert len(index.stdout.encode()) <= INDEX_BUDGET
+    writes = {descriptor.id for descriptor in CATALOG if descriptor.access == "write"}
+    assert index.envelope["data"]["unavailable"] == dict.fromkeys(sorted(writes), "writes_disabled")
 
     described = cli(home, "describe", "capabilities", "--json")
     assert described.status == 0

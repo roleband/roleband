@@ -268,8 +268,7 @@ CHANGES_LIST = OperationDescriptor(
     id="changes.list",
     summary=(
         "List what changed after a position, in commit order: new, closed, reopened and reposted postings, "
-        "stated-pay changes, pursuit actions falling due and the health of built-in and plugin sources. "
-        "Pass next_since back as since."
+        "stated-pay changes, pursuit actions falling due and the health of built-in and plugin sources."
     ),
     input=ChangesListInput,
     result=ChangesPage,

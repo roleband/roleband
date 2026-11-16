@@ -228,7 +228,8 @@ def test_only_what_the_engine_offers_now_is_exported(home):
     with Stub(reply) as stub:
         home.contexts(current="dev", dev={"url": stub.url})
         body = _export(home, "--dialect", "openai", "--tier", "small")
-    assert stub.requests == ["/api/agent/v1/capabilities?tier=small"]
+    # The export reads every operation's availability: the full list, not the index.
+    assert stub.requests == ["/api/agent/v1/capabilities?tier=small&view=full"]
     data = body["data"]
     assert data["metadata_source"] == "engine"
     assert body["workspace_id"] == "ws_" + "a" * 32
