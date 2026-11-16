@@ -807,6 +807,71 @@ def test_the_atomic_write_refuses_a_file_that_appeared_and_leaves_nothing_behind
     assert [entry.name for entry in tmp_path.iterdir()] == ["role.json"]
 
 
+def _part(packet: str, offset: int, sha: str, *, following: list | None = None) -> dict:
+    manifest = {"format": 1, "opportunity_id": 7, "packet_sha256": sha, "packet_bytes": 0, "packet_chars": 6,
+                "components": [], "left_out": []}
+    return {"manifest": manifest, "packet_offset": offset, "packet": packet, "continue_with": following or []}
+
+
+def _next(offset: int, sha: str) -> list:
+    return [{"operation": "context.export", "arguments": {"opportunity_id": 7, "packet_from": offset,
+                                                          "packet_sha256": sha}}]
+
+
+_SHA = __import__("hashlib").sha256(b"abcdef").hexdigest()
+_REFUSED = {"ok": False, "operation": "context.export",
+            "error": {"code": "revision_conflict", "message": "The packet changed."}}
+
+
+@pytest.mark.parametrize(("later", "outcome"), [
+    ({"ok": True, "operation": "context.export", "data": _part("def", 3, _SHA)}, "written"),
+    (_REFUSED, "refused"),
+    ({"ok": True, "operation": "context.export", "data": _part("def", 2, _SHA)}, "internal_error"),
+    ({"ok": True, "operation": "context.export", "data": _part("def", 3, "1" * 64)}, "internal_error"),
+    ({"ok": True, "operation": "context.export", "data": _part("", 3, _SHA, following=_next(3, _SHA))},
+     "internal_error"),
+    ({"ok": True, "operation": "context.export", "data": _part("def", 3, _SHA, following=_next(6, _SHA) * 2)},
+     "contract_incompatible"),
+], ids=["joined", "later-part-refused", "other-offset", "other-packet", "empty-part-going-on", "two-ways-on"])
+def test_a_later_part_that_does_not_continue_the_packet_writes_nothing(out, later, outcome):
+    from tracker.cli import output
+
+    asked: list[dict] = []
+
+    def follow(arguments: dict) -> dict:
+        asked.append(arguments)
+        return later
+
+    first = {"ok": True, "operation": "context.export", "data": _part("abc", 0, _SHA, following=_next(3, _SHA))}
+    target = out / "role-7.json"
+    try:
+        answer = output.write(first, target, overwrite=False, follow=follow)
+    except ClientError as error:
+        assert error.code == outcome
+        assert not target.exists()
+    else:
+        if outcome == "refused":
+            assert answer is _REFUSED and not target.exists()
+        else:
+            assert outcome == "written" and target.read_bytes() == b"abcdef"
+    assert asked == [_next(3, _SHA)[0]["arguments"]]
+    assert [entry.name for entry in out.iterdir()] == (["role-7.json"] if outcome == "written" else [])
+
+
+def test_a_folder_that_cannot_be_written_is_a_client_error_not_a_traceback(out, monkeypatch):
+    from tracker.cli import output
+
+    def refused(**_: object) -> tuple[int, str]:
+        raise PermissionError("read-only folder")
+
+    monkeypatch.setattr(output.tempfile, "mkstemp", refused)
+    with pytest.raises(ClientError) as error:
+        output.write_atomically(out / "role-7.json", b"{}", overwrite=False)
+    assert error.value.code == "invalid_arguments"
+    assert error.value.details == {"path": str(out / "role-7.json"), "reason": "PermissionError"}
+    assert list(out.iterdir()) == []
+
+
 def test_output_reads_every_part_of_a_real_engines_packet(home, seeded_engine, out):
     """At the small tier a long packet comes in parts; the file is all of them, joined."""
     import hashlib

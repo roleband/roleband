@@ -347,7 +347,7 @@ async def test_due_times_that_passed_while_pursuits_were_not_shared_are_not_caug
 
     assert shared_again == []
     described = ChangesListInput.model_json_schema()["properties"]["since"]["description"]
-    assert "passed while pursuits were not shared are not caught up" in described
+    assert "A read made while pursuits are not shared moves past the pursuit due times" in described
 
 
 # --------------------------------------------------------------------------- #

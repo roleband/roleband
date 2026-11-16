@@ -145,8 +145,8 @@ class ChangesListInput(Shape):
         description=(
             "The next_since of the previous page: the read continues after it, in commit order, "
             "with the same kinds. Without it the read starts at start_time, or at the oldest change kept. "
-            "Pursuit due times that passed while pursuits were not shared are not caught up when "
-            "sharing turns back on."
+            "A read made while pursuits are not shared moves past the pursuit due times that passed "
+            "before it; they are not caught up when sharing turns back on."
         ),
     )
     start_time: AwareDatetime | None = Field(

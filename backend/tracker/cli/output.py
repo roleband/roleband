@@ -130,7 +130,10 @@ def write_atomically(target: Path, content: bytes, *, overwrite: bool) -> None:
     file already there, even one that appeared while this one was written, is
     refused. The file is readable by its owner only, as it holds the person's
     own records."""
-    descriptor, temporary = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.", suffix=".part")
+    try:
+        descriptor, temporary = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.", suffix=".part")
+    except OSError as error:
+        raise _unwritable(target, error) from None
     try:
         with os.fdopen(descriptor, "wb") as handle:
             handle.write(content)
@@ -143,13 +146,17 @@ def write_atomically(target: Path, content: bytes, *, overwrite: bool) -> None:
     except FileExistsError:
         raise _exists(target) from None
     except OSError as error:
-        raise ClientError(
-            "invalid_arguments", "--output cannot write that file.",
-            details={"path": str(target), "reason": type(error).__name__},
-        ) from None
+        raise _unwritable(target, error) from None
     finally:
         if os.path.lexists(temporary):
             os.unlink(temporary)
+
+
+def _unwritable(target: Path, error: OSError) -> ClientError:
+    return ClientError(
+        "invalid_arguments", "--output cannot write that file.",
+        details={"path": str(target), "reason": type(error).__name__},
+    )
 
 
 def _place_new(temporary: str, target: Path) -> None:
