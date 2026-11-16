@@ -177,20 +177,18 @@ def running_postmaster(pgdata: Path) -> bool:
     return psutil.pid_exists(pid)
 
 
-def stop_after_run(pgdata: Path, *, started_here: bool, settle: float = 30.0) -> bool:
-    """End a test run's hold on its cluster: stop it if the run started it, or
-    if it sits in a throwaway place, once no process outside the run holds it.
+def stop_after_run(pgdata: Path, *, settle: float = 30.0) -> bool:
+    """End a test run's hold on its cluster: stop it if it sits in a throwaway
+    place and no process outside the run holds it.
 
     The run's own workers are its child processes; each leaves the holder
     record as it exits, so they are waited for (at most `settle` seconds)
-    rather than counted. A cluster an app claimed is never stopped, and one a
-    process outside the run still holds is left to it."""
+    rather than counted. A cluster elsewhere, such as a checkout's development
+    database, is left running whoever started it, and so is an app's."""
     import psutil
 
     pgdata = pgdata.resolve()
-    if not running_postmaster(pgdata) or _why_kept(pgdata, ()) == "an app's cluster":
-        return False
-    if not started_here and not any(pgdata.is_relative_to(place) for place in throwaway_places()):
+    if not running_postmaster(pgdata) or _why_kept(pgdata, ()) is not None:
         return False
     me = psutil.Process()
     deadline = time.monotonic() + settle

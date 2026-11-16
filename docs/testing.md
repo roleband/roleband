@@ -396,10 +396,10 @@ legitimate skip is added there with the reason it may stay a skip.
 last process that opened it exits, as the app needs, and each running cluster
 holds a shared memory segment: macOS allows 32 (`kern.sysv.shmmni`), after
 which every `initdb` fails. So a test run stops the cluster its database tests
-used once its workers have let go of it, if the run started it or it sits in a
-temporary folder or `~/.cache`, and no other process holds it. A cluster
-another process holds, an app's, and a development database that was already
-running stay up. A killed run, or any other command run with a throwaway
+used once its workers have let go of it, if it sits in a temporary folder or
+`~/.cache` and no other process holds it. A cluster another process holds, an
+app's, and a development database elsewhere stay up. A killed run, or any
+other command run with a throwaway
 `ROLEBAND_PGDATA`, can still leave one behind. From `backend/`,
 `.venv/bin/python -m scripts.stray_clusters` lists every cluster this account
 runs with its data directory and the processes holding it, and `--stop` stops

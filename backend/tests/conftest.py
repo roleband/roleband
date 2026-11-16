@@ -515,9 +515,9 @@ def _embedded_servers_stop_with_the_session(tmp_path_factory):
     stop_clusters_under(tmp_path_factory.getbasetemp())
 
 
-#: The embedded cluster this run's database tests open, and whether it ran
-#: before the run began. Kept by the controlling process only.
-_RUN_CLUSTER = pytest.StashKey[tuple[Path, bool]]()
+#: The embedded cluster this run's database tests open. Kept by the
+#: controlling process only.
+_RUN_CLUSTER = pytest.StashKey[Path]()
 
 
 def _configured_cluster() -> Path | None:
@@ -542,26 +542,24 @@ def pytest_configure(config):
         return
     pgdata = _configured_cluster()
     if pgdata is not None:
-        from scripts.stray_clusters import running_postmaster
-
-        config.stash[_RUN_CLUSTER] = (pgdata, running_postmaster(pgdata))
+        config.stash[_RUN_CLUSTER] = pgdata
 
 
 def pytest_unconfigure(config):
     """Stop the cluster the run's database tests used, once the run's workers
-    have let go of it, if the run started it or it is a throwaway one, and no
-    other process holds it. The embedded server outlives every process that
-    opens it, so without this a test run leaves its cluster running, and each
-    holds one of the machine's few shared memory segments. A killed run is not
-    covered: `scripts.stray_clusters` lists and stops what is left."""
-    run = config.stash.get(_RUN_CLUSTER, None)
-    if run is None:
+    have let go of it, if it is a throwaway one (in a temporary folder or
+    `~/.cache`) and no other process holds it. The embedded server outlives
+    every process that opens it, so without this a test run leaves its cluster
+    running, and each holds one of the machine's few shared memory segments.
+    A killed run is not covered: `scripts.stray_clusters` lists and stops what
+    is left."""
+    pgdata = config.stash.get(_RUN_CLUSTER, None)
+    if pgdata is None:
         return
-    pgdata, ran_before = run
     from scripts.stray_clusters import stop_after_run
 
     try:
-        stop_after_run(pgdata, started_here=not ran_before)
+        stop_after_run(pgdata)
     except Exception:  # noqa: BLE001 - teardown must never fail the run
         pass
 

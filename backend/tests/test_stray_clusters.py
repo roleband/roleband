@@ -65,18 +65,19 @@ def test_only_a_recorded_unclaimed_throwaway_cluster_is_a_stray(tmp_path, monkey
     assert state(stray) == "held"
 
 
-@pytest.mark.parametrize("started_here", [True, False])
-def test_a_run_leaves_a_development_database_it_did_not_start(tmp_path, monkeypatch, started_here):
-    """The run's own cluster stops when it started it; a cluster outside the
-    throwaway places that was already running is someone's to keep."""
+def test_a_run_stops_a_throwaway_cluster_and_leaves_a_development_database(tmp_path, monkeypatch):
+    """Only a cluster in a throwaway place is the run's to stop. A development
+    database idles with no holder by design, whoever started it."""
     monkeypatch.setattr(stray_clusters, "throwaway_places", lambda: (tmp_path / "scratch",))
     monkeypatch.setattr(stray_clusters, "running_postmaster", lambda _pgdata: True)
     stopped: list[Path] = []
     monkeypatch.setattr(stray_clusters, "stop_unheld", lambda pgdata, **_: stopped.append(pgdata) or True)
+    throwaway = _cluster(tmp_path / "scratch" / "db", [GONE])
     development = _cluster(tmp_path / "checkout" / "db", [GONE])
 
-    assert stop_after_run(development, started_here=started_here) is started_here
-    assert stopped == ([development.resolve()] if started_here else [])
+    assert stop_after_run(development) is False
+    assert stop_after_run(throwaway) is True
+    assert stopped == [throwaway.resolve()]
 
 
 def test_a_run_never_stops_an_apps_cluster(tmp_path, monkeypatch):
@@ -86,9 +87,10 @@ def test_a_run_never_stops_an_apps_cluster(tmp_path, monkeypatch):
     claimed = _cluster(tmp_path / "db", [GONE])
     (tmp_path / "db.owner.json").write_text('{"owner": "app"}\n')
 
-    assert stop_after_run(claimed, started_here=True) is False
+    assert stop_after_run(claimed) is False
 
 
+@pytest.mark.skipif(os.name == "nt", reason="the holder record is POSIX's; Windows' runner stops its own clusters")
 def test_a_real_cluster_stops_only_once_no_holder_but_the_ignored_remains(tmp_path_factory):
     pytest.importorskip("pixeltable_pgserver", reason="embedded Postgres wheel not installed")
     from tests.embedded_utils import cluster_locale, destroy

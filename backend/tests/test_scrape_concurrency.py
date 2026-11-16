@@ -149,10 +149,13 @@ async def test_run_pipeline_closes_comp_resolver_when_session_start_fails(monkey
 HANG_GUARD = 30.0
 
 
-async def _collect_waiting_on_each_other(max_concurrent_sources: int) -> dict[str, SourceCollection]:
+async def _collect_waiting_on_each_other(
+    max_concurrent_sources: int, started: dict[str, asyncio.Event] | None = None
+) -> dict[str, SourceCollection]:
     """Collect two sources on different backends whose first requests each wait
-    for the other's. They finish only when both are in flight at once."""
-    started = {"first": asyncio.Event(), "second": asyncio.Event()}
+    for the other's. They finish only when both are in flight at once.
+    `started` receives each source's first request as it is made."""
+    started = started if started is not None else {"first": asyncio.Event(), "second": asyncio.Event()}
 
     class WaitingAdapter:
         def __init__(self, company: str) -> None:
@@ -201,10 +204,16 @@ async def test_independent_sources_begin_collection_concurrently():
 @pytest.mark.asyncio
 async def test_sources_beyond_the_concurrency_limit_wait_for_a_slot():
     """Negative control for the test above: with one slot the second backend
-    starts only after the first finishes, so the two never meet. A hang cannot
-    end early under load, so a short wait suffices to see it."""
+    starts only after the first finishes, so the two never meet. The first
+    source's request is made and the second's never is: the collection holds
+    on the slot, not anywhere before it. A hang is seen only as time passing,
+    and cannot end early under load, so a short wait cannot fail a correct
+    collector."""
+    started = {"first": asyncio.Event(), "second": asyncio.Event()}
     with pytest.raises(TimeoutError):
-        await asyncio.wait_for(_collect_waiting_on_each_other(1), timeout=0.5)
+        await asyncio.wait_for(_collect_waiting_on_each_other(1, started), timeout=0.5)
+    assert started["first"].is_set()
+    assert not started["second"].is_set()
 
 
 @pytest.mark.asyncio
