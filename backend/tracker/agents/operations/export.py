@@ -11,8 +11,8 @@ the engine. It names what is set, never what the secret is.
 `context.export` reads one opportunity's posting text, pay evidence and
 company facts, and the person's pursuit of it, in one snapshot. A category the
 person does not share is left out (`policy.shared`): their pursuit, or the
-estimates and their sources under market statistics, and the manifest's
-`left_out` names it. The packet is canonical JSON (sorted keys,
+estimates, their sources and the company's facts under market statistics, and
+the manifest's `left_out` names it. The packet is canonical JSON (sorted keys,
 no spaces, UTF-8) and is answered as that text, so its bytes are kept: the
 same inputs give the same bytes, and `manifest.packet_sha256` proves it. A
 value that moves without the posting changing (the time it was last seen, an
@@ -573,11 +573,7 @@ async def context_packet(
     pay = {name: facts[name] for name in _PAY_FIELDS if name in facts}
     if sources is not None:
         pay["estimate_sources"] = [{"source": source["source"], "answers": source["answers"]} for source in sources]
-    company = await _company(session, job.company)
-    company_read_at = company.pop("profile_updated_at") if company is not None else None
-    # When a source last confirmed a fact moves without the fact moving.
-    company_observed = company.pop("observed_at") if company is not None else {}
-    components: dict[ComponentName, Any] = {"posting": posting, "pay": pay, "company": company}
+    components: dict[ComponentName, Any] = {"posting": posting, "pay": pay}
     stamps: dict[ComponentName, dict[str, Any]] = {
         "posting": {"last_seen": dates["last_seen"], "description_fetched_at": dates["description_fetched_at"]},
         "pay": {"stated_pay_read_at": job.structured_at} if sources is None else {
@@ -585,11 +581,18 @@ async def context_packet(
             "estimate_as_of": job.comp_as_of,
             **{f"estimated_at:{source['source']}": source["estimated_at"] for source in sources},
         },
-        "company": {
+    }
+    # The company's facts are what `companies.get` answers under market statistics.
+    if "market_statistic" not in withheld:
+        company = await _company(session, job.company)
+        company_read_at = company.pop("profile_updated_at") if company is not None else None
+        # When a source last confirmed a fact moves without the fact moving.
+        company_observed = company.pop("observed_at") if company is not None else {}
+        components["company"] = company
+        stamps["company"] = {
             "profile_updated_at": company_read_at,
             **{f"observed_at:{name}": at for name, at in company_observed.items()},
-        },
-    }
+        }
     left_out: list[DataClass] = [category for category in CONTEXT_EXPORT.data_classes if category in withheld]
     if "pursuit" in facts:
         pursuit = await session.scalar(select(Pursuit).where(Pursuit.job_id == opportunity_id))

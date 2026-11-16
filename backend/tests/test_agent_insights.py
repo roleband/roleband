@@ -239,7 +239,7 @@ async def test_every_operation_answers_its_routes_figures(api_client, workspace)
         data = _data(body)
         assert data["page"] is None, operation
         _assert_same_figures(_figures(data), expected, (operation, params))
-        assert body["meta"]["data_classes"] == ["market_statistic"]
+        assert body["meta"]["data_classes"] == list(CATALOG.get(operation).data_classes), operation
 
 
 @pytest.mark.asyncio
@@ -398,6 +398,23 @@ async def test_figures_narrowed_to_a_company_state_that_companys_history_and_las
     # The same read over the whole scope reports the others' later read and longer history.
     assert abs(datetime.fromisoformat(everyone["last_read_at"]) - (now - timedelta(hours=1))) < timedelta(minutes=1)
     assert everyone["history"]["days"] >= 20
+
+
+@pytest.mark.asyncio
+async def test_coverage_names_the_companies_and_places_the_figures_were_narrowed_to(api_client, workspace):
+    company = await _company(workspace)
+    response = await api_client.get(f"{PREFIX}/vocabulary", params={"kind": "location", "limit": 1})
+    place = response.json()["data"]["items"][0]
+    everyone = _data((await _agent(api_client, "skills"))[1])
+
+    _, body = await _agent(api_client, "skills", company=company.upper(), location=place["name"] or place["value"])
+
+    narrowed = _data(body)
+    assert narrowed["narrowed"] is True and narrowed["roles"] < everyone["roles"]
+    # Named as the slugs the filters read, whatever spelling was asked with.
+    assert narrowed["coverage"]["companies"] == [company]
+    assert narrowed["coverage"]["places"] == [place["value"]]
+    assert everyone["coverage"]["companies"] == [] and everyone["coverage"]["places"] == []
 
 
 @pytest.mark.asyncio
@@ -584,7 +601,8 @@ def test_an_item_larger_than_the_budget_is_refused_not_cut():
     answer = insights.InsightsOfferTerms.model_validate({
         "feed_configured": False, "companies": [row],
         "coverage": {
-            "population": "reference", "side": "all", "families": [], "off_board_companies": None,
+            "population": "reference", "side": "all", "families": [], "companies": [], "places": [],
+            "off_board_companies": None,
             "window": None, "history": None, "last_read_at": None,
         },
     })
@@ -606,7 +624,8 @@ def test_an_answer_that_fits_whole_is_not_paged(monkeypatch):
     answer = insights.InsightsOfferTerms.model_validate({
         "feed_configured": False, "companies": rows,
         "coverage": {
-            "population": "reference", "side": "all", "families": [], "off_board_companies": None,
+            "population": "reference", "side": "all", "families": [], "companies": [], "places": [],
+            "off_board_companies": None,
             "window": None, "history": None, "last_read_at": None,
         },
     })
@@ -634,7 +653,8 @@ def _offer_terms(count: int) -> BaseModel:
             "quote": None,
         } for index in range(count)],
         "coverage": {
-            "population": "reference", "side": "all", "families": [], "off_board_companies": None,
+            "population": "reference", "side": "all", "families": [], "companies": [], "places": [],
+            "off_board_companies": None,
             "window": None, "history": None, "last_read_at": None,
         },
     })
@@ -742,7 +762,8 @@ def _pay_table(count: int) -> BaseModel:
         "not_placed": [], "skills": [], "min_skill_roles": 3,
         "by_discipline": {"min_employers": 3, "min_ranges": 5, "max_employer_share": 0.5, "disciplines": []},
         "coverage": {
-            "population": "open_roles", "side": "all", "families": [], "off_board_companies": 0,
+            "population": "open_roles", "side": "all", "families": [], "companies": [], "places": [],
+            "off_board_companies": 0,
             "window": None, "history": None, "last_read_at": None,
         },
     })
@@ -862,6 +883,14 @@ def test_each_operation_reads_its_routes_response_field_for_field(operation):
             name: next(option for option in prop["anyOf"] if option != {"type": "null"})
             for name, prop in cell["properties"].items()
         }
+    for path in READS[operation].pursuits:
+        # The route always counts the person's pursuits; the operation leaves
+        # them out while they are not shared.
+        *parents, key = path.split(".")
+        node = ours
+        for step in parents:
+            node = node["properties"][step]
+        node["required"] = sorted({*node.get("required", []), key})
     assert ours == theirs
 
 
