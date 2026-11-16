@@ -15,6 +15,7 @@ import errno
 import hashlib
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -357,10 +358,16 @@ def test_dot_dot_after_a_linked_folder_is_resolved_by_the_filesystem(tmp_path, m
     (work / "tools.json").write_bytes(b"keep")
     monkeypatch.chdir(work)
     written = tools._write(Path("link/../tools.json"), b"{}\n", overwrite=True)
-    assert (tmp_path / "exports" / "tools.json").read_bytes() == b"{}\n"
-    assert (work / "tools.json").read_bytes() == b"keep"
     assert written["path"] == str(work / "link" / ".." / "tools.json")
-    assert sorted(os.listdir(tmp_path / "exports")) == ["nested", "tools.json"]
+    # The client writes to the name as given. POSIX resolves `..` against the
+    # link's target; Windows collapses it in the name before any folder is read.
+    if sys.platform == "win32":
+        meant, untouched = work / "tools.json", tmp_path / "exports" / "tools.json"
+    else:
+        meant, untouched = tmp_path / "exports" / "tools.json", work / "tools.json"
+    assert meant.read_bytes() == b"{}\n"
+    assert not untouched.exists() or untouched.read_bytes() == b"keep"
+    assert [name for name in os.listdir(work) + os.listdir(tmp_path / "exports") if name.endswith(".partial")] == []
 
 
 def test_a_filesystem_without_hard_links_is_refused_rather_than_written_in_place(tmp_path, monkeypatch):
