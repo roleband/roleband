@@ -29,6 +29,7 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import quote, urlencode
 
+from tracker.cli import output
 from tracker.cli.errors import ClientError
 
 #: The prefix every agent route lives under.
@@ -38,7 +39,7 @@ HANDSHAKE = frozenset({"status", "capabilities", "describe"})
 #: Options every command or the client itself takes; no input field may claim one.
 RESERVED = frozenset({
     "format", "json", "non_interactive", "context", "timeout", "help", "version", "input",
-    "idempotency_key", "offline",
+    "idempotency_key", "offline", "output", "overwrite",
 })
 #: The most `--input` may hold, as the engine accepts.
 MAX_INPUT_BYTES = 1024 * 1024
@@ -78,6 +79,8 @@ class Command:
     flags: tuple[Field, ...]
     #: Required fields no flag can give (nested objects): only `--input` gives them.
     input_only: tuple[str, ...]
+    #: The answer is a document `--output` can write to a file (`tracker/cli/output.py`).
+    writes_file: bool = False
 
 
 def words_of(operation: str) -> tuple[str, ...]:
@@ -129,6 +132,9 @@ def _command(entry: dict[str, Any], route: dict[str, str]) -> Command:
             input_only.append(name)
     if missing := [name for name in in_path if name not in {field.name for field in positional}]:
         raise ValueError(f"{operation}: its path names {missing}, which its input does not")
+    writes_file = "file_write" in entry.get("client_effects", ())
+    if writes_file and operation not in output.WRITERS:
+        raise ValueError(f"{operation}: it writes a file, and this client cannot lay its answer out as one")
     positional.sort(key=lambda field: in_path.index(field.name))
     return Command(
         operation=operation,
@@ -141,6 +147,7 @@ def _command(entry: dict[str, Any], route: dict[str, str]) -> Command:
         positional=tuple(positional),
         flags=tuple(flags),
         input_only=tuple(input_only),
+        writes_file=writes_file,
     )
 
 
@@ -275,6 +282,12 @@ def _arguments(parser: argparse.ArgumentParser, command: Command) -> None:
     parser.add_argument("--input", dest="input_source", metavar="@FILE|-", default=None,
                         help="the input as one JSON object, from a file or stdin; arguments and flags add "
                              "the fields it leaves out, and a field given both ways is refused")
+    if command.writes_file:
+        parser.add_argument("--output", dest="output", metavar="FILE", default=None,
+                            help="write the whole document to FILE, read in every part and checked against its "
+                                 "hash, and answer with its path, size and hash instead of its text")
+        parser.add_argument("--overwrite", dest="overwrite", action="store_true",
+                            help="with --output, replace a file already there")
     if command.keyed:
         parser.add_argument("--idempotency-key", dest="idempotency_key", metavar="KEY", default=None,
                             help="send under this key; a retry under it never writes twice (default: a new one)")
@@ -333,11 +346,9 @@ def refuse_unread_input(stream: Any) -> None:
     Without it, `echo '{"location": ["London"]}' | roleband opportunities
     search` runs with no filter and answers every role. Only input already
     there counts, read without waiting: a terminal, an empty or closed pipe,
-    `/dev/null`, or a pipe nothing has written to yet runs as it would
-    without input, since agent hosts start commands with each of these.
-    Windows pipes cannot be polled this way, so there the call runs as given."""
-    if sys.platform == "win32":
-        return
+    `/dev/null` (`NUL` on Windows), or a pipe nothing has written to yet runs
+    as it would without input, since agent hosts start commands with each of
+    these."""
     try:
         descriptor = stream.fileno()
         if os.isatty(descriptor):
@@ -347,8 +358,8 @@ def refuse_unread_input(stream: Any) -> None:
         # Leading whitespace can fill a whole read; keep reading what is already
         # there until a non-blank byte, the end, or a pause in the input. Blank
         # input past the input limit counts as held: the scan stops undecided.
-        while select.select([descriptor], [], [], 0)[0]:
-            chunk = os.read(descriptor, _STDIN_PEEK_BYTES)
+        while waiting := _waiting(descriptor):
+            chunk = os.read(descriptor, min(waiting, _STDIN_PEEK_BYTES))
             if not chunk:
                 break
             seen += len(chunk)
@@ -362,6 +373,45 @@ def refuse_unread_input(stream: Any) -> None:
             "invalid_arguments",
             "Standard input holds data, which this command reads only with --input -; add --input - to read it.",
         )
+
+
+if sys.platform == "win32":
+    import ctypes
+    import msvcrt
+    from ctypes import wintypes
+
+    _FILE_TYPE_DISK, _FILE_TYPE_PIPE = 1, 3
+    _kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    _kernel32.GetFileType.argtypes = [wintypes.HANDLE]
+    _kernel32.GetFileType.restype = wintypes.DWORD
+    _kernel32.PeekNamedPipe.argtypes = [
+        wintypes.HANDLE, wintypes.LPVOID, wintypes.DWORD,
+        wintypes.LPDWORD, wintypes.LPDWORD, wintypes.LPDWORD,
+    ]
+    _kernel32.PeekNamedPipe.restype = wintypes.BOOL
+
+    def _waiting(descriptor: int) -> int:
+        """How many bytes a read takes now without waiting. A pipe can't be
+        polled with `select` on Windows; `PeekNamedPipe` says what it holds,
+        and fails once the writer closed it and it is empty. A file never
+        makes a read wait; a console or the `NUL` device is left alone."""
+        handle = msvcrt.get_osfhandle(descriptor)
+        kind = _kernel32.GetFileType(handle)
+        if kind == _FILE_TYPE_DISK:
+            return _STDIN_PEEK_BYTES
+        if kind != _FILE_TYPE_PIPE:
+            return 0
+        available = wintypes.DWORD(0)
+        if not _kernel32.PeekNamedPipe(handle, None, 0, None, ctypes.byref(available), None):
+            return 0
+        return available.value
+
+else:
+
+    def _waiting(descriptor: int) -> int:
+        """How many bytes a read takes now without waiting: up to one peek
+        when `select` finds input or the end of it there, else none."""
+        return _STDIN_PEEK_BYTES if select.select([descriptor], [], [], 0)[0] else 0
 
 
 def read_input(source: str, *, stdin: Any = None) -> dict[str, Any]:

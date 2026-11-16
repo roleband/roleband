@@ -40,7 +40,9 @@ that comes first, ordered by id, and only to a read from the beginning or a
 - `pursuit_due`: derived. A next action's due time is state the person can
   move, not an event: a read reports the pursuits whose due time passed
   within its window of wall-clock time, so a due time moved after it passed
-  can be reported twice or not at all.
+  can be reported twice or not at all. A window read while pursuits are not
+  shared still moves the due-time window on, so the due times that passed in
+  it are not reported once sharing turns back on.
 - `plugin_source_health`: unavailable. A plugin run's outcome is written over
   its own row when the run ends, so there is no ordered record to read.
 
@@ -142,7 +144,9 @@ class ChangesListInput(Shape):
         default=None, min_length=1, max_length=1024,
         description=(
             "The next_since of the previous page: the read continues after it, in commit order, "
-            "with the same kinds. Without it the read starts at start_time, or at the oldest change kept."
+            "with the same kinds. Without it the read starts at start_time, or at the oldest change kept. "
+            "Pursuit due times that passed while pursuits were not shared are not caught up when "
+            "sharing turns back on."
         ),
     )
     start_time: AwareDatetime | None = Field(

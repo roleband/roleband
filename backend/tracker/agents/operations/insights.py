@@ -162,16 +162,9 @@ class CompensationInput(_Scoped, _Paged):
     pass
 
 
-#: Every placed level band; the pay table compares companies at one of them.
-_LEVEL_BANDS = f"^({'|'.join(band.value for band in LevelBand)})$"
-
-
 class PayTableInput(_Scoped, _Paged):
     country: str = Field(pattern=r"^[A-Za-z]{2}$", description="An ISO 3166-1 alpha-2 country code.")
-    level: str = Field(
-        pattern=_LEVEL_BANDS,
-        description=f"The level band to compare companies at: one of {', '.join(band.value for band in LevelBand)}.",
-    )
+    level: LevelBand = Field(description="The level band to compare companies at.")
     skill: str | None = Field(
         default=None, max_length=128, description="Narrow the companies to roles naming this skill (its slug)."
     )
@@ -1063,9 +1056,17 @@ def fit(spec: InsightsRead, answer: BaseModel, params: BaseModel, *, workspace_i
     # not; short of that, the most items whose page still fits.
     end = total
     if filled(total) > budget:
-        end = offset
-        while end + 1 < total and bound(end + 1) <= budget:
-            end += 1
+        # Short of the end, the bound grows with every item (the block's
+        # cursor and counts never shrink), so the last end within the budget
+        # is found by halving, with a cursor encoded per step, not per item.
+        low, high = offset, total - 1
+        while low < high:
+            middle = (low + high + 1) // 2
+            if bound(middle) <= budget:
+                low = middle
+            else:
+                high = middle - 1
+        end = low
         # The bound counts a comma the first item of each list does not take,
         # so the next page may still fit: measured, it decides.
         while end + 1 < total and filled(end + 1) <= budget:

@@ -29,7 +29,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Collection, Iterable, Mapping
+from collections.abc import Callable, Collection, Iterable, Mapping
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Literal, get_args
@@ -204,7 +204,11 @@ class DoctorReport(Shape):
     settings: list[DoctorSetting]
     #: How many values were redacted.
     redacted: int = Field(ge=0)
-    #: Settings whose value alone outgrows the full tier, by name, left out of `settings`.
+    #: Settings too long for the full tier, by name: each value in `settings`
+    #: is its start, ending with a marker that gives the whole value's length.
+    #: Shortened after redaction, so a secret is never part of what is kept.
+    settings_shortened: list[str] = Field(default_factory=list, json_schema_extra=_CODE)
+    #: Settings with no room in the full tier even shortened, by name, left out of `settings`.
     settings_left_out: list[str] = Field(default_factory=list, json_schema_extra=_CODE)
     continue_with: list[NextAction] = Field(default_factory=list)
 
@@ -302,8 +306,71 @@ def _settings(settings: BaseModel, redactor: Redactor) -> list[DoctorSetting]:
     return out
 
 
-def _fit_full(entries: list[DoctorSetting], room: int) -> tuple[list[DoctorSetting], list[str]]:
-    """The settings the full tier holds, and the names of those it cannot.
+#: Ends a text value the full tier holds only the start of.
+_SHORTENED_TEXT = "… [shortened from {count} characters]"
+#: The last item of a list value the full tier holds only the first items of.
+_SHORTENED_LIST = "[shortened from {count} items]"
+
+
+def _longest(count: int, fits: Callable[[int], bool]) -> int:
+    """The largest `n` up to `count` that `fits`, which holds for every
+    smaller one too; 0 when none does."""
+    low, high = 0, count
+    while low < high:
+        middle = (low + high + 1) // 2
+        if fits(middle):
+            low = middle
+        else:
+            high = middle - 1
+    return low
+
+
+def _shorten(entry: DoctorSetting, cap: int) -> DoctorSetting:
+    """`entry` with a text or list value cut to at most `cap` bytes of JSON,
+    its marker included; any other value, or one within `cap`, is kept whole.
+    A marker longer than `cap` is kept alone."""
+    value = entry.value
+    if _size(value) <= cap:
+        return entry
+    if isinstance(value, str):
+        text_marker = _SHORTENED_TEXT.format(count=len(value))
+        kept = _longest(len(value), lambda n: _size(value[:n] + text_marker) <= cap)
+        return entry.model_copy(update={"value": value[:kept] + text_marker})
+    if isinstance(value, list):
+        list_marker = _SHORTENED_LIST.format(count=len(value))
+        kept = _longest(len(value), lambda n: _size([*value[:n], list_marker]) <= cap)
+        return entry.model_copy(update={"value": [*value[:kept], list_marker]})
+    return entry
+
+
+def _fit_full(entries: list[DoctorSetting], room: int) -> tuple[list[DoctorSetting], list[str], list[str]]:
+    """The settings the full tier holds, the names of those it holds
+    shortened, and the names of those it cannot hold at all.
+
+    Every value is held whole up to one length, the longest that lets the
+    whole list fit, and longer ones are cut to it: a short setting is never
+    cut to make room for a long one. Only when the markers alone do not fit
+    are settings left out by name.
+    """
+
+    def fitted(cap: int) -> tuple[list[DoctorSetting], list[str], int]:
+        kept = [_shorten(entry, cap) for entry in entries]
+        names = [entry.name for entry, held in zip(entries, kept, strict=True) if held is not entry]
+        used = sum(_size(held.model_dump(mode="json")) + 1 for held in kept)
+        return kept, names, used + sum(_size(name) + 1 for name in names)
+
+    longest = max((_size(entry.value) for entry in entries), default=0)
+    if fitted(longest)[2] <= room:
+        return entries, [], []
+    kept, shortened, used = fitted(_longest(longest, lambda cap: fitted(cap)[2] <= room))
+    if used <= room:
+        return kept, shortened, []
+    held, left_out = _leave_out(kept, room - sum(_size(name) + 1 for name in shortened))
+    return held, [name for name in shortened if name not in left_out], left_out
+
+
+def _leave_out(entries: list[DoctorSetting], room: int) -> tuple[list[DoctorSetting], list[str]]:
+    """The settings `room` holds, and the names of those it cannot.
 
     A name left out takes room too, so the fit is redone with the names
     reserved until no further setting is cut. Each pass cuts at least one more,
@@ -360,7 +427,7 @@ def doctor_report(
             report.settings.append(entry)
             used += size
     else:
-        report.settings, report.settings_left_out = _fit_full(entries, room)
+        report.settings, report.settings_shortened, report.settings_left_out = _fit_full(entries, room)
     report.redacted = redactor.count
     return report
 
@@ -436,6 +503,8 @@ CONTEXT_EXPORT = OperationDescriptor(
     engine_effects=EngineEffects(),
     tool_tiers=_EVERY_TIER,
     data_classes=("public_posting", "market_statistic", "private_pursuit"),
+    # The CLI's `--output` writes the whole packet to a file.
+    client_effects=("file_write",),
     examples=({"opportunity_id": 4821},),
 )
 

@@ -329,6 +329,27 @@ async def test_pursuit_changes_are_absent_while_the_person_does_not_share_pursui
     assert sorted(event["kind"] for event in events) == ["new", "pursuit_due"]
 
 
+async def test_due_times_that_passed_while_pursuits_were_not_shared_are_not_caught_up_and_the_input_says_so(
+    api_client, feed
+):
+    pursued = await _posting(feed, "unshared-due")
+    since = await _start(api_client)
+    async with _factory(feed)() as session:
+        session.add(Pursuit(job_id=pursued, stage="applied", next_action="x",
+                            next_action_due=(await session.execute(text("SELECT clock_timestamp()"))).scalar_one()))
+        await session.commit()
+    await _share_pursuits(feed, "not_shared")
+    unshared, since = await _drain(api_client, since=since)
+    assert unshared == []
+
+    await _share_pursuits(feed, "any_model")
+    shared_again, _ = await _drain(api_client, since=since)
+
+    assert shared_again == []
+    described = ChangesListInput.model_json_schema()["properties"]["since"]["description"]
+    assert "passed while pursuits were not shared are not caught up" in described
+
+
 # --------------------------------------------------------------------------- #
 # Commit order
 # --------------------------------------------------------------------------- #
