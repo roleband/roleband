@@ -30,7 +30,7 @@ struct UpdateWindowView: View {
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 3) {
                         Text(copy.text("update-ready", ["version": version]))
-                            .font(.system(size: 15, weight: .semibold)).foregroundStyle(p.ink).accessibilityAddTraits(.isHeader)
+                            .font(PanelType.heading).foregroundStyle(p.ink).accessibilityAddTraits(.isHeader)
                         if version == release.version, let published = release.published {
                             Text(copy.text("update-released", ["date": published.formatted(.dateTime.day().month(.wide).locale(copy.locale))]))
                                 .font(PanelType.fact).foregroundStyle(p.secondary)
@@ -38,7 +38,7 @@ struct UpdateWindowView: View {
                     }.padding(.top, 6)
                     Spacer(minLength: 0)
                 }
-                Text(copy.text("update-window-body")).font(.system(size: 13)).foregroundStyle(p.secondary)
+                Text(copy.text("update-window-body")).font(PanelType.body).foregroundStyle(p.secondary)
                     .lineSpacing(3).fixedSize(horizontal: false, vertical: true)
                 if activity == nil, let notice = release.beforeYouUpdate { noticeBox(notice, p) }
                 if let activity { progress(activity, p) }
@@ -158,10 +158,24 @@ struct LiveUpdateWindow: View {
 
     var body: some View {
         if let release = updates.offered {
-            let version = installer.activity == nil ? release.version : installer.version ?? release.version
-            UpdateWindowView(release: release, copy: copy, activity: installer.activity, installing: installer.version,
+            let activity = Self.activity(installer.activity, installing: installer.version, offered: release.version)
+            let version = activity == nil ? release.version : installer.version ?? release.version
+            UpdateWindowView(release: release, copy: copy, activity: activity, installing: installer.version,
                              actions: actions(release, version))
         }
+    }
+
+    /// What the window shows of the installer: a failure of an older version gives way to the newer
+    /// offer, which the person has not tried yet.
+    static func activity(_ activity: UpdateActivity?, installing: String?, offered: String) -> UpdateActivity? {
+        if case .failed? = activity, installing != offered { return nil }
+        return activity
+    }
+
+    /// The release page for the version the window acts on. Releases are tagged `v` and the
+    /// version, as the offer's own page is.
+    static func page(for version: String, offer: OfferedRelease) -> URL {
+        version == offer.version ? offer.page : offer.page.deletingLastPathComponent().appendingPathComponent("v" + version)
     }
 }
 

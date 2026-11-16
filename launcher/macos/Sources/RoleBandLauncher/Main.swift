@@ -375,6 +375,7 @@ final class LauncherDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate
     private var offeredWindow: NSWindow?
     private var wakeObserver: NSObjectProtocol?
     private var offerWatch: AnyCancellable?
+    private var installerWatch: AnyCancellable?
     private var updateWindow: UpdatePanel?
     private var termination: DispatchSourceSignal?
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -398,6 +399,12 @@ final class LauncherDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate
         offerWatch = model.updates.objectWillChange.receive(on: RunLoop.main).sink { [weak self] _ in
             self?.updateIcon()
             self?.closeStaleUpdateWindow()
+        }
+        // A find held back by a running update opens once that update is cancelled or fails.
+        installerWatch = model.installer?.$activity.receive(on: RunLoop.main).sink { [weak self] _ in
+            guard let self else { return }
+            self.closeStaleUpdateWindow()
+            if self.model.heldUpdateWindowOpens() { self.showUpdateWindow() }
         }
         popover.behavior = .transient
         popover.delegate = self
@@ -511,15 +518,15 @@ final class LauncherDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate
                     update: { installer.install(version) },
                     cancel: { installer.cancel() },
                     notes: { self?.showOffered() },
-                    page: { NSWorkspace.shared.open(release.page) })
+                    page: { NSWorkspace.shared.open(LiveUpdateWindow.page(for: version, offer: release)) })
             }))
         updateWindow = window
         window.present()
     }
-    /// The window leaves once nothing is left to offer: the version was installed, withdrawn or
-    /// rolled back. A failed or running update keeps it, so its result stays in view.
+    /// The window leaves once nothing is left to offer (the version was installed, withdrawn or
+    /// rolled back) or its switch is turned off.
     private func closeStaleUpdateWindow() {
-        guard updateWindow?.isVisible == true, model.installer?.activity == nil, !model.updateOffered else { return }
+        guard updateWindow?.isVisible == true, model.updateWindowStale else { return }
         updateWindow?.close()
     }
     private func showOffered() {

@@ -180,10 +180,20 @@ extension LauncherModel {
     /// open and while an update runs. It needs the app's own installer: a source checkout updates
     /// with its own tools, so the banner and the menu-bar badge carry its offer.
     func opensUpdateWindow(for version: String, automatic: Bool) -> Bool {
-        guard automatic, updates.showsWindow, let installer, installer.activity == nil, setupCompleted, !setupVisible,
+        guard automatic, updates.showsWindow, installer != nil, !updateRunning, setupCompleted, !setupVisible,
               updates.offered?.version == version, updateOffered else { return false }
         return updates.windowAllows(version)
     }
+    /// An update on its way holds the window back; a failed one does not, since after Later its
+    /// offer stands again like any other.
+    var updateRunning: Bool {
+        guard let activity = installer?.activity else { return false }
+        if case .failed = activity { return false }
+        return true
+    }
+    /// Whether an open update window should go: nothing is left to offer, or its switch was turned
+    /// off. A running or failed update keeps it, so its result stays in view.
+    var updateWindowStale: Bool { installer?.activity == nil && (!updateOffered || !updates.showsWindow) }
     /// A check's find: whether the update window opens now. An automatic find held back (by setup,
     /// say) is kept, so `heldUpdateWindowOpens` can open it once that clears instead of a day later.
     func updateFound(_ version: String, automatic: Bool) -> Bool {

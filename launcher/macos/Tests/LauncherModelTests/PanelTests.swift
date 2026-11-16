@@ -104,10 +104,30 @@ private actor Engine {
     #expect(held.heldUpdateWindowOpens() && !held.heldUpdateWindowOpens())
     #expect(held.updateFound("0.1.1", automatic: true))
 
+    // A running update holds a find back and lets it open once cancelled; a failed one does not
+    // hold the offer back, so it can come again after Later.
     let (updating, updatingUpdates) = await offered()
     defer { updating.stop(); updatingUpdates.stop() }
-    try #require(updating.installer).show(.downloading(received: 1, total: 2), version: "0.1.1")
-    #expect(!updating.opensUpdateWindow(for: "0.1.1", automatic: true))
+    let installer = try #require(updating.installer)
+    installer.show(.downloading(received: 1, total: 2), version: "0.1.1")
+    #expect(!updating.updateFound("0.1.1", automatic: true) && !updating.heldUpdateWindowOpens())
+    installer.cancel()
+    #expect(updating.heldUpdateWindowOpens())
+    installer.show(.failed(.download), version: "0.1.1")
+    #expect(updating.opensUpdateWindow(for: "0.1.1", automatic: true))
+
+    // An idle window goes when its switch is turned off or the offer goes; a failed update keeps it.
+    #expect(!updating.updateWindowStale)
+    updatingUpdates.setShowsWindow(false)
+    #expect(updating.updateWindowStale == false)
+    let (idle, idleUpdates) = await offered()
+    defer { idle.stop(); idleUpdates.stop() }
+    #expect(!idle.updateWindowStale)
+    idleUpdates.setShowsWindow(false)
+    #expect(idle.updateWindowStale)
+    idleUpdates.setShowsWindow(true)
+    idleUpdates.suppress("0.1.1")
+    #expect(idle.updateWindowStale)
 
     let (unfinished, unfinishedUpdates) = await offered(setupCompleted: false)
     defer { unfinished.stop(); unfinishedUpdates.stop() }

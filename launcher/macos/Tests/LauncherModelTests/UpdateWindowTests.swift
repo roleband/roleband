@@ -94,10 +94,21 @@ private func releaseData(_ version: String) -> Data {
     #expect(updates.offered?.version == "0.3.0")
     _ = view.body
     #expect(acted == ["0.2.0", "0.2.0"])
-    // Once the update is answered, the window offers the newer version.
+    // Once the update is answered, the window offers the newer version, and so it does after an
+    // older version's failure, which the person can set aside with Later.
     installer.cancel()
     _ = view.body
     #expect(acted.last == "0.3.0")
+    installer.show(.failed(.download), version: "0.2.0")
+    _ = view.body
+    #expect(acted.last == "0.3.0")
+    #expect(LiveUpdateWindow.activity(.failed(.download), installing: "0.2.0", offered: "0.3.0") == nil)
+    #expect(LiveUpdateWindow.activity(.failed(.download), installing: "0.3.0", offered: "0.3.0") == .failed(.download))
+
+    // A signer failure sends the person to the page of the version that failed, not the newer offer.
+    let offer = try #require(updates.offered)
+    #expect(LiveUpdateWindow.page(for: "0.2.0", offer: offer).absoluteString == "https://github.com/roleband/roleband/releases/tag/v0.2.0")
+    #expect(LiveUpdateWindow.page(for: "0.3.0", offer: offer) == offer.page)
 }
 
 private final class Feed: @unchecked Sendable {
