@@ -21,7 +21,12 @@ from sqlalchemy import Select, and_, case, exists, false, func, not_, nullslast,
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, defer
 
-from tracker.analytics.posting_reality import NEW_LISTING_WINDOW, ListingEvidence, role_age
+from tracker.analytics.posting_reality import (
+    NEW_LISTING_WINDOW,
+    ListingEvidence,
+    PostingFacts,
+    role_age,
+)
 from tracker.db.models import (
     Favorite,
     Job,
@@ -859,6 +864,34 @@ async def row_context(
             else await unfollowed_among(session, {job.company for job in jobs})
         ),
     }
+
+
+def standing_facts(
+    job: Job,
+    *,
+    lineage_meta: dict[int, JobLineage],
+    role_starts: dict[int, datetime],
+    reopened_ids: set[int],
+    place_counts: dict[int, PlaceSetCounts],
+) -> PostingFacts | None:
+    """What the standing-posting verdict (`posting_reality.classify`) reads for
+    one posting, from a `row_context` built with `standing`; None for a
+    posting never sighted, which has no verdict."""
+    if not job.first_seen:
+        return None
+    lineage = lineage_meta.get(job.lineage_id) if job.lineage_id is not None else None
+    counts = place_counts.get(job.id)
+    return PostingFacts(
+        status=job.status,
+        posted_at=job.posted_at,
+        first_posted_at=job.first_posted_at,
+        first_seen=job.first_seen,
+        role_since=role_starts.get(job.lineage_id) if job.lineage_id is not None else None,
+        lineage_size=lineage.size if lineage is not None else None,
+        repost_count=job.repost_count or 0,
+        listed_here=counts.here if counts is not None else 0,
+        reopened=job.id in reopened_ids,
+    )
 
 
 async def unfollowed_among(session: AsyncSession, companies: set[str]) -> set[str]:

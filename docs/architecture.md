@@ -1360,6 +1360,28 @@ one it is last-writer-wins on priority. `receipts.get` reads a write's receipt
 back by operation and key, in this workspace and for the engine's principal;
 it is a read, so it answers with writes off.
 `backend/tests/test_agent_parity_writes.py` holds each to its MCP tool.
+The company reads (`companies.list`, `companies.get`, `companies.facts.list`,
+`companies.prices.get`, `agents/operations/companies.py`) and the posting
+relations (`opportunities.similar`, `opportunities.duplicates`,
+`opportunities.reality`, `agents/operations/relations.py`) call the services
+the Companies screen and the posting screen read (`tracker/profiles/read.py`,
+`tracker/lineage/decks.py`, `db/queries/jobs.standing_facts`), so the two
+cannot drift; `backend/tests/test_agent_company_reads.py` and
+`test_agent_relation_reads.py` hold each to its route. A company the person hid,
+or a posting at one they neither saved nor pursued, is `not_found`, where the
+screen opens it. A fact names its basis (official, estimated, dataset, seed,
+inferred, human or plugin) from `profiles/sources.py`. Duplicates, twins and
+place sets come back as decks: each posting stays its own member, never merged,
+and a deck names no posting an agent could not read by id.
+The postings an answer names are search rows sized to the tier; those left
+over are one `opportunities.get_many` call in `continue_with`. `get_many` reads
+up to 100 ids and refuses more rather than cutting the list; when some ids
+name nothing it answers the rest with `partial_result` (exit 9), the found rows
+in `data` and the missing ids in `data.not_found`.
+Their rows are search's columns less those of a category the person does not
+share (`search.shared_columns`), and without their pursuits a save or a pursuit
+opens no posting at a hidden company.
+
 `changes.list` (`backend/tracker/agents/operations/changes.py`) reads what changed
 after a position, in commit order: openings, closings, reopenings and reposts
 from `job_lifecycle_events`, stated-pay changes from its `disclosed_base`

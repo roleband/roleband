@@ -1333,6 +1333,2040 @@
    "client_effects": [],
    "contract_version": "1.0",
    "data_classes": [
+    "market_statistic"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [
+    {
+     "company": "stripe",
+     "field": "headcount"
+    }
+   ],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "company": {
+      "description": "The company's slug, as companies.list returns it.",
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Company",
+      "type": "string"
+     },
+     "cursor": {
+      "anyOf": [
+       {
+        "maxLength": 512,
+        "minLength": 1,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "The next_cursor of the previous page, read with the same filters.",
+      "title": "Cursor"
+     },
+     "field": {
+      "anyOf": [
+       {
+        "maxLength": 64,
+        "minLength": 1,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Only the claims about this fact, such as headcount.",
+      "title": "Field"
+     },
+     "limit": {
+      "default": 20,
+      "description": "Most rows on one page.",
+      "maximum": 100,
+      "minimum": 1,
+      "title": "Limit",
+      "type": "integer"
+     },
+     "tier": {
+      "default": "small",
+      "description": "The caller's tool tier, which bounds the page.",
+      "enum": [
+       "small",
+       "standard",
+       "full"
+      ],
+      "title": "Tier",
+      "type": "string"
+     }
+    },
+    "required": [
+     "company"
+    ],
+    "title": "FactsListInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "companies.facts.list",
+   "output_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "columns": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Columns",
+      "type": "array",
+      "x-text": "code"
+     },
+     "count": {
+      "minimum": 0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "rows": {
+      "description": "One array per row, its values in the order `columns` names.",
+      "items": {
+       "maxItems": 6,
+       "minItems": 6,
+       "prefixItems": [
+        {
+         "type": "string"
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "integer"
+          },
+          {
+           "type": "number"
+          },
+          {
+           "type": "boolean"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "type": "string"
+        },
+        {
+         "anyOf": [
+          {
+           "enum": [
+            "official",
+            "estimated",
+            "dataset",
+            "seed",
+            "inferred",
+            "human",
+            "plugin"
+           ],
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "type": "integer"
+        },
+        {
+         "anyOf": [
+          {
+           "format": "date-time",
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        }
+       ],
+       "type": "array"
+      },
+      "title": "Rows",
+      "type": "array",
+      "x-text": "content"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "total": {
+      "minimum": 0,
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "slug",
+     "total",
+     "count",
+     "columns",
+     "rows"
+    ],
+    "title": "FactsPage",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "Every claim every source made about a company's facts, with its basis and trust: the evidence behind a conflict.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "market_statistic"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [
+    {
+     "company": "stripe"
+    },
+    {
+     "company": "stripe",
+     "view": "benefits"
+    }
+   ],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "company": {
+      "description": "The company's slug, as companies.list returns it.",
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Company",
+      "type": "string"
+     },
+     "cursor": {
+      "anyOf": [
+       {
+        "maxLength": 512,
+        "minLength": 1,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "benefits and locations: the next_cursor of the previous page.",
+      "title": "Cursor"
+     },
+     "limit": {
+      "default": 20,
+      "description": "benefits and locations: most rows on one page.",
+      "maximum": 100,
+      "minimum": 1,
+      "title": "Limit",
+      "type": "integer"
+     },
+     "tier": {
+      "default": "small",
+      "description": "The caller's tool tier, which bounds the answer.",
+      "enum": [
+       "small",
+       "standard",
+       "full"
+      ],
+      "title": "Tier",
+      "type": "string"
+     },
+     "view": {
+      "default": "profile",
+      "description": "profile (facts, pay, price), or benefits or locations whole, a page at a time.",
+      "enum": [
+       "profile",
+       "benefits",
+       "locations"
+      ],
+      "title": "View",
+      "type": "string"
+     }
+    },
+    "required": [
+     "company"
+    ],
+    "title": "CompanyGetInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "companies.get",
+   "output_schema": {
+    "$defs": {
+     "Answering": {
+      "additionalProperties": false,
+      "description": "Who answers one part of the profile: RoleBand's data or one plugin.",
+      "properties": {
+       "covered": {
+        "title": "Covered",
+        "type": "boolean"
+       },
+       "plugin": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Plugin",
+        "x-text": "identifier"
+       },
+       "plugin_name": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Plugin Name",
+        "x-text": "content"
+       }
+      },
+      "required": [
+       "plugin",
+       "plugin_name",
+       "covered"
+      ],
+      "title": "Answering",
+      "type": "object"
+     },
+     "CompanyBenefitsPage": {
+      "additionalProperties": false,
+      "properties": {
+       "answered_by": {
+        "$ref": "#/$defs/Answering"
+       },
+       "attribution": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Attribution",
+        "x-text": "content"
+       },
+       "columns": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Columns",
+        "type": "array",
+        "x-text": "code"
+       },
+       "count": {
+        "minimum": 0,
+        "title": "Count",
+        "type": "integer"
+       },
+       "notes": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Notes",
+        "type": "array",
+        "x-text": "content"
+       },
+       "rows": {
+        "description": "One array per row, its values in the order `columns` names.",
+        "items": {
+         "maxItems": 11,
+         "minItems": 11,
+         "prefixItems": [
+          {
+           "type": "string"
+          },
+          {
+           "anyOf": [
+            {
+             "type": "string"
+            },
+            {
+             "type": "null"
+            }
+           ]
+          },
+          {
+           "anyOf": [
+            {
+             "type": "string"
+            },
+            {
+             "type": "null"
+            }
+           ]
+          },
+          {
+           "anyOf": [
+            {
+             "type": "integer"
+            },
+            {
+             "type": "null"
+            }
+           ]
+          },
+          {
+           "anyOf": [
+            {
+             "type": "string"
+            },
+            {
+             "type": "null"
+            }
+           ]
+          },
+          {
+           "anyOf": [
+            {
+             "type": "string"
+            },
+            {
+             "type": "null"
+            }
+           ]
+          },
+          {
+           "type": "string"
+          },
+          {
+           "anyOf": [
+            {
+             "type": "string"
+            },
+            {
+             "type": "null"
+            }
+           ]
+          },
+          {
+           "type": "boolean"
+          },
+          {
+           "type": "integer"
+          },
+          {
+           "type": "string"
+          }
+         ],
+         "type": "array"
+        },
+        "title": "Rows",
+        "type": "array",
+        "x-text": "content"
+       },
+       "slug": {
+        "title": "Slug",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "total": {
+        "minimum": 0,
+        "title": "Total",
+        "type": "integer"
+       },
+       "view": {
+        "const": "benefits",
+        "title": "View",
+        "type": "string",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "view",
+       "slug",
+       "total",
+       "count",
+       "notes",
+       "answered_by",
+       "attribution",
+       "columns",
+       "rows"
+      ],
+      "title": "CompanyBenefitsPage",
+      "type": "object"
+     },
+     "CompanyLocationsPage": {
+      "additionalProperties": false,
+      "properties": {
+       "columns": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Columns",
+        "type": "array",
+        "x-text": "code"
+       },
+       "count": {
+        "minimum": 0,
+        "title": "Count",
+        "type": "integer"
+       },
+       "rows": {
+        "description": "One array per row, its values in the order `columns` names.",
+        "items": {
+         "maxItems": 4,
+         "minItems": 4,
+         "prefixItems": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "integer"
+          },
+          {
+           "anyOf": [
+            {
+             "type": "string"
+            },
+            {
+             "type": "null"
+            }
+           ]
+          },
+          {
+           "type": "boolean"
+          }
+         ],
+         "type": "array"
+        },
+        "title": "Rows",
+        "type": "array",
+        "x-text": "content"
+       },
+       "slug": {
+        "title": "Slug",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "total": {
+        "minimum": 0,
+        "title": "Total",
+        "type": "integer"
+       },
+       "view": {
+        "const": "locations",
+        "title": "View",
+        "type": "string",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "view",
+       "slug",
+       "total",
+       "count",
+       "columns",
+       "rows"
+      ],
+      "title": "CompanyLocationsPage",
+      "type": "object"
+     },
+     "CompanyProfileView": {
+      "additionalProperties": false,
+      "properties": {
+       "attribution": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Attribution",
+        "x-text": "content"
+       },
+       "benefits": {
+        "title": "Benefits",
+        "type": "integer"
+       },
+       "benefits_answered_by": {
+        "$ref": "#/$defs/Answering"
+       },
+       "facts": {
+        "items": {
+         "$ref": "#/$defs/ProfileFact"
+        },
+        "title": "Facts",
+        "type": "array"
+       },
+       "health": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Health",
+        "x-text": "code"
+       },
+       "name": {
+        "title": "Name",
+        "type": "string",
+        "x-text": "content"
+       },
+       "needs_review": {
+        "items": {
+         "$ref": "#/$defs/ReviewItem"
+        },
+        "title": "Needs Review",
+        "type": "array"
+       },
+       "open_roles": {
+        "title": "Open Roles",
+        "type": "integer"
+       },
+       "pay": {
+        "$ref": "#/$defs/Pay"
+       },
+       "place_count": {
+        "title": "Place Count",
+        "type": "integer"
+       },
+       "places": {
+        "items": {
+         "$ref": "#/$defs/Place"
+        },
+        "title": "Places",
+        "type": "array"
+       },
+       "price": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/Quote"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "slug": {
+        "title": "Slug",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "unfollowed": {
+        "title": "Unfollowed",
+        "type": "boolean"
+       },
+       "view": {
+        "const": "profile",
+        "title": "View",
+        "type": "string",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "view",
+       "slug",
+       "name",
+       "health",
+       "facts",
+       "needs_review",
+       "pay",
+       "benefits",
+       "benefits_answered_by",
+       "open_roles",
+       "unfollowed",
+       "places",
+       "place_count",
+       "price",
+       "attribution"
+      ],
+      "title": "CompanyProfileView",
+      "type": "object"
+     },
+     "FactConflict": {
+      "additionalProperties": false,
+      "description": "Another source asserting a materially different value.",
+      "properties": {
+       "basis": {
+        "anyOf": [
+         {
+          "enum": [
+           "official",
+           "estimated",
+           "dataset",
+           "seed",
+           "inferred",
+           "human",
+           "plugin"
+          ],
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Basis",
+        "x-text": "code"
+       },
+       "observed_at": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Observed At"
+       },
+       "source": {
+        "title": "Source",
+        "type": "string",
+        "x-text": "code"
+       },
+       "value": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "integer"
+         },
+         {
+          "type": "number"
+         },
+         {
+          "type": "boolean"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Value",
+        "x-text": "content"
+       }
+      },
+      "required": [
+       "value",
+       "source",
+       "basis",
+       "observed_at"
+      ],
+      "title": "FactConflict",
+      "type": "object"
+     },
+     "LevelBase": {
+      "additionalProperties": false,
+      "description": "RoleBand's own base pay for one band, in US dollars; a total only when\nbase, bonus and stock are all known.",
+      "properties": {
+       "band": {
+        "title": "Band",
+        "type": "string",
+        "x-text": "code"
+       },
+       "base_usd": {
+        "title": "Base Usd",
+        "type": "integer"
+       },
+       "below_lower": {
+        "title": "Below Lower",
+        "type": "boolean"
+       },
+       "bonus_ratio": {
+        "anyOf": [
+         {
+          "type": "number"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Bonus Ratio"
+       },
+       "bonus_usd": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Bonus Usd"
+       },
+       "stock_usd": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Stock Usd"
+       },
+       "total_usd": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Total Usd"
+       }
+      },
+      "required": [
+       "band",
+       "base_usd",
+       "bonus_ratio",
+       "bonus_usd",
+       "stock_usd",
+       "total_usd",
+       "below_lower"
+      ],
+      "title": "LevelBase",
+      "type": "object"
+     },
+     "OfferFact": {
+      "additionalProperties": false,
+      "properties": {
+       "fact": {
+        "title": "Fact",
+        "type": "string",
+        "x-text": "code"
+       },
+       "stated_by": {
+        "anyOf": [
+         {
+          "enum": [
+           "employer",
+           "estimated"
+          ],
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Stated By",
+        "x-text": "code"
+       },
+       "value": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "integer"
+         },
+         {
+          "type": "boolean"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Value",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "fact",
+       "value",
+       "stated_by"
+      ],
+      "title": "OfferFact",
+      "type": "object"
+     },
+     "OfferRules": {
+      "additionalProperties": false,
+      "description": "How the company builds an offer, from the level atlas.",
+      "properties": {
+       "facts": {
+        "items": {
+         "$ref": "#/$defs/OfferFact"
+        },
+        "title": "Facts",
+        "type": "array"
+       },
+       "unknown_fields": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Unknown Fields",
+        "type": "array",
+        "x-text": "code"
+       },
+       "verified_on": {
+        "anyOf": [
+         {
+          "format": "date",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Verified On"
+       }
+      },
+      "required": [
+       "verified_on",
+       "facts",
+       "unknown_fields"
+      ],
+      "title": "OfferRules",
+      "type": "object"
+     },
+     "Pay": {
+      "additionalProperties": false,
+      "properties": {
+       "answered_by": {
+        "$ref": "#/$defs/Answering"
+       },
+       "level_base": {
+        "items": {
+         "$ref": "#/$defs/LevelBase"
+        },
+        "title": "Level Base",
+        "type": "array"
+       },
+       "levels": {
+        "items": {
+         "$ref": "#/$defs/PayRung"
+        },
+        "title": "Levels",
+        "type": "array"
+       },
+       "notes": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Notes",
+        "x-text": "content"
+       },
+       "offer_policy": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/OfferRules"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       }
+      },
+      "required": [
+       "levels",
+       "level_base",
+       "offer_policy",
+       "notes",
+       "answered_by"
+      ],
+      "title": "Pay",
+      "type": "object"
+     },
+     "PayRung": {
+      "additionalProperties": false,
+      "description": "One level of the company's pay ladder, in whole units of `currency` as\nits publisher stated them, never converted; shares are fractions.",
+      "properties": {
+       "band": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Band",
+        "x-text": "code"
+       },
+       "base": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Base"
+       },
+       "base_share": {
+        "anyOf": [
+         {
+          "type": "number"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Base Share"
+       },
+       "bonus": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Bonus"
+       },
+       "bonus_share": {
+        "anyOf": [
+         {
+          "type": "number"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Bonus Share"
+       },
+       "currency": {
+        "title": "Currency",
+        "type": "string",
+        "x-text": "code"
+       },
+       "level": {
+        "title": "Level",
+        "type": "string",
+        "x-text": "content"
+       },
+       "source": {
+        "title": "Source",
+        "type": "string",
+        "x-text": "code"
+       },
+       "source_url": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Source Url",
+        "x-text": "identifier"
+       },
+       "stock": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Stock"
+       },
+       "stock_share": {
+        "anyOf": [
+         {
+          "type": "number"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Stock Share"
+       },
+       "total_median": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Total Median"
+       }
+      },
+      "required": [
+       "level",
+       "band",
+       "currency",
+       "total_median",
+       "base",
+       "stock",
+       "bonus",
+       "base_share",
+       "stock_share",
+       "bonus_share",
+       "source",
+       "source_url"
+      ],
+      "title": "PayRung",
+      "type": "object"
+     },
+     "Place": {
+      "additionalProperties": false,
+      "properties": {
+       "city": {
+        "title": "City",
+        "type": "string",
+        "x-text": "content"
+       },
+       "country": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Country",
+        "x-text": "code"
+       },
+       "is_hq": {
+        "title": "Is Hq",
+        "type": "boolean"
+       },
+       "open_roles": {
+        "title": "Open Roles",
+        "type": "integer"
+       }
+      },
+      "required": [
+       "city",
+       "open_roles",
+       "country",
+       "is_hq"
+      ],
+      "title": "Place",
+      "type": "object"
+     },
+     "ProfileFact": {
+      "additionalProperties": false,
+      "description": "A resolved fact and how far to trust it. An unasserted one has a null\nvalue and null provenance.",
+      "properties": {
+       "answered_by": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Answered By",
+        "x-text": "identifier"
+       },
+       "basis": {
+        "anyOf": [
+         {
+          "enum": [
+           "official",
+           "estimated",
+           "dataset",
+           "seed",
+           "inferred",
+           "human",
+           "plugin"
+          ],
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Basis",
+        "x-text": "code"
+       },
+       "conflicts": {
+        "items": {
+         "$ref": "#/$defs/FactConflict"
+        },
+        "title": "Conflicts",
+        "type": "array"
+       },
+       "field": {
+        "title": "Field",
+        "type": "string",
+        "x-text": "code"
+       },
+       "freshness": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Freshness",
+        "x-text": "code"
+       },
+       "observed_at": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Observed At"
+       },
+       "pinned": {
+        "title": "Pinned",
+        "type": "boolean"
+       },
+       "source": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Source",
+        "x-text": "code"
+       },
+       "value": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "integer"
+         },
+         {
+          "type": "number"
+         },
+         {
+          "type": "boolean"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Value",
+        "x-text": "content"
+       }
+      },
+      "required": [
+       "field",
+       "value",
+       "source",
+       "basis",
+       "observed_at",
+       "freshness",
+       "pinned",
+       "answered_by",
+       "conflicts"
+      ],
+      "title": "ProfileFact",
+      "type": "object"
+     },
+     "Quote": {
+      "additionalProperties": false,
+      "description": "The latest cached quote. `as_of` is a market date.",
+      "properties": {
+       "as_of": {
+        "format": "date",
+        "title": "As Of",
+        "type": "string"
+       },
+       "change_abs": {
+        "anyOf": [
+         {
+          "type": "number"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Change Abs"
+       },
+       "change_pct": {
+        "anyOf": [
+         {
+          "type": "number"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Change Pct"
+       },
+       "currency": {
+        "title": "Currency",
+        "type": "string",
+        "x-text": "code"
+       },
+       "price": {
+        "title": "Price",
+        "type": "number"
+       },
+       "ticker": {
+        "title": "Ticker",
+        "type": "string",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "ticker",
+       "price",
+       "currency",
+       "change_abs",
+       "change_pct",
+       "as_of"
+      ],
+      "title": "Quote",
+      "type": "object"
+     },
+     "ReviewItem": {
+      "additionalProperties": false,
+      "description": "A fact the person is asked to confirm or correct, with the best-trusted value on offer.",
+      "properties": {
+       "field": {
+        "title": "Field",
+        "type": "string",
+        "x-text": "code"
+       },
+       "reason": {
+        "title": "Reason",
+        "type": "string",
+        "x-text": "code"
+       },
+       "suggestion": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "integer"
+         },
+         {
+          "type": "number"
+         },
+         {
+          "type": "boolean"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Suggestion",
+        "x-text": "content"
+       },
+       "suggestion_source": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Suggestion Source",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "field",
+       "reason",
+       "suggestion",
+       "suggestion_source"
+      ],
+      "title": "ReviewItem",
+      "type": "object"
+     }
+    },
+    "description": "One company in the view the caller asked for; `view` names which.",
+    "discriminator": {
+     "mapping": {
+      "benefits": "#/$defs/CompanyBenefitsPage",
+      "locations": "#/$defs/CompanyLocationsPage",
+      "profile": "#/$defs/CompanyProfileView"
+     },
+     "propertyName": "view"
+    },
+    "oneOf": [
+     {
+      "$ref": "#/$defs/CompanyProfileView"
+     },
+     {
+      "$ref": "#/$defs/CompanyBenefitsPage"
+     },
+     {
+      "$ref": "#/$defs/CompanyLocationsPage"
+     }
+    ],
+    "title": "CompanyView"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "One company's profile: facts with their source and basis, pay, price; or its benefits or places.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "market_statistic"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [
+    {
+     "limit": 10,
+     "sector": [
+      "fintech"
+     ]
+    },
+    {
+     "query": "NFLX"
+    }
+   ],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "cursor": {
+      "anyOf": [
+       {
+        "maxLength": 512,
+        "minLength": 1,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "The next_cursor of the previous page, read with the same filters.",
+      "title": "Cursor"
+     },
+     "limit": {
+      "default": 20,
+      "description": "Most rows on one page.",
+      "maximum": 100,
+      "minimum": 1,
+      "title": "Limit",
+      "type": "integer"
+     },
+     "needs_review": {
+      "default": false,
+      "description": "Only companies whose facts need a person's review.",
+      "title": "Needs Review",
+      "type": "boolean"
+     },
+     "query": {
+      "anyOf": [
+       {
+        "maxLength": 200,
+        "minLength": 1,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Words a company's name, slug or ticker contains, as the Companies search box matches.",
+      "title": "Query"
+     },
+     "researched": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Only companies the level atlas researched (true), or only the others (false).",
+      "title": "Researched"
+     },
+     "sector": {
+      "description": "Sectors, by slug; repeat for more. Any one matches.",
+      "items": {
+       "maxLength": 200,
+       "minLength": 1,
+       "type": "string"
+      },
+      "maxItems": 20,
+      "title": "Sector",
+      "type": "array"
+     },
+     "tier": {
+      "default": "small",
+      "description": "The caller's tool tier, which bounds the page.",
+      "enum": [
+       "small",
+       "standard",
+       "full"
+      ],
+      "title": "Tier",
+      "type": "string"
+     }
+    },
+    "title": "CompanyListInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "companies.list",
+   "output_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "attribution": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Attribution",
+      "x-text": "content"
+     },
+     "columns": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Columns",
+      "type": "array",
+      "x-text": "code"
+     },
+     "count": {
+      "minimum": 0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "rows": {
+      "description": "One array per row, its values in the order `columns` names.",
+      "items": {
+       "maxItems": 14,
+       "minItems": 14,
+       "prefixItems": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "string"
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "boolean"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "items": {
+          "type": "string"
+         },
+         "type": "array"
+        },
+        {
+         "type": "boolean"
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "integer"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "type": "integer"
+        },
+        {
+         "type": "integer"
+        },
+        {
+         "anyOf": [
+          {
+           "type": "number"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "number"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "format": "date",
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        }
+       ],
+       "type": "array"
+      },
+      "title": "Rows",
+      "type": "array",
+      "x-text": "content"
+     },
+     "sectors": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Sectors",
+      "type": "array",
+      "x-text": "code"
+     },
+     "total": {
+      "minimum": 0,
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "total",
+     "count",
+     "sectors",
+     "columns",
+     "rows",
+     "attribution"
+    ],
+    "title": "CompanyPage",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "The companies the person follows, filtered as the Companies screen filters them; one page of rows.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "market_statistic"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [
+    {
+     "company": "stripe",
+     "range": "1y"
+    }
+   ],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "company": {
+      "description": "The company's slug, as companies.list returns it.",
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Company",
+      "type": "string"
+     },
+     "cursor": {
+      "anyOf": [
+       {
+        "maxLength": 512,
+        "minLength": 1,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "The next_cursor of the previous page.",
+      "title": "Cursor"
+     },
+     "range": {
+      "default": "3m",
+      "description": "How far back: 1m, 3m, 6m or 1y.",
+      "enum": [
+       "1m",
+       "3m",
+       "6m",
+       "1y"
+      ],
+      "title": "Range",
+      "type": "string"
+     },
+     "tier": {
+      "default": "small",
+      "description": "The caller's tool tier, which bounds the page.",
+      "enum": [
+       "small",
+       "standard",
+       "full"
+      ],
+      "title": "Tier",
+      "type": "string"
+     }
+    },
+    "required": [
+     "company"
+    ],
+    "title": "PricesInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "companies.prices.get",
+   "output_schema": {
+    "$defs": {
+     "Quote": {
+      "additionalProperties": false,
+      "description": "The latest cached quote. `as_of` is a market date.",
+      "properties": {
+       "as_of": {
+        "format": "date",
+        "title": "As Of",
+        "type": "string"
+       },
+       "change_abs": {
+        "anyOf": [
+         {
+          "type": "number"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Change Abs"
+       },
+       "change_pct": {
+        "anyOf": [
+         {
+          "type": "number"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Change Pct"
+       },
+       "currency": {
+        "title": "Currency",
+        "type": "string",
+        "x-text": "code"
+       },
+       "price": {
+        "title": "Price",
+        "type": "number"
+       },
+       "ticker": {
+        "title": "Ticker",
+        "type": "string",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "ticker",
+       "price",
+       "currency",
+       "change_abs",
+       "change_pct",
+       "as_of"
+      ],
+      "title": "Quote",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "attribution": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Attribution",
+      "x-text": "content"
+     },
+     "columns": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Columns",
+      "type": "array",
+      "x-text": "code"
+     },
+     "count": {
+      "minimum": 0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "currency": {
+      "title": "Currency",
+      "type": "string",
+      "x-text": "code"
+     },
+     "feed_configured": {
+      "title": "Feed Configured",
+      "type": "boolean"
+     },
+     "latest": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/Quote"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "range": {
+      "enum": [
+       "1m",
+       "3m",
+       "6m",
+       "1y"
+      ],
+      "title": "Range",
+      "type": "string",
+      "x-text": "code"
+     },
+     "rows": {
+      "description": "One array per row, its values in the order `columns` names.",
+      "items": {
+       "maxItems": 6,
+       "minItems": 6,
+       "prefixItems": [
+        {
+         "type": "string"
+        },
+        {
+         "anyOf": [
+          {
+           "type": "number"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "number"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "anyOf": [
+          {
+           "type": "number"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        {
+         "type": "number"
+        },
+        {
+         "anyOf": [
+          {
+           "type": "integer"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        }
+       ],
+       "type": "array"
+      },
+      "title": "Rows",
+      "type": "array",
+      "x-text": "content"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "total": {
+      "minimum": 0,
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "slug",
+     "range",
+     "currency",
+     "latest",
+     "attribution",
+     "feed_configured",
+     "total",
+     "count",
+     "columns",
+     "rows"
+    ],
+    "title": "PricesPage",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "A listed company's daily share price bars over a range, with the latest quote.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
     "public_posting",
     "market_statistic",
     "private_pursuit"
@@ -9169,6 +11203,565 @@
    },
    "examples": [
     {
+     "opportunity_id": 4821
+    }
+   ],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "opportunity_id": {
+      "description": "The opportunity's id, as search returns it.",
+      "minimum": 1,
+      "title": "Opportunity Id",
+      "type": "integer"
+     },
+     "tier": {
+      "default": "small",
+      "description": "The caller's tool tier, which bounds the answer.",
+      "enum": [
+       "small",
+       "standard",
+       "full"
+      ],
+      "title": "Tier",
+      "type": "string"
+     }
+    },
+    "required": [
+     "opportunity_id"
+    ],
+    "title": "RelationInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "opportunities.duplicates",
+   "output_schema": {
+    "$defs": {
+     "DeckLink": {
+      "additionalProperties": false,
+      "description": "Why a member is in its deck: the link that placed it and who decided.",
+      "properties": {
+       "confidence": {
+        "title": "Confidence",
+        "type": "string",
+        "x-text": "code"
+       },
+       "decision": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Decision",
+        "x-text": "code"
+       },
+       "gap_days": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Gap Days"
+       },
+       "method": {
+        "title": "Method",
+        "type": "string",
+        "x-text": "code"
+       },
+       "reasons": {
+        "items": {
+         "$ref": "#/$defs/Reason"
+        },
+        "title": "Reasons",
+        "type": "array"
+       },
+       "relation": {
+        "title": "Relation",
+        "type": "string",
+        "x-text": "code"
+       },
+       "score": {
+        "anyOf": [
+         {
+          "type": "number"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Score"
+       },
+       "status": {
+        "title": "Status",
+        "type": "string",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "relation",
+       "method",
+       "confidence",
+       "status",
+       "decision",
+       "score",
+       "gap_days",
+       "reasons"
+      ],
+      "title": "DeckLink",
+      "type": "object"
+     },
+     "NextAction": {
+      "additionalProperties": false,
+      "description": "A typed suggestion of an operation to call next. Never a shell string,\nand never a permission the caller did not already have.",
+      "properties": {
+       "arguments": {
+        "additionalProperties": true,
+        "title": "Arguments",
+        "type": "object"
+       },
+       "operation": {
+        "title": "Operation",
+        "type": "string",
+        "x-text": "identifier"
+       }
+      },
+      "required": [
+       "operation"
+      ],
+      "title": "NextAction",
+      "type": "object"
+     },
+     "PlaceMember": {
+      "additionalProperties": false,
+      "properties": {
+       "is_this": {
+        "title": "Is This",
+        "type": "boolean"
+       },
+       "opportunity_id": {
+        "title": "Opportunity Id",
+        "type": "integer"
+       },
+       "relation": {
+        "title": "Relation",
+        "type": "string",
+        "x-text": "code"
+       },
+       "same_place": {
+        "title": "Same Place",
+        "type": "boolean"
+       }
+      },
+      "required": [
+       "opportunity_id",
+       "is_this",
+       "relation",
+       "same_place"
+      ],
+      "title": "PlaceMember",
+      "type": "object"
+     },
+     "PlaceSetDeck": {
+      "additionalProperties": false,
+      "description": "The role listed once per place, by rule: same title and text, each at a different place.",
+      "properties": {
+       "employer_label": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Employer Label",
+        "x-text": "content"
+       },
+       "members": {
+        "items": {
+         "$ref": "#/$defs/PlaceMember"
+        },
+        "title": "Members",
+        "type": "array"
+       },
+       "places": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Places",
+        "type": "array",
+        "x-text": "content"
+       },
+       "rule_version": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Rule Version",
+        "x-text": "code"
+       },
+       "size": {
+        "title": "Size",
+        "type": "integer"
+       }
+      },
+      "required": [
+       "size",
+       "places",
+       "employer_label",
+       "rule_version",
+       "members"
+      ],
+      "title": "PlaceSetDeck",
+      "type": "object"
+     },
+     "Reason": {
+      "additionalProperties": false,
+      "description": "One reason a link gives, as a code and its numbers (`lineage.reasons`).",
+      "properties": {
+       "code": {
+        "title": "Code",
+        "type": "string",
+        "x-text": "code"
+       },
+       "params": {
+        "additionalProperties": {
+         "anyOf": [
+          {
+           "type": "integer"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        "title": "Params",
+        "type": "object"
+       }
+      },
+      "required": [
+       "code",
+       "params"
+      ],
+      "title": "Reason",
+      "type": "object"
+     },
+     "RepostDeck": {
+      "additionalProperties": false,
+      "description": "The role listed again over time: every posting of it, oldest first.",
+      "properties": {
+       "first_seen": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "First Seen"
+       },
+       "last_seen": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Last Seen"
+       },
+       "lineage_id": {
+        "title": "Lineage Id",
+        "type": "integer"
+       },
+       "members": {
+        "items": {
+         "$ref": "#/$defs/RepostMember"
+        },
+        "title": "Members",
+        "type": "array"
+       },
+       "open_members": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Open Members"
+       },
+       "size": {
+        "title": "Size",
+        "type": "integer"
+       }
+      },
+      "required": [
+       "lineage_id",
+       "size",
+       "open_members",
+       "first_seen",
+       "last_seen",
+       "members"
+      ],
+      "title": "RepostDeck",
+      "type": "object"
+     },
+     "RepostMember": {
+      "additionalProperties": false,
+      "properties": {
+       "effective": {
+        "title": "Effective",
+        "type": "boolean"
+       },
+       "link": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/DeckLink"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "opportunity_id": {
+        "title": "Opportunity Id",
+        "type": "integer"
+       },
+       "role": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Role",
+        "x-text": "code"
+       },
+       "seq": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Seq"
+       }
+      },
+      "required": [
+       "opportunity_id",
+       "seq",
+       "role",
+       "link",
+       "effective"
+      ],
+      "title": "RepostMember",
+      "type": "object"
+     },
+     "TwinDeck": {
+      "additionalProperties": false,
+      "description": "The role listed more than once at the same time: the asked posting first.",
+      "properties": {
+       "direct_count": {
+        "title": "Direct Count",
+        "type": "integer"
+       },
+       "members": {
+        "items": {
+         "$ref": "#/$defs/TwinDeckMember"
+        },
+        "title": "Members",
+        "type": "array"
+       },
+       "size": {
+        "title": "Size",
+        "type": "integer"
+       }
+      },
+      "required": [
+       "size",
+       "direct_count",
+       "members"
+      ],
+      "title": "TwinDeck",
+      "type": "object"
+     },
+     "TwinDeckMember": {
+      "additionalProperties": false,
+      "properties": {
+       "direct": {
+        "title": "Direct",
+        "type": "boolean"
+       },
+       "link": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/DeckLink"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "opportunity_id": {
+        "title": "Opportunity Id",
+        "type": "integer"
+       }
+      },
+      "required": [
+       "opportunity_id",
+       "direct",
+       "link"
+      ],
+      "title": "TwinDeckMember",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "columns": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Columns",
+      "type": "array",
+      "x-text": "code"
+     },
+     "continue_with": {
+      "items": {
+       "$ref": "#/$defs/NextAction"
+      },
+      "title": "Continue With",
+      "type": "array"
+     },
+     "opportunity_id": {
+      "title": "Opportunity Id",
+      "type": "integer"
+     },
+     "place_set": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/PlaceSetDeck"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "place_set_split": {
+      "title": "Place Set Split",
+      "type": "boolean"
+     },
+     "reposts": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/RepostDeck"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "rows": {
+      "description": "One array per posting, its values in the order `columns` names.",
+      "items": {
+       "items": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "type": "array"
+      },
+      "title": "Rows",
+      "type": "array",
+      "x-text": "content"
+     },
+     "twins": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/TwinDeck"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "opportunity_id",
+     "reposts",
+     "twins",
+     "place_set",
+     "place_set_split",
+     "columns",
+     "rows",
+     "continue_with"
+    ],
+    "title": "PostingDecks",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "A posting's decks: its reposts, twins and place set, each posting kept apart with why it is there.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "public_posting",
+    "market_statistic",
+    "private_pursuit"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [
+    {
      "opportunity_id": 4821,
      "view": "detail"
     }
@@ -10693,6 +13286,168 @@
    "client_effects": [],
    "contract_version": "1.0",
    "data_classes": [
+    "public_posting",
+    "market_statistic",
+    "private_pursuit"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [
+    {
+     "ids": [
+      4821,
+      4822,
+      4907
+     ]
+    }
+   ],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "ids": {
+      "description": "Opportunity ids, as search returns them; 1 to 100. A repeated id is read once.",
+      "items": {
+       "minimum": 1,
+       "type": "integer"
+      },
+      "maxItems": 100,
+      "minItems": 1,
+      "title": "Ids",
+      "type": "array"
+     },
+     "tier": {
+      "default": "small",
+      "description": "The caller's tool tier, which bounds the answer.",
+      "enum": [
+       "small",
+       "standard",
+       "full"
+      ],
+      "title": "Tier",
+      "type": "string"
+     }
+    },
+    "required": [
+     "ids"
+    ],
+    "title": "GetManyInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "opportunities.get_many",
+   "output_schema": {
+    "$defs": {
+     "NextAction": {
+      "additionalProperties": false,
+      "description": "A typed suggestion of an operation to call next. Never a shell string,\nand never a permission the caller did not already have.",
+      "properties": {
+       "arguments": {
+        "additionalProperties": true,
+        "title": "Arguments",
+        "type": "object"
+       },
+       "operation": {
+        "title": "Operation",
+        "type": "string",
+        "x-text": "identifier"
+       }
+      },
+      "required": [
+       "operation"
+      ],
+      "title": "NextAction",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "columns": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Columns",
+      "type": "array",
+      "x-text": "code"
+     },
+     "continue_with": {
+      "items": {
+       "$ref": "#/$defs/NextAction"
+      },
+      "title": "Continue With",
+      "type": "array"
+     },
+     "count": {
+      "minimum": 0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "not_found": {
+      "items": {
+       "type": "integer"
+      },
+      "title": "Not Found",
+      "type": "array"
+     },
+     "rows": {
+      "description": "One array per opportunity found, in the order asked, its values in the order `columns` names.",
+      "items": {
+       "items": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "type": "array"
+      },
+      "title": "Rows",
+      "type": "array",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "count",
+     "columns",
+     "rows",
+     "not_found",
+     "continue_with"
+    ],
+    "title": "GetManyPage",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "Read several opportunities by id in one call, as search's summary rows.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
     "public_posting"
    ],
    "engine_effects": {
@@ -11005,6 +13760,241 @@
     "agent_access.enabled"
    ],
    "summary": "How long a posting has been listed and why: every dated event and the role's other postings.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "public_posting"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [
+    {
+     "opportunity_id": 4821
+    }
+   ],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "opportunity_id": {
+      "description": "The opportunity's id, as search returns it.",
+      "minimum": 1,
+      "title": "Opportunity Id",
+      "type": "integer"
+     },
+     "tier": {
+      "default": "small",
+      "description": "The caller's tool tier, which bounds the answer.",
+      "enum": [
+       "small",
+       "standard",
+       "full"
+      ],
+      "title": "Tier",
+      "type": "string"
+     }
+    },
+    "required": [
+     "opportunity_id"
+    ],
+    "title": "RelationInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "opportunities.reality",
+   "output_schema": {
+    "$defs": {
+     "Criterion": {
+      "additionalProperties": false,
+      "properties": {
+       "key": {
+        "enum": [
+         "long_open",
+         "relisted",
+         "redated"
+        ],
+        "title": "Key",
+        "type": "string",
+        "x-text": "code"
+       },
+       "met": {
+        "title": "Met",
+        "type": "boolean"
+       },
+       "observed": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Observed"
+       },
+       "threshold": {
+        "title": "Threshold",
+        "type": "integer"
+       },
+       "unit": {
+        "enum": [
+         "days",
+         "listings"
+        ],
+        "title": "Unit",
+        "type": "string",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "key",
+       "met",
+       "unit",
+       "threshold",
+       "observed"
+      ],
+      "title": "Criterion",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "counted_from": {
+      "anyOf": [
+       {
+        "enum": [
+         "role",
+         "posting"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Counted From",
+      "x-text": "code"
+     },
+     "criteria": {
+      "items": {
+       "$ref": "#/$defs/Criterion"
+      },
+      "title": "Criteria",
+      "type": "array"
+     },
+     "criteria_total": {
+      "title": "Criteria Total",
+      "type": "integer"
+     },
+     "opportunity_id": {
+      "title": "Opportunity Id",
+      "type": "integer"
+     },
+     "relisted_here": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Relisted Here"
+     },
+     "returns": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Returns"
+     },
+     "role_postings": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Role Postings"
+     },
+     "standing_since": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Standing Since"
+     },
+     "status": {
+      "title": "Status",
+      "type": "string",
+      "x-text": "code"
+     },
+     "verdict": {
+      "anyOf": [
+       {
+        "enum": [
+         "possible",
+         "none"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Verdict",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "opportunity_id",
+     "status",
+     "verdict",
+     "criteria_total",
+     "criteria",
+     "standing_since",
+     "counted_from",
+     "role_postings",
+     "returns",
+     "relisted_here"
+    ],
+    "title": "PostingVerdict",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "Whether a posting may be a standing one: the verdict and each criterion with its threshold.",
    "supports_dry_run": false,
    "tool_tiers": [
     "small",
@@ -11397,6 +14387,200 @@
     "agent_access.enabled"
    ],
    "summary": "Search the Board's open roles with its filters and sorts; one page of summary rows.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "public_posting",
+    "market_statistic",
+    "private_pursuit"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [
+    {
+     "limit": 10,
+     "opportunity_id": 4821,
+     "scope": "all"
+    }
+   ],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "limit": {
+      "default": 8,
+      "description": "Most similar roles to name.",
+      "maximum": 50,
+      "minimum": 1,
+      "title": "Limit",
+      "type": "integer"
+     },
+     "opportunity_id": {
+      "description": "The opportunity's id, as search returns it.",
+      "minimum": 1,
+      "title": "Opportunity Id",
+      "type": "integer"
+     },
+     "scope": {
+      "default": "cross",
+      "description": "within (the same company), cross (other companies) or all.",
+      "enum": [
+       "within",
+       "cross",
+       "all"
+      ],
+      "title": "Scope",
+      "type": "string"
+     },
+     "tier": {
+      "default": "small",
+      "description": "The caller's tool tier, which bounds the answer.",
+      "enum": [
+       "small",
+       "standard",
+       "full"
+      ],
+      "title": "Tier",
+      "type": "string"
+     }
+    },
+    "required": [
+     "opportunity_id"
+    ],
+    "title": "SimilarInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "opportunities.similar",
+   "output_schema": {
+    "$defs": {
+     "NextAction": {
+      "additionalProperties": false,
+      "description": "A typed suggestion of an operation to call next. Never a shell string,\nand never a permission the caller did not already have.",
+      "properties": {
+       "arguments": {
+        "additionalProperties": true,
+        "title": "Arguments",
+        "type": "object"
+       },
+       "operation": {
+        "title": "Operation",
+        "type": "string",
+        "x-text": "identifier"
+       }
+      },
+      "required": [
+       "operation"
+      ],
+      "title": "NextAction",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "columns": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Columns",
+      "type": "array",
+      "x-text": "code"
+     },
+     "continue_with": {
+      "items": {
+       "$ref": "#/$defs/NextAction"
+      },
+      "title": "Continue With",
+      "type": "array"
+     },
+     "opportunity_id": {
+      "title": "Opportunity Id",
+      "type": "integer"
+     },
+     "rows": {
+      "description": "One array per posting, its values in the order `columns` names.",
+      "items": {
+       "items": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "type": "array"
+      },
+      "title": "Rows",
+      "type": "array",
+      "x-text": "content"
+     },
+     "scope": {
+      "enum": [
+       "within",
+       "cross",
+       "all"
+      ],
+      "title": "Scope",
+      "type": "string",
+      "x-text": "code"
+     },
+     "similar": {
+      "items": {
+       "maxItems": 2,
+       "minItems": 2,
+       "prefixItems": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "number"
+        }
+       ],
+       "type": "array"
+      },
+      "title": "Similar",
+      "type": "array"
+     }
+    },
+    "required": [
+     "opportunity_id",
+     "scope",
+     "similar",
+     "columns",
+     "rows",
+     "continue_with"
+    ],
+    "title": "SimilarRoles",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "Open roles whose text is nearest one posting's, best first, as search's summary rows.",
    "supports_dry_run": false,
    "tool_tiers": [
     "small",
@@ -13279,6 +16463,22 @@
    "method": "GET",
    "path": "/api/agent/v1/changes"
   },
+  "companies.facts.list": {
+   "method": "GET",
+   "path": "/api/agent/v1/companies/{company}/facts"
+  },
+  "companies.get": {
+   "method": "GET",
+   "path": "/api/agent/v1/companies/{company}"
+  },
+  "companies.list": {
+   "method": "GET",
+   "path": "/api/agent/v1/companies"
+  },
+  "companies.prices.get": {
+   "method": "GET",
+   "path": "/api/agent/v1/companies/{company}/prices"
+  },
   "context.export": {
    "method": "GET",
    "path": "/api/agent/v1/opportunities/{opportunity_id}/context"
@@ -13343,17 +16543,33 @@
    "method": "GET",
    "path": "/api/agent/v1/offer"
   },
+  "opportunities.duplicates": {
+   "method": "GET",
+   "path": "/api/agent/v1/opportunities/{opportunity_id}/duplicates"
+  },
   "opportunities.get": {
    "method": "GET",
    "path": "/api/agent/v1/opportunities/{opportunity_id}"
+  },
+  "opportunities.get_many": {
+   "method": "GET",
+   "path": "/api/agent/v1/opportunities/get-many"
   },
   "opportunities.history": {
    "method": "GET",
    "path": "/api/agent/v1/opportunities/{opportunity_id}/history"
   },
+  "opportunities.reality": {
+   "method": "GET",
+   "path": "/api/agent/v1/opportunities/{opportunity_id}/reality"
+  },
   "opportunities.search": {
    "method": "GET",
    "path": "/api/agent/v1/opportunities"
+  },
+  "opportunities.similar": {
+   "method": "GET",
+   "path": "/api/agent/v1/opportunities/{opportunity_id}/similar"
   },
   "pursuits.get": {
    "method": "GET",

@@ -97,7 +97,7 @@ def test_stock_is_the_reported_point_or_none_where_the_policy_grants_none():
 
 @pytest.mark.asyncio
 async def test_a_total_needs_base_bonus_and_stock(api_client, db_session):
-    from tracker.api.routers.companies import _level_base_row
+    from tracker.profiles.read import _level_base_row
 
     # Amazon states its bonus (none), so its stock alone decides whether a total exists.
     known = _level_base_row("amazon", {"band": "senior", "base_usd": "200000", "stock_usd": "170160"})

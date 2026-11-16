@@ -12,9 +12,9 @@ import shutil
 
 import pytest
 
-from tracker.api.routers.companies import _company_locations
 from tracker.enrich import inventory
 from tracker.enrich.classify import location_groups_for, location_slugs_for
+from tracker.profiles.read import company_locations
 from tracker.taxonomy.cities import city_by_slug
 from tracker.taxonomy.countries import UNIONS
 from tracker.taxonomy.locations import countries_for, normalize_cities, posting_places
@@ -260,7 +260,7 @@ class _FakeSession:
 def test_company_locations_carries_group_badges():
     # The SQL orders busiest-first; the helper adds the coarse scope-group badges.
     session = _FakeSession([("Sunnyvale, CA", 12), ("London, UK", 3), ("Boise, ID", 1)])
-    out = asyncio.run(_company_locations(session, "apple"))
+    out = asyncio.run(company_locations(session, "apple"))
 
     assert session.params == {"slug": "apple"}
     assert [(loc["city"], loc["open_count"]) for loc in out] == [
@@ -284,7 +284,7 @@ def test_company_locations_names_the_country_group():
     guess.
     """
     session = _FakeSession([("Sunnyvale, CA", 12), ("London, UK", 3), ("Reykjavik, Iceland", 1)])
-    out = asyncio.run(_company_locations(session, "apple"))
+    out = asyncio.run(company_locations(session, "apple"))
 
     assert [loc["country"] for loc in out] == ["united_states", "uk", "iceland"]
     # Not the leaf and not the umbrella: the metro and the region are both wrong
@@ -302,7 +302,7 @@ def test_company_locations_keeps_a_city_whose_country_is_unresolved():
     to a Canadian province, and that is asserted too.)
     """
     session = _FakeSession([("Wilmington, DE", 4), ("Toronto, ON", 2)])
-    out = asyncio.run(_company_locations(session, "amazon"))
+    out = asyncio.run(company_locations(session, "amazon"))
 
     assert [loc["city"] for loc in out] == ["Wilmington, DE", "Toronto, ON"]
     assert [loc["country"] for loc in out] == [None, "canada"]

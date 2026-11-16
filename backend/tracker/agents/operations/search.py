@@ -292,13 +292,13 @@ async def search(
                              offset=offset, limit=params.limit, exact_seen=carried,
                              from_profile=profile, from_taste=pursuits, estimates=statistics)
 
-    left_out = {_CATEGORY_COLUMNS[category] for category in withheld if category in _CATEGORY_COLUMNS}
-    columns = [column for column in COLUMNS if column not in left_out]
-    kept_at = [COLUMNS.index(column) for column in columns]
-    full_rows = await _rows(
-        session, ordered.jobs, now=now, pursuits=pursuits, places=frozenset(filters.get("location", ())),
+    columns = shared_columns(withheld)
+    rows = only_columns(
+        await summary_rows(
+            session, ordered.jobs, now=now, pursuits=pursuits, places=frozenset(filters.get("location", ())),
+        ),
+        columns,
     )
-    rows: list[PageRow] = [tuple(row[i] for i in kept_at) for row in full_rows]
     page = SearchPage(
         total=ordered.total,
         count=0,
@@ -311,7 +311,7 @@ async def search(
     # The rows share the page's budget with its header, whose filters grow with the request.
     budget = PAGE_BUDGET_BYTES[params.tier]
     header = _size(page.model_dump(mode="json"))
-    kept, cut = _within_budget(rows, budget - header)
+    kept, cut = rows_within_budget(rows, budget - header)
     if kept and _size(kept[0]) + 1 > budget - header or header > budget:
         raise OperationError(
             "invalid_input",
@@ -405,10 +405,27 @@ async def _best_match(
 # --- rows -------------------------------------------------------------------- #
 
 
-async def _rows(
+def shared_columns(withheld: Collection[DataClass]) -> list[str]:
+    """The summary columns an answer holds: `COLUMNS` less each one a withheld
+    category owns."""
+    left_out = {_CATEGORY_COLUMNS[category] for category in withheld if category in _CATEGORY_COLUMNS}
+    return [column for column in COLUMNS if column not in left_out]
+
+
+def only_columns(rows: list[SearchRow], columns: list[str]) -> list[PageRow]:
+    """Each row with only the values of `columns`, in their order."""
+    kept_at = [COLUMNS.index(column) for column in columns]
+    return [tuple(row[i] for i in kept_at) for row in rows]
+
+
+async def summary_rows(
     session: AsyncSession, jobs: list[Job], *, now: datetime, pursuits: bool = True,
     places: frozenset[str] = frozenset(),
 ) -> list[SearchRow]:
+    """Each posting as a search row, in the order given: what every read that
+    answers postings in the summary shape shows of one. `places` puts a
+    location the search asked for first in a row's place; without `pursuits`
+    the person's saves and stages are not read."""
     ids = [job.id for job in jobs]
     saved: set[int] = set()
     stages: dict[int, str] = {}
@@ -495,7 +512,7 @@ def _size(value: object) -> int:
 _SHORTEST_CELL = 24
 
 
-def _within_budget(rows: list[PageRow], budget: int) -> tuple[list[PageRow], bool]:
+def rows_within_budget(rows: list[PageRow], budget: int) -> tuple[list[PageRow], bool]:
     """The leading rows whose JSON fits `budget` bytes, and whether the first
     one was cut to fit. A page always holds its first row, so paging never
     stops before it starts: one longer than the whole budget has its longest
