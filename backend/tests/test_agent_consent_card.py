@@ -75,6 +75,11 @@ def test_the_table_names_every_data_category():
     assert set(LINES_FOR_CATEGORY) == set(typing.get_args(DataClass))
 
 
+def test_the_categories_the_card_says_nothing_of_are_exactly_the_known_ones():
+    # A new empty row fails here, so a category is never left off the card unnoticed.
+    assert {category for category, lines in LINES_FOR_CATEGORY.items() if not lines} == {"offer", "candidate"}
+
+
 def test_every_operation_reads_only_categories_the_table_lists_and_writes_under_a_line():
     assert uncovered(REGISTERED) == []
 

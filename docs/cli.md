@@ -39,7 +39,10 @@ How the operations and the command are built is in
 3. Restart the host and ask the agent to run `roleband capabilities`.
 
 The Mac app writes the `roleband` command to `~/.local/bin` each time it starts
-its engine. From a source checkout, `.venv/bin/python -m tracker.cli` in
+its engine. That folder must be on `PATH`, since the host runs the command by
+name and Claude Code's permission rule matches only `roleband `; `connect` says
+so when it is not, with the line to add to the shell profile
+(`export PATH="$HOME/.local/bin:$PATH"`). From a source checkout, `.venv/bin/python -m tracker.cli` in
 `backend/` runs the same client. The engine must be running: a command that
 cannot reach it fails with exit status 3, never with a stale answer.
 
