@@ -329,8 +329,10 @@ private struct UpdateLine: View {
                        model.text("update-signer-changed-help"))
         }
         PanelRow(symbol: "exclamationmark.circle.fill", title: title, caption: caption, symbolTint: p.warning) {
-            if failure == .signer, let page = model.updates.offered?.page {
-                Button(model.text("update-release-page")) { NSWorkspace.shared.open(page) }.buttonStyle(PillButtonStyle())
+            if failure == .signer, let offer = model.updates.offered {
+                // The page of the version that failed, which a newer offer may have followed.
+                Button(model.text("update-release-page")) { NSWorkspace.shared.open(LiveUpdateWindow.page(for: version, offer: offer)) }
+                    .buttonStyle(PillButtonStyle())
             } else {
                 Button(model.text("retry")) { installer?.install(version) }.buttonStyle(PillButtonStyle())
             }
