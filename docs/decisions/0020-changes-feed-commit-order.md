@@ -63,7 +63,8 @@ commit there. `xid8` gives that id in 64 bits, so it never wraps.
   as history after the upgrade, as rows from before the columns do. A plugin
   run closed before `plugin_run_ends` existed, or by code that does not know
   it, has no end there and is never reported; the next recorded end of its job
-  is still compared with it.
+  is still compared with it, unless it was stopped, since a stopped run is left
+  out of every comparison.
 - Delivery is at least once: the same `since` answers the same page again, and
   each event's `sequence` is stable for deduplication.
 - `tests/test_agent_changes_db.py` holds the order with two writers, one held

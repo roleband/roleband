@@ -1390,8 +1390,8 @@ opens no posting at a hidden company.
 after a position, in commit order: openings, closings, reopenings and reposts
 from `job_lifecycle_events`, stated-pay changes from its `disclosed_base`
 detail, source health from `scrape_source_runs`, a plugin job's health from
-`plugin_run_ends` (one row per closed plugin run, inserted by the transaction
-that closes it), and pursuit actions falling due from
+`plugin_run_ends` (one row per plugin run closed since the table exists,
+inserted by the transaction that closes it), and pursuit actions falling due from
 `pursuits.next_action_due`. Each event says whether it is recorded or derived
 at the read (a repost label, a health move, a due time). The records carry the
 inserting transaction (`change_xact`, `xid8`, and `change_cluster`), and a read
