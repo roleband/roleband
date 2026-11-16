@@ -561,7 +561,8 @@ def _fitted(op: OperationContext, data: Any, *, rows_left: bool, row_cut: bool) 
 
 async def _insights(op: OperationContext, figures: insights.Figures) -> Envelope[Any]:
     answer = await insights.read(
-        op.session, op.descriptor, op.input, workspace_id=op.workspace_id, figures=figures
+        op.session, op.descriptor, op.input, workspace_id=op.workspace_id, figures=figures,
+        withheld=withheld(op.descriptor, op.switches),
     )
     envelope = op.ok(answer.data, warnings=[EnvelopeNotice(
         code="page_shortened",

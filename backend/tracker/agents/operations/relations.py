@@ -281,7 +281,9 @@ OPPORTUNITIES_REALITY = OperationDescriptor(
     idempotency="read",
     engine_effects=EngineEffects(),
     tool_tiers=_EVERY_TIER,
-    data_classes=("public_posting",),
+    # Whether a saved or pursued posting at a hidden company is found says
+    # the person chose it, so the pursuits decide it while they are shared.
+    data_classes=("public_posting", "private_pursuit"),
     examples=({"opportunity_id": 4821},),
 )
 

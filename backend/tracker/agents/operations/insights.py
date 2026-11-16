@@ -27,18 +27,25 @@ a snapshot.
 from __future__ import annotations
 
 import json
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Collection
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 from pydantic.config import JsonDict
+from pydantic.experimental.missing_sentinel import MISSING
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.agents.operations import cursor, vocabulary
-from tracker.agents.operations.descriptor import EngineEffects, OperationDescriptor, Shape, ToolTier
+from tracker.agents.operations.descriptor import (
+    DataClass,
+    EngineEffects,
+    OperationDescriptor,
+    Shape,
+    ToolTier,
+)
 from tracker.agents.operations.envelope import NextAction, OperationError
 from tracker.analytics.posting_reality import NEW_LISTING_WINDOW
 from tracker.company_store import OffBoardSlugs, off_board_company_slugs
@@ -96,9 +103,12 @@ class CoverageHistory(Shape):
 
 class InsightsCoverage(Shape):
     population: Population = Field(json_schema_extra=_CODE)
-    #: The companies side and disciplines the read was narrowed to.
+    #: The companies side, disciplines, companies and places the read was
+    #: narrowed to; an empty list narrows nothing.
     side: Side = Field(json_schema_extra=_CODE)
     families: list[str] = Field(json_schema_extra=_CODE)
+    companies: list[str] = Field(json_schema_extra=_IDENTIFIER)
+    places: list[str] = Field(json_schema_extra=_CODE)
     #: Companies the person hid or does not follow, left out of every figure;
     #: null for reference data, which reads no postings.
     off_board_companies: int | None
@@ -230,7 +240,8 @@ class InsightsOverviewKpis(Shape):
     already_listed_count: int
     closed_count: int
     companies: int
-    saved_total: int
+    #: The roles the person saved: absent when they do not share their pursuits.
+    saved_total: int | MISSING = MISSING
 
 
 class InsightsOverviewSkill(Shape):
@@ -743,6 +754,7 @@ class InsightsSkills(_Answer):
 def _descriptor(
     id: str, summary: str, input: type[BaseModel], result: type[BaseModel], *,
     tiers: tuple[ToolTier, ...] = _LARGER_TIERS, examples: tuple[dict[str, Any], ...] = (),
+    data_classes: tuple[DataClass, ...] = ("market_statistic",),
 ) -> OperationDescriptor:
     return OperationDescriptor(
         id=id,
@@ -753,7 +765,7 @@ def _descriptor(
         idempotency="read",
         engine_effects=EngineEffects(),
         tool_tiers=tiers,
-        data_classes=("market_statistic",),
+        data_classes=data_classes,
         examples=examples,
     )
 
@@ -762,6 +774,8 @@ INSIGHTS_OVERVIEW = _descriptor(
     "insights.overview",
     "Count the open roles, the roles that opened and came down in a window, and the skills most asked for.",
     OverviewInput, InsightsOverview, tiers=_EVERY_TIER, examples=({"days": 90},),
+    # The count of saved roles is the person's own.
+    data_classes=("market_statistic", "private_pursuit"),
 )
 INSIGHTS_COMPENSATION = _descriptor(
     "insights.compensation",
@@ -835,12 +849,19 @@ class InsightsRead:
     #: `*` steps into every item of a list. They are read as one sequence in
     #: this order.
     paged: tuple[str, ...] = ()
+    #: The figures that count the person's pursuits, as dotted paths to a key:
+    #: left out when they do not share them.
+    pursuits: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if bool(self.pursuits) != ("private_pursuit" in self.descriptor.data_classes):
+            raise ValueError(f"{self.descriptor.id}: a read with pursuit figures declares private_pursuit")
 
 
 READS: dict[str, InsightsRead] = {
     read.descriptor.id: read
     for read in (
-        InsightsRead(INSIGHTS_OVERVIEW, "open_roles", "figures"),
+        InsightsRead(INSIGHTS_OVERVIEW, "open_roles", "figures", pursuits=("kpis.saved_total",)),
         InsightsRead(INSIGHTS_COMPENSATION, "open_roles", paged=("posted.countries.*.bands",)),
         InsightsRead(INSIGHTS_PAY_TABLE, "open_roles", paged=("rows", "not_placed", "skills")),
         InsightsRead(INSIGHTS_TRAJECTORY, "open_roles", paged=("public", "private", "choice")),
@@ -884,18 +905,27 @@ async def read(
     *,
     workspace_id: str,
     figures: Figures,
+    withheld: Collection[DataClass] = (),
     now: datetime | None = None,
 ) -> InsightsAnswer:
     """Answer one Insights operation from the dashboard's figures, with their
-    coverage, within the tier's budget."""
+    coverage, within the tier's budget, without the `withheld` categories."""
     spec = READS[operation.id]
     params = await _strict(session, params)
     hidden = await off_board_company_slugs(session)
     scope = await resolve_insights_scope(session, getattr(params, "side", "all"), getattr(params, "family", None))
     raw = await figures(session, hidden, scope, params)
+    if "private_pursuit" in withheld:
+        for path in spec.pursuits:
+            *parents, key = path.split(".")
+            node = raw
+            for step in parents:
+                node = node[step]
+            del node[key]
+    companies = getattr(params, "company", None) or []
     coverage = await _coverage(
-        session, spec, raw, hidden, scope, _companies_read(scope, getattr(params, "company", None)),
-        now or datetime.now(UTC),
+        session, spec, raw, hidden, scope, _companies_read(scope, companies),
+        now or datetime.now(UTC), companies=companies, places=getattr(params, "location", None) or [],
     )
     answer = operation.result.model_validate({**raw, "coverage": coverage})
     return fit(spec, answer, params, workspace_id=workspace_id)
@@ -922,6 +952,9 @@ async def _coverage(
     scope: InsightsScope,
     read: InsightsScope,
     now: datetime,
+    *,
+    companies: list[str],
+    places: list[str],
 ) -> InsightsCoverage:
     """The coverage of an answer over `scope`, its history and last read taken
     over `read`: the scope's companies, or the ones the figures were narrowed to."""
@@ -931,14 +964,16 @@ async def _coverage(
     if not reference:
         since = await history_since(session, read, hidden)
         history = CoverageHistory(since=since, days=history_days(since, now))
-        companies = [*read.company_conds(ScrapeSourceRun.company_slug)]
+        read_by = [*read.company_conds(ScrapeSourceRun.company_slug)]
         if hidden:
-            companies.append(ScrapeSourceRun.company_slug.notin_(hidden))
-        last_read_at = await session.scalar(select(func.max(ScrapeSourceRun.finished_at)).where(*companies))
+            read_by.append(ScrapeSourceRun.company_slug.notin_(hidden))
+        last_read_at = await session.scalar(select(func.max(ScrapeSourceRun.finished_at)).where(*read_by))
     return InsightsCoverage(
         population=spec.population,
         side=scope.side,
         families=list(scope.families),
+        companies=companies,
+        places=places,
         off_board_companies=None if reference else len(hidden),
         window=_window(spec.window, raw, now, history.since if history is not None else None),
         history=history,
