@@ -398,14 +398,16 @@ async def test_best_match_lists_the_member_its_text_admits(api_client, db_sessio
 
 
 @pytest.mark.asyncio
-async def test_mcp_search_lists_the_member_its_window_admits(db_session, scratch_scope):
-    """Broken rule caught: the MCP tool applied its own window (and phrase)
-    after the collapse, so an agent asking for roles first seen this month
-    found none when London, the first member, was seen in July."""
-    import tracker.mcp.server as server
+async def test_agent_search_lists_the_member_its_window_admits(api_client, db_session, scratch_scope):
+    """The window and the phrase apply before the collapse, so an agent asking
+    for roles listed within a month finds Bristol when London, the first
+    member, was first seen in July."""
     from tracker.agents.config import AgentAccessConfig, set_agent_access
+    from tracker.agents.operations.workspace import ensure_workspace_id
+    from tracker.api.agent_operations import PREFIX
 
     await set_agent_access(db_session, AgentAccessConfig(enabled=True, allow_writes=False))
+    await ensure_workspace_id(db_session)
     db_session.add(
         TrackedCompany(
             slug="aecom", display="AECOM", adapter="greenhouse", status="active",
@@ -417,11 +419,15 @@ async def test_mcp_search_lists_the_member_its_window_admits(db_session, scratch
         job.first_seen = NOW - timedelta(days=90, minutes=-job.id)
     await db_session.commit()
 
-    found = await server.search_opportunities(first_seen_within_days=30, query="controls")
-    assert [item["id"] for item in found["items"]] == [bristol.id]
+    async def found(**params) -> list[int]:
+        response = await api_client.get(f"{PREFIX}/opportunities", params=params)
+        body = response.json()
+        assert body["ok"] is True, body
+        return [row[0] for row in body["data"]["rows"]]
+
+    assert await found(listed_within_days=30, query="controls") == [bristol.id]
     # Without the window, the role is listed once, through London.
-    found = await server.search_opportunities(query="controls")
-    assert sorted(item["id"] for item in found["items"]) == sorted([london.id, other.id])
+    assert sorted(await found(query="controls")) == sorted([london.id, other.id])
 
 
 # --------------------------------------------------------------------------

@@ -90,17 +90,5 @@
    "grader": "population_median",
    "expect": {"families": ["product_management"], "location_groups": ["united_states"], "level_band": "senior", "tolerance": 0.01}
   }
- ],
- "not_applicable": [
-  {
-   "id": "stale_revision",
-   "measures": "Recover from a write refused because the pursuit changed since it was read",
-   "reason": "The MCP server has no pursuit revision: every update applies over whatever is stored, so there is no stale write to refuse."
-  },
-  {
-   "id": "resume_timed_out",
-   "measures": "Resume a request that timed out without repeating its effect",
-   "reason": "The MCP server's writes take no request key and return no receipt, so a repeated call cannot be told from a new one."
-  }
  ]
 }

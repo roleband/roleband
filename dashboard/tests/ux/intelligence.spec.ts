@@ -24,7 +24,7 @@ test("intelligence states where each capability runs, up front", async ({ page }
 
   // Three cards, each an instrument — no Advanced drawer, no Experimental pen.
   const ranking = page.getByRole("region", { name: "Fit ranking" });
-  const assistants = page.getByRole("region", { name: msg("ai-assistants-card-mcp-server-2") });
+  const assistants = page.getByRole("region", { name: msg("ai-assistants-card-assistant-apps-2") });
   const capabilities = page.getByRole("region", { name: "Extended capabilities" });
   await expect(ranking).toBeVisible();
   await expect(assistants).toBeVisible();
@@ -304,7 +304,7 @@ test("assistants: the data sheet gates setup behind one conscious switch", async
   isMobile,
 }) => {
   await page.goto("/settings/intelligence");
-  const assistants = page.getByRole("region", { name: msg("ai-assistants-card-mcp-server-2") });
+  const assistants = page.getByRole("region", { name: msg("ai-assistants-card-assistant-apps-2") });
 
   // What will be seen is stated before anything can connect.
   await expect(assistants.getByText("What will be shared")).toBeVisible();
@@ -337,9 +337,9 @@ test("assistants: the data sheet gates setup behind one conscious switch", async
   await expect(assistants.getByLabel("Allow assistant apps to connect")).toBeChecked();
   await expect(setup.first()).toBeEnabled();
 
-  // The gate describes what it opens, not the two clients we ship a recipe
-  // for. Naming vendors here would contradict the third tile, which exists
-  // precisely because MCP is a protocol and any client can speak it.
+  // The gate describes what it opens, not the two hosts we ship a setup for.
+  // Naming vendors here would contradict the third tile, which exists
+  // precisely because any app that can run a command can connect.
   const note = assistants.locator(".intel-gate-note");
   await expect(note).toHaveText(msg("ai-assistants-card-off-nothing-leaves-this-computer", { choice: "yes" }));
   expect(await note.textContent()).not.toMatch(/Anthropic|OpenAI|Claude|Codex/);
@@ -360,21 +360,23 @@ test("assistants: the data sheet gates setup behind one conscious switch", async
   await expect(grants.getByLabel("Allow assistant apps to connect")).toHaveCount(1);
   await expect(grants.getByLabel("Allow assistant apps to update your progress")).toHaveCount(1);
 
-  // Set up is a dialog carrying the literal snippet.
+  // Set up is a dialog carrying the literal command, run once in a terminal.
   await setup.first().click();
-  const dialog = page.getByRole("dialog", { name: "Set up the Claude app" });
+  const dialog = page.getByRole("dialog", { name: msg("ai-assistants-card-set-up-claude-code") });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByText(/mcpServers/)).toBeVisible();
+  await expect(dialog.getByText("roleband connect claude-code --apply", { exact: true })).toBeVisible();
+  await expect(dialog.getByText(msg("ai-assistants-card-run-this-once-in-a"), { exact: false })).toBeVisible();
+  await expect(dialog.getByText(/mcpServers|codex mcp add/)).toHaveCount(0);
   await dialog.getByRole("button", { name: "Done" }).click();
   await expect(dialog).toBeHidden();
 
-  // The open door hands over the SAME standard block, not a second recipe
-  // that could drift from it.
+  // The open door names no host's setup: the app runs `roleband` itself.
   await setup.nth(2).click();
-  const other = page.getByRole("dialog", { name: "Set up another MCP app" });
+  const other = page.getByRole("dialog", { name: msg("ai-assistants-card-set-up-another-app") });
   await expect(other).toBeVisible();
-  await expect(other.getByText(msg("ai-assistants-card-most-apps-that-speak-mcp"))).toBeVisible();
-  await expect(other.getByText(/mcpServers/)).toBeVisible();
+  await expect(other.getByText(msg("ai-assistants-card-let-the-app-run-commands"), { exact: false })).toBeVisible();
+  await expect(other.getByText("roleband capabilities", { exact: true })).toBeVisible();
+  await expect(other.getByText(/roleband connect/)).toHaveCount(0);
   await other.getByRole("button", { name: "Done" }).click();
   await expect(other).toBeHidden();
 
@@ -604,7 +606,7 @@ test("the standing permission is confirmed before connecting an online service",
   const capabilities = page.getByRole("region", { name: "Extended capabilities" });
 
   // No service yet, but the gate is a standing permission — answerable now,
-  // like the MCP connect gate — so every row keeps the same shape AND the
+  // like the assistant card's connect gate, so every row keeps the same shape AND the
   // switch actually works.
   await expect(capabilities.getByText(msg("ai-capabilities-card-online-model-services"))).toBeVisible();
   await expect(capabilities.getByText(msg("ai-capabilities-card-none-connected"), { exact: false })).toBeVisible();

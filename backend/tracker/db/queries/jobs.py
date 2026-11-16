@@ -87,7 +87,7 @@ def exclude_hidden(stmt: Select, hidden: list[str], column=Job.company) -> Selec
 def open_in_scope_count_stmt(hidden: list[str] | None = None, *narrowed) -> Select:
     """How many open, in-scope postings a visible board holds.
 
-    One statement for every caller: the statistics routes and the MCP radar
+    One statement for every caller: the statistics routes and the agent radar
     summary. An INNER JOIN on `TrackedCompany.visible` would also drop any
     posting whose company has no roster row.
     """

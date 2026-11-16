@@ -1,9 +1,9 @@
-// Card 2: the MCP server. Cloud-connected, and it says so.
+// Card 2: assistant apps, which reach RoleBand through the `roleband` command.
+// Cloud-connected, and it says so.
 //
 // The card is a data sheet first: what a connected app WILL see and what it
-// NEVER sees, stated before anything can be enabled. Both lists are read off
-// the MCP server's actual payload (backend/tracker/mcp/server.py::_opportunity
-// and the tool set): copy here may not promise more or less than that code.
+// NEVER sees, stated before anything can be enabled. Copy here may not promise
+// more or less than the agent operations return (backend/tracker/agents/operations/).
 // The lists say WHAT is visible, not how much of it: a live count would read
 // as one more shared item and cost a `/api/stats` fetch this card has no
 // other use for. One gate switch allows apps to connect at all; the tiles
@@ -14,23 +14,22 @@ import { AgentAccessState, api } from "../../api";
 import { Button, CompanyIcon, Dialog, Icon, Switch } from "../../ui";
 import { OriginBadge } from "./OriginBadge";
 import {
-  aiAssistantsCardAddThisToTheApp,
   aiAssistantsCardAllowAssistantAppsToConnect,
   aiAssistantsCardAllowAssistantAppsToConnect2,
   aiAssistantsCardAllowAssistantAppsToUpdate,
   aiAssistantsCardAllowedReadOnly,
   aiAssistantsCardAnthropic,
-  aiAssistantsCardAnyClientThatSpeaksMcp,
-  aiAssistantsCardAppClaudeApp,
+  aiAssistantsCardAssistantApps,
+  aiAssistantsCardAssistantApps2,
+  aiAssistantsCardAnyAppThatCanRunCommands,
+  aiAssistantsCardAppClaudeCode,
   aiAssistantsCardAppCodexApp,
   aiAssistantsCardAppOtherApp,
   aiAssistantsCardClipboardAccessWasBlockedSelect,
   aiAssistantsCardCopy,
   aiAssistantsCardDone,
   aiAssistantsCardItCanThenReadWhat,
-  aiAssistantsCardMcpServer,
-  aiAssistantsCardMcpServer2,
-  aiAssistantsCardMostAppsThatSpeakMcp,
+  aiAssistantsCardLetTheAppRunCommands,
   aiAssistantsCardNeverAnythingFromYourOtherApps,
   aiAssistantsCardNeverYourOwnSalaryOrContacts,
   aiAssistantsCardNeverYourProfileAndIntentStatement,
@@ -40,8 +39,8 @@ import {
   aiAssistantsCardOpenai,
   aiAssistantsCardRunThisOnceInA,
   aiAssistantsCardSetUp,
-  aiAssistantsCardSetUpAnotherMcpApp,
-  aiAssistantsCardSetUpTheClaudeApp,
+  aiAssistantsCardSetUpAnotherApp,
+  aiAssistantsCardSetUpClaudeCode,
   aiAssistantsCardSetUpTheCodexApp,
   aiAssistantsCardSharesPayLevelAndHowLongTheRoleHasBeen,
   aiAssistantsCardSharesPublicPagesItAsksRolebandToOpen,
@@ -67,22 +66,23 @@ const NEVER_SEES = [
   aiAssistantsCardNeverAnythingFromYourOtherApps,
 ];
 
-type App = "claude" | "codex" | "other";
+type App = "claude-code" | "codex" | "other";
 
-/** The named clients we can give an exact recipe for, plus the open door: MCP
- *  is a protocol, not two products, so a third tile carries the standard JSON
- *  any other client accepts. `slug` is a company mark (Simple Icons); its
- *  absence means the tile wears a UI glyph instead: the two icon sets stay
- *  split by domain, and "any client" is not a company. */
+/** The hosts `roleband connect` sets up, each with the command the engine
+ *  serves for it, plus the open door: any app that can run a command can call
+ *  `roleband`, so a third tile asks it to start with `roleband capabilities`.
+ *  `slug` is a company mark (Simple Icons); its absence means the tile wears a
+ *  UI glyph instead: the two icon sets stay split by domain, and "any app" is
+ *  not a company. */
 const APPS: Record<
   App,
   { name: string; service: string; slug?: string; setup: string }
 > = {
-  claude: {
-    get name() { return aiAssistantsCardAppClaudeApp(); },
+  "claude-code": {
+    get name() { return aiAssistantsCardAppClaudeCode(); },
     get service() { return aiAssistantsCardAnthropic(); },
     slug: "claude",
-    get setup() { return aiAssistantsCardSetUpTheClaudeApp(); },
+    get setup() { return aiAssistantsCardSetUpClaudeCode(); },
   },
   codex: {
     get name() { return aiAssistantsCardAppCodexApp(); },
@@ -92,10 +92,13 @@ const APPS: Record<
   },
   other: {
     get name() { return aiAssistantsCardAppOtherApp(); },
-    get service() { return aiAssistantsCardAnyClientThatSpeaksMcp(); },
-    get setup() { return aiAssistantsCardSetUpAnotherMcpApp(); },
+    get service() { return aiAssistantsCardAnyAppThatCanRunCommands(); },
+    get setup() { return aiAssistantsCardSetUpAnotherApp(); },
   },
 };
+
+/** What the open door's app is asked to run first. */
+const FIRST_COMMAND = /* not copy */ "roleband capabilities";
 
 export function AssistantsCard() {
   const [state, setState] = useState<AgentAccessState | null>(null);
@@ -126,10 +129,10 @@ export function AssistantsCard() {
   const writes = state?.allow_writes ?? false;
 
   return (
-    <section className="intel-card" aria-label={aiAssistantsCardMcpServer2()}>
+    <section className="intel-card" aria-label={aiAssistantsCardAssistantApps2()}>
       <div className="intel-head">
         <div className="intel-head-title">
-          <h2>{aiAssistantsCardMcpServer()}</h2>
+          <h2>{aiAssistantsCardAssistantApps()}</h2>
           <OriginBadge origin="cloud" />
         </div>
         <span className="intel-aside">
@@ -231,10 +234,10 @@ export function AssistantsCard() {
               label={aiAssistantsCardAllowAssistantAppsToConnect()}
             />
             <b className="intel-grant-name">{aiAssistantsCardAllowAssistantAppsToConnect()}</b>
-            {/* No vendor names here. MCP is a protocol and the third tile
-                  exists to say so; naming two companies would describe the
-                  clients we ship a recipe for rather than what the switch
-                  actually opens. The account clause is the
+            {/* No vendor names here. Any app that can run a command can
+                  connect and the third tile exists to say so; naming two
+                  companies would describe the hosts we ship a setup for rather
+                  than what the switch actually opens. The account clause is the
                   load-bearing half anyway: whatever an app sends, it sends
                   under the user's own subscription, never ours. */}
             <span className="intel-gate-note">
@@ -293,13 +296,12 @@ function SetupDialog({
 }) {
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
-  // The standard `mcpServers` JSON is what every client but Codex accepts, so
-  // the open door hands over exactly the same block rather than a second,
-  // hand-written recipe that could drift from it.
+  // A named host's command comes from the engine, which serves one for every
+  // host `roleband connect` sets up.
   const value =
-    app === "codex"
-      ? state.codex_command
-      : JSON.stringify(state.claude_json, null, 2);
+    app === "other"
+      ? FIRST_COMMAND
+      : (state.connect.find((item) => item.host === app)?.command ?? "");
 
   const copy = async () => {
     try {
@@ -324,15 +326,9 @@ function SetupDialog({
       <div className="ledger-form">
         <h3>{APPS[app].setup}</h3>
         <p className="intel-dialog-note">
-          {app === "codex" ? (
-            <>{aiAssistantsCardRunThisOnceInA()}</>
-          ) : app === "other" ? (
-            <>
-              {aiAssistantsCardMostAppsThatSpeakMcp()}
-            </>
-          ) : (
-            <>{aiAssistantsCardAddThisToTheApp()}</>
-          )}{" "}
+          {app === "other"
+            ? aiAssistantsCardLetTheAppRunCommands()
+            : aiAssistantsCardRunThisOnceInA()}{" "}
           {aiAssistantsCardItCanThenReadWhat()}
         </p>
         <pre className="intel-snippet">{value}</pre>

@@ -1,7 +1,7 @@
 """The application pipeline: the board, one application, its activity, and the
 comment and interview writes on it.
 
-Writes go through `agents/pursuits.py`, the same store the MCP tools use; the
+Writes go through `agents/pursuits.py`, the same store the agent operations use; the
 reads are `agents/applications.py`. Stage moves stay on `PUT /api/jobs/{job_id}/pursuit`.
 """
 

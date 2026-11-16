@@ -50,9 +50,8 @@ ENDED_STAGES = DECIDED_STAGES | CLOSED_STAGES
 #
 # `stage` and `priority` are NOT NULL in the table, so an explicit `null` for
 # either asks for a value the row cannot hold, and would reach the flush as a
-# 500. The guard is on the MODEL rather than in the route because both writers
-# construct one: the HTTP route passes the body straight through, and MCP drops
-# `None` before constructing, so only the route could ever send one. The other
+# 500. The guard is on the MODEL rather than in a route because every writer
+# constructs one, so no writer can pass a `null` through. The other
 # three columns ARE nullable, and a `null` there is a legitimate "clear this"
 # (the only way the route offers to take a follow-up back off), so the guard
 # names two fields and not all five.
@@ -87,7 +86,7 @@ async def lock_role_writes(session: AsyncSession, job_id: int) -> None:
     """Serialize every writer of one role's saved state and pursuit until the
     transaction ends: the star, unsave, a pursuit write from the dashboard or
     the agent. Without it each read-then-insert below races between two
-    clients (a second tab, the MCP agent beside a click): both see no row, both
+    clients (a second tab, an agent beside a click): both see no row, both
     insert, the second commit fails; two stage changes both record the same old
     stage. Never a row lock on `jobs`: the scan writers hold those until each
     company commits."""

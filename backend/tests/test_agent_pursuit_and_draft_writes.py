@@ -1,11 +1,10 @@
-"""The writes an MCP tool makes today, as keyed operations under `allow_writes`.
+"""The agent's keyed writes, driven over the real agent router.
 
 `pursuits.save`, `pursuits.patch`, `recipes.draft.save` and the read that
-recovers a lost reply, `receipts.get`, driven over the real agent router on a
-scratch database. The MCP tool bodies run beside them through `session_scope`,
-so "what the tool does" is the tool's own code, and each deliberate difference
-the parity checklist names is asserted as one: explicit null clears, the
-revision a patch states, the receipt a retry replays.
+recovers a lost reply, `receipts.get`, on a scratch database. Held here: an
+explicit null clears a field while an absent one leaves it, the revision a
+patch states and the conflict a stale one names, the receipt a retry replays,
+and what the access switches refuse.
 
 Every refusal is checked for what it leaves behind as well as for its code: a
 stale revision, a write with writes off, an input error and an unknown role
@@ -15,7 +14,6 @@ change no row and keep no receipt.
 from __future__ import annotations
 
 import asyncio
-import copy
 import re
 from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
@@ -25,14 +23,12 @@ import pytest_asyncio
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-import tracker.mcp.server as server
 from tests.test_agent_writes_db import _until_waiting
 from tests.test_recipe_adapter import RECIPE
 from tracker.agents.config import AgentAccessConfig, set_agent_access
 from tracker.agents.operations.catalog import CATALOG
 from tracker.agents.operations.outcomes import EXIT_NOT_FOUND, outcome
-from tracker.agents.operations.pursuits import VIA, PursuitItem
-from tracker.agents.operations.recipes import SavedDraft
+from tracker.agents.operations.pursuits import VIA
 from tracker.agents.operations.workspace import ensure_workspace_id
 from tracker.agents.receipts import LEGACY_AGENT_PRINCIPAL, ReceiptKey, lock_key
 from tracker.api.agent_operations import IDEMPOTENCY_KEY_HEADER, PREFIX
@@ -137,7 +133,7 @@ async def _count(db_session, model) -> int:
 
 
 # --------------------------------------------------------------------------- #
-# pursuits.save  <-  save_opportunity
+# pursuits.save
 # --------------------------------------------------------------------------- #
 
 
@@ -157,20 +153,21 @@ async def test_save_starts_a_pursuit_at_saved_and_records_the_agent_and_its_way_
         assert await session.scalar(select(func.count()).select_from(Favorite).where(Favorite.job_id == job_id)) == 1
 
 
-async def test_save_answers_what_the_tool_answers_for_the_same_pursuit(api_client, db_session, roles):
+async def test_save_answers_the_stored_pursuit_and_a_repeat_changes_nothing(api_client, db_session, roles):
     job_id, _ = roles
     data = _data(*await _save(api_client, job_id, {"priority": 2}))
 
-    # The tool saving it again with the same priority changes nothing, and
-    # answers the pursuit as it stands: the fields the operation answered,
-    # with the opportunity's id as `opportunity_id` in place of the row's.
-    tool = await server.save_opportunity(job_id, priority=2)
-    fields = {key: value for key, value in tool.items() if key not in ("id", "job_id")}
+    row = await _pursuit(db_session, job_id)
+    assert (data["opportunity_id"], data["stage"], data["priority"], data["notes"], data["revision"]) == (
+        row.job_id, row.stage, row.priority, row.notes, row.revision
+    ) == (job_id, "saved", 2, None, 1)
 
-    assert PursuitItem.model_validate(
-        {**fields, "opportunity_id": tool["job_id"], "revision": 1, "opportunity": data["opportunity"]}
-    ).model_dump(mode="json") == data
+    # Saving again with the priority it already has, under another key, is no change.
+    again = _data(*await _save(api_client, job_id, {"priority": 2}, key=OTHER_KEY))
+
+    assert again["revision"] == 1
     assert (await _pursuit(db_session, job_id)).revision == 1
+    assert len(await _events(db_session, job_id)) == 1
 
 
 async def test_save_keeps_an_existing_pursuits_stage_and_notes_and_changes_only_a_given_priority(
@@ -345,7 +342,7 @@ async def test_a_null_and_an_absent_field_are_different_requests_under_one_key(a
 
 
 # --------------------------------------------------------------------------- #
-# pursuits.patch  <-  update_pursuit: explicit null
+# pursuits.patch: explicit null
 # --------------------------------------------------------------------------- #
 
 
@@ -398,17 +395,22 @@ async def test_a_patch_of_one_field_leaves_the_others_as_they_were(api_client, d
     assert data["next_action_due"] == DUE.isoformat().replace("+00:00", "Z")
 
 
-async def test_the_tool_cannot_clear_a_due_date_and_the_operation_can(api_client, db_session, roles):
-    """The difference the checklist names: the MCP tool reads null as not
-    given, which is how the baseline's one wrong write happened."""
+async def test_an_absent_due_date_is_kept_and_a_null_one_clears_it(api_client, db_session, roles):
+    """Leaving a field out is not clearing it: the same patch with the field
+    present as null is."""
     job_id, _ = roles
     revision = await _followed_up(api_client, job_id)
 
-    tool = await server.update_pursuit(job_id, next_action="Follow up", next_action_due=None)
-    assert tool["next_action_due"] == DUE
-    data = _data(*await _patch(api_client, job_id, {"if_revision": revision, "next_action_due": None}))
+    kept = _data(*await _patch(api_client, job_id, {"if_revision": revision, "next_action": "Follow up again"}))
+    assert kept["next_action_due"] == DUE.isoformat().replace("+00:00", "Z")
+    assert (await _pursuit(db_session, job_id)).next_action_due == DUE
 
-    assert data["next_action_due"] is None
+    cleared = _data(
+        *await _patch(api_client, job_id, {"if_revision": kept["revision"], "next_action_due": None}, key=OTHER_KEY)
+    )
+
+    assert cleared["next_action_due"] is None
+    assert (await _pursuit(db_session, job_id)).next_action_due is None
 
 
 async def test_a_stale_patch_is_refused_and_the_persons_edit_stands(api_client, db_session, roles):
@@ -424,7 +426,7 @@ async def test_a_stale_patch_is_refused_and_the_persons_edit_stands(api_client, 
     assert await _count(db_session, CommandReceipt) == 0
 
 
-async def test_a_patch_with_revision_zero_starts_the_pursuit_as_the_tool_does(api_client, db_session, roles):
+async def test_a_patch_with_revision_zero_starts_the_pursuit(api_client, db_session, roles):
     job_id, _ = roles
 
     data = _data(*await _patch(api_client, job_id, {"if_revision": 0, "stage": "researching"}))
@@ -633,7 +635,7 @@ async def _reminders(db_session, job_id: int) -> int:
 
 
 # --------------------------------------------------------------------------- #
-# recipes.draft.save  <-  save_recipe_draft
+# recipes.draft.save
 # --------------------------------------------------------------------------- #
 
 
@@ -648,15 +650,13 @@ async def _revisions(db_session) -> list[tuple[str, int, str, str]]:
         return [tuple(row) for row in rows.all()]
 
 
-async def test_a_draft_is_appended_never_activated_and_answers_as_the_tool_does(api_client, db_session, roles):
+async def test_a_draft_is_appended_never_activated_and_names_its_stored_revision(api_client, db_session, roles):
     data = _data(*await _draft(api_client, RECIPE))
-    tool = await server.save_recipe_draft(copy.deepcopy(RECIPE), confirmed=True)
 
     assert data["slug"] == "demo-careers" and data["version"] == 1
-    assert SavedDraft.model_validate(tool).model_dump() == {**data, "revision_id": tool["revision_id"], "version": 2}
-    assert await _revisions(db_session) == [
-        ("demo-careers", 1, "agent", "draft"), ("demo-careers", 2, "agent", "draft")
-    ]
+    assert await _revisions(db_session) == [("demo-careers", 1, "agent", "draft")]
+    async with _fresh(db_session) as session:
+        assert data["revision_id"] == await session.scalar(select(ConnectorRecipeRevision.id))
 
 
 async def test_a_retried_draft_stores_one_revision_and_a_new_key_appends_the_next(api_client, db_session, roles):

@@ -18,7 +18,7 @@ ai-aim-line-add-your-aim = { $choice ->
 }
 
 ## features/intelligence/AssistantsCard.tsx
-ai-assistants-card-mcp-server = 助手应用（MCP）
+ai-assistants-card-assistant-apps = 助手应用
 ai-assistants-card-allowed-read-only = { $choice ->
     [yes] 已允许 · 可读取和更新
    *[no] 已允许 · 只读
@@ -32,16 +32,15 @@ ai-assistants-card-allow-assistant-apps-to-update = 允许助手应用更新进�
 ai-assistants-card-stage-notes-next-action-audited = 阶段 · 备注 · 下一步 · 规则草稿 · 有记录
 ai-assistants-card-it-can-then-read-what = 之后它可以读取这张卡片列出的内容，仅此而已。
 ai-assistants-card-run-this-once-in-a = 在终端中运行一次，然后重启应用。
-ai-assistants-card-most-apps-that-speak-mcp = 大多数 MCP 应用都能使用这段配置。把它添加到应用的 MCP 设置中，然后重启应用。
-ai-assistants-card-add-this-to-the-app = 把它添加到应用的设置中，然后重启应用。
+ai-assistants-card-let-the-app-run-commands = 允许该应用运行命令，然后让它运行这条命令。
 ai-assistants-card-done = 完成
 ai-assistants-card-anthropic = Anthropic
-ai-assistants-card-set-up-the-claude-app = 设置 Claude 应用
+ai-assistants-card-set-up-claude-code = 设置 Claude Code
 ai-assistants-card-openai = OpenAI
 ai-assistants-card-set-up-the-codex-app = 设置 Codex 应用
-ai-assistants-card-any-client-that-speaks-mcp = 任何支持 MCP 的应用
-ai-assistants-card-set-up-another-mcp-app = 设置其他 MCP 应用
-ai-assistants-card-mcp-server-2 = 助手应用
+ai-assistants-card-any-app-that-can-run-commands = 任何能运行命令的应用
+ai-assistants-card-set-up-another-app = 设置其他应用
+ai-assistants-card-assistant-apps-2 = 助手应用
 ai-assistants-card-not-allowed-to-connect = { $choice ->
     [yes] · 可以设置
    *[no] · 未允许连接
@@ -311,7 +310,7 @@ ai-assistants-card-shares-public-pages-it-asks-roleband-to-open = 它请求从�
 ai-assistants-card-never-your-profile-and-intent-statement = 你的个人资料和目标
 ai-assistants-card-never-your-own-salary-or-contacts = 你的薪资或联系人
 ai-assistants-card-never-anything-from-your-other-apps = 其他应用的任何内容
-ai-assistants-card-app-claude-app = Claude 应用
+ai-assistants-card-app-claude-code = Claude Code
 ai-assistants-card-app-codex-app = Codex 应用
 ai-assistants-card-app-other-app = 其他应用
 

@@ -1,4 +1,4 @@
-"""Validated agent/MCP configuration persisted in `app_settings`.
+"""Validated agent access configuration persisted in `app_settings`.
 
 The `agent_access` row holds the two switches the Settings screen shows and,
 beside them, the person's choice for each data category

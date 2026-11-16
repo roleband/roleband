@@ -470,8 +470,8 @@ async def test_a_follow_up_due_exactly_now_is_owed_in_every_live_stage(db_sessio
     """The two product decisions inside `overdue_pursuit_clause`, pinned where
     they are made.
 
-    Neither is visible to the surfaces that COMPARE against the clause: MCP and
-    the notification pass read the same expression, so a test that checks
+    Neither is visible to the surfaces that COMPARE against the clause: the agent
+    reads and the notification pass read the same expression, so a test that checks
     they agree moves with it and can never see the boundary slip. `offer` is not
     terminal — an outstanding offer is the point at which a missed follow-up
     costs the most — and the boundary is `<=`, so a follow-up due exactly on the

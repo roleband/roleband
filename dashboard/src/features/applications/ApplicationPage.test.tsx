@@ -61,7 +61,7 @@ beforeEach(() => {
     }),
   });
   items = [
-    { kind: "comment", id: 7, created_at: at("2026-11-03T10:00:00Z"), actor: "agent", source: "mcp", body: "Found the hiring manager.", edited_at: null },
+    { kind: "comment", id: 7, created_at: at("2026-11-03T10:00:00Z"), actor: "agent", source: "agent_api", body: "Found the hiring manager.", edited_at: null },
     { kind: "event", id: 6, created_at: at("2026-11-02T10:00:00Z"), actor: "user", source: "app", event_type: "updated", from_stage: "researching", to_stage: "applied", changed: ["stage"] },
     { kind: "event", id: 5, created_at: at("2026-11-01T10:00:00Z"), actor: "user", source: "app", event_type: "updated", from_stage: "researching", to_stage: "researching", changed: ["priority"] },
   ];

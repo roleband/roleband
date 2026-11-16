@@ -1,6 +1,6 @@
-"""The reads that replace MCP tools, through the `roleband` command.
+"""The agent reads, through the `roleband` command.
 
-`test_agent_parity_reads.py` holds each read to its MCP tool over HTTP. These
+`test_agent_reads.py` holds each read to its owner over HTTP. These
 run the generated commands as a process against a real engine on a seeded
 scratch database: each command's data is the engine's own answer on the same
 route, so a command that built the wrong request (a field lost, a flag sent

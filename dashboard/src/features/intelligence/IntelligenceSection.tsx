@@ -4,7 +4,7 @@ import { number as copyNumber } from "../../copy/format";
 //
 // The screen answers three human questions, one card each:
 //   1. Role ranking          (on this computer; the field + the model)
-//   2. MCP server            (cloud-connected; the data sheet + one gate)
+//   2. Assistant apps        (cloud-connected; the data sheet + one gate)
 //   3. Extended capabilities (your own model, the OS built-in model, services)
 //
 // Material: the shared register material (design/materials/register-material.css),

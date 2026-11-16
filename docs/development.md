@@ -23,7 +23,7 @@ before you change something, read the one that owns it:
 | A screen, a control or a style | [ui.md](ui.md) |
 | User-facing text, API errors, notifications | [copy.md](copy.md) |
 | A plugin or the plugin SDK | [plugins.md](plugins.md) |
-| The MCP server | [mcp.md](mcp.md) |
+| Agents and the `roleband` command | [cli.md](cli.md) |
 | Anything that sends data off the machine | [SECURITY.md](../SECURITY.md), [usage-data.md](usage-data.md) |
 | Bundled third-party code or data | [third-party.md](third-party.md) |
 | The pull request itself | [CONTRIBUTING.md](../CONTRIBUTING.md) |
@@ -82,13 +82,12 @@ For development, also know:
    scrape                    enrich                      serve
    ------                    ------                      -----
  connectors/  --jobs-->  workflows/pipeline  -->  db/  -->  api/routers/  -->  dashboard/
- (listing                 collect, persist,       jobs +                        (React,
-  adapters: one           post-passes             observations                   lazy routes)
-  per ATS or per                                  + derived            ^
-  company board)                                        |              |
-                                                        +--  mcp/  ----+
-                                                          (the agent transport,
-                                                           independent of api/)
+ (listing                 collect, persist,       jobs +         |              (React,
+  adapters: one           post-passes             observations   |               lazy routes)
+  per ATS or per                                  + derived      +-- agent.py  -->  cli/
+  company board)                                                                   (the `roleband`
+                                                                                    command, a client
+                                                                                    over HTTP)
 ```
 
 Two rules hold this together, and both are enforced rather than described:
@@ -98,7 +97,7 @@ Two rules hold this together, and both are enforced rather than described:
   above workflows (L5) above services (L4) above implementations (L3) above
   vocabulary (L1) above primitives (L0). An implementation never imports a
   sibling implementation, nothing imports a concrete adapter module, and `api/`
-  and `mcp/` never import each other.
+  and `cli/` never import each other.
 - **History is append-only.** `jobs` holds current canonical state, upserted
   every run; `job_observations` appends one row per job per run. Everything
   analytical is reconstructable from that history, so it is never overwritten.
@@ -121,8 +120,7 @@ need the writer of a table, read that file first.
 | Scheduling / sync | `tracker/workflows/scheduler.py`; read side `workflows/schedule_status.py` | `scheduler.py` -> `sync_schedule_state`, `provider_pressure_state` | `.venv/bin/python -m pytest tests/test_sync_scheduler.py tests/test_schedule_status.py` |
 | Background work | `tracker/supervisor/` (`registry.py:JOBS`), requests from `api/job_requests.py` and `api/scan_requests.py` | `db/job_store.py` -> `job_requests`, `job_runs`, `job_status` | `.venv/bin/python -m pytest tests/test_supervisor_due.py tests/test_supervisor_dispatch.py tests/test_job_store.py` |
 | HTTP API | `tracker/api/app.py` (composition root) -> `api/routers/*.py` | the routers write only the tables in `ROUTER_WRITERS` (`tests/test_table_writers.py`); the rest go through a store | `.venv/bin/python -m pytest tests/test_api_route_table.py` |
-| Agent transport | `tracker/mcp/server.py` ([mcp.md](mcp.md)) | shares the query owners in `db/queries/`; imports nothing from `api/` | `.venv/bin/python -m pytest tests/test_mcp_tools.py` |
-| Agent operations and the `roleband` client | `tracker/cli/main.py` (`python -m tracker.cli`); operations in `tracker/agents/operations/`, routes in `api/routers/agent.py` ([architecture](architecture.md#api-contract)) | `agents/operations/workspace.py` -> `workspace_identity`; `agents/receipts.py` -> `command_receipts`; `agents/operations/changes.py` reads `job_lifecycle_events`, `scrape_source_runs` and `pursuits`; the client opens no database | `.venv/bin/python -m pytest tests/test_agent_operations.py tests/test_agent_parity_reads.py tests/test_agent_parity_writes.py tests/test_agent_search.py tests/test_agent_offer_export_reads.py tests/test_agent_company_reads.py tests/test_agent_relation_reads.py tests/test_cli.py tests/test_cli_commands.py tests/test_cli_reads.py tests/test_agent_writes_db.py tests/test_cli_writes.py tests/test_agent_changes_db.py tests/test_cli_changes.py` |
+| Agent operations and the `roleband` client | `tracker/cli/main.py` (`python -m tracker.cli`); operations in `tracker/agents/operations/`, routes in `api/routers/agent.py` ([architecture](architecture.md#api-contract)) | `agents/operations/workspace.py` -> `workspace_identity`; `agents/receipts.py` -> `command_receipts`; `agents/operations/changes.py` reads `job_lifecycle_events`, `scrape_source_runs` and `pursuits`; the client opens no database | `.venv/bin/python -m pytest tests/test_agent_operations.py tests/test_agent_reads.py tests/test_agent_pursuit_and_draft_writes.py tests/test_agent_search.py tests/test_agent_offer_export_reads.py tests/test_agent_company_reads.py tests/test_agent_relation_reads.py tests/test_cli.py tests/test_cli_commands.py tests/test_cli_reads.py tests/test_agent_writes_db.py tests/test_cli_writes.py tests/test_agent_changes_db.py tests/test_cli_changes.py` |
 | Comp estimation | `tracker/comp_providers/` ([pay.md](pay.md)) | `analytics/comp_trends.py` -> `comp_snapshot` | `.venv/bin/python -m pytest tests/contracts/test_comp_providers.py` |
 | Offline level evaluation | `scripts.bench_level_identification`, `scripts.refresh_level_signatures`, `scripts.bench_level_context`; `analytics/level_evaluation.py`, `analytics/signature_refresh.py`, `analytics/level_context.py` | Private immutable files; no canonical level writes | `.venv/bin/python -m pytest tests/test_level_evaluation.py tests/test_bench_level_identification.py tests/test_signature_refresh.py tests/test_level_context.py` |
 | Skills + taxonomy | `tracker/skills/`, `tracker/taxonomy/roles.py` | `skills/extract.py` -> `job_skills` and the other tables `db/ownership.py` gives it | `.venv/bin/python -m pytest tests/test_skills_extract.py` |

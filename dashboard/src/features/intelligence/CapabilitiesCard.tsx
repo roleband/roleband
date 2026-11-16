@@ -384,7 +384,7 @@ export function CapabilitiesCard({
         {cloudProfiles.length === 0 ? (
           <div className="intel-cap is-future">
             {/* A standing permission, settable before any service exists:
-                the same shape as the MCP card's connect gate, which you may
+                the same shape as the assistant card's connect gate, which you may
                 allow before setting up an app. It is the SAME egress flag the
                 connected-service row toggles, so the answer survives adding a
                 service later; nothing can be sent while no service exists

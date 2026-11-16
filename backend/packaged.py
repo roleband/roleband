@@ -36,8 +36,9 @@ def main() -> None:
 
         migrate()
         return
+    # `mcp.server` is the retired agent server's entry point, which older host settings still launch.
     if not args or args[0] not in {"supervisor", "mcp.server", "probe"}:
-        sys.exit("usage: packaged.py {supervisor|mcp.server|probe|client} [arguments]")
+        sys.exit("usage: packaged.py {supervisor|probe|client} [arguments]")
     if args[:2] == ["supervisor", "run"]:
         from tracker.supervisor.prepare import run
 

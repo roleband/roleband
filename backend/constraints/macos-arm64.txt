@@ -11,8 +11,6 @@ annotated-types==0.7.0
 anyio==4.16.0
     # via
     #   httpx
-    #   mcp
-    #   sse-starlette
     #   starlette
     #   watchfiles
 apple-fm-sdk==0.2.1
@@ -48,9 +46,7 @@ click==8.4.2
     #   import-linter
     #   uvicorn
 cryptography==50.0.2
-    # via
-    #   -r requirements.txt
-    #   pyjwt
+    # via -r requirements.txt
 curl-cffi==0.15.0
     # via -r requirements.txt
 cyclonedx-python-lib==11.12.0
@@ -93,11 +89,7 @@ httpcore==1.0.9
 httptools==0.8.0
     # via uvicorn
 httpx==0.28.1
-    # via
-    #   -r requirements.txt
-    #   mcp
-httpx-sse==0.4.3
-    # via mcp
+    # via -r requirements.txt
 huggingface-hub==0.36.2
     # via tokenizers
 hyperframe==6.1.0
@@ -114,7 +106,7 @@ import-linter==2.16
 iniconfig==2.3.0
     # via pytest
 jsonschema==4.26.0
-    # via mcp
+    # via -r requirements.txt
 jsonschema-specifications==2025.9.1
     # via jsonschema
 librt==0.16.0
@@ -127,8 +119,6 @@ markdown-it-py==4.2.0
     # via rich
 markupsafe==3.0.4
     # via mako
-mcp==1.30.0
-    # via -r requirements.txt
 mdurl==0.1.2
     # via markdown-it-py
 msgpack==1.2.3
@@ -189,22 +179,17 @@ pydantic==2.13.4
     # via
     #   -r requirements.txt
     #   fastapi
-    #   mcp
     #   pydantic-settings
 pydantic-core==2.46.4
     # via pydantic
 pydantic-settings==2.7.1
-    # via
-    #   -r requirements.txt
-    #   mcp
+    # via -r requirements.txt
 pyee==13.0.1
     # via playwright
 pygments==2.20.0
     # via
     #   pytest
     #   rich
-pyjwt==2.15.1
-    # via mcp
 pyparsing==3.3.3
     # via pip-requirements-parser
 pyproject-hooks==1.2.0
@@ -224,8 +209,6 @@ python-dotenv==1.2.2
     # via
     #   pydantic-settings
     #   uvicorn
-python-multipart==0.0.32
-    # via mcp
 pyyaml==6.0.3
     # via
     #   huggingface-hub
@@ -262,13 +245,8 @@ sqlalchemy==2.0.36
     # via
     #   -r requirements.txt
     #   alembic
-sse-starlette==3.5.0
-    # via mcp
 starlette==1.10.0
-    # via
-    #   fastapi
-    #   mcp
-    #   sse-starlette
+    # via fastapi
 tokenizers==0.23.3
     # via -r requirements.txt
 tomli==2.5.0
@@ -284,7 +262,6 @@ typing-extensions==4.16.0
     #   cyclonedx-python-lib
     #   fastapi
     #   huggingface-hub
-    #   mcp
     #   mypy
     #   pixeltable-pgserver
     #   pydantic
@@ -298,14 +275,11 @@ typing-extensions==4.16.0
 typing-inspection==0.4.2
     # via
     #   fastapi
-    #   mcp
     #   pydantic
 urllib3==2.8.0
     # via requests
 uvicorn==0.34.0
-    # via
-    #   -r requirements.txt
-    #   mcp
+    # via -r requirements.txt
 uvloop==0.23.0
     # via uvicorn
 watchfiles==1.2.0

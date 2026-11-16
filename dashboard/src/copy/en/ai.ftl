@@ -43,7 +43,7 @@ ai-aim-line-add-your-aim = { $choice ->
 
 ## features/intelligence/AssistantsCard.tsx
 # kind=heading
-ai-assistants-card-mcp-server = Assistant apps (MCP)
+ai-assistants-card-assistant-apps = Assistant apps
 # kind=label wording=as-is
 ai-assistants-card-allowed-read-only = { $choice ->
     [yes] Allowed · reads and updates
@@ -68,25 +68,23 @@ ai-assistants-card-it-can-then-read-what = It can then read what this card lists
 # kind=sentence wording=as-is
 ai-assistants-card-run-this-once-in-a = Run this once in a terminal, then restart the app.
 # kind=sentence
-ai-assistants-card-most-apps-that-speak-mcp = Most MCP apps accept this. Add it to their MCP settings, then restart the app.
-# kind=sentence wording=as-is
-ai-assistants-card-add-this-to-the-app = Add this to the app's settings, then restart the app.
+ai-assistants-card-let-the-app-run-commands = Let the app run commands, then ask it to run this.
 # kind=button wording=as-is
 ai-assistants-card-done = Done
 # kind=label wording=as-is
 ai-assistants-card-anthropic = Anthropic
-# kind=label wording=as-is
-ai-assistants-card-set-up-the-claude-app = Set up the Claude app
+# kind=label
+ai-assistants-card-set-up-claude-code = Set up Claude Code
 # kind=label wording=as-is
 ai-assistants-card-openai = OpenAI
 # kind=label wording=as-is
 ai-assistants-card-set-up-the-codex-app = Set up the Codex app
 # kind=status note="The Other app tile's second line, under its name; the other tiles show a company name here"
-ai-assistants-card-any-client-that-speaks-mcp = Any app that speaks MCP
-# kind=label wording=as-is
-ai-assistants-card-set-up-another-mcp-app = Set up another MCP app
+ai-assistants-card-any-app-that-can-run-commands = Any app that can run commands
+# kind=label
+ai-assistants-card-set-up-another-app = Set up another app
 # kind=aria
-ai-assistants-card-mcp-server-2 = Assistant apps
+ai-assistants-card-assistant-apps-2 = Assistant apps
 # kind=label wording=as-is
 ai-assistants-card-not-allowed-to-connect = { $choice ->
     [yes] · ready to set up
@@ -543,8 +541,8 @@ ai-assistants-card-never-your-profile-and-intent-statement = Your profile and ai
 ai-assistants-card-never-your-own-salary-or-contacts = Your own salary or contacts
 # kind=label wording=as-is
 ai-assistants-card-never-anything-from-your-other-apps = Anything from your other apps
-# kind=label wording=as-is
-ai-assistants-card-app-claude-app = Claude app
+# kind=label
+ai-assistants-card-app-claude-code = Claude Code
 # kind=label wording=as-is
 ai-assistants-card-app-codex-app = Codex app
 # kind=label wording=as-is
