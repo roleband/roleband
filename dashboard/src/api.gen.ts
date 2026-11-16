@@ -7751,6 +7751,8 @@ export interface components {
         };
         /** InsightsCoverage */
         InsightsCoverage: {
+            /** Companies */
+            companies: string[];
             /** Families */
             families: string[];
             history: components["schemas"]["CoverageHistory"] | null;
@@ -7758,6 +7760,8 @@ export interface components {
             last_read_at: string | null;
             /** Off Board Companies */
             off_board_companies: number | null;
+            /** Places */
+            places: string[];
             /**
              * Population
              * @enum {string}
@@ -8056,7 +8060,7 @@ export interface components {
             /** Open Total */
             open_total: number;
             /** Saved Total */
-            saved_total: number;
+            saved_total?: number;
         };
         /** InsightsOverviewSkill */
         InsightsOverviewSkill: {

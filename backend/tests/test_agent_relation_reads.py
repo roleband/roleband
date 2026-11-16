@@ -582,6 +582,29 @@ async def test_rows_leave_out_the_pursuit_and_estimate_columns_of_a_category_off
     assert body["meta"]["data_classes"] == ["public_posting"]
 
 
+async def test_similar_rows_leave_out_the_pursuit_and_estimate_columns_of_a_category_off(api_client, workspace):
+    session, _ = workspace
+    subject = await _embedded_neighbours(session)
+    shared = _data((await _agent(api_client, f"/opportunities/{subject}/similar", tier="full"))[1])
+    columns = shared["columns"]
+    pursuit, estimate = columns.index("pursuit"), columns.index("estimated_pay")
+    neighbour = shared["rows"][0][columns.index("id")]
+    session.add(Favorite(job_id=neighbour))
+    await session.commit()
+    shared = _data((await _agent(api_client, f"/opportunities/{subject}/similar", tier="full"))[1])
+    assert any(row[pursuit] for row in shared["rows"])
+    await _choose(session, private_pursuit="not_shared", market_statistic="not_shared")
+
+    _, body = await _agent(api_client, f"/opportunities/{subject}/similar", tier="full")
+
+    page = _data(body)
+    kept = [i for i in range(len(columns)) if i not in (pursuit, estimate)]
+    assert page["columns"] == [columns[i] for i in kept]
+    assert page["rows"] == [[row[i] for i in kept] for row in shared["rows"]]
+    assert page["similar"] == shared["similar"]
+    assert body["meta"]["data_classes"] == ["public_posting"]
+
+
 async def test_a_save_grants_no_access_at_a_hidden_company_without_pursuits(api_client, workspace):
     session, lineage = workspace
     session.add(Favorite(job_id=lineage.repost))
