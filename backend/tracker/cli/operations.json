@@ -13424,20 +13424,12 @@
      },
      "PursuitState": {
       "additionalProperties": false,
-      "description": "One pursuit's fields as every surface shows them.",
+      "description": "One pursuit's fields as every agent operation shows them.",
       "properties": {
        "created_at": {
         "format": "date-time",
         "title": "Created At",
         "type": "string"
-       },
-       "id": {
-        "title": "Id",
-        "type": "integer"
-       },
-       "job_id": {
-        "title": "Job Id",
-        "type": "integer"
        },
        "next_action": {
         "anyOf": [
@@ -13475,6 +13467,10 @@
         "title": "Notes",
         "x-text": "content"
        },
+       "opportunity_id": {
+        "title": "Opportunity Id",
+        "type": "integer"
+       },
        "priority": {
         "maximum": 5,
         "minimum": 1,
@@ -13511,8 +13507,7 @@
        }
       },
       "required": [
-       "id",
-       "job_id",
+       "opportunity_id",
        "stage",
        "priority",
        "notes",
@@ -14959,14 +14954,6 @@
       "title": "Created At",
       "type": "string"
      },
-     "id": {
-      "title": "Id",
-      "type": "integer"
-     },
-     "job_id": {
-      "title": "Job Id",
-      "type": "integer"
-     },
      "next_action": {
       "anyOf": [
        {
@@ -15007,6 +14994,10 @@
       "$ref": "#/$defs/PursuedOpportunity",
       "title": "Opportunity"
      },
+     "opportunity_id": {
+      "title": "Opportunity Id",
+      "type": "integer"
+     },
      "priority": {
       "maximum": 5,
       "minimum": 1,
@@ -15043,8 +15034,7 @@
      }
     },
     "required": [
-     "id",
-     "job_id",
+     "opportunity_id",
      "stage",
      "priority",
      "notes",
@@ -15196,14 +15186,6 @@
         "title": "Created At",
         "type": "string"
        },
-       "id": {
-        "title": "Id",
-        "type": "integer"
-       },
-       "job_id": {
-        "title": "Job Id",
-        "type": "integer"
-       },
        "next_action": {
         "anyOf": [
          {
@@ -15244,6 +15226,10 @@
         "$ref": "#/$defs/PursuedOpportunity",
         "title": "Opportunity"
        },
+       "opportunity_id": {
+        "title": "Opportunity Id",
+        "type": "integer"
+       },
        "priority": {
         "maximum": 5,
         "minimum": 1,
@@ -15280,8 +15266,7 @@
        }
       },
       "required": [
-       "id",
-       "job_id",
+       "opportunity_id",
        "stage",
        "priority",
        "notes",
@@ -15502,14 +15487,6 @@
       "title": "Created At",
       "type": "string"
      },
-     "id": {
-      "title": "Id",
-      "type": "integer"
-     },
-     "job_id": {
-      "title": "Job Id",
-      "type": "integer"
-     },
      "next_action": {
       "anyOf": [
        {
@@ -15550,6 +15527,10 @@
       "$ref": "#/$defs/PursuedOpportunity",
       "title": "Opportunity"
      },
+     "opportunity_id": {
+      "title": "Opportunity Id",
+      "type": "integer"
+     },
      "priority": {
       "maximum": 5,
       "minimum": 1,
@@ -15586,8 +15567,7 @@
      }
     },
     "required": [
-     "id",
-     "job_id",
+     "opportunity_id",
      "stage",
      "priority",
      "notes",
@@ -15719,14 +15699,6 @@
       "title": "Created At",
       "type": "string"
      },
-     "id": {
-      "title": "Id",
-      "type": "integer"
-     },
-     "job_id": {
-      "title": "Job Id",
-      "type": "integer"
-     },
      "next_action": {
       "anyOf": [
        {
@@ -15767,6 +15739,10 @@
       "$ref": "#/$defs/PursuedOpportunity",
       "title": "Opportunity"
      },
+     "opportunity_id": {
+      "title": "Opportunity Id",
+      "type": "integer"
+     },
      "priority": {
       "maximum": 5,
       "minimum": 1,
@@ -15803,8 +15779,7 @@
      }
     },
     "required": [
-     "id",
-     "job_id",
+     "opportunity_id",
      "stage",
      "priority",
      "notes",

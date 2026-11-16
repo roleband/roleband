@@ -12791,10 +12791,6 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
-            /** Id */
-            id: number;
-            /** Job Id */
-            job_id: number;
             /** Next Action */
             next_action: string | null;
             /** Next Action Due */
@@ -12803,6 +12799,8 @@ export interface components {
             notes: string | null;
             /** Opportunity */
             opportunity?: components["schemas"]["PursuedOpportunity"];
+            /** Opportunity Id */
+            opportunity_id: number;
             /** Priority */
             priority: number;
             /** Revision */
@@ -12880,7 +12878,7 @@ export interface components {
         };
         /**
          * PursuitState
-         * @description One pursuit's fields as every surface shows them.
+         * @description One pursuit's fields as every agent operation shows them.
          */
         PursuitState: {
             /**
@@ -12888,16 +12886,14 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
-            /** Id */
-            id: number;
-            /** Job Id */
-            job_id: number;
             /** Next Action */
             next_action: string | null;
             /** Next Action Due */
             next_action_due: string | null;
             /** Notes */
             notes: string | null;
+            /** Opportunity Id */
+            opportunity_id: number;
             /** Priority */
             priority: number;
             /** Revision */

@@ -545,7 +545,12 @@ async def _revisions(session) -> dict[int, int]:
 
 
 def _with_revision(pursuit: dict | None, revisions: dict[int, int]) -> dict | None:
-    return None if pursuit is None else {**pursuit, "revision": revisions[pursuit["job_id"]]}
+    """The tool's pursuit as the operation answers it: its opportunity's id as
+    `opportunity_id`, no row id, and the revision."""
+    if pursuit is None:
+        return None
+    fields = {key: value for key, value in pursuit.items() if key not in ("id", "job_id")}
+    return {"opportunity_id": pursuit["job_id"], **fields, "revision": revisions[pursuit["job_id"]]}
 
 
 def _items(tool: dict, revisions: dict[int, int]) -> list[dict]:
@@ -609,7 +614,7 @@ async def test_a_cursor_reads_the_list_as_it_stands_and_the_first_page_reads_it_
     _, first = await _get(api_client, "/pursuits", limit=3)
     cursor = first["meta"]["next_cursor"]
     rest_before = _data((await _get(api_client, "/pursuits", limit=100, cursor=cursor))[1])["items"]
-    moved = rest_before[-1]["job_id"]
+    moved = rest_before[-1]["opportunity_id"]
     lowest = min(item["priority"] for item in _data(first)["items"])
     await workspace.execute(update(Pursuit).where(Pursuit.job_id == moved).values(priority=lowest - 1))
     await workspace.commit()
@@ -617,8 +622,8 @@ async def test_a_cursor_reads_the_list_as_it_stands_and_the_first_page_reads_it_
     rest_after = _data((await _get(api_client, "/pursuits", limit=100, cursor=cursor))[1])["items"]
     restarted = _data((await _get(api_client, "/pursuits", limit=100))[1])["items"]
 
-    assert moved not in [item["job_id"] for item in rest_after]
-    assert restarted[0]["job_id"] == moved
+    assert moved not in [item["opportunity_id"] for item in rest_after]
+    assert restarted[0]["opportunity_id"] == moved
     assert len(restarted) == len(_data(first)["items"]) + len(rest_before)
 
 
@@ -660,7 +665,7 @@ async def test_a_limit_outside_the_declared_range_is_an_input_error(api_client, 
 async def test_pursuits_get_reads_one_pursuit_by_its_opportunity(api_client, workspace):
     listed = _items(await server.get_pursuits(), await _revisions(workspace))
     for item in listed:
-        _, body = await _get(api_client, f"/pursuits/{item['job_id']}")
+        _, body = await _get(api_client, f"/pursuits/{item['opportunity_id']}")
         assert _data(body) == item
         assert body["meta"]["data_classes"] == ["private_pursuit", "public_posting"]
 
@@ -677,7 +682,7 @@ async def test_each_pursuit_carries_the_revision_a_dashboard_write_advances(api_
     after = _data((await _get(api_client, f"/pursuits/{job_id}"))[1])
     assert after["notes"] == "Spoke to Sam."
     assert after["revision"] == before["revision"] + 1
-    listed = {item["job_id"]: item for item in _data((await _get(api_client, "/pursuits"))[1])["items"]}
+    listed = {item["opportunity_id"]: item for item in _data((await _get(api_client, "/pursuits"))[1])["items"]}
     assert listed[job_id]["revision"] == after["revision"]
     opportunity = _data((await _get(api_client, f"/opportunities/{job_id}"))[1])
     assert opportunity["pursuit"]["revision"] == after["revision"]
@@ -697,8 +702,8 @@ async def test_a_pursuit_at_a_hidden_company_is_still_the_persons(api_client, wo
     await workspace.execute(update(TrackedCompany).where(TrackedCompany.slug == company).values(visible=False))
     await workspace.commit()
 
-    assert _data((await _get(api_client, f"/pursuits/{job_id}"))[1])["job_id"] == job_id
-    assert job_id in {item["job_id"] for item in _data((await _get(api_client, "/pursuits"))[1])["items"]}
+    assert _data((await _get(api_client, f"/pursuits/{job_id}"))[1])["opportunity_id"] == job_id
+    assert job_id in {item["opportunity_id"] for item in _data((await _get(api_client, "/pursuits"))[1])["items"]}
 
 
 # --------------------------------------------------------------------------- #
