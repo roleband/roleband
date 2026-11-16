@@ -197,7 +197,7 @@ def _check_words(commands: list[Command]) -> None:
     if len(leaves) != len(commands):
         raise ValueError("two operations map to the same command")
     for words, operation in leaves.items():
-        if words[0] in HANDSHAKE | {"connect"}:
+        if words[0] in HANDSHAKE | {"connect", "tools"}:
             raise ValueError(f"{operation}: {words[0]!r} is already a command of its own")
         for cut in range(1, len(words)):
             if words[:cut] in leaves:
