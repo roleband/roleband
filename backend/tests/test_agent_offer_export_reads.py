@@ -324,26 +324,54 @@ async def test_a_small_doctor_cuts_its_settings_and_says_how_to_read_them_all(wo
     assert _data(full)["continue_with"] == [] and _data(full)["settings_left_out"] == []
 
 
-async def test_a_setting_too_long_for_the_full_tier_is_named_not_dropped(workspace, api_client, monkeypatch):
-    long = get_settings().model_copy(update={"scraper_user_agent": "RoleBand " + "x" * 200_000})
+async def test_a_setting_too_long_for_the_full_tier_is_shortened_with_a_marker(workspace, api_client, monkeypatch):
+    agent = "RoleBand probe/" + "x" * 200_000
+    long = get_settings().model_copy(update={"scraper_user_agent": agent})
     monkeypatch.setattr(agent_router, "get_settings", lambda: long)
 
-    _, body = await _agent(api_client, "/doctor", tier="full")
+    response, body = await _agent(api_client, "/doctor", tier="full")
 
     report = _data(body)
-    assert report["settings_left_out"] == ["scraper_user_agent"]
-    assert "scraper_user_agent" not in {entry["name"] for entry in report["settings"]}
-    assert report["settings"], "the settings after it are still listed"
+    assert report["settings_shortened"] == ["scraper_user_agent"] and report["settings_left_out"] == []
+    settings = {entry["name"]: entry["value"] for entry in report["settings"]}
+    shown = settings["scraper_user_agent"]
+    marker = f"\u2026 [shortened from {len(agent)} characters]"
+    assert shown.endswith(marker)
+    assert agent.startswith(shown.removesuffix(marker)) and len(shown) > 1_000, "most of the room shows the value"
+    assert len(response.content) < len(agent)
     assert body["warnings"][0]["code"] == "page_shortened"
+
+
+async def test_a_secret_at_the_cut_of_a_shortened_setting_stays_redacted(workspace, api_client, monkeypatch):
+    """Redaction reads the whole value before it is cut: a key that the cut
+    would split leaves no part of itself."""
+
+    def doctor(agent: str) -> dict:
+        settings = get_settings().model_copy(update={"scraper_user_agent": agent})
+        return export.doctor_report(
+            {"db": "ok"}, settings=settings, access=AgentAccessConfig(enabled=True), engine_version="0",
+            workspace=DATA_DIR, tier="full",
+        ).model_dump(mode="json")
+
+    plain = doctor("a" * 200_000)
+    kept = len(next(e["value"] for e in plain["settings"] if e["name"] == "scraper_user_agent").split("\u2026")[0])
+    # The key straddles where the plain value is cut, with ten of its characters before the cut.
+    report = doctor("a" * (kept - 10) + f" token={PLANTED_KEY} " + "b" * 200_000)
+
+    shown = next(entry["value"] for entry in report["settings"] if entry["name"] == "scraper_user_agent")
+    assert report["settings_shortened"] == ["scraper_user_agent"]
+    assert PLANTED_KEY[:6] not in json.dumps(report)
+    assert "token=[" in shown, "the cut lands in the redaction, not in the key"
 
 
 def _json_size(value: object) -> int:
     return len(json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
 
 
-async def test_a_full_doctor_stays_within_its_budget_whatever_it_leaves_out():
+async def test_a_full_doctor_stays_within_its_budget_and_shortens_only_the_long_setting():
     """A long setting near the edge of the full tier: the names of the settings
-    left out must still fit beside the ones kept."""
+    shortened must still fit beside the values, and a short setting is never
+    cut to make room for the long one."""
     status = {"db": "ok", "supervisor": {"state": "running"}}
     base = get_settings().model_copy(update={"search_llm_model": "m" * 40, "stale_run_minutes": 12_345})
 
@@ -356,11 +384,29 @@ async def test_a_full_doctor_stays_within_its_budget_whatever_it_leaves_out():
 
     budget = PAGE_BUDGET_BYTES["full"]
     edge = budget - _json_size(report(0)) + 10
-    sizes = [_json_size(r) for r in (report(length) for length in range(edge - 200, edge + 40))]
-    assert max(sizes) <= budget
-    assert any(len(report(length)["settings_left_out"]) > 1 for length in range(edge - 200, edge + 40)), (
-        "the sweep reaches a setting cut only for want of the room a name takes"
-    )
+    reports = [report(length) for length in range(edge - 200, edge + 40)]
+    assert max(_json_size(r) for r in reports) <= budget
+    assert {tuple(r["settings_shortened"]) for r in reports} == {(), ("scraper_user_agent",)}
+    for r in reports:
+        settings = {entry["name"]: entry["value"] for entry in r["settings"]}
+        assert settings["search_llm_model"] == "m" * 40 and settings["stale_run_minutes"] == 12_345
+        assert r["settings_left_out"] == []
+
+
+async def test_settings_whose_markers_do_not_fit_are_left_out_by_name_within_the_room():
+    """The last resort: with no room for even the markers, settings are left
+    out by name, and the names left out take room too."""
+    entries = [
+        export.DoctorSetting(name=f"setting_{index}", value="v" * (index * 37 % 300)) for index in range(40)
+    ]
+    names = sum(_json_size(entry.name) + 1 for entry in entries)
+    for room in range(names, names + 4_000, 41):
+        kept, shortened, left_out = export._fit_full(entries, room)
+        used = sum(_json_size(entry.model_dump(mode="json")) + 1 for entry in kept)
+        used += sum(_json_size(name) + 1 for name in [*shortened, *left_out])
+        assert used <= room, room
+        assert {entry.name for entry in kept} | set(left_out) == {entry.name for entry in entries}
+        assert set(shortened) <= {entry.name for entry in kept}
 
 
 @pytest.mark.parametrize(("raw", "kept", "gone"), [
@@ -625,3 +671,29 @@ async def test_no_two_models_share_a_name_in_the_api_schema():
 
     assert [name for name in names if name.startswith("tracker__")] == []
     assert {"ApplicationCard", "CalendarInterview", "OfferInputs", "BoardCard", "KeptOfferInputs"} <= set(names)
+
+
+async def test_the_full_doctor_cuts_to_the_longest_length_that_fits_even_past_a_whole_value():
+    """Raising the length past a value's own size keeps it whole and drops its
+    marker, so a longer cut can fit where a shorter one did not. Each room
+    gets the longest cut that fits, measured against every length in turn."""
+    entries = [export.DoctorSetting(name="a", value="a" * 100), export.DoctorSetting(name="b", value="b" * 1000)]
+
+    def used(cap: int) -> int:
+        kept = [export._shorten(entry, cap) for entry in entries]
+        names = [entry.name for entry, held in zip(entries, kept, strict=True) if held is not entry]
+        return sum(_json_size(h.model_dump(mode="json")) + 1 for h in kept) + sum(_json_size(n) + 1 for n in names)
+
+    sizes = {cap: used(cap) for cap in range(0, 1_010)}
+    whole_a_fits_only_past_its_size = 0
+    for room in range(150, 1_200, 3):
+        fitting = {cap for cap, size in sizes.items() if size <= room}
+        if not fitting:
+            continue
+        best = max(fitting)
+        if any(cap + 1 not in fitting for cap in fitting if cap < best):
+            whole_a_fits_only_past_its_size += 1
+        kept, shortened, left_out = export._fit_full(entries, room)
+        assert kept == [export._shorten(entry, best) for entry in entries], room
+        assert left_out == []
+    assert whole_a_fits_only_past_its_size, "the sweep reaches a room where the cut is not monotonic"

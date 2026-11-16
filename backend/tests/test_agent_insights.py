@@ -748,6 +748,73 @@ def test_no_page_at_any_budget_or_position_exceeds_its_budget(monkeypatch):
         assert read.data.companies == [] and read.next_cursor is None
 
 
+def _pay_table(count: int) -> BaseModel:
+    """A pay table of `count` companies of uneven size, all placed and none skilled."""
+    return insights.InsightsPayTable.model_validate({
+        "country": "US", "level_band": "senior", "currency": "USD", "skill": None, "estimates": True,
+        "rows": [{
+            "company": f"company-{index}" + "x" * (index * 7 % 40), "followed_as_set": index % 3 == 0,
+            "open_roles": index % 9 + 1, "posting": index % 4, "checked": index % 5, "currency": "USD",
+            "low": 100_000.0 + index, "high": 150_000.0 + index * 3,
+            "ranges": [{"low": 100_000 + index, "high": 150_000, "roles": 1}] * (index % 3),
+            "other_currency": False, "reason": None, "estimate_base": None, "estimate_total": None, "equity": None,
+        } for index in range(count)],
+        "not_placed": [], "skills": [], "min_skill_roles": 3,
+        "by_discipline": {"min_employers": 3, "min_ranges": 5, "max_employer_share": 0.5, "disciplines": []},
+        "coverage": {
+            "population": "open_roles", "side": "all", "families": [], "companies": [], "places": [],
+            "off_board_companies": 0,
+            "window": None, "history": None, "last_read_at": None,
+        },
+    })
+
+
+def test_a_long_pay_table_pages_to_the_byte_with_a_cursor_per_halving_not_per_row(monkeypatch):
+    """Each page holds the most rows that fit: one more row, with its page
+    block, is over the budget. Finding that end encodes a cursor for each
+    halving of the list, not one for every row the page holds."""
+    spec = READS["insights.pay_table"]
+    rows = 3_000
+    answer = _pay_table(rows)
+    encoded: list[int] = []
+    real_encode = cursor.encode
+
+    def counting(**arguments: Any) -> str:
+        encoded.append(arguments["offset"])
+        return real_encode(**arguments)
+
+    monkeypatch.setattr(insights.cursor, "encode", counting)
+    params = insights.PayTableInput(country="US", level="senior", tier="full")
+    budget = BUDGET_BYTES["full"]
+    seen: list[str] = []
+    pages = 0
+    while True:
+        encoded.clear()
+        read = fit(spec, answer, params, workspace_id="w")
+        page = read.data.model_dump(mode="json")
+        held = len(page["rows"])
+        assert _bytes(read.data) <= budget
+        if read.next_cursor is not None:
+            # The negative control: the same page holding one more row.
+            longer = json.loads(json.dumps(page))
+            longer["rows"].append(answer.model_dump(mode="json")["rows"][len(seen) + held])
+            longer["page"]["returned"] += 1
+            request = read.next_cursor.rsplit(".", 1)[1]
+            longer["page"]["continue_with"][0]["arguments"]["cursor"] = real_encode(
+                request=request, offset=len(seen) + held + 1,
+            )
+            assert len(json.dumps(longer, ensure_ascii=False, separators=(",", ":")).encode()) > budget
+            assert held > 100, "a page long enough that a cursor per row would show"
+            assert len(encoded) <= 2 * rows.bit_length() + 8, (held, len(encoded))
+        seen += [row["company"] for row in page["rows"]]
+        pages += 1
+        if read.next_cursor is None:
+            break
+        params = params.model_copy(update={"cursor": read.next_cursor})
+    assert seen == [row.company for row in answer.rows]
+    assert pages > 3
+
+
 # --------------------------------------------------------------------------- #
 # Shapes: each operation's figures are its route's response, field for field.
 # --------------------------------------------------------------------------- #
@@ -848,3 +915,53 @@ def test_no_two_response_models_share_a_name_in_the_schema():
     mangled = [name for name in app.openapi()["components"]["schemas"] if "__" in name]
 
     assert mangled == []
+
+
+def _references(node: Any) -> list[str]:
+    if isinstance(node, dict):
+        own = [node["$ref"]] if isinstance(node.get("$ref"), str) else []
+        return own + [ref for value in node.values() for ref in _references(value)]
+    if isinstance(node, list):
+        return [ref for value in node for ref in _references(value)]
+    return []
+
+
+def test_every_agent_parameter_schema_resolves_in_the_document():
+    """openapi-typescript types a parameter from its schema alone; a `$ref`
+    that names nothing in the document leaves the parameter untyped."""
+    from tracker.api.app import app
+
+    document = app.openapi()
+    dangling = []
+    for path, methods in document["paths"].items():
+        if not path.startswith(PREFIX):
+            continue
+        for method, operation in methods.items():
+            for parameter in operation.get("parameters", []):
+                for reference in _references(parameter["schema"]):
+                    target: Any = document
+                    for part in reference.removeprefix("#/").split("/"):
+                        target = target.get(part) if isinstance(target, dict) else None
+                    if not reference.startswith("#/") or target is None:
+                        dangling.append((method, path, parameter["name"], reference))
+    assert dangling == []
+
+
+def test_the_pay_tables_level_is_the_level_band_enum_in_every_schema():
+    from tracker.api.app import app
+    from tracker.cli.main import BUNDLE
+    from tracker.schema import LevelBand
+
+    bands = [band.value for band in LevelBand]
+    parameters = app.openapi()["paths"][f"{PREFIX}/insights/pay-table"]["get"]["parameters"]
+    level = next(parameter for parameter in parameters if parameter["name"] == "level")
+    assert level["required"] is True
+    assert level["schema"]["enum"] == bands and "pattern" not in level["schema"]
+    # The CLI's flag offers the same bands as its choices.
+    from tracker.cli import commands
+
+    bundle = json.loads(BUNDLE.read_text(encoding="utf-8"))
+    command = next(command for command in commands.build(bundle) if command.operation == "insights.pay_table")
+    assert next(field for field in command.flags if field.name == "level").choices == tuple(bands)
+    with pytest.raises(ValueError, match="level"):
+        insights.PayTableInput(country="US", level="lead")

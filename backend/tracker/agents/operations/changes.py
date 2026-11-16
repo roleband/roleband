@@ -44,7 +44,9 @@ that comes first, ordered by id, and only to a read from the beginning or a
 - `pursuit_due`: derived. A next action's due time is state the person can
   move, not an event: a read reports the pursuits whose due time passed
   within its window of wall-clock time, so a due time moved after it passed
-  can be reported twice or not at all.
+  can be reported twice or not at all. A window read while pursuits are not
+  shared still moves the due-time window on, so the due times that passed in
+  it are not reported once sharing turns back on.
 
 Visibility is the Board's: a posting or source of a company the person hides
 or does not follow is left out, as of the read. A plugin reads for every
@@ -162,7 +164,9 @@ class ChangesListInput(Shape):
         default=None, min_length=1, max_length=1024,
         description=(
             "The next_since of the previous page: the read continues after it, in commit order, "
-            "with the same kinds. Without it the read starts at start_time, or at the oldest change kept."
+            "with the same kinds. Without it the read starts at start_time, or at the oldest change kept. "
+            "A read made while pursuits are not shared can move past pursuit due times that passed "
+            "meanwhile; those are not caught up when sharing turns back on."
         ),
     )
     start_time: AwareDatetime | None = Field(
@@ -264,7 +268,7 @@ CHANGES_LIST = OperationDescriptor(
     id="changes.list",
     summary=(
         "List what changed after a position, in commit order: new, closed, reopened and reposted postings, "
-        "stated-pay changes, pursuit actions falling due and source health."
+        "stated-pay changes, pursuit actions falling due and the health of built-in and plugin sources."
     ),
     input=ChangesListInput,
     result=ChangesPage,

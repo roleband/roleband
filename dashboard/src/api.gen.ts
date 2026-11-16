@@ -6177,6 +6177,8 @@ export interface components {
             settings: components["schemas"]["DoctorSetting"][];
             /** Settings Left Out */
             settings_left_out?: string[];
+            /** Settings Shortened */
+            settings_shortened?: string[];
         };
         /** DoctorSetting */
         DoctorSetting: {
@@ -15996,7 +15998,7 @@ export interface operations {
     change_list_api_agent_v1_changes_get: {
         parameters: {
             query?: {
-                /** @description The next_since of the previous page: the read continues after it, in commit order, with the same kinds. Without it the read starts at start_time, or at the oldest change kept. */
+                /** @description The next_since of the previous page: the read continues after it, in commit order, with the same kinds. Without it the read starts at start_time, or at the oldest change kept. A read made while pursuits are not shared can move past pursuit due times that passed meanwhile; those are not caught up when sharing turns back on. */
                 since?: string | null;
                 /** @description Without since: start with the changes recorded at or after this time, with its UTC offset. Pursuits whose next action fell due from this time on are included. Later reads with the since this read gives keep the bound. */
                 start_time?: string | null;
@@ -16380,8 +16382,8 @@ export interface operations {
                 family?: string[];
                 /** @description An ISO 3166-1 alpha-2 country code. */
                 country: string;
-                /** @description The level band to compare companies at: one of intern, entry, mid, senior, staff, principal, director_plus. */
-                level: string;
+                /** @description The level band to compare companies at. */
+                level: "intern" | "entry" | "mid" | "senior" | "staff" | "principal" | "director_plus";
                 /** @description Narrow the companies to roles naming this skill (its slug). */
                 skill?: string | null;
             };
