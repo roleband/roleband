@@ -656,6 +656,16 @@ def test_offline_discovery_fits_the_capability_index_budget(home):
     assert len(cli(home, "capabilities", "--offline", "--view", "full", "--json").stdout) > DISCOVERY_BUDGET
 
 
+def test_a_human_describe_names_the_command_that_shows_the_output_schema(home):
+    shown = cli(home, "describe", "status", "--offline", "--format", "human")
+    assert shown.status == 0
+    hint = next(line for line in shown.stdout.splitlines() if "output schema" in line)
+    command = hint.split("roleband ", 1)[1].split()
+    # Read from the bundle, so the command it names reads the bundle too.
+    assert command == ["describe", "status", "--view", "full", "--offline", "--json"]
+    assert cli(home, *command).envelope["data"]["output_schema"]["title"] == "StatusResult"
+
+
 def test_capabilities_answers_where_no_home_folder_can_be_found(monkeypatch):
     """Keeping an installed skill current never fails the call: an environment
     that names no home folder (a Windows service, a stripped CI job) has no
