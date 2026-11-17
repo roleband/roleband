@@ -119,6 +119,16 @@ test("says so when a link names an entry the log does not hold", async ({ page }
   await expect(list(page).locator('[aria-current="true"]')).toHaveCount(0);
 });
 
+test("shows a linked entry beside an empty list", async ({ page }) => {
+  await mockGet(page, "/api/agent-activity?**", (route) => route.fulfill({ json: { items: [], next_cursor: null } }));
+  const [older] = olderActivityPage.items;
+  await mockGet(page, `/api/agent-activity/${older.id}`, (route) => route.fulfill({ json: older }));
+  await page.goto(`${ACTIVITY}?entry=${older.id}`);
+
+  await expect(inspector(page).getByRole("heading", { level: 2 })).toHaveText("Drafted a recipe for careers-fabrikam");
+  await expect(page.getByRole("main").getByText("Nothing yet")).toBeVisible();
+});
+
 test("marks the picked row with the chosen wash and an inset bar, and a refusal in the danger hue", async ({ page }) => {
   await routeActivity(page);
   await page.goto(ACTIVITY);

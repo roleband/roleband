@@ -186,6 +186,22 @@ describe("ActivityScreen: the inspector", () => {
     for (const row of rows()) expect(row).not.toHaveAttribute("aria-current");
   });
 
+  it("shows a linked entry beside an empty list, and says so when there is none", async () => {
+    vi.mocked(api.agentActivity).mockResolvedValue(page({ items: [] }));
+    vi.mocked(api.agentActivityEntry).mockResolvedValue(READ);
+    const first = renderScreen("/settings/intelligence/activity?entry=1");
+    await waitFor(() => expect(within(inspector()).getByRole("heading", { level: 2 }))
+      .toHaveTextContent(msg("activity-read-postings-count", { count: 42 })));
+    // The list column still says it is empty.
+    expect(screen.getByText(msg("activity-empty-title", { choice: "no" }))).toBeInTheDocument();
+    first.unmount();
+
+    vi.mocked(api.agentActivityEntry).mockRejectedValue(new ApiError("gone", 404, "activity-entry-not-found"));
+    renderScreen("/settings/intelligence/activity?entry=999");
+    expect(await within(await shownInspector()).findByText(msg("activity-entry-missing"))).toBeInTheDocument();
+    expect(screen.getByText(msg("activity-empty-title", { choice: "no" }))).toBeInTheDocument();
+  });
+
   it("reads nothing more for an entry on the loaded page", async () => {
     renderScreen("/settings/intelligence/activity?entry=2");
     expect(await within(await shownInspector()).findByRole("heading", { level: 2 })).toHaveTextContent(ASKED_OFFER);

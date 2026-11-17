@@ -160,6 +160,11 @@ export function ActivityScreen() {
 
   const narrowed = kind !== "all" || category !== ANY || range !== "month" || query !== "";
   const picked = entryId(searchParams.get("entry"));
+  const emptyState = (
+    <EmptyState title={activityEmptyTitle({ choice: narrowed ? "yes" : "no" })}>
+      {activityEmptyBody({ choice: narrowed ? "yes" : "no" })}
+    </EmptyState>
+  );
 
   return (
     <main className="main activity-screen" data-design-system="app" ref={root}>
@@ -246,14 +251,19 @@ export function ActivityScreen() {
         loading={activityLoading()}
         failed={activityLoadFailed()}
         refreshFailed={activityRefreshFailed()}
-        isEmpty={(page) => page.items.length === 0}
-        empty={(
-          <EmptyState title={activityEmptyTitle({ choice: narrowed ? "yes" : "no" })}>
-            {activityEmptyBody({ choice: narrowed ? "yes" : "no" })}
-          </EmptyState>
-        )}
+        // An empty list still has room for an entry a link names.
+        isEmpty={(page) => page.items.length === 0 && picked === null}
+        empty={emptyState}
       >
         {(page) => {
+          if (page.items.length === 0) {
+            return (
+              <div className="activity-split">
+                {emptyState}
+                {picked !== null && <NamedEntry id={picked} />}
+              </div>
+            );
+          }
           // No entry named: the newest is picked. One named off this page is
           // read on its own, and no row is marked.
           const selected = picked === null ? page.items[0] : page.items.find((item) => item.id === picked);
