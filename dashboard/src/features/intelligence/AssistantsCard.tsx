@@ -89,7 +89,7 @@ const FIRST_COMMAND = /* not copy */ "roleband capabilities";
 /** The card's last line: what the person held back, one sentence per kind of
  *  choice, and nothing when they held back nothing. While the switch is off
  *  and nothing is held back, it says what turning it on shares instead. */
-export function heldBack(state: AgentAccessState): string[] {
+function heldBack(state: AgentAccessState): string[] {
   const names = <T extends string>(rows: readonly { id: T; name: () => string }[], keep: (id: T) => boolean) =>
     rows.filter((row) => keep(row.id)).map((row) => row.name());
   const notShared = names(CATEGORIES, (id) => categoryChoice(state, id) === "not_shared");

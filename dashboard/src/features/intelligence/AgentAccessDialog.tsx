@@ -82,7 +82,7 @@ export const groupChoice = (state: AgentAccessState, id: Group): GroupChoice =>
   state.groups[id] ?? ALLOWED;
 
 /** Whether every category is shared with any model and every group is on. */
-export function everythingOpen(state: AgentAccessState): boolean {
+function everythingOpen(state: AgentAccessState): boolean {
   return (
     CATEGORIES.every((c) => categoryChoice(state, c.id) === "any_model") &&
     GROUPS.every((g) => groupChoice(state, g.id) === "on")
@@ -94,7 +94,7 @@ export interface AccessChoices {
   groups: Record<Group, GroupChoice>;
 }
 
-export function choicesOf(state: AgentAccessState): AccessChoices {
+function choicesOf(state: AgentAccessState): AccessChoices {
   return {
     categories: Object.fromEntries(CATEGORIES.map((c) => [c.id, categoryChoice(state, c.id)])) as Record<
       Category,
@@ -104,7 +104,7 @@ export function choicesOf(state: AgentAccessState): AccessChoices {
   };
 }
 
-export const OPEN: AccessChoices = {
+const OPEN: AccessChoices = {
   categories: Object.fromEntries(CATEGORIES.map((c) => [c.id, "any_model"])) as Record<Category, CategoryChoice>,
   groups: Object.fromEntries(GROUPS.map((g) => [g.id, "on"])) as Record<Group, GroupChoice>,
 };

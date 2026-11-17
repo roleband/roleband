@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
+  AgentAccessState,
   IntelligenceStatus,
   IntelligenceTestResult,
   LocalServerControlResult,
@@ -610,14 +611,14 @@ describe("assistants card", () => {
     // door, so the card may not imply only two products can connect.
     const setup = within(region).getAllByRole("button", { name: msg("ai-assistants-card-set-up") });
     expect(setup).toHaveLength(3);
-    expect(within(region).getByText("Other app")).toBeInTheDocument();
+    expect(within(region).getByText(msg("ai-assistants-card-app-other-app"))).toBeInTheDocument();
     for (const button of setup) expect(button).toBeDisabled();
     // One switch, not two: changes are not a second consent.
     expect(within(region).getAllByRole("checkbox")).toHaveLength(1);
     expect(within(region).getByText(msg("ai-assistants-card-what-apps-do"))).toBeInTheDocument();
     expect(within(region).getByText(msg("ai-assistants-card-everything-shared"))).toBeInTheDocument();
 
-    await userEvent.click(within(region).getByLabelText("Allow assistant apps to connect"));
+    await userEvent.click(within(region).getByLabelText(msg("ai-assistants-card-allow-assistant-apps-to-connect")));
     // The save names both switches and leaves the choices out, so the engine
     // keeps whatever the person held back in Customize.
     expect(mocked.setAgentAccess).toHaveBeenCalledWith({ enabled: true, allow_writes: true });
@@ -677,8 +678,10 @@ describe("assistants card", () => {
   });
 
   it("stores each Customize choice at once, with the whole grid it changed", async () => {
-    mocked.agentAccess.mockResolvedValue({ ...agentAccessFixture, enabled: true, allow_writes: true });
-    mocked.setAgentAccess.mockImplementation(async (access) => ({ ...agentAccessFixture, ...access }));
+    // The engine keeps what a save leaves out, so the mock does too.
+    let stored: AgentAccessState = { ...agentAccessFixture, enabled: true, allow_writes: true };
+    mocked.agentAccess.mockResolvedValue(stored);
+    mocked.setAgentAccess.mockImplementation(async (access) => (stored = { ...stored, ...access }));
     mount();
 
     const region = await card();
@@ -711,6 +714,15 @@ describe("assistants card", () => {
       allow_writes: true,
       groups: { ...agentAccessFixture.groups, tuning_radar: "off" },
     });
+    // The group save left the data grid as the person set it.
+    await waitFor(() =>
+      expect(
+        within(dialog).getByRole("radio", {
+          name: cell(msg("ai-access-dialog-tuning-the-radar"), msg("ai-access-dialog-off")),
+        }),
+      ).toBeChecked(),
+    );
+    expect(within(dialog).getByRole("radio", { name: offerKept() })).toBeChecked();
 
     await userEvent.click(await within(dialog).findByRole("button", { name: msg("ai-access-dialog-share-everything") }));
     expect(mocked.setAgentAccess).toHaveBeenLastCalledWith({

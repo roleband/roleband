@@ -10,7 +10,9 @@ cloud model. A few want to keep some of their data, or some kinds of action,
 away from an agent, or within models that run on their own computer.
 
 `docs/architecture.md` describes how the engine applies the categories and
-action groups below.
+action groups below. Ask first, and undoing an action, need approval and the
+list of actions in the app, and are built with them; until then a group is on
+or off.
 
 ## Decision
 
