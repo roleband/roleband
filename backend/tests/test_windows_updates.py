@@ -399,13 +399,14 @@ def test_a_version_this_installation_undid_is_not_offered_again(state, identity,
 
 def test_status_reads_what_checks_kept_without_asking_the_feed(state, identity, feed):
     assert windows_updates.status(state, identity, "0.1.2") == {
-        "automatic": True, "checked_at": None, "offer": None, "rate_limited_until": None}
+        "automatic": True, "checked_at": None, "offer": None, "release_page": None, "rate_limited_until": None}
     allow(state, False)
     feed.publish("0.1.3")
     run(state, identity, feed, manual=True)
     asked = len(feed.requests)
     kept = windows_updates.status(state, identity, "0.1.2")
     assert (kept["automatic"], kept["offer"], kept["checked_at"]) == (False, "0.1.3", NOW)
+    assert kept["release_page"] == f"https://github.com/{FEED}/releases/tag/v0.1.3", "the offer's notes are on its page"
     assert windows_updates.status(state, identity, "0.1.3")["offer"] is None, "an installed offer is no offer"
     feed.listing_override = httpx.Response(429, headers={"Retry-After": "120"})
     run(state, identity, feed, manual=True, now=NOW + 1)

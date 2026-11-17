@@ -1,9 +1,9 @@
-"""Validated agent/MCP configuration persisted in `app_settings`.
+"""Validated agent access configuration persisted in `app_settings`.
 
-The `agent_access` row holds the two switches the Settings screen shows and,
-beside them, the person's choice for each data category
-(`docs/decisions/0017-agent-access-open-by-default.md`). A category with no
-choice stored reads as open. A row this model cannot read reads as every
+The `agent_access` row holds the two master switches and, beside them, the
+person's choice for each data category and each action group
+(`docs/decisions/0017-agent-access-open-by-default.md`). A category or group
+with no choice stored reads as open. A row this model cannot read reads as every
 switch off, so a bad write never opens access.
 """
 
@@ -16,13 +16,15 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracker.agents.operations.descriptor import DataClass
+from tracker.agents.operations.descriptor import ActionGroup, DataClass
 from tracker.db.models import AppSetting
 
 AGENT_ACCESS_KEY = "agent_access"
 
 #: Who may read a category: any model, models on this computer only, or none.
 CategoryChoice = Literal["any_model", "local_only", "not_shared"]
+#: Whether assistants may make one kind of change.
+GroupChoice = Literal["on", "off"]
 
 
 class AgentAccessConfig(BaseModel):
@@ -30,6 +32,8 @@ class AgentAccessConfig(BaseModel):
     allow_writes: StrictBool = False
     #: The person's choice per data category; a category left out is open.
     categories: dict[DataClass, CategoryChoice] = {}
+    #: The person's choice per action group; a group left out is on.
+    groups: dict[ActionGroup, GroupChoice] = {}
 
 
 async def get_agent_access(session: AsyncSession) -> AgentAccessConfig:
@@ -49,8 +53,9 @@ def _read(value: object) -> AgentAccessConfig:
 async def set_agent_access(
     session: AsyncSession, config: AgentAccessConfig
 ) -> AgentAccessConfig:
-    """Store `config`. A payload that does not name `categories` keeps the
-    stored choices, so the Settings screen's two switches never reset them.
+    """Store `config`. A payload that does not name `categories` or `groups`
+    keeps those stored choices, so a save of the switches alone never resets
+    them.
 
     The row is locked from the read of the stored choices to the write, so a
     save of the switches alone cannot put back choices another save changed
@@ -58,8 +63,11 @@ async def set_agent_access(
     saves serialize on it too. Answers the row as the engine reads it.
     """
     value = config.model_dump(mode="json")
-    if "categories" not in config.model_fields_set:
-        value["categories"] = await _locked_categories(session)
+    kept = [name for name in _CHOICES if name not in config.model_fields_set]
+    if kept:
+        stored = await _locked_choices(session)
+        for name in kept:
+            value[name] = stored.get(name, {})
     stmt = insert(AppSetting).values(key=AGENT_ACCESS_KEY, value=value)
     stmt = stmt.on_conflict_do_update(
         index_elements=[AppSetting.key], set_={"value": value}
@@ -68,11 +76,15 @@ async def set_agent_access(
     return _read(value)
 
 
-async def _locked_categories(session: AsyncSession) -> object:
-    """The stored choices as stored, with the row locked until the transaction
+#: The fields that hold the person's choices, beside the two switches.
+_CHOICES = ("categories", "groups")
+
+
+async def _locked_choices(session: AsyncSession) -> dict[str, object]:
+    """The stored row as stored, with the row locked until the transaction
     ends. Choices the engine cannot read are kept as they are, so the row still
     reads as everything off: read as no choices, they would share every
-    category the person had kept back."""
+    category and allow every change the person had kept back."""
     await session.execute(
         insert(AppSetting)
         .values(key=AGENT_ACCESS_KEY, value=AgentAccessConfig().model_dump(mode="json"))
@@ -81,4 +93,4 @@ async def _locked_categories(session: AsyncSession) -> object:
     stored = await session.scalar(
         select(AppSetting.value).where(AppSetting.key == AGENT_ACCESS_KEY).with_for_update()
     )
-    return stored.get("categories", {}) if isinstance(stored, dict) else {}
+    return stored if isinstance(stored, dict) else {}

@@ -43,55 +43,31 @@ ai-aim-line-add-your-aim = { $choice ->
 
 ## features/intelligence/AssistantsCard.tsx
 # kind=heading
-ai-assistants-card-mcp-server = Assistant apps (MCP)
-# kind=label wording=as-is
-ai-assistants-card-allowed-read-only = { $choice ->
-    [yes] Allowed · reads and updates
-   *[no] Allowed · read only
-}
-# kind=label wording=as-is
-ai-assistants-card-not-allowed-nothing-is-shared = Not allowed · nothing is shared
-# kind=heading wording=as-is
-ai-assistants-card-what-will-be-shared = What will be shared
-# kind=heading wording=as-is
-ai-assistants-card-what-will-not-be-shared = What will not be shared
+ai-assistants-card-assistant-apps = Assistant apps
 # kind=button wording=as-is
 ai-assistants-card-set-up = Set up
 # kind=label wording=as-is
 ai-assistants-card-allow-assistant-apps-to-connect = Allow assistant apps to connect
-# kind=label wording=as-is
-ai-assistants-card-allow-assistant-apps-to-update = Allow assistant apps to update your progress
-# kind=status note="What a connected assistant app may change when updates are allowed; every change is recorded"
-ai-assistants-card-stage-notes-next-action-audited = stage · notes · next step · recipe drafts · audited
-# kind=sentence
-ai-assistants-card-it-can-then-read-what = It can then read what this card lists, and nothing more.
 # kind=sentence wording=as-is
 ai-assistants-card-run-this-once-in-a = Run this once in a terminal, then restart the app.
 # kind=sentence
-ai-assistants-card-most-apps-that-speak-mcp = Most MCP apps accept this. Add it to their MCP settings, then restart the app.
-# kind=sentence wording=as-is
-ai-assistants-card-add-this-to-the-app = Add this to the app's settings, then restart the app.
+ai-assistants-card-let-the-app-run-commands = Let the app run commands, then ask it to run this.
 # kind=button wording=as-is
 ai-assistants-card-done = Done
 # kind=label wording=as-is
 ai-assistants-card-anthropic = Anthropic
-# kind=label wording=as-is
-ai-assistants-card-set-up-the-claude-app = Set up the Claude app
+# kind=label
+ai-assistants-card-set-up-claude-code = Set up Claude Code
 # kind=label wording=as-is
 ai-assistants-card-openai = OpenAI
 # kind=label wording=as-is
 ai-assistants-card-set-up-the-codex-app = Set up the Codex app
 # kind=status note="The Other app tile's second line, under its name; the other tiles show a company name here"
-ai-assistants-card-any-client-that-speaks-mcp = Any app that speaks MCP
-# kind=label wording=as-is
-ai-assistants-card-set-up-another-mcp-app = Set up another MCP app
+ai-assistants-card-any-app-that-can-run-commands = Any app that can run commands
+# kind=label
+ai-assistants-card-set-up-another-app = Set up another app
 # kind=aria
-ai-assistants-card-mcp-server-2 = Assistant apps
-# kind=label wording=as-is
-ai-assistants-card-not-allowed-to-connect = { $choice ->
-    [yes] · ready to set up
-   *[no] · not allowed to connect
-}
+ai-assistants-card-assistant-apps-2 = Assistant apps
 # kind=label wording=as-is
 ai-assistants-card-allow-assistant-apps-to-connect-2 = Allow assistant apps to connect first
 # kind=status note="The note beside the Allow assistant apps to connect switch, by its state"
@@ -527,28 +503,72 @@ ai-origin-badge-cloud-connected = { $choice ->
 }
 
 ## features/intelligence/AssistantsCard.tsx (by hand)
-# kind=label wording=as-is
-ai-assistants-card-shares-role-titles-companies-locations-and-link = Role titles, companies, locations and links
-# kind=status
-ai-assistants-card-shares-pay-level-and-how-long-the-role-has-been = Compensation, level, and how long the role has been open
-# kind=label wording=as-is
-ai-assistants-card-shares-the-full-posting-when-they-open-one = The full posting, when they open one
-# kind=status
-ai-assistants-card-shares-your-progress-on-roles-stage-priority-no = Your progress on roles: stage, priority, notes, next step
-# kind=status note="Something a connected assistant app can make RoleBand do: open a public web page from the user's computer and show it to the app"
-ai-assistants-card-shares-public-pages-it-asks-roleband-to-open = Public web pages it asks to open from this computer
 # kind=label
-ai-assistants-card-never-your-profile-and-intent-statement = Your profile and aim
-# kind=label wording=as-is
-ai-assistants-card-never-your-own-salary-or-contacts = Your own salary or contacts
-# kind=label wording=as-is
-ai-assistants-card-never-anything-from-your-other-apps = Anything from your other apps
-# kind=label wording=as-is
-ai-assistants-card-app-claude-app = Claude app
+ai-assistants-card-app-claude-code = Claude Code
 # kind=label wording=as-is
 ai-assistants-card-app-codex-app = Codex app
 # kind=label wording=as-is
 ai-assistants-card-app-other-app = Other app
+# kind=sentence note="Under the Allow assistant apps to connect switch while it is off: what a connected app may read and do"
+ai-assistants-card-what-apps-do = They read your roles, compensation, notes, offer and profile, and keep your progress up to date.
+# kind=sentence note="Under the Allow assistant apps to connect switch, in both states"
+ai-assistants-card-up-to-the-app = What an app does with what it reads is up to that app and the model it uses.
+# kind=sentence note="The card's last line while the switch is off and nothing is held back from assistant apps"
+ai-assistants-card-everything-shared = Everything is shared once this is on.
+# kind=status note="The card's last line: the kinds of data the person keeps from assistant apps. $list is their names, joined as a list"
+ai-assistants-card-not-shared = Not shared: { $list }.
+# kind=status note="The card's last line: the kinds of data kept to models on this computer, which a connected app gets as not shared. $list is their names, joined as a list"
+ai-assistants-card-local-only = Models on this computer only: { $list }.
+# kind=status note="The card's last line: the kinds of change assistant apps may not make. $list is their names, joined as a list"
+ai-assistants-card-changes-off = Changes off: { $list }.
+# kind=status note="The card's last line when assistant apps may make no change at all"
+ai-assistants-card-read-only = Apps only read.
+# kind=button note="Opens the dialog where the person chooses, per kind of data and kind of change, what assistant apps get"
+ai-assistants-card-customize = Customize
+
+## features/intelligence/AgentAccessDialog.tsx
+# kind=heading
+ai-access-dialog-title = Customize what apps get
+# kind=sentence note="The dialog has no Save button: each choice is stored as it is made"
+ai-access-dialog-apply-at-once = Changes apply at once.
+# kind=heading note="Above the grid of kinds of data, each read by any model, by models on this computer only, or by none"
+ai-access-dialog-data = Data apps read
+# kind=heading note="Above the grid of kinds of change, each on or off"
+ai-access-dialog-changes = What apps change
+# kind=label note="A column of the data grid: any model the app uses may read it"
+ai-access-dialog-any-model = Any model
+# kind=label note="A column of the data grid: only models on this computer may read it"
+ai-access-dialog-local-only = Local only
+# kind=tooltip
+ai-access-dialog-local-only-tip = Models on this computer only. A connected app gets it as not shared.
+# kind=label note="A column of the data grid: no model may read it"
+ai-access-dialog-not-shared = Not shared
+# kind=label note="A column of the changes grid"
+ai-access-dialog-on = On
+# kind=label note="A column of the changes grid"
+ai-access-dialog-off = Off
+# kind=label note="A kind of data: the roles and their postings"
+ai-access-dialog-postings = Postings
+# kind=label note="A kind of data: pay estimates and market figures"
+ai-access-dialog-market-statistics = Market statistics
+# kind=label note="A kind of data: the roles the person saved and how far each has got, with their notes"
+ai-access-dialog-progress-and-notes = Progress and notes
+# kind=label note="A kind of data: the offer the person entered"
+ai-access-dialog-offer = Offer
+# kind=label note="A kind of data: the person's profile and aim"
+ai-access-dialog-profile = Profile
+# kind=label note="A kind of change: saving roles and moving them along, with notes and next steps"
+ai-access-dialog-tracking-progress = Tracking progress
+# kind=label note="A kind of change: notes an assistant keeps about what it found"
+ai-access-dialog-keeping-findings = Keeping findings
+# kind=label note="A kind of change: what the radar looks for"
+ai-access-dialog-tuning-the-radar = Tuning the radar
+# kind=label note="A kind of change: which companies are followed and how their postings are collected"
+ai-access-dialog-controlling-collection = Controlling collection
+# kind=aria note="One choice in a grid: $row is a kind of data or change, $column the choice"
+ai-access-dialog-cell = { $row }: { $column }
+# kind=button note="Puts every kind of data back to any model and every kind of change back on"
+ai-access-dialog-share-everything = Share everything again
 
 ## default connection names (by hand)
 # kind=label same-as=ai-capabilities-card-your-own-model

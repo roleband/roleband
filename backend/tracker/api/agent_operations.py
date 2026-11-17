@@ -235,7 +235,8 @@ class OperationContext:
                 if described is None else described.entry(before, result)
             )
             entry = activity.Entry(
-                "change", descriptor.id, changed.said, self.answered_classes, changed.changes
+                "change", descriptor.id, changed.said, self.answered_classes, changed.changes,
+                action_group=descriptor.action_group,
             )
             await activity.record(
                 self.session,
@@ -555,7 +556,12 @@ async def _list_refusal(request: Request, operation: str, refused: OperationErro
     """List a refusal by the person's switches. The refusal is answered even
     when its row cannot be written: nothing was shared."""
     category = refused.details.get("category")
-    entry = activity.refused_entry(operation, refused.code, category if isinstance(category, str) else None)
+    group = refused.details.get("group")
+    entry = activity.refused_entry(
+        operation, refused.code,
+        category if isinstance(category, str) else None,
+        group=group if isinstance(group, str) else None,
+    )
     try:
         async with _own_session(request) as session:
             await activity.record(

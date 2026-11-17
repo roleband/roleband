@@ -8,11 +8,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import sys
 from collections.abc import Awaitable, Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, get_args
 
 import httpx
 from fastapi import APIRouter
@@ -21,6 +20,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.agents.config import AgentAccessConfig, get_agent_access, set_agent_access
+from tracker.agents.operations.descriptor import ActionGroup, DataClass
 from tracker.api.deps import OffBoardDep, SessionDep, end_read
 from tracker.api.errors import ErrorCode, api_error
 from tracker.api.schemas.intelligence import (
@@ -98,7 +98,6 @@ from tracker.local_llm.models import LocalLLMProfileInput
 from tracker.local_llm.server import binary_path as omlx_binary_path
 from tracker.local_llm.server import control as control_omlx_server
 from tracker.platform.os_process import shell_join
-from tracker.platform.paths import PACKAGED, REPO_ROOT, backend_dir, venv_python
 from tracker.search.fit import (
     BAND_KEYS,
     FIT_BIN_WIDTH,
@@ -534,43 +533,27 @@ async def test_local_llm_profile(
 
 
 # --------------------------------------------------------------------------- #
-# External agents — local STDIO MCP access and independent write permission.
+# External agents: the two switches, and how an agent host connects.
 # --------------------------------------------------------------------------- #
+
+#: The agent hosts `roleband connect` sets up, in the order Settings shows them.
+#: `tests/test_agents.py` holds this to the command's own list.
+CONNECT_HOSTS = ("claude-code", "codex")
 
 
 def _agent_connection_state(config: AgentAccessConfig) -> dict:
-    python = sys.executable if PACKAGED else str(venv_python(REPO_ROOT / "backend" / ".venv"))
-    directory = str(backend_dir(REPO_ROOT))
-    args = ["-I", str(backend_dir(REPO_ROOT) / "packaged.py"), "mcp.server"] if PACKAGED else ["-m", "tracker.mcp.server"]
+    read_only = config.enabled and not config.allow_writes
     return {
         "enabled": config.enabled,
         "allow_writes": config.allow_writes,
-        "transport": "stdio",
-        "command": str(python),
-        "args": args,
-        "cwd": directory,
-        "tools": [
-            {"name": "get_server_status", "access": "status"},
-            {"name": "get_radar_summary", "access": "read"},
-            {"name": "search_opportunities", "access": "read"},
-            {"name": "get_opportunity", "access": "read"},
-            # The same payload as `GET /api/jobs/{id}/history`.
-            {"name": "listing_history", "access": "read"},
-            {"name": "get_pursuits", "access": "read"},
-            {"name": "save_opportunity", "access": "write"},
-            {"name": "update_pursuit", "access": "write"},
-            # Recipe authoring: three reads, one confirmed draft write.
-            {"name": "get_recipe_contract", "access": "read"},
-            {"name": "inspect_source", "access": "read"},
-            {"name": "validate_recipe", "access": "read"},
-            {"name": "save_recipe_draft", "access": "write"},
-        ],
-        "codex_command": shell_join(["codex", "mcp", "add", "roleband", "--", str(python), *args]),
-        "claude_json": {
-            "mcpServers": {
-                "roleband": {"command": str(python), "args": args, "cwd": directory}
-            }
+        "categories": {name: config.categories.get(name, "any_model") for name in get_args(DataClass)},
+        "groups": {
+            name: "off" if read_only else config.groups.get(name, "on") for name in get_args(ActionGroup)
         },
+        "connect": [
+            {"host": host, "command": shell_join(["roleband", "connect", host, "--apply"])}
+            for host in CONNECT_HOSTS
+        ],
     }
 
 
@@ -587,7 +570,7 @@ async def put_agent_access_ep(payload: AgentAccessConfig, session: SessionDep) -
 
 
 # --------------------------------------------------------------------------- #
-# Direct cloud models — BYOK only; separate from subscription-backed MCP clients.
+# Direct cloud models: BYOK only, separate from the agent hosts above.
 # --------------------------------------------------------------------------- #
 
 

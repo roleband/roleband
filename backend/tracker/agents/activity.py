@@ -38,7 +38,7 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.agents.operations.descriptor import DataClass, OperationDescriptor
-from tracker.agents.operations.policy import CATEGORY_NAMES
+from tracker.agents.operations.policy import CATEGORY_NAMES, GROUP_NAMES
 from tracker.db.models import AgentActivity
 
 ActivityKind = Literal["read", "change", "refused"]
@@ -192,10 +192,13 @@ def read_entry(descriptor: OperationDescriptor, categories: Sequence[DataClass],
     return Entry("read", descriptor.id, read_said(descriptor, count=count), tuple(categories))
 
 
-def refused_entry(operation: str, code: str, category: str | None) -> Entry:
+def refused_entry(operation: str, code: str, category: str | None, *, group: str | None = None) -> Entry:
+    """A refusal, with the category it asked for or the group of changes the
+    person holds back, when the refusal names one."""
     return Entry(
         "refused", operation, refused_said(code, category),
         (category,) if category in CATEGORY_NAMES else (), refusal=code,
+        action_group=group if group in GROUP_NAMES else None,
     )
 
 

@@ -256,7 +256,7 @@ async def clear_valuation_ep(company: PrivateCompany, session: SessionDep) -> di
     return await _offer_response(session)
 
 
-# --- pursuits (the HTTP twin of the MCP write tool) --------------------------
+# --- pursuits (the HTTP twin of the agent pursuit writes) -------------------
 
 @router.get("/api/pursuits", response_model=PursuitListResponse)
 async def list_pursuits_ep(
@@ -271,8 +271,8 @@ async def list_pursuits_ep(
 async def set_pursuit_ep(
     job_id: int, payload: PursuitUpdate, session: SessionDep
 ) -> dict:
-    """Create/update the pursuit for one opportunity. Same helper the MCP
-    write tool uses (one transaction: current row + append-only event), actor
+    """Create/update the pursuit for one opportunity. Same helper the agent
+    pursuit writes use (one transaction: current row + append-only event), actor
     recorded as `user`. There is deliberately no DELETE: `withdrawn` is a
     stage, and history is the point."""
     try:

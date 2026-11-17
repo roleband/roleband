@@ -91,7 +91,8 @@ async def test_a_save_lists_its_change_with_each_field_before_and_after(api_clie
     assert row.request_id == response.json()["request_id"]
     # A new pursuit had none of its fields before.
     assert {(c["field"], c["before"], c["after"]) for c in row.changes} == {("stage", None, "saved"), ("priority", None, 3)}
-    assert row.action_group is None and row.refusal is None
+    # The group of changes the operation belongs to, as the person switches it.
+    assert row.action_group == "tracking_progress" and row.refusal is None
 
 
 async def test_a_patch_lists_only_the_fields_it_changed(api_client, db_session, role):
@@ -206,6 +207,17 @@ async def test_refusals_by_the_switches_are_listed_too(api_client, db_session, r
         ("refused", "pursuits.save", "writes_disabled", "refused.writes"),
         ("refused", "status", "access_disabled", "refused.access"),
     ]
+    assert await _count(db_session, Pursuit) == 0
+
+
+async def test_a_change_the_person_holds_back_is_listed_with_its_group(api_client, db_session, role):
+    await _access(db_session, enabled=True, allow_writes=True, groups={"tracking_progress": "off"})
+    write = await _save(api_client, role)
+    assert write.json()["error"]["code"] == "writes_disabled"
+
+    (row,) = await _rows(db_session)
+    assert (row.kind, row.operation, row.refusal) == ("refused", "pursuits.save", "writes_disabled")
+    assert row.action_group == "tracking_progress"
     assert await _count(db_session, Pursuit) == 0
 
 

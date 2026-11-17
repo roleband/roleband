@@ -281,7 +281,7 @@ raise api_error(404, ErrorCode.JOB_NOT_FOUND, "job not found")
 
 from `backend/tracker/api/errors.py`, never `HTTPException`. The response detail
 is `{"code": "job-not-found", "params": {...}, "message": "job not found"}`:
-`message` is English for logs and MCP clients, and `params` carries slugs, never
+`message` is English for logs and agent clients, and `params` carries slugs, never
 display names. `backend/tests/test_api_error_codes.py` fails on any
 `HTTPException` built elsewhere under `tracker/api`.
 

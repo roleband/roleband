@@ -92,7 +92,7 @@ async def save_draft_revision(
     """
     compile_recipe(document)  # raises RecipeError; never store an uncompilable doc
 
-    # One draft of a recipe at a time: HTTP and the MCP agent both
+    # One draft of a recipe at a time: HTTP and the agent operations both
     # land here, and without the lock each read-then-insert (the slug, then
     # `last + 1`) lets two concurrent drafts collide on a unique key, the valid
     # one failing.

@@ -44,7 +44,7 @@ def probe(scratch: Path) -> dict[str, object]:
     began = time.monotonic()
     imports = ('numpy', 'onnxruntime', 'tokenizers', 'cryptography.fernet',
                'asyncpg', 'psycopg2', 'curl_cffi', 'selectolax.lexbor', 'pydantic_core', 'uvloop',
-               'roleband_robots', 'roleband_plugin_sdk', 'tracker.api.app', 'tracker.mcp.server')
+               'roleband_robots', 'roleband_plugin_sdk', 'tracker.api.app', 'tracker.cli.main')
     for name in imports:
         importlib.import_module(name)
     for name in ('playwright', 'apple_fm_sdk'):

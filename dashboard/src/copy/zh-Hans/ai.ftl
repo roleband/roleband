@@ -18,34 +18,19 @@ ai-aim-line-add-your-aim = { $choice ->
 }
 
 ## features/intelligence/AssistantsCard.tsx
-ai-assistants-card-mcp-server = 助手应用（MCP）
-ai-assistants-card-allowed-read-only = { $choice ->
-    [yes] 已允许 · 可读取和更新
-   *[no] 已允许 · 只读
-}
-ai-assistants-card-not-allowed-nothing-is-shared = 未允许 · 不共享内容
-ai-assistants-card-what-will-be-shared = 将共享的内容
-ai-assistants-card-what-will-not-be-shared = 不会共享的内容
+ai-assistants-card-assistant-apps = 助手应用
 ai-assistants-card-set-up = 设置
 ai-assistants-card-allow-assistant-apps-to-connect = 允许助手应用连接
-ai-assistants-card-allow-assistant-apps-to-update = 允许助手应用更新进度
-ai-assistants-card-stage-notes-next-action-audited = 阶段 · 备注 · 下一步 · 规则草稿 · 有记录
-ai-assistants-card-it-can-then-read-what = 之后它可以读取这张卡片列出的内容，仅此而已。
 ai-assistants-card-run-this-once-in-a = 在终端中运行一次，然后重启应用。
-ai-assistants-card-most-apps-that-speak-mcp = 大多数 MCP 应用都能使用这段配置。把它添加到应用的 MCP 设置中，然后重启应用。
-ai-assistants-card-add-this-to-the-app = 把它添加到应用的设置中，然后重启应用。
+ai-assistants-card-let-the-app-run-commands = 允许该应用运行命令，然后让它运行这条命令。
 ai-assistants-card-done = 完成
 ai-assistants-card-anthropic = Anthropic
-ai-assistants-card-set-up-the-claude-app = 设置 Claude 应用
+ai-assistants-card-set-up-claude-code = 设置 Claude Code
 ai-assistants-card-openai = OpenAI
 ai-assistants-card-set-up-the-codex-app = 设置 Codex 应用
-ai-assistants-card-any-client-that-speaks-mcp = 任何支持 MCP 的应用
-ai-assistants-card-set-up-another-mcp-app = 设置其他 MCP 应用
-ai-assistants-card-mcp-server-2 = 助手应用
-ai-assistants-card-not-allowed-to-connect = { $choice ->
-    [yes] · 可以设置
-   *[no] · 未允许连接
-}
+ai-assistants-card-any-app-that-can-run-commands = 任何能运行命令的应用
+ai-assistants-card-set-up-another-app = 设置其他应用
+ai-assistants-card-assistant-apps-2 = 助手应用
 ai-assistants-card-allow-assistant-apps-to-connect-2 = 先允许助手应用连接
 ai-assistants-card-off-nothing-leaves-this-computer = { $choice ->
     [yes] 开启 · 仅与你连接的应用共享
@@ -303,17 +288,38 @@ ai-origin-badge-cloud-connected = { $choice ->
 }
 
 ## features/intelligence/AssistantsCard.tsx（手工添加）
-ai-assistants-card-shares-role-titles-companies-locations-and-link = { -role(num: "other") }名称、{ -company(num: "other") }、地点和链接
-ai-assistants-card-shares-pay-level-and-how-long-the-role-has-been = 薪酬、级别，以及{ -role(num: "one") }已开放多久
-ai-assistants-card-shares-the-full-posting-when-they-open-one = 它们打开的{ -posting(num: "one") }全文
-ai-assistants-card-shares-your-progress-on-roles-stage-priority-no = 你在各{ -role(num: "other") }上的进度：阶段、优先级、备注、下一步
-ai-assistants-card-shares-public-pages-it-asks-roleband-to-open = 它请求从这台电脑打开的公开网页
-ai-assistants-card-never-your-profile-and-intent-statement = 你的个人资料和目标
-ai-assistants-card-never-your-own-salary-or-contacts = 你的薪资或联系人
-ai-assistants-card-never-anything-from-your-other-apps = 其他应用的任何内容
-ai-assistants-card-app-claude-app = Claude 应用
+ai-assistants-card-app-claude-code = Claude Code
 ai-assistants-card-app-codex-app = Codex 应用
 ai-assistants-card-app-other-app = 其他应用
+ai-assistants-card-what-apps-do = 它们会读取你的职位、薪酬、备注、录用条件和个人资料，并随时更新你的进度。
+ai-assistants-card-up-to-the-app = 应用如何处理它读取的内容，取决于该应用及其使用的模型。
+ai-assistants-card-everything-shared = 开启后会共享全部内容。
+ai-assistants-card-not-shared = 不共享：{ $list }。
+ai-assistants-card-local-only = 仅限这台电脑上的模型：{ $list }。
+ai-assistants-card-changes-off = 已关闭的更改：{ $list }。
+ai-assistants-card-read-only = 应用只能读取。
+ai-assistants-card-customize = 自定义
+ai-access-dialog-title = 自定义应用可获取的内容
+ai-access-dialog-apply-at-once = 更改会立即生效。
+ai-access-dialog-data = 应用读取的数据
+ai-access-dialog-changes = 应用可做的更改
+ai-access-dialog-any-model = 任何模型
+ai-access-dialog-local-only = 仅限本地
+ai-access-dialog-local-only-tip = 仅限这台电脑上的模型。已连接的应用会将其视为不共享。
+ai-access-dialog-not-shared = 不共享
+ai-access-dialog-on = 开启
+ai-access-dialog-off = 关闭
+ai-access-dialog-postings = 招聘信息
+ai-access-dialog-market-statistics = 市场统计
+ai-access-dialog-progress-and-notes = 进度和备注
+ai-access-dialog-offer = 录用条件
+ai-access-dialog-profile = 个人资料
+ai-access-dialog-tracking-progress = 跟踪进度
+ai-access-dialog-keeping-findings = 保存发现
+ai-access-dialog-tuning-the-radar = 调整雷达
+ai-access-dialog-controlling-collection = 控制收集
+ai-access-dialog-cell = { $row }：{ $column }
+ai-access-dialog-share-everything = 重新共享全部
 
 ## 默认连接名称（手工添加）
 ai-local-model-dialog-default-name = 你自己的模型

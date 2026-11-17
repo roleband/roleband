@@ -43,7 +43,7 @@ def probe(resources, state):
     before = snapshot(resources)
     names = ("numpy", "onnxruntime", "tokenizers", "cryptography.fernet", "asyncpg", "psycopg2",
              "curl_cffi", "selectolax.lexbor", "pydantic_core", "roleband_robots", "roleband_plugin_sdk",
-             "tracker.api.app", "tracker.mcp.server")
+             "tracker.api.app", "tracker.cli.main")
     for name in names:
         module = importlib.import_module(name)
         if not Path(module.__file__).resolve().is_relative_to(resources):

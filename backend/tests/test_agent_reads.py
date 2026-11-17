@@ -1,16 +1,15 @@
-"""Each read operation answers what the MCP tool it replaces answers.
+"""The agent reads answer what their owners hold.
 
-Both sides run against one scratch database seeded by `scripts.seed_synthetic`
-(its corpus postings and pursuits included): the MCP tool bodies through
-`session_scope`, the operations through the agent router over real ASGI. A
-tool's answer is read through the operation's own result model, which refuses
-an unknown key and needs every declared one, so the comparison fails on a field
-either side adds, drops or spells differently, not only on a value.
+Run against one scratch database seeded by `scripts.seed_synthetic` (its
+corpus postings and pursuits included), through the agent router over real
+ASGI. Each answer is held to an independent owner: the stored rows, the
+dashboard route that answers the same question (`/api/stats`,
+`/api/jobs/{id}/history`), or the recipe module's own constants, never to the
+operation's own output.
 
-Every deliberate difference the parity checklist names for these tools is
-asserted here as a difference: views and the bounded detail, not-found codes,
-a company the person hid, cursor paging, the single-pursuit read and the
-network effects the recipe reads declare.
+Also held here: views and the bounded detail, not-found codes, a company the
+person hid, cursor paging, the single-pursuit read, the network effects the
+recipe reads declare, and what every read shares under the access switch.
 """
 
 from __future__ import annotations
@@ -19,12 +18,12 @@ import base64
 import json
 from datetime import UTC, datetime
 
+import httpx
 import pytest
 import pytest_asyncio
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 
 import tracker.agents.operations.recipes as recipe_ops
-import tracker.mcp.server as server
 from scripts.seed_synthetic import seed, task_req_id
 from tracker.agents.config import AgentAccessConfig, set_agent_access
 from tracker.agents.operations.opportunities import (
@@ -32,22 +31,19 @@ from tracker.agents.operations.opportunities import (
     OPPORTUNITIES_GET,
     OPPORTUNITIES_HISTORY,
     ListingHistory,
-    OpportunityDetail,
 )
 from tracker.agents.operations.outcomes import outcome
-from tracker.agents.operations.pursuits import PURSUITS_GET, PURSUITS_LIST, PursuitItem
-from tracker.agents.operations.radar import RADAR_SUMMARY, RadarSummary
+from tracker.agents.operations.pursuits import PURSUITS_GET, PURSUITS_LIST
+from tracker.agents.operations.radar import RADAR_SUMMARY
 from tracker.agents.operations.recipes import (
     RECIPES_CONTRACT_GET,
     RECIPES_VALIDATE,
     SOURCES_INSPECT,
-    RecipeContract,
-    RecipeValidation,
-    SourceInspection,
 )
 from tracker.agents.operations.workspace import ensure_workspace_id
 from tracker.agents.pursuits import PursuitUpdate, ensure_favorite, upsert_pursuit
 from tracker.api.agent_operations import PREFIX
+from tracker.connectors.recipes import RECIPE_V1_SCHEMA, TRANSFORM_NAMES, TRANSPORT_MODES
 from tracker.db.models import Favorite, Job, JobCompEstimate, Pursuit, TrackedCompany
 from tracker.platform.safe_fetch import BlockedDestination
 from tracker.workflows.recipe_preview import RecipeCheck
@@ -99,38 +95,41 @@ def _error(response, body: dict, code: str, exit_status: int) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# radar.summary  <-  get_radar_summary
+# radar.summary
 # --------------------------------------------------------------------------- #
 
 
-async def test_radar_summary_answers_the_tools_counts(api_client, workspace):
-    expected = RadarSummary.model_validate(await server.get_radar_summary()).model_dump(mode="json")
+async def test_radar_summary_counts_what_the_board_and_the_pursuits_hold(api_client, workspace):
+    stats = (await api_client.get("/api/stats")).json()
 
     response, body = await _get(api_client, "/radar/summary")
 
     assert response.status_code == 200
-    assert _data(body) == expected
-    # The seeded corpus is not empty, so equal counts are not two zeros.
-    assert expected["active_pursuits"] == 4 and expected["overdue_next_actions"] == 2
-    assert expected["open_opportunities"] > 0
+    data = _data(body)
+    # The open count is the Board's own, and the seeded pursuits are four, two overdue.
+    assert data["open_opportunities"] == stats["open_total"] > 0
+    assert data["active_pursuits"] == 4 and data["overdue_next_actions"] == 2
+    assert data["saved_opportunities"] == await workspace.scalar(select(func.count()).select_from(Favorite))
+    stored = dict((await workspace.execute(select(Pursuit.stage, func.count()).group_by(Pursuit.stage))).all())
+    assert data["pursuits_by_stage"] == stored and sum(stored.values()) == 4
     assert body["meta"]["data_classes"] == ["market_statistic", "private_pursuit"]
 
 
-async def test_radar_summary_follows_a_hidden_company_as_the_tool_does(api_client, workspace):
+async def test_radar_summary_follows_a_hidden_company_as_the_board_does(api_client, workspace):
     before = _data((await _get(api_client, "/radar/summary"))[1])["open_opportunities"]
     # A company with a role on the Board, so hiding it changes the count.
-    company = (await server.search_opportunities())["items"][0]["company"]
+    company = (await api_client.get("/api/jobs?limit=1")).json()["items"][0]["company"]
     await workspace.execute(update(TrackedCompany).where(TrackedCompany.slug == company).values(visible=False))
     await workspace.commit()
 
-    after = _data((await _get(api_client, "/radar/summary"))[1])
+    after = _data((await _get(api_client, "/radar/summary"))[1])["open_opportunities"]
 
-    assert after == RadarSummary.model_validate(await server.get_radar_summary()).model_dump(mode="json")
-    assert after["open_opportunities"] < before
+    assert after == (await api_client.get("/api/stats")).json()["open_total"]
+    assert after < before
 
 
 # --------------------------------------------------------------------------- #
-# opportunities.get  <-  get_opportunity
+# opportunities.get
 # --------------------------------------------------------------------------- #
 
 
@@ -138,22 +137,53 @@ async def _visible_ids(session) -> list[int]:
     return list((await session.scalars(select(Job.id).order_by(Job.id))).all())
 
 
-async def test_the_detail_view_answers_the_tools_posting_for_every_seeded_role(api_client, workspace):
+async def _stored_posting(session, job_id: int) -> dict:
+    """What the rows say the detail view must answer for a posting."""
+    session.expire_all()
+    job = await session.get(Job, job_id)
+    pursuit = await session.scalar(select(Pursuit).where(Pursuit.job_id == job_id))
+    saved = await session.scalar(select(Favorite.id).where(Favorite.job_id == job_id)) is not None
+    return {
+        "id": job.id, "company": job.company, "title": job.title, "url": job.url,
+        "locations": list(job.locations or []), "workplace_type": job.workplace_type,
+        "level_band": job.level_band, "family": job.family, "track": job.track, "status": job.status,
+        "department": job.department, "team": job.team,
+        "description": job.description_text or "",
+        "description_sections": list(job.description_sections or []),
+        "saved": saved,
+        "pursuit": None if pursuit is None else {
+            "opportunity_id": job_id, "stage": pursuit.stage, "priority": pursuit.priority,
+            "notes": pursuit.notes, "next_action": pursuit.next_action, "revision": pursuit.revision,
+        },
+    }
+
+
+async def test_the_detail_view_answers_the_stored_posting_for_every_seeded_role(api_client, workspace):
     ids = await _visible_ids(workspace)
     assert len(ids) > 8
+    pursued = 0
 
-    revisions = await _revisions(workspace)
     for job_id in ids:
-        tool = await server.get_opportunity(job_id)
-        expected = OpportunityDetail.model_validate(
-            {**tool, "view": "detail", "excerpt": None, "pursuit": _with_revision(tool["pursuit"], revisions)}
-        )
+        expected = await _stored_posting(workspace, job_id)
         _, body = await _get(api_client, f"/opportunities/{job_id}", view="detail", tier="full")
-        assert _data(body) == expected.model_dump(mode="json"), job_id
+        data = _data(body)
+        assert {key: data[key] for key in expected if key != "pursuit"} == {
+            key: value for key, value in expected.items() if key != "pursuit"
+        }, job_id
+        stated = expected["pursuit"]
+        if stated is None:
+            assert data["pursuit"] is None, job_id
+        else:
+            pursued += 1
+            assert {key: data["pursuit"][key] for key in stated} == stated, job_id
+        assert data["view"] == "detail" and data["excerpt"] is None
         assert body["meta"]["truncated"] is False
+    # A role with a pursuit and one without are both read, so a pursuit
+    # attached to the wrong role or to every role would fail.
+    assert 0 < pursued < len(ids)
 
 
-async def test_stated_pay_and_estimates_stay_apart_as_the_tool_keeps_them(api_client, workspace):
+async def test_stated_pay_and_estimates_stay_apart(api_client, workspace):
     stated = await _job_id(workspace, "SAVED")
     await workspace.execute(
         update(Job).where(Job.id == stated).values(
@@ -166,11 +196,24 @@ async def test_stated_pay_and_estimates_stay_apart_as_the_tool_keeps_them(api_cl
 
     data = _data((await _get(api_client, f"/opportunities/{stated}"))[1])
 
-    assert data["employer_stated_pay"]["low"] == 212_000
+    assert data["employer_stated_pay"] == {
+        "low": 212_000, "high": 264_500, "currency": "USD", "basis": "base", "period": "year",
+        "snippet": "$212,000 - $264,500",
+    }
+    # The stated band never fills the estimate.
     assert data["estimated_total_comp"] is None
-    tool = await server.get_opportunity(stated)
-    assert data["employer_stated_pay"] == {**tool["employer_stated_pay"]}
-    assert data["estimated_total_comp"] == tool["estimated_total_comp"]
+
+    # And an estimate never fills the stated band.
+    await workspace.execute(
+        update(Job).where(Job.id == stated).values(
+            disclosed_base_min=None, disclosed_base_max=None, disclosed_snippet=None,
+            comp_low=150_000, comp_median=180_000, comp_high=210_000,
+        )
+    )
+    await workspace.commit()
+    data = _data((await _get(api_client, f"/opportunities/{stated}"))[1])
+    assert data["estimated_total_comp"]["median"] == 180_000
+    assert data["employer_stated_pay"] is None or data["employer_stated_pay"]["low"] is None
 
 
 async def test_the_summary_view_is_the_detail_less_its_text(api_client, workspace):
@@ -190,7 +233,7 @@ async def test_the_summary_view_is_the_detail_less_its_text(api_client, workspac
         **{k: v for k, v in detail.items() if k not in text_keys}, "view": "summary",
     }
     assert "description" not in json.dumps(summary)
-    # The pursuit rides along, as on the tool.
+    # The pursuit rides along.
     assert summary["pursuit"]["stage"] == "applied"
 
 
@@ -236,8 +279,8 @@ async def test_the_evidence_view_names_each_date_and_each_pay_source(api_client,
 
 
 async def test_an_unknown_opportunity_is_not_found_with_exit_five(api_client, workspace):
-    with pytest.raises(LookupError):
-        await server.get_opportunity(999_999)
+    # The dashboard's posting route agrees that there is no such posting.
+    assert (await api_client.get("/api/jobs/999999")).status_code == 404
     for path in ("/opportunities/999999", "/opportunities/999999/history"):
         response, body = await _get(api_client, path)
         _error(response, body, "not_found", 5)
@@ -260,8 +303,6 @@ async def test_a_posting_at_a_company_the_person_hid_is_not_returned_unless_they
     await workspace.execute(update(TrackedCompany).where(TrackedCompany.slug == company).values(visible=False))
     await workspace.commit()
 
-    # The tool answers it regardless: the deliberate difference.
-    assert (await server.get_opportunity(job_id))["id"] == job_id
     for path in (f"/opportunities/{job_id}", f"/opportunities/{job_id}/history"):
         response, body = await _get(api_client, path)
         _error(response, body, "not_found", 5)
@@ -328,7 +369,7 @@ async def test_a_detail_past_the_small_budget_is_a_typed_excerpt_never_cut_json(
     assert body["meta"]["truncated"] is True
     assert [w["code"] for w in body["warnings"]] == ["truncated"]
     # The rest of the posting is whole.
-    assert data["title"] == (await server.get_opportunity(job_id))["title"]
+    assert data["title"] == await workspace.scalar(select(Job.title).where(Job.id == job_id))
 
 
 async def test_notes_too_long_for_the_budget_are_cut_too_and_read_whole_elsewhere(api_client, workspace):
@@ -517,58 +558,64 @@ async def test_a_detail_within_budget_is_whole_and_unmarked(api_client, workspac
 
     data = _data(body)
     assert data["excerpt"] is None
-    assert data["description"] == (await server.get_opportunity(job_id))["description"]
+    assert data["description"] == await workspace.scalar(select(Job.description_text).where(Job.id == job_id))
 
 
 # --------------------------------------------------------------------------- #
-# opportunities.history  <-  listing_history
+# opportunities.history
 # --------------------------------------------------------------------------- #
 
 
-async def test_history_answers_the_tools_history_for_every_seeded_role(api_client, workspace):
+async def test_history_is_the_dashboards_history_for_every_seeded_role(api_client, workspace):
     for job_id in await _visible_ids(workspace):
-        expected = ListingHistory.model_validate(await server.listing_history(job_id)).model_dump(mode="json")
+        route = await api_client.get(f"/api/jobs/{job_id}/history")
+        assert route.status_code == 200, route.text
+        expected = ListingHistory.model_validate(route.json()).model_dump(mode="json")
         _, body = await _get(api_client, f"/opportunities/{job_id}/history")
         assert _data(body) == expected, job_id
         assert expected["events"], "a posting has at least its first sighting"
 
 
 # --------------------------------------------------------------------------- #
-# pursuits.list and pursuits.get  <-  get_pursuits
+# pursuits.list and pursuits.get
 # --------------------------------------------------------------------------- #
 
+#: The fields of a pursuit the rows state, as an operation answers them.
+_PURSUIT_FIELDS = ("stage", "priority", "notes", "next_action", "revision")
 
-async def _revisions(session) -> dict[int, int]:
-    """Each pursuit's revision by its opportunity, which no MCP answer carries."""
+
+async def _stored_pursuits(session, stage: str | None = None) -> list[dict]:
+    """The pursuits as the rows hold them, in the order the list promises:
+    by priority, the latest change first within one, then by row."""
     session.expire_all()
-    return dict((await session.execute(select(Pursuit.job_id, Pursuit.revision))).all())
-
-
-def _with_revision(pursuit: dict | None, revisions: dict[int, int]) -> dict | None:
-    """The tool's pursuit as the operation answers it: its opportunity's id as
-    `opportunity_id`, no row id, and the revision."""
-    if pursuit is None:
-        return None
-    fields = {key: value for key, value in pursuit.items() if key not in ("id", "job_id")}
-    return {"opportunity_id": pursuit["job_id"], **fields, "revision": revisions[pursuit["job_id"]]}
-
-
-def _items(tool: dict, revisions: dict[int, int]) -> list[dict]:
+    stmt = select(Pursuit).order_by(Pursuit.priority.asc(), Pursuit.updated_at.desc(), Pursuit.id.asc())
+    if stage:
+        stmt = stmt.where(Pursuit.stage == stage)
     return [
-        PursuitItem.model_validate(_with_revision(item, revisions)).model_dump(mode="json")
-        for item in tool["items"]
+        {"opportunity_id": row.job_id, **{field: getattr(row, field) for field in _PURSUIT_FIELDS}}
+        for row in (await session.scalars(stmt)).all()
     ]
 
 
-async def test_pursuits_list_answers_the_tools_pursuits_for_each_stage(api_client, workspace):
+def _stated(item: dict) -> dict:
+    return {key: item[key] for key in ("opportunity_id", *_PURSUIT_FIELDS)}
+
+
+async def test_pursuits_list_answers_the_stored_pursuits_for_each_stage(api_client, workspace):
+    everything = await _stored_pursuits(workspace)
+    assert len(everything) == 4
     for stage in (None, "applied", "saved", "researching", "interviewing", "offer"):
         params = {"stage": stage} if stage else {}
-        tool = await server.get_pursuits(**params)
+        expected = await _stored_pursuits(workspace, stage)
         _, body = await _get(api_client, "/pursuits", **params)
         data = _data(body)
-        assert data == {"count": tool["count"], "items": _items(tool, await _revisions(workspace))}, stage
+        assert data["count"] == len(expected), stage
+        assert [_stated(item) for item in data["items"]] == expected, stage
         assert body["meta"]["next_cursor"] is None
-    assert (await server.get_pursuits())["count"] == 4
+        assert all(item["stage"] == stage for item in data["items"] if stage)
+    # A stage filter narrows: some stage holds fewer than all of them.
+    narrowed = [len(await _stored_pursuits(workspace, st)) for st in ("applied", "saved")]
+    assert min(narrowed) < len(everything)
 
 
 async def test_pursuit_notes_are_read_back(api_client, workspace):
@@ -583,10 +630,10 @@ async def _many_pursuits(session) -> None:
     await session.commit()
 
 
-async def test_cursor_pages_read_every_pursuit_once_in_the_tools_order(api_client, workspace):
+async def test_cursor_pages_read_every_pursuit_once_in_the_stored_order(api_client, workspace):
     await _many_pursuits(workspace)
-    tool = await server.get_pursuits(limit=100)
-    assert tool["count"] > 8
+    expected = await _stored_pursuits(workspace)
+    assert len(expected) > 8
 
     seen: list[dict] = []
     cursor = None
@@ -602,8 +649,8 @@ async def test_cursor_pages_read_every_pursuit_once_in_the_tools_order(api_clien
             break
         assert data["count"] == 3
 
-    assert seen == _items(tool, await _revisions(workspace))
-    assert pages == -(-tool["count"] // 3)
+    assert [_stated(item) for item in seen] == expected
+    assert pages == -(-len(expected) // 3)
 
 
 async def test_a_cursor_reads_the_list_as_it_stands_and_the_first_page_reads_it_whole(api_client, workspace):
@@ -655,25 +702,23 @@ async def test_a_cursor_is_refused_with_other_filters_another_workspace_or_garbl
 
 
 async def test_a_limit_outside_the_declared_range_is_an_input_error(api_client, workspace):
-    # The tool clamps it; the operation names the range instead.
-    assert (await server.get_pursuits(limit=500))["count"] == 4
-    for limit in (0, 101):
+    assert _data((await _get(api_client, "/pursuits", limit=100))[1])["count"] == 4
+    for limit in (0, 101, 500):
         response, body = await _get(api_client, "/pursuits", limit=limit)
         _error(response, body, "invalid_input", 2)
 
 
 async def test_pursuits_get_reads_one_pursuit_by_its_opportunity(api_client, workspace):
-    listed = _items(await server.get_pursuits(), await _revisions(workspace))
-    for item in listed:
-        _, body = await _get(api_client, f"/pursuits/{item['opportunity_id']}")
-        assert _data(body) == item
+    for stored in await _stored_pursuits(workspace):
+        _, body = await _get(api_client, f"/pursuits/{stored['opportunity_id']}")
+        assert _stated(_data(body)) == stored
         assert body["meta"]["data_classes"] == ["private_pursuit", "public_posting"]
 
 
 async def test_each_pursuit_carries_the_revision_a_dashboard_write_advances(api_client, workspace):
     job_id = await _job_id(workspace, "SAVED")
     before = _data((await _get(api_client, f"/pursuits/{job_id}"))[1])
-    assert all("revision" not in item for item in (await server.get_pursuits())["items"])
+    assert before["revision"] == await workspace.scalar(select(Pursuit.revision).where(Pursuit.job_id == job_id))
     assert before["revision"] >= 1
 
     await upsert_pursuit(workspace, job_id, PursuitUpdate(notes="Spoke to Sam."), actor="user")
@@ -707,18 +752,20 @@ async def test_a_pursuit_at_a_hidden_company_is_still_the_persons(api_client, wo
 
 
 # --------------------------------------------------------------------------- #
-# The recipe reads  <-  get_recipe_contract, inspect_source, validate_recipe
+# The recipe reads
 # --------------------------------------------------------------------------- #
 
 
-async def test_the_recipe_contract_is_the_tools(api_client, workspace):
-    expected = RecipeContract.model_validate(await server.get_recipe_contract()).model_dump(mode="json", by_alias=True)
-
+async def test_the_recipe_contract_is_the_recipe_modules_own(api_client, workspace):
     _, body = await _get(api_client, "/recipes/contract")
 
-    assert _data(body) == expected
-    assert set(_data(body)) == {"schema", "transports", "transforms", "rules"}
-    assert _data(body)["schema"]["type"] == "object"
+    data = _data(body)
+    assert set(data) == {"schema", "transports", "transforms", "rules"}
+    assert data["schema"] == json.loads(json.dumps(RECIPE_V1_SCHEMA))
+    assert data["transports"] == list(TRANSPORT_MODES) and data["transports"]
+    assert data["transforms"] == list(TRANSFORM_NAMES) and data["transforms"]
+    assert data["schema"]["type"] == "object"
+    assert any("CSS selectors only" in rule for rule in data["rules"])
 
 
 class _Page:
@@ -742,47 +789,63 @@ class _Client:
 
 @pytest.fixture
 def fake_page(monkeypatch):
-    """One public page in place of the network, for the tool and the operation alike."""
+    """One public page in place of the network."""
     fetched: list[str] = []
 
     async def fetch(_client, url, *, max_bytes):
         fetched.append(url)
         if "169.254" in url:
             raise BlockedDestination("non-public address")
+        if "slow" in url:
+            raise httpx.ReadTimeout("no answer")
         return _Page()
 
-    for module in (server, recipe_ops):
-        monkeypatch.setattr(module, "fetch_public", fetch)
-        monkeypatch.setattr(module, "public_client", lambda **_: _Client())
+    monkeypatch.setattr(recipe_ops, "fetch_public", fetch)
+    monkeypatch.setattr(recipe_ops, "public_client", lambda **_: _Client())
     return fetched
 
 
-@pytest.mark.parametrize("selector", [None, "a.job", "h1"])
-async def test_source_inspection_answers_the_tools_inspection(api_client, workspace, fake_page, selector):
+@pytest.mark.parametrize(("selector", "matches"), [(None, None), ("a.job", 20), ("h1", 1), ("table", 0)])
+async def test_source_inspection_reads_the_page_as_the_selector_asks(
+    api_client, workspace, fake_page, selector, matches
+):
     url = "https://jobs.example.com/careers"
     params = {"url": url, **({"selector": selector} if selector else {})}
-    expected = SourceInspection.model_validate(await server.inspect_source(url, selector)).model_dump(mode="json")
 
     _, body = await _get(api_client, "/sources/inspect", **params)
 
     data = _data(body)
-    assert data == expected
+    assert (data["url"], data["status"], data["truncated"]) == (url, 200, False)
+    assert data["matches"] == matches
     assert "alert(1)" not in data["content"]
-    if selector == "a.job":
-        assert data["matches"] == 20
     if selector is None:
+        # The page's text, cut at 12,000 characters and marked.
+        assert data["content"].startswith("Careers") and "<a" not in data["content"]
         assert data["content_truncated"] is True and len(data["content"]) == 12_000
-    assert fake_page == [url, url]
+    elif selector == "a.job":
+        # The first twenty of thirty elements, as sanitized HTML.
+        assert 'href="/j/19"' in data["content"] and 'href="/j/20"' not in data["content"]
+    elif selector == "h1":
+        assert "Careers" in data["content"] and "Role" not in data["content"]
+    else:
+        assert data["content"] == ""
+    assert fake_page == [url]
 
 
 async def test_a_blocked_address_is_an_input_error_not_a_crash(api_client, workspace, fake_page):
-    with pytest.raises(BlockedDestination):
-        await server.inspect_source("http://169.254.169.254/")
-
     response, body = await _get(api_client, "/sources/inspect", url="http://169.254.169.254/")
 
     _error(response, body, "invalid_input", 2)
     assert body["error"]["details"] == {"field": "url", "reason": "blocked_destination"}
+
+
+async def test_a_page_that_does_not_answer_is_a_deadline_not_a_crash(api_client, workspace, fake_page):
+    response, body = await _get(api_client, "/sources/inspect", url="https://slow.example.com/careers")
+
+    _error(response, body, "deadline_exceeded", 8)
+    assert body["error"]["retryable"] is True
+    # A page that answers on the same route is not mistaken for one that did not.
+    assert _data((await _get(api_client, "/sources/inspect", url="https://jobs.example.com/careers"))[1])
 
 
 @pytest.fixture
@@ -798,23 +861,28 @@ def fake_preview(monkeypatch):
             robots={"allowed": True, "url": "https://jobs.example.com/robots.txt"},
         )
 
-    for module in (server, recipe_ops):
-        monkeypatch.setattr(module, "preview_document", preview)
+    monkeypatch.setattr(recipe_ops, "preview_document", preview)
     return seen
 
 
 @pytest.mark.parametrize("recipe_id", ["acme", "broken"])
-async def test_recipe_validation_answers_the_tools_validation(api_client, workspace, fake_preview, recipe_id):
+async def test_recipe_validation_reports_what_the_preview_found(api_client, workspace, fake_preview, recipe_id):
     document = {"id": recipe_id, "version": 1, "nested": {"list": [1, "two", None]}}
-    expected = RecipeValidation.model_validate(await server.validate_recipe(document)).model_dump(mode="json")
 
     response = await api_client.post(f"{PREFIX}/recipes/validate", json={"document": document})
 
     assert response.status_code == 200
-    assert _data(response.json()) == expected
-    assert expected["compiles"] is (recipe_id == "acme")
+    data = _data(response.json())
+    if recipe_id == "acme":
+        assert data["compiles"] is True and data["problems"] == []
+        assert (data["found"], data["pages"]) == (1, 1)
+        assert data["jobs"] == [{"title": "Role 1", "url": "https://jobs.example.com/j/1"}]
+        assert data["robots"]["allowed"] is True
+    else:
+        assert data["compiles"] is False and data["problems"] == ["match.domains is required"]
+        assert (data["found"], data["jobs"]) == (0, [])
     # The document arrived whole.
-    assert fake_preview == [document, document]
+    assert fake_preview == [document]
 
 
 @pytest.mark.parametrize(
@@ -855,10 +923,6 @@ async def test_opt_out_refuses_every_read_and_names_no_workspace(api_client, wor
         assert body["operation"] == operation and body["workspace_id"] is None
     # Refused before anything was fetched or previewed.
     assert fake_page == [] and fake_preview == []
-
-    # The tools refuse too, under the same switch.
-    with pytest.raises(PermissionError):
-        await server.get_pursuits()
 
 
 async def test_every_read_answers_when_on_and_refuses_an_unknown_key(api_client, workspace, fake_page, fake_preview):

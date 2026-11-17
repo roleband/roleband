@@ -170,6 +170,7 @@ RECIPES_DRAFT_SAVE = OperationDescriptor(
     input=RecipeDraftSaveInput,
     result=SavedDraft,
     access="write",
+    action_group="controlling_collection",
     idempotency="required_key",
     engine_effects=EngineEffects(state_write=True),
     tool_tiers=_AUTHORING_TIERS,
@@ -247,7 +248,7 @@ async def validate_recipe(params: RecipeValidateInput) -> RecipeValidation:
 
 
 async def save_draft(session: AsyncSession, params: RecipeDraftSaveInput) -> SavedDraft:
-    """Append a draft revision, as the MCP tool and the Settings screen do. A
+    """Append a draft revision, as the Settings screen does. A
     document that does not compile is an input error and stores nothing."""
     slug = params.document.get("id")
     if not isinstance(slug, str) or not slug:

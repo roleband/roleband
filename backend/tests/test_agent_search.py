@@ -35,6 +35,8 @@ from tracker.agents.operations.workspace import ensure_workspace_id
 from tracker.agents.pursuits import PursuitUpdate, ensure_favorite, upsert_pursuit
 from tracker.api.agent_operations import PREFIX
 from tracker.db.models import Job, TrackedCompany
+from tracker.enrich.classify import location_slugs_for
+from tracker.taxonomy.locations import location_names
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("no_escape")]
 
@@ -620,3 +622,71 @@ async def test_a_shared_company_name_is_refused_and_its_slugs_still_search(api_c
     assert _page(both)["filters"]["company"] == [first.slug, second.slug]
     _, listed = await _vocabulary(api_client, kind="company", contains="twin labs", limit=500)
     assert {entry["value"] for entry in listed["data"]["items"]} == {first.slug, second.slug}
+
+
+# --------------------------------------------------------------------------- #
+# Spelling and places
+# --------------------------------------------------------------------------- #
+
+
+def test_spelling_is_normalised_and_nothing_fuzzier():
+    assert vocabulary.normalize("  Product-Management ") == vocabulary.normalize("product management")
+    assert vocabulary.normalize("product management") == "product_management"
+    assert vocabulary.normalize("AI / ML") == "ai_ml"
+    # A plural or an abbreviation is a different value.
+    assert vocabulary.normalize("Product Managers") != vocabulary.normalize("Product Management")
+
+
+def test_a_value_is_read_once_however_often_and_however_spelled_it_is_given():
+    known = vocabulary.Vocabulary.of("company", [("openai", "OpenAI")])
+    unknown: list[vocabulary.Unknown] = []
+
+    kept = vocabulary.resolve(known, ["OpenAI", "openai", "Initech"], unknown)
+
+    assert kept == ["openai"]
+    assert [(entry.kind, entry.value) for entry in unknown] == [("company", "Initech")]
+    assert vocabulary.resolve(known, [], []) == []
+
+
+def test_a_display_name_never_shadows_another_values_slug():
+    known = vocabulary.Vocabulary.of("location", [("new_york", "New York"), ("york", "New York")])
+
+    assert known.value_of("york") == "york"
+    assert known.value_of("new_york") == "new_york"
+    assert known.value_of("New York") == "new_york", "the name is the slug's own spelling, so the slug keeps it"
+
+
+@pytest.mark.parametrize(
+    ("spelling", "value"),
+    [
+        ("London", "london"),
+        ("USA", "united_states"),
+        ("Bay Area", "silicon_valley"),
+        ("Seattle", "pacific_northwest"),
+    ],
+)
+def test_a_place_name_resolves_to_the_most_exact_thing_it_names(spelling, value):
+    """Group display names first, then what people type for a country, then
+    the places a group is made of."""
+    known = vocabulary.Vocabulary.of("location", location_names())
+
+    assert known.value_of(spelling) == value
+
+
+def test_a_place_name_that_is_not_a_known_alias_resolves_to_nothing():
+    """No alpha-2 code: "CA" is Canada to the country table and California to
+    a person, so it is not guessed."""
+    known = vocabulary.Vocabulary.of("location", location_names())
+
+    assert known.value_of("CA") is None
+    assert known.value_of("Gondor") is None
+
+
+@pytest.mark.xfail(
+    strict=True, reason="a tracked city and the metro holding it share the name, so the lookup refuses both"
+)
+def test_a_tracked_city_outranks_the_metro_that_holds_it():
+    seattle = next(s for s in location_slugs_for(["Seattle, WA, USA"]) if s.startswith("city_"))
+    known = vocabulary.Vocabulary.of("location", location_names([seattle]))
+
+    assert known.value_of("Seattle") == seattle

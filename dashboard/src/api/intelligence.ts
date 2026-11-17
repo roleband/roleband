@@ -94,10 +94,15 @@ export type LocalLLMMetrics = Schemas["LocalModelMetrics"];
 /** A connection test the model answered; a reply cut off at max_tokens is not `ok`. */
 export type LocalLLMTestResult = Schemas["LocalModelTestResult"];
 
-// --- External agents / MCP -------------------------------------------------
+// --- External agents -------------------------------------------------------
 
-/** Both gates as saved, and what an MCP client needs to connect over STDIO. */
+/** Both gates as saved, and the command that connects each agent host. */
 export type AgentAccessState = Schemas["AgentAccessResponse"];
+
+/** What Settings saves: both switches, and the choices when they change. A
+ *  save that leaves `categories` or `groups` out keeps the stored ones. */
+export type AgentAccessInput = Pick<Schemas["AgentAccessConfig"], "enabled" | "allow_writes"> &
+  Partial<Pick<Schemas["AgentAccessConfig"], "categories" | "groups">>;
 
 /** A saved BYOK connection; the key is write-only. */
 export type CloudLLMProfile = Schemas["CloudModelProfile"];
@@ -157,8 +162,8 @@ export const intelligenceApi = {
       { prompt: prompt ?? null, profile },
     ),
   agentAccess: () => getJSON<AgentAccessState>("/api/intelligence/agents"),
-  setAgentAccess: (enabled: boolean, allow_writes: boolean) =>
-    putJSON<AgentAccessState>("/api/intelligence/agents", { enabled, allow_writes }),
+  setAgentAccess: (access: AgentAccessInput) =>
+    putJSON<AgentAccessState>("/api/intelligence/agents", access),
   cloudLLMProfiles: () => getJSON<CloudLLMState>("/api/intelligence/cloud-models"),
   addCloudLLMProfile: (profile: CloudLLMProfileInput) =>
     postJSON<CloudLLMProfile>("/api/intelligence/cloud-models", profile),

@@ -2110,8 +2110,8 @@ export interface paths {
         get?: never;
         /**
          * Set Pursuit Ep
-         * @description Create/update the pursuit for one opportunity. Same helper the MCP
-         *     write tool uses (one transaction: current row + append-only event), actor
+         * @description Create/update the pursuit for one opportunity. Same helper the agent
+         *     pursuit writes use (one transaction: current row + append-only event), actor
          *     recorded as `user`. There is deliberately no DELETE: `withdrawn` is a
          *     stage, and history is the point.
          */
@@ -4072,32 +4072,51 @@ export interface components {
              * @default false
              */
             enabled: boolean;
+            /**
+             * Groups
+             * @default {}
+             */
+            groups: {
+                [key: string]: "on" | "off";
+            };
         };
         /**
          * AgentAccessResponse
-         * @description Both gates as saved, and what a client needs to connect over STDIO.
+         * @description Both gates as saved, the choice for every data category and action
+         *     group, and the command that connects each agent host.
+         *
+         *     `categories` and `groups` name every category and group, a missing choice
+         *     filled in as open. A group reads as off while the connection is on and
+         *     `allow_writes` is off, since no change is allowed then whatever it says.
          */
         AgentAccessResponse: {
             /** Allow Writes */
             allow_writes: boolean;
-            /** Args */
-            args: string[];
-            claude_json: components["schemas"]["ClaudeDesktopConfig"];
-            /** Codex Command */
-            codex_command: string;
-            /** Command */
-            command: string;
-            /** Cwd */
-            cwd: string;
+            /** Categories */
+            categories: {
+                [key: string]: "any_model" | "local_only" | "not_shared";
+            };
+            /** Connect */
+            connect: components["schemas"]["AgentConnectCommand"][];
             /** Enabled */
             enabled: boolean;
-            /** Tools */
-            tools: components["schemas"]["AgentTool"][];
+            /** Groups */
+            groups: {
+                [key: string]: "on" | "off";
+            };
+        };
+        /**
+         * AgentConnectCommand
+         * @description The command that sets up one agent host to run `roleband`.
+         */
+        AgentConnectCommand: {
+            /** Command */
+            command: string;
             /**
-             * Transport
-             * @constant
+             * Host
+             * @enum {string}
              */
-            transport: "stdio";
+            host: "claude-code" | "codex";
         };
         /** AgentSwitchState */
         AgentSwitchState: {
@@ -4105,16 +4124,6 @@ export interface components {
             allow_writes: boolean;
             /** Enabled */
             enabled: boolean;
-        };
-        /** AgentTool */
-        AgentTool: {
-            /**
-             * Access
-             * @enum {string}
-             */
-            access: "status" | "read" | "write";
-            /** Name */
-            name: string;
         };
         /**
          * AgreementPayload
@@ -4803,17 +4812,6 @@ export interface components {
             next_since: string;
             /** Unavailable */
             unavailable: components["schemas"]["UnavailableKind"][];
-        };
-        /**
-         * ClaudeDesktopConfig
-         * @description The `claude_desktop_config.json` fragment, served under its own key names.
-         */
-        ClaudeDesktopConfig: {
-            mcpServers: components["schemas"]["ClaudeMcpServers"];
-        };
-        /** ClaudeMcpServers */
-        ClaudeMcpServers: {
-            roleband: components["schemas"]["McpServerCommand"];
         };
         /** CloudLLMProfileInput */
         CloudLLMProfileInput: {
@@ -10735,15 +10733,6 @@ export interface components {
             tiers: components["schemas"]["MatchingTierOption"][];
             /** Total Bytes */
             total_bytes: number;
-        };
-        /** McpServerCommand */
-        McpServerCommand: {
-            /** Args */
-            args: string[];
-            /** Command */
-            command: string;
-            /** Cwd */
-            cwd: string;
         };
         /**
          * MoveBoardPayload

@@ -333,6 +333,26 @@
       "default": false,
       "title": "Enabled",
       "type": "boolean"
+     },
+     "groups": {
+      "additionalProperties": {
+       "enum": [
+        "on",
+        "off"
+       ],
+       "type": "string"
+      },
+      "default": {},
+      "propertyNames": {
+       "enum": [
+        "tracking_progress",
+        "keeping_findings",
+        "tuning_radar",
+        "controlling_collection"
+       ]
+      },
+      "title": "Groups",
+      "type": "object"
      }
     },
     "title": "AgentAccessConfig",
@@ -340,63 +360,97 @@
    },
    "AgentAccessResponse": {
     "additionalProperties": false,
-    "description": "Both gates as saved, and what a client needs to connect over STDIO.",
+    "description": "Both gates as saved, the choice for every data category and action\ngroup, and the command that connects each agent host.\n\n`categories` and `groups` name every category and group, a missing choice\nfilled in as open. A group reads as off while the connection is on and\n`allow_writes` is off, since no change is allowed then whatever it says.",
     "properties": {
      "allow_writes": {
       "title": "Allow Writes",
       "type": "boolean"
      },
-     "args": {
-      "items": {
+     "categories": {
+      "additionalProperties": {
+       "enum": [
+        "any_model",
+        "local_only",
+        "not_shared"
+       ],
        "type": "string"
       },
-      "title": "Args",
+      "propertyNames": {
+       "enum": [
+        "public_posting",
+        "market_statistic",
+        "private_pursuit",
+        "offer",
+        "candidate"
+       ]
+      },
+      "title": "Categories",
+      "type": "object"
+     },
+     "connect": {
+      "items": {
+       "$ref": "#/components/schemas/AgentConnectCommand"
+      },
+      "title": "Connect",
       "type": "array"
-     },
-     "claude_json": {
-      "$ref": "#/components/schemas/ClaudeDesktopConfig"
-     },
-     "codex_command": {
-      "title": "Codex Command",
-      "type": "string"
-     },
-     "command": {
-      "title": "Command",
-      "type": "string"
-     },
-     "cwd": {
-      "title": "Cwd",
-      "type": "string"
      },
      "enabled": {
       "title": "Enabled",
       "type": "boolean"
      },
-     "tools": {
-      "items": {
-       "$ref": "#/components/schemas/AgentTool"
+     "groups": {
+      "additionalProperties": {
+       "enum": [
+        "on",
+        "off"
+       ],
+       "type": "string"
       },
-      "title": "Tools",
-      "type": "array"
-     },
-     "transport": {
-      "const": "stdio",
-      "title": "Transport",
-      "type": "string"
+      "propertyNames": {
+       "enum": [
+        "tracking_progress",
+        "keeping_findings",
+        "tuning_radar",
+        "controlling_collection"
+       ]
+      },
+      "title": "Groups",
+      "type": "object"
      }
     },
     "required": [
      "enabled",
      "allow_writes",
-     "transport",
-     "command",
-     "args",
-     "cwd",
-     "tools",
-     "codex_command",
-     "claude_json"
+     "categories",
+     "groups",
+     "connect"
     ],
     "title": "AgentAccessResponse",
+    "type": "object"
+   },
+   "AgentConnectCommand": {
+    "additionalProperties": false,
+    "description": "The command that sets up one agent host to run `roleband`.",
+    "properties": {
+     "command": {
+      "title": "Command",
+      "type": "string",
+      "x-text": "code"
+     },
+     "host": {
+      "enum": [
+       "claude-code",
+       "codex"
+      ],
+      "title": "Host",
+      "type": "string"
+     }
+    },
+    "required": [
+     "host",
+     "command"
+    ],
+    "title": "AgentConnectCommand",
     "type": "object"
    },
    "AgentSwitchState": {
@@ -416,31 +470,6 @@
      "allow_writes"
     ],
     "title": "AgentSwitchState",
-    "type": "object"
-   },
-   "AgentTool": {
-    "additionalProperties": false,
-    "properties": {
-     "access": {
-      "enum": [
-       "status",
-       "read",
-       "write"
-      ],
-      "title": "Access",
-      "type": "string"
-     },
-     "name": {
-      "title": "Name",
-      "type": "string",
-      "x-text": "code"
-     }
-    },
-    "required": [
-     "name",
-     "access"
-    ],
-    "title": "AgentTool",
     "type": "object"
    },
    "AgreementPayload": {
@@ -2562,33 +2591,6 @@
      "unavailable"
     ],
     "title": "ChangesPage",
-    "type": "object"
-   },
-   "ClaudeDesktopConfig": {
-    "additionalProperties": false,
-    "description": "The `claude_desktop_config.json` fragment, served under its own key names.",
-    "properties": {
-     "mcpServers": {
-      "$ref": "#/components/schemas/ClaudeMcpServers"
-     }
-    },
-    "required": [
-     "mcpServers"
-    ],
-    "title": "ClaudeDesktopConfig",
-    "type": "object"
-   },
-   "ClaudeMcpServers": {
-    "additionalProperties": false,
-    "properties": {
-     "roleband": {
-      "$ref": "#/components/schemas/McpServerCommand"
-     }
-    },
-    "required": [
-     "roleband"
-    ],
-    "title": "ClaudeMcpServers",
     "type": "object"
    },
    "CloudLLMProfileInput": {
@@ -21799,33 +21801,6 @@
      "corpus_total"
     ],
     "title": "MatchingUnpinned",
-    "type": "object"
-   },
-   "McpServerCommand": {
-    "additionalProperties": false,
-    "properties": {
-     "args": {
-      "items": {
-       "type": "string"
-      },
-      "title": "Args",
-      "type": "array"
-     },
-     "command": {
-      "title": "Command",
-      "type": "string"
-     },
-     "cwd": {
-      "title": "Cwd",
-      "type": "string"
-     }
-    },
-    "required": [
-     "command",
-     "args",
-     "cwd"
-    ],
-    "title": "McpServerCommand",
     "type": "object"
    },
    "MoveBoardPayload": {
@@ -45089,7 +45064,7 @@
   },
   "/api/jobs/{job_id}/pursuit": {
    "put": {
-    "description": "Create/update the pursuit for one opportunity. Same helper the MCP\nwrite tool uses (one transaction: current row + append-only event), actor\nrecorded as `user`. There is deliberately no DELETE: `withdrawn` is a\nstage, and history is the point.",
+    "description": "Create/update the pursuit for one opportunity. Same helper the agent\npursuit writes use (one transaction: current row + append-only event), actor\nrecorded as `user`. There is deliberately no DELETE: `withdrawn` is a\nstage, and history is the point.",
     "operationId": "set_pursuit_ep_api_jobs__job_id__pursuit_put",
     "parameters": [
      {

@@ -1,6 +1,6 @@
 import samples from "../../src/api/notification-samples.json" with { type: "json" };
 import {
-  jobListFixture, notificationsFixture, pluginAdoptingFixture, pluginDetailFixture, pluginFixture, pluginLapsedFixture,
+  agentAccessFixture, jobListFixture, notificationsFixture, pluginAdoptingFixture, pluginDetailFixture, pluginFixture, pluginLapsedFixture,
   pluginRunContinuingFixture, pluginRunErroredFixture, pluginRunStoppedFixture, pluginsFixture, statusFixture, usageStateFixture,
 } from "../../src/test/fixtures";
 import { expect, mockGet, test, type Page } from "./fixtures";
@@ -113,6 +113,31 @@ test("a running scan, a guessed length and a scan's inspector say only the catal
   await expect(inspector).toBeVisible();
   await expect(inspector.getByText(/⟦/).first()).toBeVisible();
   expect(await unbracketed(page, "[role='dialog']"), "a full scan's inspector").toEqual([]);
+});
+
+// Settings > AI with choices held back: the card's last line names each kind,
+// and Customize lays every category and kind of change out as a grid.
+test("assistant apps with choices held back, and Customize, say only the catalog's words", async ({ page }) => {
+  await bootPseudo(page);
+  await installSettingsRoutes(page);
+  await mockGet(page, "/api/intelligence/agents", (route) => route.fulfill({ json: {
+    ...agentAccessFixture,
+    enabled: true,
+    allow_writes: true,
+    categories: { ...agentAccessFixture.categories, offer: "not_shared", candidate: "local_only" },
+    groups: { ...agentAccessFixture.groups, tuning_radar: "off" },
+  } }));
+  await page.goto("/settings/intelligence");
+  await expect(page.locator("h1").first()).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  const held = page.locator(".intel-access-held");
+  await expect(held.getByText(/⟦/)).toHaveCount(3);
+  expect(await unbracketed(page, "main"), "/settings/intelligence with choices held back").toEqual([]);
+
+  await page.locator(".intel-access-foot button").click();
+  const customize = page.getByRole("dialog");
+  await expect(customize.getByRole("radio")).toHaveCount(23);
+  expect(await unbracketed(page, "[role='dialog']"), "Customize").toEqual([]);
 });
 
 /* The states a populated fixture never shows: nothing to list, a surface laid

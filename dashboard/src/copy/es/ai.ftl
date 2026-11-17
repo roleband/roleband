@@ -34,34 +34,19 @@ ai-aim-line-add-your-aim = { $choice ->
 }
 
 ## features/intelligence/AssistantsCard.tsx
-ai-assistants-card-mcp-server = Apps de asistente (MCP)
-ai-assistants-card-allowed-read-only = { $choice ->
-    [yes] Permitido · lectura y cambios
-   *[no] Permitido · solo lectura
-}
-ai-assistants-card-not-allowed-nothing-is-shared = No permitido · nada se comparte
-ai-assistants-card-what-will-be-shared = Qué se compartirá
-ai-assistants-card-what-will-not-be-shared = Qué no se compartirá
+ai-assistants-card-assistant-apps = Apps de asistente
 ai-assistants-card-set-up = Configurar
 ai-assistants-card-allow-assistant-apps-to-connect = Permitir conectar apps de asistente
-ai-assistants-card-allow-assistant-apps-to-update = Permitir que apps de asistente actualicen tu progreso
-ai-assistants-card-stage-notes-next-action-audited = etapa · notas · siguiente paso · borradores de recetas · con registro
-ai-assistants-card-it-can-then-read-what = Así podrá leer lo que indica esta tarjeta, nada más.
 ai-assistants-card-run-this-once-in-a = Ejecuta esto una vez en una terminal y luego reinicia la app.
-ai-assistants-card-most-apps-that-speak-mcp = La mayoría de las apps MCP lo aceptan. Añádelo a sus ajustes de MCP y luego reinicia la app.
-ai-assistants-card-add-this-to-the-app = Añade esto a los ajustes de la app y luego reinicia la app.
+ai-assistants-card-let-the-app-run-commands = Permite que la app ejecute comandos y luego pídele que ejecute esto.
 ai-assistants-card-done = Listo
 ai-assistants-card-anthropic = Anthropic
-ai-assistants-card-set-up-the-claude-app = Configurar la app de Claude
+ai-assistants-card-set-up-claude-code = Configurar Claude Code
 ai-assistants-card-openai = OpenAI
 ai-assistants-card-set-up-the-codex-app = Configurar la app de Codex
-ai-assistants-card-any-client-that-speaks-mcp = Cualquier app compatible con MCP
-ai-assistants-card-set-up-another-mcp-app = Configurar otra app MCP
-ai-assistants-card-mcp-server-2 = Apps de asistente
-ai-assistants-card-not-allowed-to-connect = { $choice ->
-    [yes] · listo para configurar
-   *[no] · sin permiso para conectarse
-}
+ai-assistants-card-any-app-that-can-run-commands = Cualquier app que pueda ejecutar comandos
+ai-assistants-card-set-up-another-app = Configurar otra app
+ai-assistants-card-assistant-apps-2 = Apps de asistente
 ai-assistants-card-allow-assistant-apps-to-connect-2 = Primero permite conectar apps de asistente
 ai-assistants-card-off-nothing-leaves-this-computer = { $choice ->
     [yes] activado · solo se comparte con las apps que conectes
@@ -339,17 +324,38 @@ ai-origin-badge-cloud-connected = { $choice ->
 }
 
 ## features/intelligence/AssistantsCard.tsx (a mano)
-ai-assistants-card-shares-role-titles-companies-locations-and-link = Títulos de { -role(num: "other") }, { -company(num: "other") }, ubicaciones y enlaces
-ai-assistants-card-shares-pay-level-and-how-long-the-role-has-been = Compensación, nivel y cuánto tiempo lleva abierto el { -role(num: "one") }
-ai-assistants-card-shares-the-full-posting-when-they-open-one = La { -posting(num: "one") } completa, al abrirla
-ai-assistants-card-shares-your-progress-on-roles-stage-priority-no = Tu progreso en los { -role(num: "other") }: etapa, prioridad, notas, siguiente paso
-ai-assistants-card-shares-public-pages-it-asks-roleband-to-open = Páginas web públicas que pide abrir desde este ordenador
-ai-assistants-card-never-your-profile-and-intent-statement = Tu perfil y tu objetivo
-ai-assistants-card-never-your-own-salary-or-contacts = Tu salario o tus contactos
-ai-assistants-card-never-anything-from-your-other-apps = Nada de tus otras apps
-ai-assistants-card-app-claude-app = App de Claude
+ai-assistants-card-app-claude-code = Claude Code
 ai-assistants-card-app-codex-app = App de Codex
 ai-assistants-card-app-other-app = Otra app
+ai-assistants-card-what-apps-do = Leen tus roles, compensación, notas, oferta y perfil, y mantienen tu progreso al día.
+ai-assistants-card-up-to-the-app = Lo que una app haga con lo que lee depende de esa app y del modelo que use.
+ai-assistants-card-everything-shared = Todo se comparte en cuanto esto se activa.
+ai-assistants-card-not-shared = No se comparte: { $list }.
+ai-assistants-card-local-only = Solo modelos de este ordenador: { $list }.
+ai-assistants-card-changes-off = Cambios desactivados: { $list }.
+ai-assistants-card-read-only = Las apps solo leen.
+ai-assistants-card-customize = Personalizar
+ai-access-dialog-title = Personaliza lo que reciben las apps
+ai-access-dialog-apply-at-once = Los cambios se aplican al momento.
+ai-access-dialog-data = Datos que leen las apps
+ai-access-dialog-changes = Qué cambian las apps
+ai-access-dialog-any-model = Cualquier modelo
+ai-access-dialog-local-only = Solo local
+ai-access-dialog-local-only-tip = Solo modelos de este ordenador. Una app conectada lo recibe como no compartido.
+ai-access-dialog-not-shared = No se comparte
+ai-access-dialog-on = Activado
+ai-access-dialog-off = Desactivado
+ai-access-dialog-postings = Anuncios
+ai-access-dialog-market-statistics = Estadísticas de mercado
+ai-access-dialog-progress-and-notes = Progreso y notas
+ai-access-dialog-offer = Oferta
+ai-access-dialog-profile = Perfil
+ai-access-dialog-tracking-progress = Seguimiento del progreso
+ai-access-dialog-keeping-findings = Guardar hallazgos
+ai-access-dialog-tuning-the-radar = Ajustar el radar
+ai-access-dialog-controlling-collection = Controlar la recopilación
+ai-access-dialog-cell = { $row }: { $column }
+ai-access-dialog-share-everything = Volver a compartir todo
 
 ## Nombres de conexión predeterminados (a mano)
 ai-local-model-dialog-default-name = Tu propio modelo
