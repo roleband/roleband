@@ -9,9 +9,8 @@ people who turn them on want the help, and many already give their CV to a
 cloud model. A few want to keep some of their data, or some kinds of action,
 away from an agent, or within models that run on their own computer.
 
-Only the two switches exist today. The categories and action groups below are
-built with the agent operations that read and write them, and
-`docs/architecture.md` describes them in that change.
+`docs/architecture.md` describes how the engine applies the categories and
+action groups below.
 
 ## Decision
 
@@ -24,7 +23,7 @@ open, and the person switches off what they do not want.
   **local models only**, or **not shared**.
 - **Action groups**, each on when `allow_writes` is on: tracking progress,
   keeping findings, tuning the radar, and controlling collection. Per group
-  the person chooses **on**, **ask first**, or **off**.
+  the person chooses **on** or **off**.
 - These choices are stored in the `agent_access` row beside the two switches,
   are changed only in the app, and need no per-client credential. A row that
   has no choice for a category or a group reads as open.
@@ -35,13 +34,14 @@ open, and the person switches off what they do not want.
   assistant outside RoleBand treats such a category as not shared, because
   RoleBand cannot see where that assistant sends what it reads.
 - A category switched off is absent from every view of every operation, not
-  masked. An action set to ask first is held until the person approves it in
-  the app. Every action an agent takes is listed in the app and can be undone.
+  masked.
 
 ## Consequences
 
-- The enablement screen lists every category and group, switched on; nothing
-  else asks the person again.
+- The enablement step is one switch. The first time, it turns everything on;
+  nothing else asks the person again. Every category and group is listed,
+  switched on, in Customize beside it, where the person holds any of them back.
+  Turning the switch off and on again keeps what they held back.
 - An operation declares the categories it reads and the action group it
   belongs to, so the engine can refuse it from the stored choices, and a test
   can fail when an operation declares neither.
@@ -58,8 +58,8 @@ open, and the person switches off what they do not want.
   few who want it at the cost of every person who turned the connection on to
   get help, and turns one consent into several.
 - **An approval prompt before every write.** Interrupts every ordinary action
-  and trains people to approve without reading; a listed, undoable entry gives
-  the same control after the fact, and ask first remains for those who want it.
+  and trains people to approve without reading; a group switched off keeps
+  agents from that kind of change altogether.
 - **Choices per assistant from the start.** Needs a credential per assistant
   that the macOS engine does not have yet; the per-category choices do not
   wait for it.

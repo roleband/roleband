@@ -124,14 +124,84 @@ async def test_a_choice_the_engine_cannot_read_turns_everything_off(api_client, 
 
 
 async def test_the_settings_switches_keep_the_stored_choices(api_client, workspace):
-    await _choose(workspace, private_pursuit="not_shared")
+    await set_agent_access(workspace, AgentAccessConfig(
+        enabled=True, allow_writes=True, categories={"private_pursuit": "not_shared"},
+        groups={"tuning_radar": "off"},
+    ))
+    await workspace.commit()
 
     response = await api_client.put("/api/intelligence/agents", json={"enabled": True, "allow_writes": False})
 
     assert response.status_code == 200
-    assert "categories" not in response.json()
     stored = await get_agent_access(workspace)
-    assert (stored.enabled, stored.allow_writes, stored.categories) == (True, False, {"private_pursuit": "not_shared"})
+    assert (stored.enabled, stored.allow_writes, stored.categories, stored.groups) == (
+        True, False, {"private_pursuit": "not_shared"}, {"tuning_radar": "off"},
+    )
+
+
+async def test_settings_reads_every_category_and_group_with_a_missing_choice_open(api_client, workspace):
+    await set_agent_access(workspace, AgentAccessConfig(
+        enabled=True, allow_writes=True, categories={"offer": "not_shared", "candidate": "local_only"},
+        groups={"controlling_collection": "off"},
+    ))
+    await workspace.commit()
+
+    body = (await api_client.get("/api/intelligence/agents")).json()
+
+    assert body["categories"] == {
+        "public_posting": "any_model", "market_statistic": "any_model", "private_pursuit": "any_model",
+        "offer": "not_shared", "candidate": "local_only",
+    }
+    assert body["groups"] == {
+        "tracking_progress": "on", "keeping_findings": "on", "tuning_radar": "on",
+        "controlling_collection": "off",
+    }
+
+
+async def test_settings_reads_every_group_off_while_connected_without_changes(api_client, workspace):
+    """A row from before the groups, connected for reads only: no change is
+    allowed, so no group may show as on."""
+    await set_agent_access(workspace, AgentAccessConfig(enabled=True, allow_writes=False))
+    await workspace.commit()
+
+    body = (await api_client.get("/api/intelligence/agents")).json()
+
+    assert set(body["groups"].values()) == {"off"}
+    # Switched off altogether, the stored choices show: turning the connection
+    # on is what turns them back on.
+    await set_agent_access(workspace, AgentAccessConfig(enabled=False, allow_writes=False))
+    await workspace.commit()
+    assert set((await api_client.get("/api/intelligence/agents")).json()["groups"].values()) == {"on"}
+
+
+async def test_settings_saves_groups_and_the_engine_refuses_a_write_of_a_group_switched_off(api_client, workspace):
+    response = await api_client.put("/api/intelligence/agents", json={
+        "enabled": True, "allow_writes": True, "groups": {"tracking_progress": "off"},
+    })
+    assert response.status_code == 200
+    assert response.json()["groups"]["tracking_progress"] == "off"
+    item = (await _get(api_client, "/pursuits"))[1]["data"]["items"][0]
+
+    response = await api_client.patch(
+        f"{PREFIX}/pursuits/{item['opportunity_id']}",
+        json={"if_revision": item["revision"], "stage": "applied"},
+        headers={IDEMPOTENCY_KEY_HEADER: KEY},
+    )
+
+    body = response.json()
+    assert response.status_code == 403
+    assert body["error"]["code"] == "writes_disabled"
+    assert body["error"]["details"]["setting"] == "agent_access.groups.tracking_progress"
+    # The control: with the group on, the same write lands.
+    await api_client.put("/api/intelligence/agents", json={
+        "enabled": True, "allow_writes": True, "groups": {"tracking_progress": "on"},
+    })
+    response = await api_client.patch(
+        f"{PREFIX}/pursuits/{item['opportunity_id']}",
+        json={"if_revision": item["revision"], "stage": "applied"},
+        headers={IDEMPOTENCY_KEY_HEADER: KEY},
+    )
+    assert response.status_code == 200, response.json()
 
 
 async def test_a_switch_save_keeps_choices_the_engine_cannot_read(api_client, workspace):
@@ -161,7 +231,7 @@ async def test_a_switch_save_cannot_put_back_choices_saved_while_it_ran(db_sessi
     await set_agent_access(db_session, AgentAccessConfig(enabled=True))
     await db_session.commit()
     sessions = async_sessionmaker(db_session.bind, expire_on_commit=False)
-    read = config_module._locked_categories
+    read = config_module._locked_choices
     other: list[asyncio.Task] = []
 
     async def withhold() -> None:
@@ -170,12 +240,15 @@ async def test_a_switch_save_cannot_put_back_choices_saved_while_it_ran(db_sessi
             await session.commit()
 
     async def read_then_let_the_other_run(session):
-        categories = await read(session)
-        other.append(asyncio.create_task(withhold()))
-        await until_waiting(db_session.bind, other[0])
-        return categories
+        choices = await read(session)
+        # Only the switch save lets the other run; the other save reads the
+        # stored groups through this hook too, and must not start a third.
+        if not other:
+            other.append(asyncio.create_task(withhold()))
+            await until_waiting(db_session.bind, other[0])
+        return choices
 
-    monkeypatch.setattr(config_module, "_locked_categories", read_then_let_the_other_run)
+    monkeypatch.setattr(config_module, "_locked_choices", read_then_let_the_other_run)
     async with sessions() as switches:
         await set_agent_access(switches, AgentAccessConfig(enabled=True, allow_writes=True))
         # The other save waits on this one's lock instead of committing under it.

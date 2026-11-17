@@ -3987,18 +3987,38 @@ export interface components {
              * @default false
              */
             enabled: boolean;
+            /**
+             * Groups
+             * @default {}
+             */
+            groups: {
+                [key: string]: "on" | "off";
+            };
         };
         /**
          * AgentAccessResponse
-         * @description Both gates as saved, and the command that connects each agent host.
+         * @description Both gates as saved, the choice for every data category and action
+         *     group, and the command that connects each agent host.
+         *
+         *     `categories` and `groups` name every category and group, a missing choice
+         *     filled in as open. A group reads as off while the connection is on and
+         *     `allow_writes` is off, since no change is allowed then whatever it says.
          */
         AgentAccessResponse: {
             /** Allow Writes */
             allow_writes: boolean;
+            /** Categories */
+            categories: {
+                [key: string]: "any_model" | "local_only" | "not_shared";
+            };
             /** Connect */
             connect: components["schemas"]["AgentConnectCommand"][];
             /** Enabled */
             enabled: boolean;
+            /** Groups */
+            groups: {
+                [key: string]: "on" | "off";
+            };
         };
         /**
          * AgentConnectCommand

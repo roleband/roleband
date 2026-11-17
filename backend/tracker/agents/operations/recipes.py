@@ -168,6 +168,7 @@ RECIPES_DRAFT_SAVE = OperationDescriptor(
     input=RecipeDraftSaveInput,
     result=SavedDraft,
     access="write",
+    action_group="controlling_collection",
     idempotency="required_key",
     engine_effects=EngineEffects(state_write=True),
     tool_tiers=_AUTHORING_TIERS,

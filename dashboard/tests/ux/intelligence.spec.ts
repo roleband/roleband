@@ -299,23 +299,20 @@ test("a switch that stopped halfway says so instead of looking finished", async 
   await expect.poll(() => resumed).toBe(true);
 });
 
-test("assistants: the data sheet gates setup behind one conscious switch", async ({
+test("assistants: one switch lets apps connect, and Customize holds back the rest", async ({
   page,
   isMobile,
 }) => {
   await page.goto("/settings/intelligence");
   const assistants = page.getByRole("region", { name: msg("ai-assistants-card-assistant-apps-2") });
 
-  // What will be seen is stated before anything can connect.
-  await expect(assistants.getByText("What will be shared")).toBeVisible();
-  await expect(assistants.getByText("What will not be shared")).toBeVisible();
-  await expect(assistants.getByText(/full posting/)).toBeVisible();
-  // A connected app can make this computer open pages, so the sheet says so.
-  await expect(assistants.getByText("Public web pages it asks to open from this computer")).toBeVisible();
-  await expect(assistants.getByText(msg("ai-assistants-card-never-your-profile-and-intent-statement"))).toBeVisible();
+  // Before anything can connect, the card says what apps get and that turning
+  // it on shares everything.
+  await expect(assistants.getByText(msg("ai-assistants-card-what-apps-do"))).toBeVisible();
+  await expect(assistants.getByText(msg("ai-assistants-card-everything-shared"))).toBeVisible();
 
-  // Nothing is reachable until the gate is on — and that holds for every
-  // tile, the open door included.
+  // Nothing is reachable until the gate is on, and that holds for every tile,
+  // the open door included.
   const setup = assistants.getByRole("button", { name: "Set up" });
   await expect(setup).toHaveCount(3);
   for (let i = 0; i < 3; i++) {
@@ -323,42 +320,54 @@ test("assistants: the data sheet gates setup behind one conscious switch", async
     // An unavailable action names what would make it available.
     await expect(setup.nth(i)).toHaveAttribute("title", "Allow assistant apps to connect first");
   }
-  // And the tiles say it in text, not by fading — a faded tile fades the app's
-  // own name, and its opacity compounded with the disabled button inside it.
-  await expect(assistants.getByText(/Anthropic · not allowed to connect/)).toBeVisible();
-
-  // The write grant gates nothing while nothing may connect, so it is absent
-  // rather than rendered disabled and greyed beside the gate.
-  await expect(
-    assistants.getByLabel("Allow assistant apps to update your progress"),
-  ).toHaveCount(0);
+  // One consent: there is no second switch for changes.
+  await expect(assistants.getByRole("checkbox")).toHaveCount(1);
 
   await assistants.getByLabel("Allow assistant apps to connect").click();
   await expect(assistants.getByLabel("Allow assistant apps to connect")).toBeChecked();
   await expect(setup.first()).toBeEnabled();
+  await expect(assistants.getByText(msg("ai-assistants-card-off-nothing-leaves-this-computer", { choice: "yes" }))).toBeVisible();
+  // With nothing held back, the last line says nothing.
+  await expect(assistants.getByText(msg("ai-assistants-card-everything-shared"))).toHaveCount(0);
+  await expect(assistants.getByText(msg("ai-assistants-card-what-apps-do"))).toHaveCount(0);
 
-  // The gate describes what it opens, not the two hosts we ship a setup for.
-  // Naming vendors here would contradict the third tile, which exists
-  // precisely because any app that can run a command can connect.
-  const note = assistants.locator(".intel-gate-note");
-  await expect(note).toHaveText(msg("ai-assistants-card-off-nothing-leaves-this-computer", { choice: "yes" }));
-  expect(await note.textContent()).not.toMatch(/Anthropic|OpenAI|Claude|Codex/);
-  // ...and at desktop width it stays a clause on the gate's own line. The note
-  // is `margin-left: auto` in a wrapping flex row, so a longer string silently
-  // drops to a second line and the two grants stop lining up. The wrap is
-  // correct on a narrow screen,
-  // so this is a desktop-only claim.
+  // Customize: every choice is a column heading said once, and each radio is
+  // named by its row and column.
+  const cell = (row: string, column: string) => msg("ai-access-dialog-cell", { row, column });
+  const offerKept = cell(msg("ai-access-dialog-offer"), msg("ai-access-dialog-not-shared"));
+  await assistants.getByRole("button", { name: msg("ai-assistants-card-customize") }).click();
+  const customize = page.getByRole("dialog", { name: msg("ai-access-dialog-title") });
+  await expect(customize).toBeVisible();
+  await expect(customize.getByRole("radio")).toHaveCount(23);
+  await expect(customize.getByRole("columnheader", { name: msg("ai-access-dialog-any-model") })).toHaveCount(1);
   if (!isMobile) {
-    const noteBox = (await note.boundingBox())!;
-    const labelBox = (await assistants.getByText("Allow assistant apps to connect").boundingBox())!;
-    expect(Math.abs(noteBox.y - labelBox.y)).toBeLessThan(6);
+    // A choice sits under its heading, and both grids put their first choice
+    // in the same column, so the two read as one form.
+    const centre = async (box: Promise<{ x: number; width: number } | null>) => {
+      const b = (await box)!;
+      return b.x + b.width / 2;
+    };
+    const heading = await centre(customize.getByRole("columnheader", { name: msg("ai-access-dialog-not-shared") }).boundingBox());
+    const offer = await centre(customize.getByRole("radio", { name: offerKept }).boundingBox());
+    expect(Math.abs(heading - offer)).toBeLessThan(3);
+    const postings = await centre(customize.getByRole("radio", { name: cell(msg("ai-access-dialog-postings"), msg("ai-access-dialog-any-model")) }).boundingBox());
+    const tracking = await centre(customize.getByRole("radio", { name: cell(msg("ai-access-dialog-tracking-progress"), msg("ai-access-dialog-on")) }).boundingBox());
+    expect(Math.abs(postings - tracking)).toBeLessThan(3);
   }
 
-  // Once the gate is open both grants live in one frame: the write switch is a
-  // narrower grant of what the gate opened, not a neighbouring setting.
-  const grants = assistants.locator(".intel-grants");
-  await expect(grants.getByLabel("Allow assistant apps to connect")).toHaveCount(1);
-  await expect(grants.getByLabel("Allow assistant apps to update your progress")).toHaveCount(1);
+  // A choice is stored at once; the card then names it, and only it.
+  const saved = page.waitForRequest((request) => request.method() === "PUT" && request.url().endsWith("/api/intelligence/agents"));
+  // A radio shows the stored choice, so it moves once the save answers.
+  await customize.getByRole("radio", { name: offerKept }).click();
+  const body = (await saved).postDataJSON();
+  expect(body.categories.offer).toBe("not_shared");
+  expect(body.categories.public_posting).toBe("any_model");
+  // A data choice leaves the stored kinds of change alone.
+  expect(body.groups).toBeUndefined();
+  await expect(customize.getByRole("radio", { name: offerKept })).toBeChecked();
+  await customize.getByRole("button", { name: "Done" }).click();
+  await expect(customize).toBeHidden();
+  await expect(assistants.getByText(msg("ai-assistants-card-not-shared", { list: msg("ai-access-dialog-offer") }))).toBeVisible();
 
   // Set up is a dialog carrying the literal command, run once in a terminal.
   await setup.first().click();
@@ -379,11 +388,6 @@ test("assistants: the data sheet gates setup behind one conscious switch", async
   await expect(other.getByText(/roleband connect/)).toHaveCount(0);
   await other.getByRole("button", { name: "Done" }).click();
   await expect(other).toBeHidden();
-
-  // Updates stay a second, separate choice.
-  await assistants.getByLabel("Allow assistant apps to update your progress").click();
-  await expect(assistants.getByLabel("Allow assistant apps to update your progress")).toBeChecked();
-  await expect(assistants.getByText(msg("ai-assistants-card-stage-notes-next-action-audited"))).toBeVisible();
 });
 
 test("your own model: the probe decides the action, configuration is a dialog", async ({ page }) => {
@@ -694,26 +698,12 @@ test("Intelligence types by rank: same-rank text never differs in colour or weig
   expect(names.map((n) => n.text)).toContain(msg("ai-capabilities-card-online-model-services"));
   expect(distinct(names)).toHaveLength(1);
 
-  // Both halves of the data sheet are one rank: what an app will see, and what
-  // it never will. The second is the half a person needs in order to trust the
-  // first, so it may not be the quieter of the two.
-  const sheet = await typeOf(".intel-sheet li");
-  expect(sheet.length).toBeGreaterThan(4);
-  expect(distinct(sheet)).toHaveLength(1);
-
-  // The two grants sit in one frame that exists to say they are one decision,
-  // so on screen together they are one type. While the gate is shut the second
-  // gates nothing and is not on screen at all, so the card never renders one
-  // rank in two colours.
+  // The gate's two sentences are one rank, whichever state the gate is in.
   const gate = page.getByLabel("Allow assistant apps to connect");
   await expect(gate).not.toBeChecked();
-  expect(await typeOf(".intel-grant-name")).toHaveLength(1);
-
-  await gate.click();
-  await expect(page.getByLabel("Allow assistant apps to update your progress")).toBeEnabled();
-  const both = await typeOf(".intel-grant-name");
-  expect(both).toHaveLength(2);
-  expect(distinct(both)).toHaveLength(1);
+  const notes = await typeOf(".intel-access-gate-note");
+  expect(notes).toHaveLength(2);
+  expect(distinct(notes)).toHaveLength(1);
 });
 
 test("Apple Intelligence is an experiment: labelled, local, testable only when on", async ({ page }) => {

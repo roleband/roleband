@@ -728,6 +728,19 @@ export const intelligenceFitFixture: IntelligenceFit = {
 export const agentAccessFixture: AgentAccessState = {
   enabled: false,
   allow_writes: false,
+  categories: {
+    public_posting: "any_model",
+    market_statistic: "any_model",
+    private_pursuit: "any_model",
+    offer: "any_model",
+    candidate: "any_model",
+  },
+  groups: {
+    tracking_progress: "on",
+    keeping_findings: "on",
+    tuning_radar: "on",
+    controlling_collection: "on",
+  },
   connect: [
     { host: "claude-code", command: "roleband connect claude-code --apply" },
     { host: "codex", command: "roleband connect codex --apply" },

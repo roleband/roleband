@@ -1,12 +1,13 @@
-"""Every data category an agent operation reads has a line on the consent card.
+"""Every data category and action group an agent operation uses has a row in Customize.
 
-The assistant card in Settings > Intelligence is where a person is told what a
-connected app may read, fetch and change before they let it connect
-(`dashboard/src/features/intelligence/AssistantsCard.tsx`, its words in
-`dashboard/src/copy/en/ai.ftl`). Each data category an operation declares names
-the card message that covers it, or says the card has no line for it. A new
-category, or an operation that starts reading one, fails here until its row
-says which line tells the person about it, and that line is on the card.
+The assistant card in Settings > Intelligence is the one consent: its switch
+lets apps connect, and from then on they read every category and make every
+kind of change (`docs/decisions/0017-agent-access-open-by-default.md`). What
+they get is listed, one row each, in its Customize dialog
+(`dashboard/src/features/intelligence/AgentAccessDialog.tsx`, its words in
+`dashboard/src/copy/en/ai.ftl`), where the person can hold any of it back. A
+new category or group, or an operation that starts using one, fails here until
+its row names the message that lists it, and that message is in the dialog.
 """
 
 from __future__ import annotations
@@ -19,32 +20,28 @@ from pathlib import Path
 import pytest
 
 from tracker.agents.operations.catalog import REGISTERED
-from tracker.agents.operations.descriptor import DataClass, OperationDescriptor
+from tracker.agents.operations.descriptor import ActionGroup, DataClass, OperationDescriptor
 
 DASHBOARD = Path(__file__).resolve().parents[2] / "dashboard"
 MESSAGES = DASHBOARD / "src/copy/en/ai.ftl"
-CARD = DASHBOARD / "src/features/intelligence/AssistantsCard.tsx"
+DIALOG = DASHBOARD / "src/features/intelligence/AgentAccessDialog.tsx"
 
-ROLES = "ai-assistants-card-shares-role-titles-companies-locations-and-link"
-AGE = "ai-assistants-card-shares-pay-level-and-how-long-the-role-has-been"
-POSTING = "ai-assistants-card-shares-the-full-posting-when-they-open-one"
-PROGRESS = "ai-assistants-card-shares-your-progress-on-roles-stage-priority-no"
-PAGES = "ai-assistants-card-shares-public-pages-it-asks-roleband-to-open"
-WRITES = "ai-assistants-card-stage-notes-next-action-audited"
-
-#: Each data category, with the card lines that tell the person about it. A
-#: category with no line is listed with an empty tuple: the card says nothing
-#: of it yet, and this table is where that is visible.
-LINES_FOR_CATEGORY: dict[DataClass, tuple[str, ...]] = {
-    "public_posting": (ROLES, POSTING, PAGES),
-    "market_statistic": (AGE,),
-    "private_pursuit": (PROGRESS,),
-    "offer": (),
-    "candidate": (),
+#: Each data category, with the Customize row that lists it.
+CATEGORY_ROWS: dict[DataClass, str] = {
+    "public_posting": "ai-access-dialog-postings",
+    "market_statistic": "ai-access-dialog-market-statistics",
+    "private_pursuit": "ai-access-dialog-progress-and-notes",
+    "offer": "ai-access-dialog-offer",
+    "candidate": "ai-access-dialog-profile",
 }
 
-#: The line that tells the person an operation changes their data.
-WRITE_LINE = WRITES
+#: Each action group, with the Customize row that lists it.
+GROUP_ROWS: dict[ActionGroup, str] = {
+    "tracking_progress": "ai-access-dialog-tracking-progress",
+    "keeping_findings": "ai-access-dialog-keeping-findings",
+    "tuning_radar": "ai-access-dialog-tuning-the-radar",
+    "controlling_collection": "ai-access-dialog-controlling-collection",
+}
 
 
 def _generated_name(message_id: str) -> str:
@@ -54,48 +51,47 @@ def _generated_name(message_id: str) -> str:
 
 
 def uncovered(descriptors: tuple[OperationDescriptor, ...]) -> list[str]:
-    """Operations that read a category the table does not list, or write
-    without the writes line."""
+    """Operations that read a category, or belong to a group, with no row."""
     problems = []
     for descriptor in descriptors:
         for category in descriptor.data_classes:
-            if category not in LINES_FOR_CATEGORY:
+            if category not in CATEGORY_ROWS:
                 problems.append(f"{descriptor.id}: category {category} has no row")
-        if descriptor.access == "write" and not _line_on_card(WRITE_LINE):
-            problems.append(f"{descriptor.id}: the writes line is not on the card")
+        group = descriptor.action_group
+        if group is not None and group not in GROUP_ROWS:
+            problems.append(f"{descriptor.id}: group {group} has no row")
     return problems
 
 
-def _line_on_card(message_id: str) -> bool:
+def _row_in_dialog(message_id: str) -> bool:
     in_catalog = re.search(rf"^{re.escape(message_id)} = ", MESSAGES.read_text(), re.M)
-    return bool(in_catalog) and _generated_name(message_id) in CARD.read_text()
+    return bool(in_catalog) and re.search(rf"\b{_generated_name(message_id)}\b", DIALOG.read_text()) is not None
 
 
-def test_the_table_names_every_data_category():
-    assert set(LINES_FOR_CATEGORY) == set(typing.get_args(DataClass))
+def test_every_category_and_group_has_a_row():
+    assert set(CATEGORY_ROWS) == set(typing.get_args(DataClass))
+    assert set(GROUP_ROWS) == set(typing.get_args(ActionGroup))
 
 
-def test_the_categories_the_card_says_nothing_of_are_exactly_the_known_ones():
-    # A new empty row fails here, so a category is never left off the card unnoticed.
-    assert {category for category, lines in LINES_FOR_CATEGORY.items() if not lines} == {"offer", "candidate"}
-
-
-def test_every_operation_reads_only_categories_the_table_lists_and_writes_under_a_line():
+def test_every_operation_uses_only_categories_and_groups_with_a_row():
     assert uncovered(REGISTERED) == []
 
 
-@pytest.mark.parametrize(
-    "message_id", sorted({line for lines in LINES_FOR_CATEGORY.values() for line in lines} | {WRITE_LINE})
-)
-def test_each_covering_line_is_in_the_catalog_and_on_the_card(message_id):
-    assert _line_on_card(message_id), message_id
+@pytest.mark.parametrize("message_id", sorted({*CATEGORY_ROWS.values(), *GROUP_ROWS.values()}))
+def test_each_row_is_in_the_catalog_and_in_the_dialog(message_id):
+    assert _row_in_dialog(message_id), message_id
 
 
-def test_a_category_without_a_row_fails():
+def test_a_category_or_group_without_a_row_fails():
     widened = dataclasses.replace(REGISTERED[-1], data_classes=("secret_diary",))  # type: ignore[arg-type]
-
     assert uncovered((widened,)) == [f"{widened.id}: category secret_diary has no row"]
 
+    write = next(descriptor for descriptor in REGISTERED if descriptor.access == "write")
+    regrouped = dataclasses.replace(write, action_group="sending_mail")  # type: ignore[arg-type]
+    assert f"{write.id}: group sending_mail has no row" in uncovered((regrouped,))
 
-def test_a_line_that_is_not_on_the_card_is_caught():
-    assert not _line_on_card("ai-assistants-card-shares-a-thing-the-card-never-says")
+
+def test_a_row_that_is_not_in_the_dialog_is_caught():
+    assert not _row_in_dialog("ai-access-dialog-a-row-the-dialog-never-lists")
+    # In the catalog but not in the dialog is caught too.
+    assert not _row_in_dialog("ai-assistants-card-customize")

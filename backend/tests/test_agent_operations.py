@@ -13,6 +13,7 @@ import dataclasses
 import json
 import re
 from dataclasses import dataclass
+from typing import get_args
 
 import pytest
 from fastapi.routing import APIRoute
@@ -32,6 +33,7 @@ from tracker.agents.operations.catalog import (
 )
 from tracker.agents.operations.descriptor import (
     OPERATION_ID,
+    ActionGroup,
     Availability,
     EngineEffects,
     NoInput,
@@ -40,7 +42,14 @@ from tracker.agents.operations.descriptor import (
 )
 from tracker.agents.operations.envelope import OperationError
 from tracker.agents.operations.outcomes import CONTRACT_VERSION, OUTCOMES, compatible, outcome
-from tracker.agents.operations.policy import admit, availability, shared, withheld
+from tracker.agents.operations.policy import (
+    GROUP_NAMES,
+    acts,
+    admit,
+    availability,
+    shared,
+    withheld,
+)
 from tracker.agents.operations.workspace import ensure_workspace_id, get_workspace_id
 from tracker.api.agent_operations import PREFIX, REQUEST_ID_HEADER, AgentRoute
 from tracker.db.models import WorkspaceIdentity
@@ -141,7 +150,8 @@ def _descriptor(**overrides) -> OperationDescriptor:
 
 def test_a_well_formed_descriptor_is_accepted():
     assert _descriptor().required_scopes == ("agent_access.enabled",)
-    write = _descriptor(access="write", idempotency="required_key", engine_effects=EngineEffects(state_write=True))
+    write = _descriptor(access="write", idempotency="required_key", engine_effects=EngineEffects(state_write=True),
+                        action_group="tracking_progress")
     assert write.required_scopes == ("agent_access.enabled", "agent_access.allow_writes")
 
 
@@ -153,7 +163,9 @@ def test_a_well_formed_descriptor_is_accepted():
         ({"id": "widgets/list"}, "lowercase"),
         ({"engine_effects": EngineEffects(state_write=True)}, "needs write access"),
         ({"engine_effects": EngineEffects(external_action=True)}, "needs write access"),
-        ({"access": "write", "idempotency": "read"}, "declares its idempotency key"),
+        ({"access": "write", "idempotency": "read", "action_group": "tracking_progress"}, "declares its idempotency key"),
+        ({"access": "write", "idempotency": "required_key"}, "belongs to one action group"),
+        ({"action_group": "tracking_progress"}, "belongs to one action group"),
         ({"idempotency": "required_key"}, "idempotent as a read"),
         ({"tool_tiers": ()}, "at least one tool tier"),
         ({"tool_tiers": ("small", "small")}, "repeats"),
@@ -266,11 +278,12 @@ class Switches:
     enabled: bool
     allow_writes: bool
     categories: dict[str, str] = dataclasses.field(default_factory=dict)
+    groups: dict[str, str] = dataclasses.field(default_factory=dict)
 
 
 READ = _descriptor()
 WRITE = _descriptor(id="widgets.save", access="write", idempotency="required_key",
-                    engine_effects=EngineEffects(state_write=True))
+                    engine_effects=EngineEffects(state_write=True), action_group="tracking_progress")
 
 
 @pytest.mark.parametrize(
@@ -328,6 +341,44 @@ def test_a_category_with_no_choice_is_shared_and_enabled_off_shares_nothing():
     with pytest.raises(OperationError) as caught:
         admit(POSTINGS_AND_PURSUITS, everything_open)
     assert caught.value.code == "access_disabled"
+
+
+def test_a_write_whose_group_is_off_is_refused_naming_the_group():
+    switches = Switches(True, True, groups={"tracking_progress": "off"})
+    with pytest.raises(OperationError) as caught:
+        admit(WRITE, switches)
+    assert caught.value.code == "writes_disabled"
+    assert caught.value.details == {
+        "group": "tracking_progress", "setting": "agent_access.groups.tracking_progress",
+    }
+    assert "tracking progress" in caught.value.message
+    assert availability(WRITE, switches) == Availability("unavailable", "writes_disabled")
+    # Reads are not changes: a group switched off leaves them alone.
+    admit(READ, switches)
+
+
+def test_a_group_with_no_choice_or_another_group_off_acts():
+    admit(WRITE, Switches(True, True))
+    admit(WRITE, Switches(True, True, groups={"tracking_progress": "on"}))
+    admit(WRITE, Switches(True, True, groups={"tuning_radar": "off", "controlling_collection": "off"}))
+    assert acts(Switches(True, True), "keeping_findings")
+
+
+def test_allow_writes_off_turns_every_group_off_and_names_the_master_switch():
+    switches = Switches(True, False, groups={"tracking_progress": "on"})
+    assert not acts(switches, "tracking_progress")
+    assert not acts(Switches(False, True), "tracking_progress")
+    with pytest.raises(OperationError) as caught:
+        admit(WRITE, switches)
+    assert caught.value.details == {"setting": "agent_access.allow_writes"}
+
+
+def test_every_registered_write_belongs_to_a_named_group():
+    writes = [descriptor for descriptor in CATALOG if descriptor.access == "write"]
+    assert writes
+    for descriptor in writes:
+        assert descriptor.action_group in GROUP_NAMES, descriptor.id
+    assert set(GROUP_NAMES) == set(get_args(ActionGroup))
 
 
 # --------------------------------------------------------------------------- #

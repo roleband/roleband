@@ -14,7 +14,7 @@ How the operations and the command are built is in
 | The command | `backend/tracker/cli/` |
 | Host setup (`roleband connect`) and its skill | `backend/tracker/cli/connect.py`, `backend/tracker/cli/skills/` |
 | Operations, their catalog and outcomes | `backend/tracker/agents/operations/` |
-| The two switches and the data categories | `backend/tracker/agents/config.py` |
+| The two switches, the data categories and the action groups | `backend/tracker/agents/config.py` |
 | Pursuit writes | `backend/tracker/agents/pursuits.py` |
 | Settings routes (agents, cloud models, egress) | `backend/tracker/api/routers/intelligence.py` |
 | Settings screen | `dashboard/src/features/intelligence/` |
@@ -22,9 +22,9 @@ How the operations and the command are built is in
 ## Connecting an agent
 
 1. In the dashboard, open Settings > AI (`/settings/intelligence`). On the
-   Assistant apps card, turn on **Allow assistant apps to connect**. Turn on
-   **Allow assistant apps to update your progress** as well if the agent should
-   save roles and update pursuits.
+   Assistant apps card, turn on **Allow assistant apps to connect**. That one
+   switch shares every data category and allows every kind of change;
+   **Customize** on the same card holds any of them back.
 2. Run the command the card shows for the agent's host, once, in a terminal.
    Each widens what the host allows, beyond reaching the engine:
 
@@ -79,12 +79,15 @@ Two switches, saved in the `agent_access` row of `app_settings`
 | `enabled` | every read operation |
 | `allow_writes` | the write operations, and only while `enabled` is also on |
 
-Beside the switches, each data category can be kept from assistants
+Beside the switches, each data category can be kept from assistants and each
+action group switched off
 ([decision 0017](decisions/0017-agent-access-open-by-default.md)). The engine
-reads both on every call, so a change in Settings applies to a connected agent
+reads them on every call, so a change in Settings applies to a connected agent
 at once. A refused call answers `access_disabled`, `writes_disabled` or
-`category_disabled` (exit status 4) and names the setting to change. The
-Settings card never saves `allow_writes` on without `enabled`.
+`category_disabled` (exit status 4) and names the setting to change: a write
+whose group is off is `writes_disabled` naming `agent_access.groups.<group>`.
+The Settings card saves `allow_writes` with `enabled`, one switch for both, so
+it never saves `allow_writes` on without `enabled`.
 
 No operation sends a message, applies to a job, contacts anyone, deletes data
 or changes these settings. Every pursuit write appends a `pursuit_events` row
