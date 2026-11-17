@@ -597,7 +597,13 @@ private struct PortRow: View {
     }
 }
 
-private struct AboutTab: View {
+struct AboutTab: View {
+    /// The project's own pages, which open whether or not the engine answers.
+    static let projectLinks: [(symbol: String, title: String, caption: String, url: URL, github: Bool)] = [
+        ("chevron.left.forwardslash.chevron.right", "panel-star", "panel-star-caption", ProjectLinks.repository, true),
+        ("text.bubble", "panel-feedback", "panel-feedback-caption", ProjectLinks.feedback, false),
+    ]
+
     @ObservedObject var model: LauncherModel
     @ObservedObject var updates: LauncherUpdates
     let notes: () -> Void
@@ -618,6 +624,16 @@ private struct AboutTab: View {
                     }
                     RowDivider()
                     window(p)
+                }
+                SectionLabel(text: model.text("panel-open-source")).padding(.top, 4)
+                RowGroup {
+                    ForEach(Array(Self.projectLinks.enumerated()), id: \.offset) { index, link in
+                        if index > 0 { RowDivider() }
+                        LinkRow(symbol: link.symbol, title: model.text(link.title), help: model.text("panel-opens-browser"),
+                                caption: model.text(link.caption), mark: link.github ? AnyShape(GitHubMark()) : nil) {
+                            NSWorkspace.shared.open(link.url)
+                        }
+                    }
                 }
             }
         }
