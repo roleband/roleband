@@ -139,6 +139,20 @@ def test_a_current_the_command_would_refuse_is_left_alone(home, current):
     assert path.read_text(encoding="utf-8") == text
 
 
+def test_a_link_put_in_place_after_the_check_is_not_read_through(home, tmp_path, monkeypatch):
+    """The link check and the read are two steps; the read itself refuses a link, so one that
+    appears between them is still left alone."""
+    path = _file(home)
+    path.parent.mkdir(parents=True)
+    victim = tmp_path / "victim.json"
+    victim.write_text(json.dumps({"format": 1, "contexts": {}}), encoding="utf-8")
+    path.symlink_to(victim)
+    monkeypatch.setattr(Path, "is_symlink", lambda self: False)
+    assert cli_context.write_app_context(path, 8010) == cli_context.KEPT_FOREIGN
+    assert json.loads(victim.read_text(encoding="utf-8")) == {"format": 1, "contexts": {}}
+    assert os.path.islink(path)
+
+
 def test_a_link_at_a_staging_name_is_never_followed(home, tmp_path):
     """The write stages its text beside the file; a link left at a staging name must neither
     have its target truncated nor end up as the context file."""

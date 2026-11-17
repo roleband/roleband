@@ -11,6 +11,7 @@ rewritten into something else. Standard library only.
 
 from __future__ import annotations
 
+import errno
 import json
 import os
 import re
@@ -116,11 +117,20 @@ def write_app_context(path: Path, port: int) -> str:
     if path.is_symlink():
         return KEPT_FOREIGN
     try:
-        current_text = path.read_text(encoding="utf-8")
+        # O_NOFOLLOW also refuses a link put in place after the check above.
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
     except FileNotFoundError:
         current_text = None
-    except (UnicodeDecodeError, IsADirectoryError):
-        return KEPT_FOREIGN
+    except OSError as error:
+        if error.errno == errno.ELOOP:
+            return KEPT_FOREIGN
+        raise
+    else:
+        try:
+            with os.fdopen(descriptor, encoding="utf-8") as handle:
+                current_text = handle.read()
+        except (UnicodeDecodeError, IsADirectoryError):
+            return KEPT_FOREIGN
     found: object = {"format": FORMAT}
     if current_text is not None:
         try:
