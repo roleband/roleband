@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { api, isNotFound } from "../../../api";
 import type { ActivityCategory, ActivityPage } from "../../../api/agentActivity";
 import { useAsyncResource } from "../../../hooks/useAsyncResource";
@@ -7,7 +7,7 @@ import { useMeasuredCssSize } from "../../../hooks/useMeasuredCssSize";
 import { PageHeader } from "../../../patterns/PageHeader";
 import { useSearchParam } from "../../../routing/useSearchParam";
 import {
-  AsyncBoundary, Button, EmptyState, FilterChip, Icon, Menu, MenuGroup, MenuRadio, SearchField,
+  AsyncBoundary, Button, EmptyState, FilterChip, Icon, Menu, MenuGroup, MenuRadio, RouterLink, SearchField,
 } from "../../../ui";
 import { ActivityInspector, ActivityInspectorNote } from "./ActivityInspector";
 import { ActivityList } from "./ActivityList";
@@ -172,9 +172,9 @@ export function ActivityScreen() {
         eyebrow={activityEyebrow()}
         title={activityTitle()}
         actions={(
-          <Link className="ui-btn ui-btn-ghost ui-btn-md" to="/settings/intelligence">
+          <RouterLink variant="ghost" to="/settings/intelligence">
             {activityCustomize()}
-          </Link>
+          </RouterLink>
         )}
       />
 

@@ -9,10 +9,9 @@
 // switch is on.
 import { errorText } from "../../api/errorText";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { type AgentAccessInput, type AgentAccessState, api } from "../../api";
 import { list } from "../../copy/format";
-import { Button, CompanyIcon, Dialog, Icon, Switch } from "../../ui";
+import { Button, CompanyIcon, Dialog, Icon, RouterLink, Switch } from "../../ui";
 import {
   type AccessChoices,
   AgentAccessDialog,
@@ -212,9 +211,9 @@ export function AssistantsCard() {
         <Button variant="link" disabled={state == null} onClick={() => setCustomizing(true)}>
           {aiAssistantsCardCustomize()}
         </Button>
-        <Link className="ui-btn ui-btn-link" to={ACTIVITY_ROUTE}>
+        <RouterLink variant="link" to={ACTIVITY_ROUTE}>
           {aiAssistantsCardActivity()}
-        </Link>
+        </RouterLink>
       </div>
 
       {error && !customizing && (
