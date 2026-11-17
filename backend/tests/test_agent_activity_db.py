@@ -221,6 +221,40 @@ async def test_a_change_the_person_holds_back_is_listed_with_its_group(api_clien
     assert await _count(db_session, Pursuit) == 0
 
 
+async def test_a_read_or_refusal_is_listed_after_the_request_lets_go_of_its_connection(
+    api_client, db_session, role, monkeypatch
+):
+    # The row is written on a session of its own; the request's session must
+    # have ended its transaction by then, so one call holds one connection.
+    from tracker.api.app import app
+    from tracker.api.deps import get_session
+
+    handed: list[AsyncSession] = []
+    inner = app.dependency_overrides[get_session]
+
+    async def tracked():
+        async for session in inner():
+            handed.append(session)
+            yield session
+
+    app.dependency_overrides[get_session] = tracked
+    held: list[bool] = []
+    record = activity.record
+
+    async def spy(session: AsyncSession, row: AgentActivity) -> None:
+        held.append(handed[0].in_transaction())
+        await record(session, row)
+
+    monkeypatch.setattr(activity, "record", spy)
+
+    assert (await api_client.get(f"{PREFIX}/pursuits")).status_code == 200
+    handed.clear()
+    await _access(db_session, enabled=True, allow_writes=True, categories={"offer": "not_shared"})
+    assert (await api_client.get(f"{PREFIX}/offer")).status_code == 403
+    assert held == [False, False]
+    assert [row.kind for row in await _rows(db_session)] == ["read", "refused"]
+
+
 async def test_other_failures_are_not_listed(api_client, db_session, role):
     missing = await api_client.get(f"{PREFIX}/pursuits/{role + 999}")
     assert missing.json()["error"]["code"] == "not_found"

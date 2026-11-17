@@ -299,6 +299,7 @@ def admitted(descriptor: OperationDescriptor) -> Callable[..., Awaitable[Operati
     lists = list_fields(descriptor)
 
     async def dependency(request: Request, session: SessionDep) -> OperationContext:
+        request.state.agent_session = session
         switches = await get_agent_access(session)
         admit(descriptor, switches)
         workspace_id = await get_workspace_id(session)
@@ -499,6 +500,7 @@ class AgentRoute(APIRoute):
                 response = await handler(request)
                 if not heard.written:
                     # Listed before it is sent: a read the log cannot hold is not answered.
+                    await _end_request_read(request)
                     await _list_read(request, descriptor, heard)
                 return response
             except OperationError as error:
@@ -512,6 +514,7 @@ class AgentRoute(APIRoute):
                 log.exception("agent operation %s failed", operation)
                 refused = OperationError("internal_error", "The engine failed to answer this operation.")
             if refused.code in activity.REFUSALS:
+                await _end_request_read(request)
                 await _list_refusal(request, operation, refused)
             envelope = failure(
                 operation,
@@ -535,6 +538,16 @@ async def _own_session(request: Request) -> AsyncIterator[AsyncSession]:
         yield await anext(sessions)
     finally:
         await sessions.aclose()
+
+
+async def _end_request_read(request: Request) -> None:
+    """End the request session's transaction before a row is listed on a
+    session of its own, so one call never holds two pool connections. A read
+    or a refusal leaves nothing to keep: this is the rollback the session's
+    own teardown would do, only sooner."""
+    session = getattr(request.state, "agent_session", None)
+    if session is not None:
+        await session.rollback()
 
 
 async def _list_read(request: Request, descriptor: OperationDescriptor, heard: Heard) -> None:

@@ -269,7 +269,7 @@ async def activity_page(session: AsyncSession, query: ActivityQuery) -> Activity
     if query.kind != "all":
         conditions.append(AgentActivity.kind == query.kind)
     if query.category is not None:
-        conditions.append(AgentActivity.categories.any(query.category))
+        conditions.append(AgentActivity.categories.contains([query.category]))
     if query.since is not None:
         conditions.append(AgentActivity.occurred_at >= query.since)
     if query.until is not None:

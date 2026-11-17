@@ -285,7 +285,9 @@ files = [
     "tracker/api/routers/applications.py",
     # Agent operations: descriptors, envelope, policy, their routes and the client
     "tracker/agents/operations",
+    "tracker/agents/activity.py",
     "tracker/api/agent_operations.py",
+    "tracker/api/routers/agent_activity.py",
     "tracker/api/routers/agent.py",
     "tracker/cli",
     "scripts/export_agent_operations.py",
