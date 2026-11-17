@@ -182,6 +182,8 @@ describe("ActivityScreen: the inspector", () => {
     renderScreen("/settings/intelligence/activity?entry=999");
 
     expect(await within(await shownInspector()).findByText(msg("activity-entry-missing"))).toBeInTheDocument();
+    // The result is said in the live region that said it was loading.
+    expect(within(inspector()).getByRole("status")).toHaveTextContent(msg("activity-entry-missing"));
     expect(within(inspector()).queryByRole("heading")).toBeNull();
     for (const row of rows()) expect(row).not.toHaveAttribute("aria-current");
   });

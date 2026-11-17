@@ -73,7 +73,8 @@ export function ActivityInspector({ entry }: { entry: ActivityEntry }) {
 export function ActivityInspectorNote({ children, busy = false }: { children: ReactNode; busy?: boolean }) {
   return (
     <aside className="activity-inspector" aria-label={activityInspector()} aria-busy={busy || undefined}>
-      <p className="activity-inspector-note" role={busy ? "status" : undefined}>{children}</p>
+      {/* One live region from loading to its result, so the result is announced. */}
+      <p className="activity-inspector-note" role="status">{children}</p>
     </aside>
   );
 }
