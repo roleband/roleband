@@ -367,6 +367,39 @@ private final class PanelClock: @unchecked Sendable {
     #expect(SettingsTab.browserLinks.map(\.title) == ["panel-scan-times", "panel-all-settings"])
 }
 
+@MainActor @Test func theAboutTabLeadsToThePublicProjectAndItsFeedbackFormsInEveryLanguage() {
+    #expect(AboutTab.projectLinks.map(\.url.absoluteString) == [
+        "https://github.com/roleband/roleband", "https://github.com/roleband/roleband/issues/new/choose",
+    ])
+    // Only the star row is GitHub's; the feedback row keeps a system symbol.
+    #expect(AboutTab.projectLinks.map(\.github) == [true, false])
+    for language in ["en", "es", "zh-Hans"] {
+        let copy = LauncherCopy(language: language)
+        for key in ["panel-open-source"] + AboutTab.projectLinks.flatMap({ [$0.title, $0.caption] }) {
+            #expect(copy.text(key) != key, "\(language) has no \(key)")
+        }
+    }
+    for link in AboutTab.projectLinks {
+        #expect(NSImage(systemSymbolName: link.symbol, accessibilityDescription: nil) != nil, "\(link.symbol) is not a symbol")
+    }
+}
+
+@Test func theGitHubMarkIsTheCatCutOutOfAFilledCircleCentredInItsFrame() {
+    let mark = GitHubMark().path(in: CGRect(x: 0, y: 0, width: 40, height: 32))
+    // A wide frame draws the mark at its height, centred: 32 wide starting 4 points in. Its bottom
+    // stops just short of the frame, where the circle opens between the cat's legs.
+    let bounds = mark.boundingRect
+    #expect(abs(bounds.minX - 4) < 0.1 && abs(bounds.width - 32) < 0.1 && abs(bounds.minY) < 0.1)
+    #expect(bounds.maxY > 31 && bounds.maxY <= 32)
+    // The ring around the cat is ink; the cat's face, its chest and the gap under its tail are not.
+    for filled in [CGPoint(x: 6, y: 16), CGPoint(x: 34, y: 16), CGPoint(x: 20, y: 2)] {
+        #expect(mark.contains(filled), "\(filled) should be filled")
+    }
+    for clear in [CGPoint(x: 20, y: 14), CGPoint(x: 20, y: 24), CGPoint(x: -1, y: 16), CGPoint(x: 39, y: 30)] {
+        #expect(!mark.contains(clear), "\(clear) should be clear")
+    }
+}
+
 @Test func scheduledScanningSwitchedOffByTheEngineOffersNoLinkThatCannotTurnItOn() throws {
     let now = Date(timeIntervalSince1970: 1_793_520_000)
     let picture = try JSONDecoder().decode(ScanPicture.self, from: Data(

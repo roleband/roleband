@@ -120,15 +120,23 @@ struct PanelRow<Trailing: View, Caption: View>: View {
     var caption: String? = nil
     var symbolTint: Color? = nil
     var captionTint: Color? = nil
+    /// Drawn in place of `symbol`, for a mark SF Symbols does not have.
+    var mark: AnyShape? = nil
     @ViewBuilder var trailing: Trailing
     @ViewBuilder var captionView: Caption
 
     var body: some View {
         PaletteReader { p in
             HStack(spacing: PanelMetrics.rowIconGap) {
-                Image(systemName: symbol).font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(symbolTint ?? p.secondary).frame(width: PanelMetrics.rowIcon)
-                    .accessibilityHidden(true)
+                Group {
+                    if let mark {
+                        mark.frame(width: 14, height: 14)
+                    } else {
+                        Image(systemName: symbol).font(.system(size: 14, weight: .medium))
+                    }
+                }
+                .foregroundStyle(symbolTint ?? p.secondary).frame(width: PanelMetrics.rowIcon)
+                .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(title).font(PanelType.row).foregroundStyle(p.ink)
                     if let caption {
@@ -168,16 +176,18 @@ struct LinkRow: View {
     let symbol: String
     let title: String
     let help: String
+    var caption: String? = nil
+    var mark: AnyShape? = nil
     let action: () -> Void
     @ViewState private var hovering = false
 
     var body: some View {
         PaletteReader { p in
             Button(action: action) {
-                PanelRow(symbol: symbol, title: title, caption: nil) {
+                PanelRow(symbol: symbol, title: title, caption: caption, mark: mark, trailing: {
                     Image(systemName: "arrow.up.right").font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(hovering ? p.ink : p.secondary)
-                }
+                }, captionView: { EmptyView() })
                 .background(hovering ? p.hover : .clear)
             }
             .buttonStyle(.plain).onHover { hovering = $0 }.help(help)
