@@ -22,24 +22,20 @@ from __future__ import annotations
 
 import json
 import os
-import re
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import urlsplit
 
 from tracker.cli.errors import ClientError
 from tracker.platform.cli_context import (
     ENTRY_KEYS,
     FILE_KEYS,
+    LOOPBACK,
+    NAME,
     WORKSPACE,
     context_file,
+    loopback_port,
     no_duplicates,
 )
-
-_NAME = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")
-#: The engine binds 127.0.0.1 only. A name would depend on resolution, and ::1
-#: reaches whatever else holds the port there, never the engine.
-_LOOPBACK = "127.0.0.1"
 
 
 @dataclass(frozen=True)
@@ -88,19 +84,10 @@ def _parse(path: Path, name: str, entry: object) -> Context:
     if not isinstance(entry, dict) or not set(entry) <= ENTRY_KEYS or not isinstance(entry.get("url"), str):
         raise _invalid(path, f"context {name!r} needs a url and may name a workspace_id.", context=name)
     try:
-        parts = urlsplit(entry["url"])
-        port = parts.port
+        port = loopback_port(entry["url"])
     except ValueError:
         raise _invalid(path, f"context {name!r} has a url that does not parse.", context=name) from None
-    if (
-        parts.scheme != "http"
-        or parts.hostname != _LOOPBACK
-        or port is None
-        or parts.username is not None
-        or parts.path not in ("", "/")
-        or parts.query
-        or parts.fragment
-    ):
+    if port is None:
         raise _invalid(
             path,
             f"context {name!r} must be http://127.0.0.1:PORT.",
@@ -109,7 +96,7 @@ def _parse(path: Path, name: str, entry: object) -> Context:
     workspace = entry.get("workspace_id")
     if workspace is not None and (not isinstance(workspace, str) or not WORKSPACE.fullmatch(workspace)):
         raise _invalid(path, f"context {name!r} has a malformed workspace_id.", context=name)
-    return Context(name=name, host=parts.hostname, port=port, workspace_id=workspace)
+    return Context(name=name, host=LOOPBACK, port=port, workspace_id=workspace)
 
 
 def resolve(requested: str | None) -> Context:
@@ -127,7 +114,7 @@ def resolve(requested: str | None) -> Context:
             "Name a context with --context; none is set as current.",
             details={"path": str(path), "contexts": names},
         )
-    if not isinstance(name, str) or not _NAME.fullmatch(name):
+    if not isinstance(name, str) or not NAME.fullmatch(name):
         raise _invalid(path, "a context name is lowercase letters, digits, - and _.")
     if name not in contexts:
         raise ClientError(

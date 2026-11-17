@@ -113,6 +113,10 @@ def test_a_file_with_contexts_but_none_current_makes_the_app_current(home):
     json.dumps({"format": 1, "contexts": {"app": {"url": "http://127.0.0.1:8010", "notes": "mine"}}}),
     json.dumps({"format": 1, "contexts": {"app": "http://127.0.0.1:8010"}}),
     json.dumps({"format": 1, "contexts": {"app": {"url": "http://127.0.0.1:8010", "workspace_id": "mine"}}}),
+    # A url the command refuses is the person's to fix, like any other field of the entry.
+    json.dumps({"format": 1, "contexts": {"app": {"url": 42}}}),
+    json.dumps({"format": 1, "contexts": {"app": {"url": "http://localhost:8010"}}}),
+    json.dumps({"format": 1, "contexts": {"app": {"url": "http://[::1:8011"}}}),
 ])
 def test_a_file_the_command_would_refuse_is_left_alone(home, text):
     path = _file(home)
@@ -122,6 +126,33 @@ def test_a_file_the_command_would_refuse_is_left_alone(home, text):
         contexts.resolve("app")
     assert cli_context.write_app_context(path, 8010) == cli_context.KEPT_FOREIGN
     assert path.read_text(encoding="utf-8") == text
+
+
+@pytest.mark.parametrize("current", [42, "Not A Name", ""])
+def test_a_current_the_command_would_refuse_is_left_alone(home, current):
+    path = _file(home)
+    text = _write(path, {"format": 1, "current": current, "contexts": {}})
+    with pytest.raises(ClientError) as refused:
+        contexts.resolve(None)
+    assert refused.value.code == "context_invalid"
+    assert cli_context.write_app_context(path, 8010) == cli_context.KEPT_FOREIGN
+    assert path.read_text(encoding="utf-8") == text
+
+
+def test_a_link_at_a_staging_name_is_never_followed(home, tmp_path):
+    """The write stages its text beside the file; a link left at a staging name must neither
+    have its target truncated nor end up as the context file."""
+    path = _file(home)
+    path.parent.mkdir(parents=True)
+    victim = tmp_path / "victim.txt"
+    victim.write_text("kept", encoding="utf-8")
+    for pid in range(os.getpid() - 2, os.getpid() + 3):
+        (path.parent / f".{path.name}.{pid}.partial").symlink_to(victim)
+    assert cli_context.write_app_context(path, 8010) == cli_context.WRITTEN
+    assert victim.read_text(encoding="utf-8") == "kept"
+    assert not path.is_symlink()
+    assert contexts.resolve(None).port == 8010
+    assert sorted(p.name for p in path.parent.iterdir() if not p.is_symlink()) == [path.name]
 
 
 def test_a_linked_context_file_is_left_alone(home, tmp_path):

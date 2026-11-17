@@ -43,7 +43,9 @@ How the operations and the command are built is in
    costs, without making it. Both hosts get the RoleBand skill, which tells the
    agent how to use the command. Any other host is refused as
    `unsupported_host`.
-3. Restart the host and ask the agent to run `roleband capabilities`.
+3. Restart the host and ask the agent to run `roleband capabilities`. It asks
+   the engine, so it needs a context: the Mac app writes one, and anywhere else
+   create the context file below first.
 
 The command reaches an engine only through a named context, read from
 `ROLEBAND_CLI_CONFIG`, else `roleband/cli.json` under `XDG_CONFIG_HOME`

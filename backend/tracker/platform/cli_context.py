@@ -14,8 +14,10 @@ from __future__ import annotations
 import json
 import os
 import re
+import tempfile
 from collections.abc import Mapping
 from pathlib import Path
+from urllib.parse import urlsplit
 
 #: Overrides where the context file lives, for the client and for the app.
 CONFIG_ENV = "ROLEBAND_CLI_CONFIG"
@@ -31,6 +33,10 @@ KEPT_FOREIGN = "kept_foreign"
 FILE_KEYS = frozenset({"format", "current", "contexts"})
 ENTRY_KEYS = frozenset({"url", "workspace_id"})
 WORKSPACE = re.compile(r"^ws_[0-9a-f]{32}$")
+NAME = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")
+#: The engine binds 127.0.0.1 only. A name would depend on resolution, and ::1
+#: reaches whatever else holds the port there, never the engine.
+LOOPBACK = "127.0.0.1"
 
 
 def context_file(environ: Mapping[str, str], home: Path | None = None) -> Path:
@@ -44,6 +50,25 @@ def context_file(environ: Mapping[str, str], home: Path | None = None) -> Path:
         return Path(explicit).expanduser()
     base = environ.get("XDG_CONFIG_HOME") or str((home if home is not None else Path.home()) / ".config")
     return Path(base).expanduser() / "roleband" / "cli.json"
+
+
+def loopback_port(url: str) -> int | None:
+    """The port of a context's `http://127.0.0.1:PORT` url, or None for any other url.
+
+    Raises `ValueError` when the url does not parse."""
+    parts = urlsplit(url)
+    port = parts.port
+    if (
+        parts.scheme != "http"
+        or parts.hostname != LOOPBACK
+        or port is None
+        or parts.username is not None
+        or parts.path not in ("", "/")
+        or parts.query
+        or parts.fragment
+    ):
+        return None
+    return port
 
 
 def no_duplicates(pairs: list[tuple[str, object]]) -> dict[str, object]:
@@ -63,17 +88,23 @@ def _readable(document: object) -> bool:
         and isinstance(document.get("contexts", {}), dict)
     ):
         return False
+    current = document.get("current")
+    if current is not None and not (isinstance(current, str) and NAME.fullmatch(current)):
+        return False
     if APP not in document.get("contexts", {}):
         return True
     # The entry about to be replaced: one the client refuses is the person's to fix, so a
     # field it would drop is never dropped here.
     entry = document["contexts"][APP]
-    workspace = entry.get("workspace_id") if isinstance(entry, dict) else None
-    return (
-        isinstance(entry, dict)
-        and set(entry) <= ENTRY_KEYS
-        and (workspace is None or (isinstance(workspace, str) and WORKSPACE.fullmatch(workspace) is not None))
-    )
+    if not isinstance(entry, dict) or not set(entry) <= ENTRY_KEYS or not isinstance(entry.get("url"), str):
+        return False
+    try:
+        if loopback_port(entry["url"]) is None:
+            return False
+    except ValueError:
+        return False
+    workspace = entry.get("workspace_id")
+    return workspace is None or (isinstance(workspace, str) and WORKSPACE.fullmatch(workspace) is not None)
 
 
 def write_app_context(path: Path, port: int) -> str:
@@ -112,9 +143,10 @@ def write_app_context(path: Path, port: int) -> str:
         return UNCHANGED
     text = json.dumps(document, indent=2) + "\n"
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    partial = path.with_name(f".{path.name}.{os.getpid()}.partial")
+    # Created exclusively (mode 0600), so a link already at a staging name is never followed.
+    descriptor, staged = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".partial")
+    partial = Path(staged)
     try:
-        descriptor = os.open(partial, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
             handle.write(text)
         os.replace(partial, path)
