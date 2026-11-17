@@ -33,13 +33,16 @@ ENTRY_KEYS = frozenset({"url", "workspace_id"})
 WORKSPACE = re.compile(r"^ws_[0-9a-f]{32}$")
 
 
-def context_file(environ: Mapping[str, str], home: Path) -> Path:
+def context_file(environ: Mapping[str, str], home: Path | None = None) -> Path:
     """Where the context file is: `ROLEBAND_CLI_CONFIG`, else `roleband/cli.json` under
-    `XDG_CONFIG_HOME`, else under `~/.config`."""
+    `XDG_CONFIG_HOME`, else under `~/.config`.
+
+    The home folder is looked up only for the last case: a process started without one (no
+    `HOME` or `USERPROFILE`) still finds a file the environment names."""
     explicit = environ.get(CONFIG_ENV)
     if explicit:
         return Path(explicit).expanduser()
-    base = environ.get("XDG_CONFIG_HOME") or str(home / ".config")
+    base = environ.get("XDG_CONFIG_HOME") or str((home if home is not None else Path.home()) / ".config")
     return Path(base).expanduser() / "roleband" / "cli.json"
 
 

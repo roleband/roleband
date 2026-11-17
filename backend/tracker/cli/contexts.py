@@ -55,7 +55,7 @@ class Context:
 
 
 def config_path() -> Path:
-    return context_file(os.environ, Path.home())
+    return context_file(os.environ)
 
 
 def _invalid(path: Path, reason: str, **details: object) -> ClientError:

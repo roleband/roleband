@@ -142,6 +142,21 @@ def test_the_file_follows_the_same_overrides_as_the_command(home, tmp_path, monk
     assert cli_context.context_file(os.environ, home) == contexts.config_path()
 
 
+def test_a_named_file_is_found_without_a_home_folder(tmp_path, monkeypatch):
+    """A command started with no HOME or USERPROFILE, as an agent host may start it, still
+    reaches the file the environment names."""
+
+    def no_home() -> Path:
+        raise RuntimeError("Could not determine home directory.")
+
+    monkeypatch.setattr(Path, "home", no_home)
+    monkeypatch.setenv(cli_context.CONFIG_ENV, str(tmp_path / "chosen.json"))
+    assert contexts.config_path() == tmp_path / "chosen.json"
+    monkeypatch.delenv(cli_context.CONFIG_ENV)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    assert contexts.config_path() == tmp_path / "xdg" / "roleband" / "cli.json"
+
+
 # --------------------------------------------------------------------------- #
 # The app's engine start
 # --------------------------------------------------------------------------- #
