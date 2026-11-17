@@ -102,6 +102,11 @@ WINDOWS_SKIPS: tuple[tuple[re.Pattern[str], str], ...] = (
         "(tests/test_command_shim.py)",
     ),
     (
+        re.compile(r"the app context is written by the Mac app"),
+        "the `app` context the Mac app writes for the `roleband` command, with POSIX file modes and "
+        "links; the Linux lane runs these tests (tests/test_cli_app_context.py)",
+    ),
+    (
         re.compile(r"the bench runs POSIX shell commands"),
         "the agent bench gives a host a POSIX shell script as `roleband` and reads POSIX command "
         "lines, and refuses Windows; the Linux lane runs these tests (tests/test_bench_agent_hosts.py)",

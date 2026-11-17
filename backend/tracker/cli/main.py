@@ -50,8 +50,9 @@ _VALUED_GLOBALS = frozenset({"--format", "--context", "--timeout"})
 
 EPILOG = """\
 Contexts: --context NAME selects an engine from the context file
-(ROLEBAND_CLI_CONFIG, else ~/.config/roleband/cli.json). There is no default
-engine. Exit status: 0 ok, 1 internal, 2 invalid input, 3 engine unavailable,
+(ROLEBAND_CLI_CONFIG, else ~/.config/roleband/cli.json), else its current one.
+The Mac app keeps its own engine there as `app`. There is no default engine.
+Exit status: 0 ok, 1 internal, 2 invalid input, 3 engine unavailable,
 4 refused by settings, 5 not found, 6 conflict, 7 input required,
 8 deadline, 9 partial, 10 incompatible, 130 interrupted.
 """

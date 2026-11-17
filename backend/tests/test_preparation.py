@@ -96,6 +96,8 @@ def test_bootstrap_answers_before_migration_and_releases_the_port(tmp_path, monk
         port = available.getsockname()[1]
     data = tmp_path / "home" / ".roleband"
     monkeypatch.setenv("HOME", str(data.parent))
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    monkeypatch.delenv("ROLEBAND_CLI_CONFIG", raising=False)
     settings = SimpleNamespace(api_host="127.0.0.1", api_port=port, database_url_override="",
                                db_embedded=True, embedded_pgdata=lambda: data / "db")
     monkeypatch.setattr(prepare, "get_settings", lambda: settings)
@@ -126,6 +128,11 @@ def test_bootstrap_answers_before_migration_and_releases_the_port(tmp_path, monk
     monkeypatch.setattr(prepare.subprocess, "run", migrate)
     prepare.run()
     assert preparation.read(data).database == "ready"
+    if sys.platform == "darwin":
+        # The engine start names itself as the `roleband` command's `app` context.
+        written = json.loads((data.parent / ".config/roleband/cli.json").read_text())
+        assert written["current"] == "app"
+        assert written["contexts"]["app"] == {"url": f"http://127.0.0.1:{port}"}
     with socket.socket() as available:
         available.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         available.bind(("127.0.0.1", port))
@@ -139,6 +146,8 @@ def test_first_open_refuses_a_foreign_database_without_writing_progress(tmp_path
 
     data = tmp_path / "home" / ".roleband"
     monkeypatch.setenv("HOME", str(data.parent))
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    monkeypatch.delenv("ROLEBAND_CLI_CONFIG", raising=False)
     pgdata = data / "db"
     pgdata.mkdir(parents=True)
     (pgdata / "PG_VERSION").write_text("16\n")
@@ -151,3 +160,4 @@ def test_first_open_refuses_a_foreign_database_without_writing_progress(tmp_path
     assert (pgdata / "history").read_text() == "irreplaceable observations"
     assert not (data / "launcher").exists()
     assert not (data / "db.owner.json").exists()
+    assert not (data.parent / ".config").exists()

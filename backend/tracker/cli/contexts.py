@@ -13,6 +13,9 @@ no `ROLEBAND_PGDATA`, and a missing context is an error, never a fallback.
 
 A context may pin `workspace_id`; a reply from any other workspace is then
 refused, so a context cannot silently reach a different store.
+
+The Mac app writes the `app` context each time it starts its own engine, and makes
+it current when the file names none (`tracker/platform/cli_context.py`).
 """
 
 from __future__ import annotations
@@ -25,8 +28,8 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from tracker.cli.errors import ClientError
+from tracker.platform.cli_context import context_file
 
-CONFIG_ENV = "ROLEBAND_CLI_CONFIG"
 _NAME = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")
 _WORKSPACE = re.compile(r"^ws_[0-9a-f]{32}$")
 #: The engine binds 127.0.0.1 only. A name would depend on resolution, and ::1
@@ -49,11 +52,7 @@ class Context:
 
 
 def config_path() -> Path:
-    explicit = os.environ.get(CONFIG_ENV)
-    if explicit:
-        return Path(explicit).expanduser()
-    base = os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config")
-    return Path(base).expanduser() / "roleband" / "cli.json"
+    return context_file(os.environ, Path.home())
 
 
 def _invalid(path: Path, reason: str, **details: object) -> ClientError:
