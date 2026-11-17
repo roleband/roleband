@@ -1,6 +1,5 @@
 import { number as copyNumber } from "../../../copy/format";
 import type { RefObject } from "react";
-import { Link } from "react-router-dom";
 import { api, type PayFloor } from "../../../api";
 import { useAsyncResource } from "../../../hooks/useAsyncResource";
 import { Badge } from "../../../ui/Badge";
@@ -38,6 +37,7 @@ import {
   profileWalkContinue,
 } from "../../../copy/gen/profile";
 import { Msg } from "../../../ui/Msg";
+import { RouterLink } from "../../../ui/RouterLink";
 import { domainName } from "../../../copy/vocab";
 
 /* The sixth entry: the whole answer in one place and the place to judge it.
@@ -196,11 +196,11 @@ export function SummaryStep({
               <h3 className="walk-summary-section-title" id="walk-summary-cv">{profileExperiencePageYourExperience()}</h3>
               <Badge tone="neutral" variant="outline" size="sm">{profileExperiencePageComingSoon()}</Badge>
             </div>
-            <Link to="/profile/experience" className="ui-btn ui-btn-ghost ui-btn-lg ui-btn-strong ui-btn-tile">
+            <RouterLink to="/profile/experience" variant="ghost" size="lg" className="ui-btn-strong ui-btn-tile">
               <Icon name="person" size={20} />
               <span className="ui-btn-tile-copy"><span className="ui-btn-tile-title">{profileSummaryStepAddYourCv()}</span></span>
               <Icon name="arrowRight" />
-            </Link>
+            </RouterLink>
           </section>
           )}
         </div>

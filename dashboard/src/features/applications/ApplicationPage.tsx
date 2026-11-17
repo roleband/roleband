@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { isNotFound, type ApplicationDetail, type ApplicationInterview, type InterviewWrite, type JobDetail } from "../../api";
 import { useJobActions } from "../../context/JobWorkspace";
 import type { StageSlug } from "../../copy/vocabulary";
 import { companyName } from "../../format";
 import { JobLinkRow } from "../../patterns/jobs/JobLinkRow";
 import { postingPlaces } from "../../patterns/jobs/location";
-import { AsyncBoundary, Button, CompanyIcon, Content, Icon, Kbd, Menu, MenuGroup, MenuItem, useToast } from "../../ui";
+import { AsyncBoundary, Button, CompanyIcon, Content, Icon, Kbd, Menu, MenuGroup, MenuItem, RouterLink, useToast } from "../../ui";
 import { errorApplicationNotFound } from "../../copy/gen/errors";
 import {
   applicationsCrossingClosed,
@@ -107,7 +107,7 @@ export function ApplicationPage({ jobId }: { jobId: number }) {
       <main className="main app-main app-page" data-design-system="app">
         <div className="app-page-gone">
           <p>{errorApplicationNotFound()}</p>
-          <Link className="ui-btn ui-btn-ghost ui-btn-md ui-btn-strong" to="/pipeline/board">{applicationsPageBackBoard()}</Link>
+          <RouterLink variant="ghost" className="ui-btn-strong" to="/pipeline/board">{applicationsPageBackBoard()}</RouterLink>
         </div>
       </main>
     );
@@ -166,37 +166,41 @@ export function ApplicationPage({ jobId }: { jobId: number }) {
           return (
             <>
               <nav className="app-page-bar" aria-label={applicationsPageBar()}>
-                <Link
-                  className="ui-btn ui-btn-ghost ui-btn-sm app-page-back"
+                <RouterLink
+                  variant="ghost"
+                  size="sm"
+                  className="app-page-back"
                   to={{ pathname: back.pathname, search: back.search }}
                   state={back.state}
                 >
                   <Icon name="arrowLeft" size={14} />
                   {applicationsPageBack({ view: back.view })}
-                </Link>
+                </RouterLink>
                 <span className="app-tile-spacer" />
                 {place && place.total > 1 && (
                   <>
                     <span className="app-page-place">{applicationsPagePlace({ index: place.index + 1, total: place.total })}</span>
                     {place.previous ? (
-                      <Link
-                        className="ui-btn ui-btn-icon ui-btn-sm"
+                      <RouterLink
+                        variant="icon"
+                        size="sm"
                         to={applicationPath(place.previous.job_id)}
                         state={arrived}
                         aria-label={applicationsPagePrevious({ title: place.previous.title })}
                       >
                         <Icon name="arrowUp" size={14} />
-                      </Link>
+                      </RouterLink>
                     ) : <span className="app-page-arrow" aria-hidden="true" />}
                     {place.next ? (
-                      <Link
-                        className="ui-btn ui-btn-icon ui-btn-sm"
+                      <RouterLink
+                        variant="icon"
+                        size="sm"
                         to={applicationPath(place.next.job_id)}
                         state={arrived}
                         aria-label={applicationsPageNext({ title: place.next.title })}
                       >
                         <Icon name="arrowDown" size={14} />
-                      </Link>
+                      </RouterLink>
                     ) : <span className="app-page-arrow" aria-hidden="true" />}
                   </>
                 )}

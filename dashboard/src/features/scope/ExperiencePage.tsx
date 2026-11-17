@@ -1,5 +1,4 @@
-import { Link } from "react-router-dom";
-import { Badge, Icon } from "../../ui";
+import { Badge, Icon, RouterLink } from "../../ui";
 import "./ExperiencePage.css";
 import {
   profileExperiencePageBackToSummary,
@@ -12,9 +11,9 @@ import {
 export function ExperiencePage() {
   return (
     <section className="experience-page" aria-labelledby="experience-title">
-      <Link to="/profile/direction#summary" className="ui-btn ui-btn-ghost ui-btn-md ui-btn-strong">
+      <RouterLink to="/profile/direction#summary" variant="ghost" className="ui-btn-strong">
         <Icon name="arrowLeft" /> {profileExperiencePageBackToSummary()}
-      </Link>
+      </RouterLink>
       <div className="experience-page-head">
         <h2 id="experience-title">{profileExperiencePageYourExperience()}</h2>
         <Badge tone="neutral" variant="outline">{profileExperiencePageComingSoon()}</Badge>

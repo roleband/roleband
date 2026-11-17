@@ -21,6 +21,8 @@ export { CountBadge } from "./CountBadge";
 export type { BadgeProps, BadgeSize, BadgeTone, BadgeVariant } from "./Badge";
 export { Button } from "./Button";
 export type { ButtonProps, ButtonVariant } from "./Button";
+export { RouterLink } from "./RouterLink";
+export type { RouterLinkProps } from "./RouterLink";
 export { FilterChip } from "./FilterChip";
 export type { FilterChipProps } from "./FilterChip";
 export { Segmented } from "./Segmented";
