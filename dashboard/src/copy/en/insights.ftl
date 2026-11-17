@@ -389,7 +389,7 @@ insights-stock-trajectory-panel-rsus = RSUs
 # kind=heading note="The offer block before the first answer"
 insights-offer-start-title = What an offer pays, year by year
 # kind=sentence
-insights-offer-start-intro = A few short questions, one at a time. What you enter stays on this computer.
+insights-offer-start-intro = A few short questions, one at a time. What you enter stays on this computer, where an assistant app you connect can read it unless you keep it back.
 # kind=status note="While the kept offer loads"
 insights-offer-loading = Loading your offer
 # kind=sentence

@@ -1,4 +1,4 @@
-# 0006. Windows recovery drill journals
+# 0030. Windows recovery drill journals
 
 ## Context
 

@@ -175,7 +175,7 @@ overlap.
 browser handoff. `backend/desktop.py` selects source or packaged resources before
 importing configuration. Its supervisor owns PostgreSQL outside cancellable jobs
 and shuts down through a parent-only pipe. These boundaries are owned by
-[the native host decision](decisions/0004-windows-native-engine-host.md).
+[the native host decision](decisions/0028-windows-native-engine-host.md).
 
 The host reads the engine's health every second. A ready engine restarts after three
 failed reads in a row. One still preparing restarts after a minute without an answer, or
@@ -286,13 +286,13 @@ People before it installs a real release.
 checkpoint through a fresh-cluster restore drill. The command requires explicit
 paths and refuses a running source engine; it neither promotes a restored
 database nor replaces an application. Its contract is owned by
-[the recovery checkpoint decision](decisions/0005-windows-recovery-checkpoints.md).
+[the recovery checkpoint decision](decisions/0029-windows-recovery-checkpoints.md).
 
 `backend/desktop.py recovery` runs a durable scratch-only restore drill. Unfinished
 or malformed journals block the native host, desktop preparation and embedded
 database startup. Retry uses fresh storage; explicit abandonment preserves the
 unchanged current database and all diagnostic attempts. The journal and resolution
-contract are owned by [the drill decision](decisions/0006-windows-recovery-drills.md).
+contract are owned by [the drill decision](decisions/0030-windows-recovery-drills.md).
 
 `backend/desktop.py restore` promotes a bound checkpoint through an offline,
 resumable directory switch while retaining the displaced database and account
@@ -1516,7 +1516,7 @@ when the radar last read those companies. Its long lists stop at the
 tier's budget with a `page` whose `continue_with` reads on, never cut.
 `backend/tests/test_agent_insights.py` holds each operation to its route.
 
-`offer.get` (the offer, [0019](decisions/0019-assistants-read-the-offer.md)),
+`offer.get` (the offer, [0024](decisions/0024-assistants-read-the-offer.md)),
 `applications.board` and `applications.calendar` (the pursuits) call the stores
 their dashboard routes call and answer the same fields, paged to the tool tier's
 budget. `doctor` turns `GET /api/status` into checks and lists the settings that
@@ -1551,7 +1551,7 @@ holds a separate key in tab storage and signs through
 `dashboard/src/api/localAuthentication.ts`.
 Exact Host and Origin checks include the endpoint port. The protocol, replay
 bounds and browser-origin isolation are owned by
-[the local HTTP decision](decisions/0003-windows-local-http.md).
+[the local HTTP decision](decisions/0027-windows-local-http.md).
 Every file of the dashboard build is served under one Content-Security-Policy
 (`dashboard/csp-policy.json`, rendered by `backend/tracker/api/csp.py` with the
 configured usage-statistics host), with `X-Content-Type-Options: nosniff` and

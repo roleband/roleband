@@ -312,7 +312,7 @@ insights-offer-at-your-valuation-moved = { $move ->
 }
 insights-offer-at-your-valuation-full = 按你在 { $date } 输入的估值计算的股权
 insights-offer-start-title = 录用条件每年能拿多少
-insights-offer-start-intro = 几个简短的问题，一次一个。你输入的内容只保存在这台电脑上。
+insights-offer-start-intro = 几个简短的问题，一次一个。你输入的内容保存在这台电脑上，你连接的助手应用可以读取，除非你不允许。
 insights-offer-loading = 正在加载你的录用条件
 insights-offer-load-failed = 你的录用条件没有加载出来。
 insights-offer-save-failed = 你上一个回答没有保存。再回答一次即可保存。

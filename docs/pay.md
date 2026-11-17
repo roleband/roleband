@@ -387,7 +387,7 @@ shape cannot read comes back as nothing, never as other figures. At most
 (`api/usage_counter.py` lists them as not counted), so no usage event says
 anything about an offer, not even that one was saved. With agent access on, the
 person's assistant reads both through `offer.get`, unless the person keeps the
-offer from assistants ([0019](decisions/0019-assistants-read-the-offer.md)). Why the
+offer from assistants ([0024](decisions/0024-assistants-read-the-offer.md)). Why the
 database and not the browser: `docs/decisions/0003-offer-in-local-database.md`.
 
 ## A role list's Base column

@@ -17,9 +17,9 @@ already has a revision, and preparation does not upgrade if there is none. The
 engine supervisor makes it, in the process that owns the database, before it
 launches preparation: verification restores into a scratch cluster, and
 preparation runs as a cancellable process, which may not start PostgreSQL
-([decision 0002](0002-windows-process-ownership.md)). Preparation then reuses the
+([decision 0026](0026-windows-process-ownership.md)). Preparation then reuses the
 recorded checkpoint; run on its own, it makes one itself. The
-checkpoint is a normal [recovery checkpoint](0005-windows-recovery-checkpoints.md):
+checkpoint is a normal [recovery checkpoint](0029-windows-recovery-checkpoints.md):
 exported from one snapshot, restored into fresh scratch storage, compared by
 fingerprint and published only after that matches. It lives in
 `recovery/pre-migration/<id>` with its scratch cluster in

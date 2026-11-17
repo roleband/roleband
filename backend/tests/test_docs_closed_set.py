@@ -128,6 +128,15 @@ def undeclared_docs(paths: list[str]) -> list[str]:
     )
 
 
+def shared_decision_numbers(paths: list[str]) -> list[str]:
+    """Decision records that share a number with another: a link by number would be ambiguous."""
+    by_number: dict[str, list[str]] = {}
+    for p in paths:
+        if _DECISION.fullmatch(p):
+            by_number.setdefault(p.split("/")[-1][:4], []).append(p)
+    return sorted(p for group in by_number.values() if len(group) > 1 for p in group)
+
+
 def image_problems(tracked: set[str], markdown: dict[str, str], sizes: dict[str, int]) -> list[str]:
     """Images nothing references, references to images that do not exist, and oversized images."""
     images = {p for p in tracked if _IMAGE.fullmatch(p)}
@@ -211,6 +220,10 @@ def test_docs_holds_only_the_listed_documents():
         "docs/ is a closed set. Put plans, audits and reviews in an issue; a new "
         "permanent document is an edit to DOCS in this file."
     )
+
+
+def test_every_decision_record_has_its_own_number():
+    assert shared_decision_numbers(_tracked()) == []
 
 
 def test_every_listed_document_exists():
@@ -302,6 +315,13 @@ def test_an_unlisted_doc_is_named():
     assert undeclared_docs(["docs/ui.md", "docs/some-plan.md", "docs/decisions/0001-x.md"]) == [
         "docs/some-plan.md"
     ]
+
+
+def test_a_number_two_records_share_is_named():
+    assert shared_decision_numbers([
+        "docs/decisions/0019-update-checks.md", "docs/decisions/0019-the-offer.md",
+        "docs/decisions/0020-changes-feed.md", "docs/ui.md",
+    ]) == ["docs/decisions/0019-the-offer.md", "docs/decisions/0019-update-checks.md"]
 
 
 def test_only_images_are_open_under_docs_images():

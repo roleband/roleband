@@ -18,7 +18,7 @@ RoleBand is a single-user application that runs on your own computer.
   app. The Windows engine under development requires account-private discovery,
   signed requests and a single-use browser handoff in packaged mode; source mode
   can exercise it with `ROLEBAND_LOCAL_AUTH=1`
-  ([local HTTP boundary](docs/decisions/0003-windows-local-http.md)). No mode
+  ([local HTTP boundary](docs/decisions/0027-windows-local-http.md)). No mode
   serves a network: the API starts only on a loopback address, and refuses a
   connection from any other machine even when bound to every interface by hand.
 - Data lives in an embedded Postgres under your user's home directory. Keys you

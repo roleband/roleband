@@ -18,7 +18,7 @@ certificate ([decision 0012](0012-windows-distribution-and-signing.md)).
 
 - Program files are the package's; every piece of history, credential and key lives in the
   account's LocalAppData, excluded from file-system virtualization
-  ([decision 0004](0004-windows-native-engine-host.md)), so replacing or removing the
+  ([decision 0028](0028-windows-native-engine-host.md)), so replacing or removing the
   package never touches it.
 - Child processes keep the package's identity through the desktop-app process policy, so
   PostgreSQL and the engine run from the package's protected files.

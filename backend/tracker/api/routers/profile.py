@@ -193,7 +193,8 @@ async def remove_pay_floor(session: SessionDep) -> dict:
 
 
 # --- the person's own offer (docs/pay.md, "Your offer") ---------------------
-# Kept on this computer only (`tracker/user_profile/offer.py`).
+# Kept in the local database; an assistant reads it through `offer.get` unless the
+# person keeps the offer back (`tracker/user_profile/offer.py`).
 
 PrivateCompany = Annotated[str, Path(max_length=120, pattern=r"^[a-z0-9][a-z0-9-]*$")]
 
