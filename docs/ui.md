@@ -195,7 +195,8 @@ Updates follow the rules at the top of this page in one card: the status as its 
 and the last check the feed answered as its caption, Check for updates, and the automatic choice,
 labelled with its pinned English words in every language and recording them with their language; it
 reads `update status`, which asks nothing of the network, and a build without a release identity
-says it doesn't update itself and offers neither. On this PC holds Start with Windows as Windows has
+says it doesn't update itself and offers neither. The Update window switch below it turns off the
+window an automatic check opens. On this PC holds Start with Windows as Windows has
 it: a task turned off in Startup apps says so with a link there, one set by policy shows the
 policy's value and cannot be changed, and a copy without a package has no startup task and no row.
 In your browser opens Scan times and All settings. About names where the scan history is kept, that
@@ -205,7 +206,14 @@ folder.
 **Updating.** An offer puts Update, the gold press, beside Check for updates. While scanning runs it
 is also a gold-tinted banner under the flyout's summary, with a download glyph, the version and its
 own Update, so it cannot pass unnoticed; the idle icon's badge marks it and its tooltip names it; and the menu adds Update
-to the version, in its own group before Settings. Update is the only press: the card and the banner
+to the version, in its own group before Settings. A release an automatic check finds also opens the
+update window in the middle of the primary display, with the Mac's words and rules: the version, the
+fixed line, What's new (the release's page), Later and Update. It stays above other windows without
+taking focus or a click's activation, and has no close button: Later is its way out. It follows the
+download, Windows' install or a failure with Try again, as the card does. Later hides that version for
+three days and after the third only the badge carries it; Check for updates never opens it, it waits
+while setup is open or unfinished and while an update or Undo runs, and Settings' switch turns it off.
+Update is the only press: the card and the banner
 follow the download, with how much has arrived of how much and Cancel, which keeps what arrived
 for the next Update. Update and Cancel take each other's place, and focus moves with them; a press
 whose button goes with nothing in its place leaves focus on the next control, never on nothing. A

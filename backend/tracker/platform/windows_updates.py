@@ -155,7 +155,13 @@ def status(state: Path, identity: Identity, installed: str, held_back: str | Non
     return {"automatic": automatic_allowed(state),
             "checked_at": float(checked) if isinstance(checked, (int, float)) else None,
             "offer": offer.version if offer else None,
+            "release_page": release_page(identity.feed, offer.version) if offer else None,
             "rate_limited_until": float(limited) if isinstance(limited, (int, float)) else None}
+
+
+def release_page(feed: str, version: str) -> str:
+    """The release's page on the feed, where its notes are."""
+    return f"https://github.com/{feed}/releases/tag/v{version}"
 
 
 def releases_url(feed: str) -> str:

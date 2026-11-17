@@ -17,7 +17,8 @@ internal sealed record SettingsState(
     bool LoginError,
     bool CanOpenRadar,
     bool Choosing,
-    string? Error);
+    string? Error,
+    bool ShowsWindow);
 
 /// <summary>The Settings window: resizable, opened from the flyout's gear, the menu, or Details. Closing it
 /// never quits. It draws <see cref="SettingsState"/> and reports presses.</summary>
@@ -31,7 +32,7 @@ public sealed partial class SettingsWindow : Window
     private Control? focusOnActivate;
 
     public event Action? Restart, Undo, OpenLogs, OpenHistory, CheckUpdates, UpdateNow, CancelUpdate, OpenStartupApps, OpenLicences;
-    public event Action<bool>? AutomaticChanged, LoginChanged;
+    public event Action<bool>? AutomaticChanged, LoginChanged, WindowChanged;
     public event Action<BrowserRoute>? Open;
 
     internal SettingsWindow(NativeCopy copy, string version, string history, bool licences)
@@ -62,6 +63,9 @@ public sealed partial class SettingsWindow : Window
         AutomaticTitle.Text = AboutPanel.AutomaticLabel;
         AutomaticCaption.Text = copy["panel-check-automatically-caption"];
         AutomationProperties.SetName(AutomaticSwitch, AboutPanel.AutomaticLabel);
+        WindowTitle.Text = copy["panel-update-window"];
+        WindowCaption.Text = copy["panel-update-window-caption"];
+        AutomationProperties.SetName(WindowSwitch, copy["panel-update-window"]);
         OnPcLabel.Text = copy["windows-on-pc"];
         LoginTitle.Text = copy["windows-login-toggle"];
         AutomationProperties.SetName(LoginSwitch, copy["windows-login-toggle"]);
@@ -94,6 +98,7 @@ public sealed partial class SettingsWindow : Window
         CancelUpdateButton.Content = copy["update-cancel"];
         CancelUpdateButton.Click += (_, _) => CancelUpdate?.Invoke();
         AutomaticSwitch.Toggled += (_, _) => { if (!rendering) AutomaticChanged?.Invoke(AutomaticSwitch.IsOn); };
+        WindowSwitch.Toggled += (_, _) => { if (!rendering) WindowChanged?.Invoke(WindowSwitch.IsOn); };
         LoginSwitch.Toggled += (_, _) => { if (!rendering) LoginChanged?.Invoke(LoginSwitch.IsOn); };
         StartupAppsLink.Click += (_, _) => OpenStartupApps?.Invoke();
         ScanTimesCard.Click += (_, _) => Open?.Invoke(BrowserRoute.Schedule);
@@ -183,6 +188,9 @@ public sealed partial class SettingsWindow : Window
             AutomaticDivider.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
             AutomaticSwitch.IsOn = update.Automatic;
             AutomaticSwitch.IsEnabled = update.AutomaticEnabled && !state.Choosing;
+            WindowRow.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
+            WindowDivider.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
+            WindowSwitch.IsOn = state.ShowsWindow;
 
             var login = state.Login;
             OnPcLabel.Visibility = login.Visible ? Visibility.Visible : Visibility.Collapsed;
