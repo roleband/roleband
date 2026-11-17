@@ -135,6 +135,8 @@ describe("OfferCalculator", () => {
     renderPanel();
     await ready();
     expect(within(calculator()).getByRole("heading", { name: msg("insights-offer-start-title") })).toBeInTheDocument();
+    // Where the figures go is said before the first answer.
+    expect(within(calculator()).getByText(msg("insights-offer-kept"))).toBeInTheDocument();
     expect(step()).toBe("company");
 
     // Next with nothing picked says what the question needs and stays.
@@ -342,6 +344,8 @@ describe("OfferCalculator", () => {
     expect(chip(msg("insights-offer-chip-stock", { kind: "dollars", amount: comp(640_000), count: "" }))).toBeInTheDocument();
     await waitFor(() => expect(kept.offer?.started_from).toEqual({ company: "amazon", title: null }));
 
+    // A started offer skips the first question, so where the figures go is said beside Use my figures.
+    expect(within(calculator()).getByText(msg("insights-offer-kept"), { exact: false })).toBeInTheDocument();
     // Use my figures walks the typical answers, base first.
     press(msg("insights-offer-swap"));
     expect(step()).toBe("base");
