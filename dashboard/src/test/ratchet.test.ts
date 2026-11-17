@@ -210,33 +210,51 @@ export function nonSemanticClickTargets(): Record<string, number> {
  * not a count: nothing is grandfathered. Whole-file, like CLICK_TARGET,
  * because the class usually sits on its own line under the tag.
  *
- * The opening tag is read by a scanner, not a regex: a `>` inside `{...}` (an
- * arrow callback, a comparison) does not end the tag, and a regex that stops
- * at the first `>` misses a className written after one. */
-const UI_BTN_CLASS = /\sclassName=\{?["'`][^"'`]*\bui-btn\b/;
-function openingTag(source: string, start: number): string {
+ * The opening tag and its className are read by a scanner, not a regex. A `>`
+ * inside `{...}` (an arrow callback, a comparison) does not end the tag; a
+ * brace or `>` inside a string counts for nothing; and a className that is an
+ * expression (`{compact ? "ui-btn ..." : "ui-btn"}`) is read whole. */
+const QUOTES = new Set(['"', "'", "`"]);
+/** Just past the string opening at `i`. A JSX attribute string has no
+ *  escapes; a string inside an expression does. */
+function pastString(source: string, i: number, escapes: boolean): number {
+  for (let j = i + 1; j < source.length; j += 1) {
+    if (escapes && source[j] === "\\") j += 1;
+    else if (source[j] === source[i]) return j + 1;
+  }
+  return source.length;
+}
+/** Just past the `{...}` expression opening at `i`, skipping its strings. */
+function pastExpression(source: string, i: number): number {
   let depth = 0;
-  let quote = "";
+  for (let j = i; j < source.length; j += 1) {
+    const ch = source[j];
+    if (QUOTES.has(ch)) j = pastString(source, j, true) - 1;
+    else if (ch === "{") depth += 1;
+    else if (ch === "}" && --depth === 0) return j + 1;
+  }
+  return source.length;
+}
+function openingTag(source: string, start: number): string {
   for (let i = start; i < source.length; i += 1) {
     const ch = source[i];
-    if (quote) {
-      if (ch === quote) quote = "";
-    } else if (ch === "{") {
-      depth += 1;
-    } else if (ch === "}") {
-      depth -= 1;
-    } else if (depth === 0 && (ch === '"' || ch === "'")) {
-      quote = ch;
-    } else if (depth === 0 && ch === ">") {
-      return source.slice(start, i + 1);
-    }
+    if (ch === '"' || ch === "'") i = pastString(source, i, false) - 1;
+    else if (ch === "{") i = pastExpression(source, i) - 1;
+    else if (ch === ">") return source.slice(start, i + 1);
   }
   return source.slice(start);
+}
+function classNameValue(tag: string): string {
+  const attr = /\sclassName=/.exec(tag);
+  if (!attr) return "";
+  const at = attr.index + attr[0].length;
+  const end = tag[at] === "{" ? pastExpression(tag, at) : QUOTES.has(tag[at]) ? pastString(tag, at, false) : at;
+  return tag.slice(at, end);
 }
 function handStyledLinks(source: string): number {
   const code = stripComments(source);
   return [...code.matchAll(/<Link\b/g)]
-    .filter((m) => UI_BTN_CLASS.test(openingTag(code, m.index)))
+    .filter((m) => /\bui-btn\b/.test(classNameValue(openingTag(code, m.index))))
     .length;
 }
 
@@ -297,7 +315,11 @@ describe("legacy-marker ratchet", () => {
     expect(handStyledLinks("<Link className={`ui-btn ${rank}`} to=\"/\">Go</Link>")).toBe(1);
     expect(handStyledLinks(`<Link onClick={() => close()} to="/" className="ui-btn ui-btn-ghost">Go</Link>`)).toBe(1);
     expect(handStyledLinks(`<Link to={{ pathname: "/x" }} state={n > 1 ? a : b}\n  className="ui-btn ui-btn-link">`)).toBe(1);
+    expect(handStyledLinks(`<Link to="/" className={compact ? "ui-btn ui-btn-sm" : "ui-btn"}>Go</Link>`)).toBe(1);
     expect(handStyledLinks(`<Link to="/a" title="a > b">A</Link><span className="ui-btn-tile-copy" />`)).toBe(0);
+    expect(handStyledLinks(`<Link to="/" state={{ query: "{" }}>Go</Link><span className="ui-btn-tile-copy" />`)).toBe(0);
+    expect(handStyledLinks(`<Link to="/" state={{ q: "a\\"}>" }}>Go</Link><span className="ui-btn-tile-copy" />`)).toBe(0);
+    expect(handStyledLinks(`<Link to="/" title="ui-btn" className="intel-sel-title">Go</Link>`)).toBe(0);
     expect(handStyledLinks(`<RouterLink variant="link" className="ui-btn-quiet" to="/">Go</RouterLink>`)).toBe(0);
     expect(handStyledLinks(`<Link className="intel-sel-title" to="/x">Role</Link>`)).toBe(0);
     expect(handStyledLinks(`<NavLink className="ui-btn ui-btn-ghost" to="/">Nav</NavLink>`)).toBe(0);
