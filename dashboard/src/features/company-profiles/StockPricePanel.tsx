@@ -1,8 +1,7 @@
 import "../../patterns/companies/company-chip.css";
 import { ResourceLoadState } from "../../ui/ResourceLoadState";
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { EmptyState, ExternalLink, Segmented } from "../../ui";
+import { EmptyState, ExternalLink, RouterLink, Segmented } from "../../ui";
 import { CompanyPrices, PRICE_FEED_KEY_URL, api } from "../../api";
 import { calendarDay, number } from "../../copy/format";
 import { companyName } from "../../format";
@@ -178,7 +177,7 @@ export function StockPricePanel({ slug, ticker }: { slug: string; ticker?: strin
             art="chart"
             title={profilesStockPricePanelEmptyTitle()}
             actions={data.feed_configured ? undefined : (
-              <Link className="ui-btn ui-btn-ghost ui-btn-sm" to="/settings/plugins">{profilesStockPricePanelAddKey()}</Link>
+              <RouterLink variant="ghost" size="sm" to="/settings/plugins">{profilesStockPricePanelAddKey()}</RouterLink>
             )}
           >
             {data.feed_configured ? (

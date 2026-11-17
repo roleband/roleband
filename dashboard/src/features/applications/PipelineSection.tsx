@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import type { ApplicationCard, ApplicationDetail } from "../../api";
 import { date as formatDate } from "../../copy/format";
 import { STAGE_LABEL, type StageSlug } from "../../copy/vocabulary";
-import { Button, Content, Icon, Msg, Popover } from "../../ui";
+import { Button, Content, Icon, Msg, Popover, RouterLink } from "../../ui";
 import {
   applicationsCardOverdue,
   applicationsFactDays,
@@ -158,7 +157,7 @@ export function PipelineSection({ card, history, now, column }: {
     <>
       <div className="jd-section-head">
         <div className="section-title">{applicationsPostingRow()}</div>
-        <Link className="ui-btn ui-btn-link ui-btn-quiet" to={applicationPath(card.job_id)}>{applicationsPostingOpen()}</Link>
+        <RouterLink variant="link" className="ui-btn-quiet" to={applicationPath(card.job_id)}>{applicationsPostingOpen()}</RouterLink>
       </div>
       <dl className="kv jd-pipeline-facts">
         <dt>{applicationsPostingStage()}</dt>

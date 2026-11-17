@@ -204,6 +204,16 @@ export function nonSemanticClickTargets(): Record<string, number> {
   return byFile;
 }
 
+/* A router `Link` wearing `ui-btn` classes by hand. A move within the app in
+ * a button's or a text link's look is `ui/RouterLink`, which composes those
+ * classes from Button's own variant and size (docs/ui.md, Controls). A rule,
+ * not a count: nothing is grandfathered. Whole-file, like CLICK_TARGET,
+ * because the class usually sits on its own line under the tag. */
+const HAND_STYLED_LINK = /<Link\b[^>]*?\sclassName=\{?["'`][^"'`]*\bui-btn\b/g;
+function handStyledLinks(source: string): number {
+  return stripComments(source).match(HAND_STYLED_LINK)?.length ?? 0;
+}
+
 describe("legacy-marker ratchet", () => {
   const counts = countMarkers();
 
@@ -242,6 +252,27 @@ describe("legacy-marker ratchet", () => {
         `a token in tokens.css and a decision about the ramp, never a name from\n` +
         `here:`,
     ).toEqual([]);
+  });
+
+  it("hand-styled-link: no router Link wears ui-btn classes by hand", () => {
+    const found = sourceFiles(SRC)
+      .filter((file) => handStyledLinks(readFileSync(file, "utf8")) > 0)
+      .map((file) => relative(SRC, file));
+    expect(
+      found,
+      `A Link styled with ui-btn classes by hand. Use RouterLink from src/ui/ ` +
+        `(variant, size, className for modifiers such as ui-btn-strong):`,
+    ).toEqual([]);
+  });
+
+  it("hand-styled-link: the rule sees the forms a screen writes, and nothing else", () => {
+    expect(handStyledLinks(`<Link className="ui-btn ui-btn-link" to="/">Go</Link>`)).toBe(1);
+    expect(handStyledLinks(`<Link\n  to="/x"\n  className="ui-btn ui-btn-ghost ui-btn-sm back"\n>`)).toBe(1);
+    expect(handStyledLinks("<Link className={`ui-btn ${rank}`} to=\"/\">Go</Link>")).toBe(1);
+    expect(handStyledLinks(`<RouterLink variant="link" className="ui-btn-quiet" to="/">Go</RouterLink>`)).toBe(0);
+    expect(handStyledLinks(`<Link className="intel-sel-title" to="/x">Role</Link>`)).toBe(0);
+    expect(handStyledLinks(`<NavLink className="ui-btn ui-btn-ghost" to="/">Nav</NavLink>`)).toBe(0);
+    expect(handStyledLinks(`/* <Link className="ui-btn ui-btn-link" to="/"> */`)).toBe(0);
   });
 
   for (const marker of Object.keys(MARKERS)) {

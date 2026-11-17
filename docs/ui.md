@@ -472,6 +472,7 @@ writing a screen-local version.
 | Job | Use |
 |---|---|
 | Any button | `Button` (see [Controls](#controls)) |
+| A move to another screen in a button's or a text link's look | `RouterLink` (see [Controls](#controls)) |
 | Floating surface | `Overlay` and its shells `Popover`, `Dialog`, `Sheet` |
 | Escape handling outside an overlay | `useEscapeLayer` (`ui/escapeLayer.ts`) |
 | Status label or count | `Badge` (tone, variant, size); a job row's read-only label is `shape="tag"` |
@@ -523,8 +524,11 @@ by converting an existing one, never by raising the number.
 
 ## Controls
 
-Every clickable thing is `ui/Button` or one of the named selection controls
-above. There is no other button class.
+Every clickable thing is `ui/Button`, `ui/RouterLink`, or one of the named
+selection controls above. There is no other button class. `ui/Button` acts;
+`ui/RouterLink` moves to another screen of the app: a router link that takes
+Button's variants and sizes, so it keeps its address, middle-click and the link
+role.
 
 ### Button
 
@@ -559,11 +563,12 @@ never primary; it is a `link` or `ghost`. A dialog's primary is its purpose.
 `tests/ux/job-detail.spec.ts` and `tests/ux/profile.spec.ts` count the visible
 primaries in a browser.
 
-**Never a button that navigates, never an anchor that acts.** An anchor that
-should look like a button wears the classes (`ui-btn ui-btn-primary ui-btn-md`).
-A compact link to a role is `patterns/jobs/JobLinkRow`. A link that leaves
-RoleBand is `ui/ExternalLink` (new tab, an `external` glyph after its words),
-never a bare `<a target="_blank">`.
+**Never a button that navigates, never an anchor that acts.** A move within
+the app that should look like a button or a text link is `ui/RouterLink`
+(`variant="primary"`, `variant="link"`), never a `Link` wearing `ui-btn`
+classes by hand. A compact link to a role is `patterns/jobs/JobLinkRow`. A
+link that leaves RoleBand is `ui/ExternalLink` (new tab, an `external` glyph
+after its words), never a bare `<a target="_blank">`.
 
 ### Control rules
 
@@ -1289,6 +1294,7 @@ Unit gates (`npm run test:unit`) are under `dashboard/src/`; UX specs
 | Literal colours only fall | `design/literal-colours.test.ts` |
 | Hand-rolled UI markers, extinct tokens, click targets | `test/ratchet.test.ts` + `ratchet-baseline.json` |
 | Button classes outside `src/ui/` | `test/control-inventory.test.ts` + `control-inventory-baseline.json` |
+| No router `Link` wears `ui-btn` classes by hand | `test/ratchet.test.ts` |
 | Primitive states not repainted | `design/primitive-states.test.ts` |
 | Chosen and on states; the invalid field's edge | `design/state-grammar.test.ts`, `state-grammar.spec.ts`, `welcome.spec.ts`, `companies.spec.ts` |
 | Focus ring | `design/focus-ring.test.ts`, `focus-ring.spec.ts`, `combobox-cursor.spec.ts` |
