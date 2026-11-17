@@ -1265,7 +1265,10 @@ says where a figure comes from when it is not simply the person's: typical,
 stated by the company, estimated, assumed, or the last close. "Start from this"
 on any table row starts a finished offer from that package, with Undo; its
 figures read as typical until the person answers them, and "Use my figures"
-walks those questions. A
+walks those questions. Before the first answer and beside "Use my figures", one
+line says where entered figures go: kept on this computer and read only by an
+assistant app the person connects, unless they keep the offer back
+([0024](decisions/0024-assistants-read-the-offer.md)). A
 listed grant in shares offers the last close the prices job stored, with its
 date, while a price key is saved; otherwise the person types the price, with a
 link to Settings › Plugins › Stock prices. At a private company the valuation

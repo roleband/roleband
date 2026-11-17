@@ -332,7 +332,8 @@ insights-offer-at-your-valuation-moved = { $move ->
 }
 insights-offer-at-your-valuation-full = Acciones a la valoración que introdujiste el { $date }
 insights-offer-start-title = Lo que paga una oferta, año por año
-insights-offer-start-intro = Unas pocas preguntas cortas, de una en una. Lo que introduces se queda en este ordenador, donde puede leerlo una app de asistente que conectes, salvo que se lo impidas.
+insights-offer-start-intro = Unas pocas preguntas cortas, de una en una.
+insights-offer-kept = Lo que introduces se guarda en este ordenador y solo llega a una app de asistente que conectes, salvo que se lo impidas.
 insights-offer-loading = Cargando tu oferta
 insights-offer-load-failed = Tu oferta no se ha cargado.
 insights-offer-save-failed = Tu última respuesta no se ha guardado. Respóndela otra vez para conservarla.
