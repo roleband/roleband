@@ -10,9 +10,7 @@ cloud model. A few want to keep some of their data, or some kinds of action,
 away from an agent, or within models that run on their own computer.
 
 `docs/architecture.md` describes how the engine applies the categories and
-action groups below. Ask first, and undoing an action, need approval and the
-list of actions in the app, and are built with them; until then a group is on
-or off.
+action groups below.
 
 ## Decision
 
@@ -25,7 +23,7 @@ open, and the person switches off what they do not want.
   **local models only**, or **not shared**.
 - **Action groups**, each on when `allow_writes` is on: tracking progress,
   keeping findings, tuning the radar, and controlling collection. Per group
-  the person chooses **on**, **ask first**, or **off**.
+  the person chooses **on** or **off**.
 - These choices are stored in the `agent_access` row beside the two switches,
   are changed only in the app, and need no per-client credential. A row that
   has no choice for a category or a group reads as open.
@@ -36,8 +34,7 @@ open, and the person switches off what they do not want.
   assistant outside RoleBand treats such a category as not shared, because
   RoleBand cannot see where that assistant sends what it reads.
 - A category switched off is absent from every view of every operation, not
-  masked. An action set to ask first is held until the person approves it in
-  the app. Every action an agent takes is listed in the app and can be undone.
+  masked.
 
 ## Consequences
 
@@ -61,8 +58,8 @@ open, and the person switches off what they do not want.
   few who want it at the cost of every person who turned the connection on to
   get help, and turns one consent into several.
 - **An approval prompt before every write.** Interrupts every ordinary action
-  and trains people to approve without reading; a listed, undoable entry gives
-  the same control after the fact, and ask first remains for those who want it.
+  and trains people to approve without reading; a group switched off keeps
+  agents from that kind of change altogether.
 - **Choices per assistant from the start.** Needs a credential per assistant
   that the macOS engine does not have yet; the per-category choices do not
   wait for it.
