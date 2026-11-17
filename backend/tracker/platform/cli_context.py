@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -27,7 +28,9 @@ UNCHANGED = "unchanged"
 #: The file is not one the client could read, or is a link: nothing is written.
 KEPT_FOREIGN = "kept_foreign"
 
-_FILE_KEYS = {"format", "current", "contexts"}
+FILE_KEYS = frozenset({"format", "current", "contexts"})
+ENTRY_KEYS = frozenset({"url", "workspace_id"})
+WORKSPACE = re.compile(r"^ws_[0-9a-f]{32}$")
 
 
 def context_file(environ: Mapping[str, str], home: Path) -> Path:
@@ -40,12 +43,33 @@ def context_file(environ: Mapping[str, str], home: Path) -> Path:
     return Path(base).expanduser() / "roleband" / "cli.json"
 
 
+def no_duplicates(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    """A JSON object hook that refuses a repeated key, which `json` would otherwise resolve to
+    its last value."""
+    keys = [key for key, _ in pairs]
+    if len(keys) != len(set(keys)):
+        raise ValueError("a key is repeated")
+    return dict(pairs)
+
+
 def _readable(document: object) -> bool:
-    return (
+    if not (
         isinstance(document, dict)
-        and set(document) <= _FILE_KEYS
+        and set(document) <= FILE_KEYS
         and document.get("format") == FORMAT
         and isinstance(document.get("contexts", {}), dict)
+    ):
+        return False
+    if APP not in document.get("contexts", {}):
+        return True
+    # The entry about to be replaced: one the client refuses is the person's to fix, so a
+    # field it would drop is never dropped here.
+    entry = document["contexts"][APP]
+    workspace = entry.get("workspace_id") if isinstance(entry, dict) else None
+    return (
+        isinstance(entry, dict)
+        and set(entry) <= ENTRY_KEYS
+        and (workspace is None or (isinstance(workspace, str) and WORKSPACE.fullmatch(workspace) is not None))
     )
 
 
@@ -66,7 +90,7 @@ def write_app_context(path: Path, port: int) -> str:
     found: object = {"format": FORMAT}
     if current_text is not None:
         try:
-            found = json.loads(current_text)
+            found = json.loads(current_text, object_pairs_hook=no_duplicates)
         except ValueError:
             return KEPT_FOREIGN
     if not isinstance(found, dict) or not _readable(found):

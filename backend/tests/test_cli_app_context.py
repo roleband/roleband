@@ -107,11 +107,19 @@ def test_a_file_with_contexts_but_none_current_makes_the_app_current(home):
     json.dumps({"format": 1, "contexts": [], "current": "dev"}),
     json.dumps({"format": 1, "contexts": {}, "notes": "mine"}),
     json.dumps(["format", 1]),
+    # json keeps a repeated key's last value, which would lose the first `contexts`.
+    '{"format": 1, "contexts": {"dev": {"url": "http://127.0.0.1:8011"}}, "contexts": {}}',
+    # The app entry is replaced, so a field the command refuses would be dropped by the write.
+    json.dumps({"format": 1, "contexts": {"app": {"url": "http://127.0.0.1:8010", "notes": "mine"}}}),
+    json.dumps({"format": 1, "contexts": {"app": "http://127.0.0.1:8010"}}),
+    json.dumps({"format": 1, "contexts": {"app": {"url": "http://127.0.0.1:8010", "workspace_id": "mine"}}}),
 ])
 def test_a_file_the_command_would_refuse_is_left_alone(home, text):
     path = _file(home)
     path.parent.mkdir(parents=True)
     path.write_text(text, encoding="utf-8")
+    with pytest.raises(ClientError):
+        contexts.resolve("app")
     assert cli_context.write_app_context(path, 8010) == cli_context.KEPT_FOREIGN
     assert path.read_text(encoding="utf-8") == text
 

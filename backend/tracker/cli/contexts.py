@@ -28,15 +28,18 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from tracker.cli.errors import ClientError
-from tracker.platform.cli_context import context_file
+from tracker.platform.cli_context import (
+    ENTRY_KEYS,
+    FILE_KEYS,
+    WORKSPACE,
+    context_file,
+    no_duplicates,
+)
 
 _NAME = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")
-_WORKSPACE = re.compile(r"^ws_[0-9a-f]{32}$")
 #: The engine binds 127.0.0.1 only. A name would depend on resolution, and ::1
 #: reaches whatever else holds the port there, never the engine.
 _LOOPBACK = "127.0.0.1"
-_ENTRY_KEYS = {"url", "workspace_id"}
-_FILE_KEYS = {"format", "current", "contexts"}
 
 
 @dataclass(frozen=True)
@@ -73,23 +76,16 @@ def _read(path: Path) -> dict[str, object]:
     except OSError as error:
         raise _invalid(path, f"it cannot be read ({error.strerror}).") from None
     try:
-        document = json.loads(text, object_pairs_hook=_no_duplicates)
+        document = json.loads(text, object_pairs_hook=no_duplicates)
     except ValueError as error:
         raise _invalid(path, f"it is not JSON ({error}).") from None
-    if not isinstance(document, dict) or not set(document) <= _FILE_KEYS or document.get("format") != 1:
+    if not isinstance(document, dict) or not set(document) <= FILE_KEYS or document.get("format") != 1:
         raise _invalid(path, "it needs format 1 and only the keys format, current and contexts.")
     return document
 
 
-def _no_duplicates(pairs: list[tuple[str, object]]) -> dict[str, object]:
-    keys = [key for key, _ in pairs]
-    if len(keys) != len(set(keys)):
-        raise ValueError("a key is repeated")
-    return dict(pairs)
-
-
 def _parse(path: Path, name: str, entry: object) -> Context:
-    if not isinstance(entry, dict) or not set(entry) <= _ENTRY_KEYS or not isinstance(entry.get("url"), str):
+    if not isinstance(entry, dict) or not set(entry) <= ENTRY_KEYS or not isinstance(entry.get("url"), str):
         raise _invalid(path, f"context {name!r} needs a url and may name a workspace_id.", context=name)
     try:
         parts = urlsplit(entry["url"])
@@ -111,7 +107,7 @@ def _parse(path: Path, name: str, entry: object) -> Context:
             context=name,
         )
     workspace = entry.get("workspace_id")
-    if workspace is not None and (not isinstance(workspace, str) or not _WORKSPACE.fullmatch(workspace)):
+    if workspace is not None and (not isinstance(workspace, str) or not WORKSPACE.fullmatch(workspace)):
         raise _invalid(path, f"context {name!r} has a malformed workspace_id.", context=name)
     return Context(name=name, host=parts.hostname, port=port, workspace_id=workspace)
 

@@ -349,10 +349,9 @@ written only for an app in `/Applications` or `~/Applications`, never from a dis
 image or a translocated copy. Once the app has moved away, it prints one line
 asking the person to open the app and exits 3. Nothing edits a shell profile, and
 a `roleband` the app did not write is left alone. After it claims its database,
-the same start names its engine as the command's `app` context in
-`~/.config/roleband/cli.json` (`backend/tracker/platform/cli_context.py`),
-current unless the person chose another; the person's other contexts are kept,
-and a file the command could not read is left alone.
+the same start names its engine as the command's `app` context in the context
+file ([where it lives and what is kept](cli.md#connecting-an-agent),
+`backend/tracker/platform/cli_context.py`).
 
 All writable state lives in `~/.roleband` (database, plugins, logs, locks,
 pacing, models, backups, supervisor files), so moving or replacing the app moves
