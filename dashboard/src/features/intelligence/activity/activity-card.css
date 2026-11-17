@@ -1,7 +1,0 @@
-/* The AI tab's card that opens Settings › AI › Activity. Values from --app-*. */
-
-.activity-card-body {
-  margin: 0;
-  color: var(--app-text-muted);
-  font-size: var(--app-type-body);
-}

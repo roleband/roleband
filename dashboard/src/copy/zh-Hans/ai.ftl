@@ -299,6 +299,7 @@ ai-assistants-card-local-only = 仅限这台电脑上的模型：{ $list }。
 ai-assistants-card-changes-off = 已关闭的更改：{ $list }。
 ai-assistants-card-read-only = 应用只能读取。
 ai-assistants-card-customize = 自定义
+ai-assistants-card-activity = 活动记录
 ai-access-dialog-title = 自定义应用可获取的内容
 ai-access-dialog-apply-at-once = 更改会立即生效。
 ai-access-dialog-data = 应用读取的数据

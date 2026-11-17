@@ -525,6 +525,8 @@ ai-assistants-card-changes-off = Changes off: { $list }.
 ai-assistants-card-read-only = Apps only read.
 # kind=button note="Opens the dialog where the person chooses, per kind of data and kind of change, what assistant apps get"
 ai-assistants-card-customize = Customize
+# kind=link note="Opens the screen listing each read, change and refusal by assistant apps"
+ai-assistants-card-activity = Activity
 
 ## features/intelligence/AgentAccessDialog.tsx
 # kind=heading

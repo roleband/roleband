@@ -9,6 +9,7 @@
 // switch is on.
 import { errorText } from "../../api/errorText";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { type AgentAccessInput, type AgentAccessState, api } from "../../api";
 import { list } from "../../copy/format";
 import { Button, CompanyIcon, Dialog, Icon, Switch } from "../../ui";
@@ -21,6 +22,7 @@ import {
   groupChoice,
 } from "./AgentAccessDialog";
 import { OriginBadge } from "./OriginBadge";
+import { ACTIVITY_ROUTE } from "../../routing/paths";
 import {
   aiAssistantsCardAllowAssistantAppsToConnect,
   aiAssistantsCardAllowAssistantAppsToConnect2,
@@ -34,6 +36,7 @@ import {
   aiAssistantsCardChangesOff,
   aiAssistantsCardClipboardAccessWasBlockedSelect,
   aiAssistantsCardCopy,
+  aiAssistantsCardActivity,
   aiAssistantsCardCustomize,
   aiAssistantsCardDone,
   aiAssistantsCardEverythingShared,
@@ -209,6 +212,9 @@ export function AssistantsCard() {
         <Button variant="link" disabled={state == null} onClick={() => setCustomizing(true)}>
           {aiAssistantsCardCustomize()}
         </Button>
+        <Link className="ui-btn ui-btn-link" to={ACTIVITY_ROUTE}>
+          {aiAssistantsCardActivity()}
+        </Link>
       </div>
 
       {error && !customizing && (

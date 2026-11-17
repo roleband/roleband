@@ -176,12 +176,3 @@ activity-field-draft = Draft
 activity-value-cleared = Cleared
 # kind=status note="A recipe's draft number: Draft 3"
 activity-value-draft = Draft { $version }
-
-## The card on the AI tab that leads to this screen
-
-# kind=heading same-as=activity-title note="The AI tab's card that opens the Activity screen"
-activity-card-title = Activity
-# kind=sentence note="What the Activity screen holds, under the card's heading on the AI tab"
-activity-card-body = Each read, change and refusal by an assistant app, newest first.
-# kind=link note="Opens the Activity screen from the AI tab"
-activity-card-open = Open activity

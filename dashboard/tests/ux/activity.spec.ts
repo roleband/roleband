@@ -51,8 +51,10 @@ test("is a screen under Settings › AI, with its own header and a way back", as
   await crumbs.getByRole("link", { name: "AI" }).click();
   await expect(page).toHaveURL(/\/settings\/intelligence$/);
 
-  // The AI tab is the way in.
-  await page.getByRole("region", { name: "Activity" }).getByRole("link", { name: "Open activity" }).click();
+  // The AI tab's Assistant apps card is the way in, beside Customize.
+  const assistants = page.getByRole("region", { name: "Assistant apps" });
+  await expect(page.getByRole("region", { name: "Activity" })).toHaveCount(0);
+  await assistants.getByRole("link", { name: "Activity" }).click();
   await expect(page).toHaveURL(/\/settings\/intelligence\/activity$/);
   await expect(page.getByRole("main").getByRole("heading", { level: 1 })).toHaveText("Activity");
 });
