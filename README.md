@@ -86,10 +86,13 @@ The Radar and the ranking pictures come from a real install.</sub>
 - **Any company, one link.** Paste a careers link, and its roles join your
   radar.
 - **Alerts that matter.** Save a role, and hear when it closes.
+- **Your AI assistant, on your radar.** Claude Code, Codex or your own scripts
+  use the `roleband` command to search roles, read pay and market data, and
+  save roles and notes for you. Turn it on in **Settings › AI**, and see every
+  call under Activity. [The `roleband` command](docs/cli.md)
 
-**And more:** works with Claude and Codex · equity in real money · a pay floor
-· side-by-side comparison · duplicates grouped · your own AI model or Apple
-Intelligence · open pay data.
+**And more:** equity in real money · a pay floor · side-by-side comparison ·
+duplicates grouped · your own AI model or Apple Intelligence · open pay data.
 
 ## Roadmap
 
