@@ -10874,6 +10874,7 @@
      "local-model-not-found",
      "cloud-model-not-found",
      "notification-not-found",
+     "activity-entry-not-found",
      "link-not-found",
      "suggestion-not-found",
      "recipe-not-found",
@@ -38274,6 +38275,50 @@
      }
     },
     "summary": "Agent Activity",
+    "tags": [
+     "agent-activity"
+    ]
+   }
+  },
+  "/api/agent-activity/{entry_id}": {
+   "get": {
+    "operationId": "agent_activity_entry_api_agent_activity__entry_id__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "entry_id",
+      "required": true,
+      "schema": {
+       "maximum": 9223372036854775807,
+       "minimum": 1,
+       "title": "Entry Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ActivityEntry"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Agent Activity Entry",
     "tags": [
      "agent-activity"
     ]

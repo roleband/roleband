@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { ActivityEntry } from "../../../api/agentActivity";
 import { list } from "../../../copy/format";
 import { formatWhen } from "../../../format";
@@ -63,6 +64,16 @@ export function ActivityInspector({ entry }: { entry: ActivityEntry }) {
         <dt>{entry.kind === "refused" ? activityFactAskedFor() : activityFactRead()}</dt>
         <dd>{categories.length > 0 ? list(categories) : activityFactNothing()}</dd>
       </dl>
+    </aside>
+  );
+}
+
+/** The inspector's place when it has no entry to show: one line where the
+ *  entry would be, so a link never shows an entry it did not name. */
+export function ActivityInspectorNote({ children, busy = false }: { children: ReactNode; busy?: boolean }) {
+  return (
+    <aside className="activity-inspector" aria-label={activityInspector()} aria-busy={busy || undefined}>
+      <p className="activity-inspector-note" role={busy ? "status" : undefined}>{children}</p>
     </aside>
   );
 }

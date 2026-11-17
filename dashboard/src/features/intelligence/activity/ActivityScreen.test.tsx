@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { api } from "../../../api";
+import { api, ApiError } from "../../../api";
 import { msg } from "../../../test/msg";
 import type { ActivityEntry, ActivityPage } from "../../../api/agentActivity";
 import { ActivityScreen } from "./ActivityScreen";
@@ -12,7 +12,10 @@ import { byDay, dayHeading } from "./ActivityList";
  * boundary; every assertion is about what the reader sees or what the
  * server was asked. */
 
-vi.mock("../../../api", () => ({ api: { agentActivity: vi.fn() } }));
+vi.mock("../../../api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../api")>()),
+  api: { agentActivity: vi.fn(), agentActivityEntry: vi.fn() },
+}));
 
 const HOUR = 3_600_000;
 // Entries are placed before today's local noon, not before the wall clock, so
@@ -85,12 +88,14 @@ const ASKED_OFFER = msg("activity-asked-offer");
 const entries = () => screen.getByRole("region", { name: msg("activity-list") });
 const rows = () => within(entries()).getAllByRole("link");
 const inspector = () => screen.getByRole("complementary", { name: msg("activity-inspector") });
+const shownInspector = () => screen.findByRole("complementary", { name: msg("activity-inspector") });
 const button = (name: string) => screen.getByRole("button", { name });
 const range = (first: number, last: number) => msg("activity-page-range", { first, last });
 
 beforeEach(() => {
   vi.mocked(api.agentActivity).mockReset();
   vi.mocked(api.agentActivity).mockResolvedValue(page());
+  vi.mocked(api.agentActivityEntry).mockReset();
 });
 
 describe("ActivityScreen: the list", () => {
@@ -149,6 +154,43 @@ describe("ActivityScreen: the inspector", () => {
     expect(panel).toHaveTextContent(msg("activity-category-progress-and-notes"));
     expect(panel).toHaveTextContent(msg("activity-category-postings"));
     expect(panel).toHaveTextContent(msg("activity-group-tracking-progress"));
+  });
+
+  it("opens a link to an entry on an older page on that entry, not on the newest", async () => {
+    const older = entry({
+      id: 77, occurred_at: ago(72), operation: "recipes.draft.save", kind: "change",
+      summary: "Drafted a recipe for careers-fabrikam",
+      subject: { topic: "recipe.drafted", recipe: "careers-fabrikam" },
+      changes: [{ field: "draft", before: null, after: 3 }],
+    });
+    vi.mocked(api.agentActivityEntry).mockResolvedValue(older);
+    renderScreen("/settings/intelligence/activity?entry=77");
+
+    // The panel is replaced once the entry arrives: read it afresh each time.
+    await waitFor(() => expect(within(inspector()).getByRole("heading", { level: 2 }))
+      .toHaveTextContent(msg("activity-drafted-recipe", { recipe: "careers-fabrikam" })));
+    expect(inspector()).not.toHaveTextContent(MOVED_TEXT);
+    expect(within(inspector()).getByLabelText(msg("activity-what-changed"))).toBeInTheDocument();
+    expect(vi.mocked(api.agentActivityEntry).mock.calls[0][0]).toBe(77);
+    // The list is still the newest page, and no row on it claims the entry.
+    expect(rows()).toHaveLength(3);
+    for (const row of rows()) expect(row).not.toHaveAttribute("aria-current");
+  });
+
+  it("says so when a link names an entry the log does not hold, and shows no other", async () => {
+    vi.mocked(api.agentActivityEntry).mockRejectedValue(new ApiError("gone", 404, "activity-entry-not-found"));
+    renderScreen("/settings/intelligence/activity?entry=999");
+
+    expect(await within(await shownInspector()).findByText(msg("activity-entry-missing"))).toBeInTheDocument();
+    expect(within(inspector()).queryByRole("heading")).toBeNull();
+    for (const row of rows()) expect(row).not.toHaveAttribute("aria-current");
+  });
+
+  it("reads nothing more for an entry on the loaded page", async () => {
+    renderScreen("/settings/intelligence/activity?entry=2");
+    expect(await within(await shownInspector()).findByRole("heading", { level: 2 })).toHaveTextContent(ASKED_OFFER);
+    expect(rows()[1]).toHaveAttribute("aria-current", "true");
+    expect(api.agentActivityEntry).not.toHaveBeenCalled();
   });
 
   it("follows the picked row, and says what a refusal asked for", async () => {

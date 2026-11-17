@@ -70,7 +70,8 @@ export function ActivityList({ page, first, selectedId, onOlder, onNewer }: {
   page: ActivityPage;
   /** The position of the page's first entry, counted from the newest. */
   first: number;
-  selectedId: number;
+  /** The marked row; null marks none (the picked entry is not on this page). */
+  selectedId: number | null;
   onOlder?: () => void;
   onNewer?: () => void;
 }) {

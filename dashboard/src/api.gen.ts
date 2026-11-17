@@ -21,6 +21,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent-activity/{entry_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Agent Activity Entry */
+        get: operations["agent_activity_entry_api_agent_activity__entry_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/v1/applications": {
         parameters: {
             query?: never;
@@ -7369,7 +7386,7 @@ export interface components {
          * ErrorCode
          * @enum {string}
          */
-        ErrorCode: "engine-locked" | "job-not-found" | "company-not-found" | "company-profile-not-found" | "local-model-not-found" | "cloud-model-not-found" | "notification-not-found" | "link-not-found" | "suggestion-not-found" | "recipe-not-found" | "rule-not-found" | "fit-band-not-found" | "schedule-not-found" | "page-not-found" | "application-not-found" | "comment-not-found" | "interview-not-found" | "plugin-not-found" | "invalid-input" | "careers-page-refused" | "careers-page-unreachable" | "company-conflict" | "company-refused" | "consent-required" | "scope-refused" | "schedule-refused" | "scheduling-unavailable" | "discovery-unsupported" | "manual-scan-queued" | "switch-running" | "switch-not-started" | "no-switch-running" | "switch-not-stopped" | "price-key-refused" | "switch-not-managed" | "server-not-managed" | "model-unreachable" | "local-models-off" | "ai-egress-off" | "no-local-model" | "model-profiles-unreadable" | "key-saved-for-another-address" | "plugin-not-runnable" | "plugin-running" | "plugin-approval-stale" | "plugin-still-enabled" | "plugin-confirm-mismatch" | "plugin-estimates-moving" | "field-answered-by-plugin" | "link-to-itself" | "already-linked" | "verdict-decided" | "pair-refused" | "not-a-member" | "suggestion-decided" | "last-world" | "recipe-invalid" | "recipe-conflict" | "usage-catalogue-changed" | "comment-not-yours" | "application-under-way";
+        ErrorCode: "engine-locked" | "job-not-found" | "company-not-found" | "company-profile-not-found" | "local-model-not-found" | "cloud-model-not-found" | "notification-not-found" | "activity-entry-not-found" | "link-not-found" | "suggestion-not-found" | "recipe-not-found" | "rule-not-found" | "fit-band-not-found" | "schedule-not-found" | "page-not-found" | "application-not-found" | "comment-not-found" | "interview-not-found" | "plugin-not-found" | "invalid-input" | "careers-page-refused" | "careers-page-unreachable" | "company-conflict" | "company-refused" | "consent-required" | "scope-refused" | "schedule-refused" | "scheduling-unavailable" | "discovery-unsupported" | "manual-scan-queued" | "switch-running" | "switch-not-started" | "no-switch-running" | "switch-not-stopped" | "price-key-refused" | "switch-not-managed" | "server-not-managed" | "model-unreachable" | "local-models-off" | "ai-egress-off" | "no-local-model" | "model-profiles-unreadable" | "key-saved-for-another-address" | "plugin-not-runnable" | "plugin-running" | "plugin-approval-stale" | "plugin-still-enabled" | "plugin-confirm-mismatch" | "plugin-estimates-moving" | "field-answered-by-plugin" | "link-to-itself" | "already-linked" | "verdict-decided" | "pair-refused" | "not-a-member" | "suggestion-decided" | "last-world" | "recipe-invalid" | "recipe-conflict" | "usage-catalogue-changed" | "comment-not-yours" | "application-under-way";
         /**
          * ErrorDetail
          * @description The `detail` of every error the API answers on purpose.
@@ -16002,6 +16019,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActivityPageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    agent_activity_entry_api_agent_activity__entry_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityEntry"];
                 };
             };
             /** @description Validation Error */

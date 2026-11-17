@@ -343,3 +343,25 @@ async def test_the_list_carries_a_change_with_its_fields(api_client, db_session,
     assert item["operation"] == "pursuits.save"
     assert item["subject"]["title"] == "Design Lead"
     assert {change["field"] for change in item["changes"]} == {"stage", "priority"}
+
+
+async def test_one_entry_is_read_by_its_id_whatever_page_it_is_on(api_client, db_session):
+    await _seed(db_session, [_row(n, at=NOW - timedelta(minutes=n)) for n in range(60)])
+    first = await _list(api_client)
+    on_page = {item["id"] for item in first["items"]}
+    older = (await _list(api_client, cursor=first["next_cursor"]))["items"][-1]
+    assert older["id"] not in on_page
+
+    response = await api_client.get(f"/api/agent-activity/{older['id']}")
+    assert response.status_code == 200, response.text
+    assert response.json() == older
+
+
+async def test_an_entry_that_is_not_in_the_log_is_not_found(api_client, db_session):
+    await _seed(db_session, [_row(1, at=NOW)])
+    (only,) = (await _list(api_client))["items"]
+    missing = await api_client.get(f"/api/agent-activity/{only['id'] + 1}")
+    assert missing.status_code == 404
+    assert missing.json()["detail"]["code"] == "activity-entry-not-found"
+    for bad in ("0", "-1", "abc", str(2**63)):
+        assert (await api_client.get(f"/api/agent-activity/{bad}")).status_code == 422, bad

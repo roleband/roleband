@@ -32,4 +32,7 @@ export interface ActivityParams {
 export const agentActivityApi = {
   agentActivity: (params: ActivityParams, signal?: AbortSignal) =>
     getJSON<ActivityPage>(`/api/agent-activity?${qs(params)}`, signal),
+  /** One entry by its id, wherever it sits in the list. */
+  agentActivityEntry: (id: number, signal?: AbortSignal) =>
+    getJSON<ActivityEntry>(`/api/agent-activity/${id}`, signal),
 };

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { api } from "../../../api";
+import { api, isNotFound } from "../../../api";
 import type { ActivityCategory, ActivityPage } from "../../../api/agentActivity";
 import { useAsyncResource } from "../../../hooks/useAsyncResource";
 import { useMeasuredCssSize } from "../../../hooks/useMeasuredCssSize";
@@ -9,7 +9,7 @@ import { useSearchParam } from "../../../routing/useSearchParam";
 import {
   AsyncBoundary, Button, EmptyState, FilterChip, Icon, Menu, MenuGroup, MenuRadio, SearchField,
 } from "../../../ui";
-import { ActivityInspector } from "./ActivityInspector";
+import { ActivityInspector, ActivityInspectorNote } from "./ActivityInspector";
 import { ActivityList } from "./ActivityList";
 import { CATEGORIES, categoryName } from "./activityText";
 import "./activity.css";
@@ -19,6 +19,9 @@ import {
   activityCustomize,
   activityEmptyBody,
   activityEmptyTitle,
+  activityEntryFailed,
+  activityEntryLoading,
+  activityEntryMissing,
   activityEyebrow,
   activityFilters,
   activityKindAll,
@@ -88,6 +91,22 @@ function useLocalMidnight(): number {
   return midnight;
 }
 
+/** An entry the address names that is not on the loaded page (a link from
+ *  an older one): read on its own, never swapped for one that is. */
+function NamedEntry({ id }: { id: number }) {
+  const entry = useAsyncResource((signal) => api.agentActivityEntry(id, signal), [id]);
+  if (entry.data) return <ActivityInspector entry={entry.data} />;
+  if (entry.error) {
+    return <ActivityInspectorNote>{isNotFound(entry.error) ? activityEntryMissing() : activityEntryFailed()}</ActivityInspectorNote>;
+  }
+  return <ActivityInspectorNote busy>{activityEntryLoading()}</ActivityInspectorNote>;
+}
+
+/** The entry id an `?entry=` names, or null for none or one no entry can have. */
+function entryId(value: string | null): number | null {
+  return value !== null && /^[1-9]\d{0,15}$/.test(value) ? Number(value) : null;
+}
+
 /** The Activity screen: every read, change and refusal by a connected
  *  assistant app, newest first, a page of 50 at a time, with the picked
  *  entry in the inspector beside the list. Filters live in the address
@@ -140,7 +159,7 @@ export function ActivityScreen() {
   );
 
   const narrowed = kind !== "all" || category !== ANY || range !== "month" || query !== "";
-  const picked = Number(searchParams.get("entry"));
+  const picked = entryId(searchParams.get("entry"));
 
   return (
     <main className="main activity-screen" data-design-system="app" ref={root}>
@@ -235,13 +254,15 @@ export function ActivityScreen() {
         )}
       >
         {(page) => {
-          const selected = page.items.find((item) => item.id === picked) ?? page.items[0];
+          // No entry named: the newest is picked. One named off this page is
+          // read on its own, and no row is marked.
+          const selected = picked === null ? page.items[0] : page.items.find((item) => item.id === picked);
           return (
             <div className="activity-split">
               <ActivityList
                 page={page}
                 first={pageIndex * PAGE_SIZE + 1}
-                selectedId={selected.id}
+                selectedId={selected?.id ?? null}
                 onOlder={page.next_cursor
                   ? () => setPaging({ key: filterKey, cursors: [...cursors, page.next_cursor] })
                   : undefined}
@@ -249,7 +270,7 @@ export function ActivityScreen() {
                   ? () => setPaging({ key: filterKey, cursors: cursors.slice(0, -1) })
                   : undefined}
               />
-              <ActivityInspector entry={selected} />
+              {selected ? <ActivityInspector entry={selected} /> : picked !== null && <NamedEntry id={picked} />}
             </div>
           );
         }}

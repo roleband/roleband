@@ -87,6 +87,38 @@ test("lists entries by day, picks one into the inspector, and keeps it in the ad
   await expect(rows(page).nth(1)).toHaveAttribute("aria-current", "true");
 });
 
+test("opens a link to an entry on an older page on that entry, with no row claiming it", async ({ page }) => {
+  await routeActivity(page);
+  const [older] = olderActivityPage.items;
+  const asked: string[] = [];
+  await mockGet(page, `/api/agent-activity/${older.id}`, (route) => {
+    asked.push(route.request().url());
+    return route.fulfill({ json: older });
+  });
+  await page.goto(`${ACTIVITY}?entry=${older.id}`);
+
+  await expect(rows(page)).toHaveCount(50);
+  await expect(inspector(page).getByRole("heading", { level: 2 })).toHaveText("Drafted a recipe for careers-fabrikam");
+  await expect(inspector(page).getByLabel("What changed")).toContainText("Draft 3");
+  await expect(list(page).locator('[aria-current="true"]')).toHaveCount(0);
+  expect(asked).toHaveLength(1);
+
+  // Picking a row on the page leaves the linked entry for it.
+  await rows(page).nth(0).click();
+  await expect(inspector(page).getByRole("heading", { level: 2 })).toHaveText(/Moved Design Lead/);
+});
+
+test("says so when a link names an entry the log does not hold", async ({ page }) => {
+  await routeActivity(page);
+  await mockGet(page, "/api/agent-activity/9999", (route) => route.fulfill({
+    status: 404, json: { detail: { code: "activity-entry-not-found", message: "activity entry not found" } },
+  }));
+  await page.goto(`${ACTIVITY}?entry=9999`);
+
+  await expect(inspector(page)).toHaveText("This entry isn't in the activity log.");
+  await expect(list(page).locator('[aria-current="true"]')).toHaveCount(0);
+});
+
 test("marks the picked row with the chosen wash and an inset bar, and a refusal in the danger hue", async ({ page }) => {
   await routeActivity(page);
   await page.goto(ACTIVITY);

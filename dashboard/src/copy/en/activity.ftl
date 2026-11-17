@@ -134,6 +134,12 @@ activity-made-change = Made a change
 ## features/intelligence/activity/ActivityInspector.tsx
 # kind=aria note="The panel showing the entry picked in the list"
 activity-inspector = Picked entry
+# kind=status note="The panel while it reads an entry a link named, from an older page"
+activity-entry-loading = Loading this entry…
+# kind=sentence note="The panel when a link names an entry the log does not hold"
+activity-entry-missing = This entry isn't in the activity log.
+# kind=sentence
+activity-entry-failed = Couldn't load this entry.
 # kind=label note="The picked entry's kind and when it happened: Change · Mon, Nov 16, 14:31"
 activity-inspector-when = { $kind } · { $when }
 # kind=label note="The picked entry's kind: a read"

@@ -1337,7 +1337,8 @@ it. The actor of an agent write comes from its principal, never its input.
 Every operation that answers, and every policy refusal, is listed in
 `agent_activity` (`tracker/agents/activity.py`), which Settings › AI › Activity
 reads through `GET /api/agent-activity`, newest first, 50 to a page, with a
-keyset cursor over `(occurred_at, id)`. A change is listed inside the write's
+keyset cursor over `(occurred_at, id)`, and one entry by its id
+(`GET /api/agent-activity/{entry_id}`) for a link to an entry on an older page. A change is listed inside the write's
 own transaction, beside its receipt, with the before and after of each field it
 touched, read under the same lock as the write; a write that rolls back lists
 nothing, and a replay lists nothing again. A read is listed on a session of its
