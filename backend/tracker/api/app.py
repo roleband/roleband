@@ -34,6 +34,7 @@ from tracker.api.errors import ErrorDetail
 from tracker.api.local_auth import LocalAuthentication
 from tracker.api.routers import (
     agent,
+    agent_activity,
     applications,
     companies,
     intelligence,
@@ -175,6 +176,7 @@ app.include_router(recipes.router)
 app.include_router(usage.router)
 app.include_router(plugins.router)
 app.include_router(agent.router)
+app.include_router(agent_activity.router)
 
 # --------------------------------------------------------------------------- #
 # Built dashboard (single-origin). Mounted last so every /api route wins first.

@@ -92,6 +92,13 @@ export const CompareRoute = preloadable(() =>
   import("./routes/CompareRoute").then((m) => ({ default: m.CompareRoute })),
 );
 
+/** What connected assistant apps read, changed and were refused
+ *  (`/settings/intelligence/activity`): a screen of its own under Settings › AI,
+ *  reached from the AI tab rather than the rail. */
+export const ActivityRoute = preloadable(() =>
+  import("./features/intelligence/activity/ActivityScreen").then((m) => ({ default: m.ActivityScreen })),
+);
+
 /** One plugin's settings (`/settings/plugins/:pluginId`): the same Settings
  *  screen and chunk, mounted on the two-segment address it reads. */
 export const SettingsItemRoute = ROUTE_COMPONENTS["/settings"];

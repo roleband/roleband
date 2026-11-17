@@ -16,6 +16,151 @@
     "title": "ActivatePayload",
     "type": "object"
    },
+   "ActivityEntry": {
+    "additionalProperties": false,
+    "properties": {
+     "action_group": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Action Group",
+      "x-text": "code"
+     },
+     "categories": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Categories",
+      "type": "array",
+      "x-text": "code"
+     },
+     "changes": {
+      "items": {
+       "$ref": "#/components/schemas/ActivityFieldChange"
+      },
+      "title": "Changes",
+      "type": "array"
+     },
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "kind": {
+      "enum": [
+       "read",
+       "change",
+       "refused"
+      ],
+      "title": "Kind",
+      "type": "string"
+     },
+     "occurred_at": {
+      "format": "date-time",
+      "title": "Occurred At",
+      "type": "string"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "refusal": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Refusal",
+      "x-text": "code"
+     },
+     "subject": {
+      "additionalProperties": true,
+      "title": "Subject",
+      "type": "object"
+     },
+     "summary": {
+      "title": "Summary",
+      "type": "string",
+      "x-text": "record"
+     }
+    },
+    "required": [
+     "id",
+     "occurred_at",
+     "operation",
+     "kind",
+     "categories",
+     "action_group",
+     "refusal",
+     "summary",
+     "subject",
+     "changes"
+    ],
+    "title": "ActivityEntry",
+    "type": "object"
+   },
+   "ActivityFieldChange": {
+    "additionalProperties": false,
+    "description": "One field a change touched. A value is JSON as the record stored it;\n`before` is null for a field the record did not have yet.",
+    "properties": {
+     "after": {
+      "title": "After"
+     },
+     "before": {
+      "title": "Before"
+     },
+     "field": {
+      "title": "Field",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "field",
+     "before",
+     "after"
+    ],
+    "title": "ActivityFieldChange",
+    "type": "object"
+   },
+   "ActivityPageResponse": {
+    "additionalProperties": false,
+    "properties": {
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/ActivityEntry"
+      },
+      "title": "Items",
+      "type": "array"
+     },
+     "next_cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Cursor",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "items",
+     "next_cursor"
+    ],
+    "title": "ActivityPageResponse",
+    "type": "object"
+   },
    "AdapterCapabilityRow": {
     "additionalProperties": false,
     "description": "One registered adapter's class-level declarations\n(`connectors.listing.capability_table`), read off the class, never a run.",
@@ -10731,6 +10876,7 @@
      "local-model-not-found",
      "cloud-model-not-found",
      "notification-not-found",
+     "activity-entry-not-found",
      "link-not-found",
      "suggestion-not-found",
      "recipe-not-found",
@@ -37957,6 +38103,202 @@
  },
  "openapi": "3.1.0",
  "paths": {
+  "/api/agent-activity": {
+   "get": {
+    "operationId": "agent_activity_api_agent_activity_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "q",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 200,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Q"
+      }
+     },
+     {
+      "in": "query",
+      "name": "kind",
+      "required": false,
+      "schema": {
+       "default": "all",
+       "enum": [
+        "all",
+        "change",
+        "read",
+        "refused"
+       ],
+       "title": "Kind",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "category",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "public_posting",
+          "market_statistic",
+          "private_pursuit",
+          "offer",
+          "candidate"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Category"
+      }
+     },
+     {
+      "in": "query",
+      "name": "since",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "format": "date-time",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Since"
+      }
+     },
+     {
+      "in": "query",
+      "name": "until",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "format": "date-time",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Until"
+      }
+     },
+     {
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 512,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Cursor"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 50,
+       "maximum": 100,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ActivityPageResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Agent Activity",
+    "tags": [
+     "agent-activity"
+    ]
+   }
+  },
+  "/api/agent-activity/{entry_id}": {
+   "get": {
+    "operationId": "agent_activity_entry_api_agent_activity__entry_id__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "entry_id",
+      "required": true,
+      "schema": {
+       "maximum": 9223372036854775807,
+       "minimum": 1,
+       "title": "Entry Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ActivityEntry"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Agent Activity Entry",
+    "tags": [
+     "agent-activity"
+    ]
+   }
+  },
   "/api/agent/v1/applications": {
    "get": {
     "operationId": "application_board_api_agent_v1_applications_get",

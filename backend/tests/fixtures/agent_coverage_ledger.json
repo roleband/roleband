@@ -98,6 +98,18 @@
   },
   {
    "method": "GET",
+   "path": "/api/agent-activity",
+   "excluded": "app_setting",
+   "reason": "The record of what assistant apps read, changed and were refused is how the person oversees them; it stays in the app."
+  },
+  {
+   "method": "GET",
+   "path": "/api/agent-activity/{entry_id}",
+   "excluded": "app_setting",
+   "reason": "One entry of the record of what assistant apps read, changed and were refused; it stays in the app with the list."
+  },
+  {
+   "method": "GET",
    "path": "/api/applications",
    "operation": "applications.board"
   },

@@ -25,6 +25,8 @@ error-cloud-model-not-found = That AI provider isn't saved anymore. Add one in S
 # kind=error next=none
 error-notification-not-found = That notification is gone.
 # kind=error next=none
+error-activity-entry-not-found = That entry isn't in the activity log.
+# kind=error next=none
 error-link-not-found = Those postings aren't linked anymore.
 # kind=error next=none
 error-suggestion-not-found = That suggestion is gone.

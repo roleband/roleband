@@ -1346,6 +1346,21 @@ new execution checks the revision the caller read (`revision_conflict`), and
 the write, its event and the receipt commit together. `pursuits.revision`
 counts every write of a pursuit, the dashboard's included; the mapper advances
 it. The actor of an agent write comes from its principal, never its input.
+Every operation that answers, and every policy refusal, is listed in
+`agent_activity` (`tracker/agents/activity.py`), which Settings › AI › Activity
+reads through `GET /api/agent-activity`, newest first, 50 to a page, with a
+keyset cursor over `(occurred_at, id)`, and one entry by its id
+(`GET /api/agent-activity/{entry_id}`) for a link to an entry on an older page. A change is listed inside the write's
+own transaction, beside its receipt, with the before and after of each field it
+touched, read under the same lock as the write; a write that rolls back lists
+nothing, and a replay lists nothing again. A read is listed on a session of its
+own after it answers, and a read that cannot be listed answers `internal_error`
+instead of its data, so nothing is read unlisted. A refusal
+(`access_disabled`, `writes_disabled`, `category_disabled`) is listed the same
+way, best effort, since it read nothing. An entry stores codes and facts
+(`subject.topic` and its fields) that the dashboard words, and an English
+`summary` for a topic it does not know; it lists the data categories the
+answer could draw on, never the data itself.
 The client reads its bundled index, `backend/tracker/cli/operations.json`
 (`scripts.export_agent_operations`), for help and offline answers.
 Every other command is generated from that index (`backend/tracker/cli/commands.py`),

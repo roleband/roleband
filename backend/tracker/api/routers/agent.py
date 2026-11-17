@@ -254,6 +254,7 @@ async def pursuit_save(
         lambda: pursuits.save_pursuit(op.session, params, actor=op.actor),
         on_revision_conflict=pursuits.reread(params.opportunity_id),
         shown=partial(pursuits.shown, postings=op.shares("public_posting")),
+        described=pursuits.PursuitActivity(params.opportunity_id, saving=True),
     )
 
 
@@ -270,6 +271,7 @@ async def pursuit_patch(
         lambda: pursuits.patch_pursuit(op.session, params, actor=op.actor),
         on_revision_conflict=pursuits.reread(params.opportunity_id),
         shown=partial(pursuits.shown, postings=op.shares("public_posting")),
+        described=pursuits.PursuitActivity(params.opportunity_id, saving=False),
     )
 
 
@@ -323,7 +325,7 @@ async def recipe_draft_save(
     op: Annotated[OperationContext, Depends(admitted(recipes.RECIPES_DRAFT_SAVE))],
 ) -> Envelope[Any]:
     params = op.input_as(recipes.RecipeDraftSaveInput)
-    return await op.write(lambda: recipes.save_draft(op.session, params))
+    return await op.write(lambda: recipes.save_draft(op.session, params), described=recipes.DraftActivity())
 
 
 @router.get(

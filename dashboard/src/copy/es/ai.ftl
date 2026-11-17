@@ -335,6 +335,7 @@ ai-assistants-card-local-only = Solo modelos de este ordenador: { $list }.
 ai-assistants-card-changes-off = Cambios desactivados: { $list }.
 ai-assistants-card-read-only = Las apps solo leen.
 ai-assistants-card-customize = Personalizar
+ai-assistants-card-activity = Actividad
 ai-access-dialog-title = Personaliza lo que reciben las apps
 ai-access-dialog-apply-at-once = Los cambios se aplican al momento.
 ai-access-dialog-data = Datos que leen las apps

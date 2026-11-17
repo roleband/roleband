@@ -599,6 +599,15 @@ TABLE_OWNERS: dict[str, TableOwnership] = {
         writers=("tracker/agents/receipts.py",),
         readers=("tracker/agents/receipts.py",),
     ),
+    # One row per agent read, change or refusal, for the Activity screen. A
+    # change's row is written in the write's own transaction; nothing updates
+    # a row once written.
+    "agent_activity": TableOwnership(
+        claim="user",
+        lifecycle="append_only",
+        writers=("tracker/agents/activity.py",),
+        readers=("tracker/agents/activity.py",),
+    ),
     # One row, written by its migration or at engine start. A scratch copy
     # of the database is given a new id by `deploy/restore_db.sh --into`.
     "workspace_identity": TableOwnership(

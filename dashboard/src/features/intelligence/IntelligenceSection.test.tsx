@@ -631,6 +631,19 @@ describe("assistants card", () => {
     expect(within(region).getByText(msg("ai-assistants-card-up-to-the-app"))).toBeInTheDocument();
   });
 
+  it("ends on Customize and, beside it, the way to Activity", async () => {
+    mount();
+    const region = await card();
+    const activity = within(region).getByRole("link", { name: msg("ai-assistants-card-activity") });
+    expect(activity).toHaveAttribute("href", "/settings/intelligence/activity");
+    // Both sit in the card's last line, Customize first.
+    const foot = activity.parentElement!;
+    expect(within(foot).getByRole("button", { name: msg("ai-assistants-card-customize") })).toBeInTheDocument();
+    expect(foot.lastElementChild).toBe(activity);
+    // No separate card on the tab leads there.
+    expect(screen.getAllByRole("link", { name: msg("ai-assistants-card-activity") })).toHaveLength(1);
+  });
+
   it("names only what the person held back", async () => {
     mocked.agentAccess.mockResolvedValue({
       ...agentAccessFixture,

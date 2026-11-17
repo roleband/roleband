@@ -32,6 +32,7 @@ class ErrorCode(StrEnum):
     LOCAL_MODEL_NOT_FOUND = "local-model-not-found"
     CLOUD_MODEL_NOT_FOUND = "cloud-model-not-found"
     NOTIFICATION_NOT_FOUND = "notification-not-found"
+    ACTIVITY_ENTRY_NOT_FOUND = "activity-entry-not-found"
     LINK_NOT_FOUND = "link-not-found"
     SUGGESTION_NOT_FOUND = "suggestion-not-found"
     RECIPE_NOT_FOUND = "recipe-not-found"
