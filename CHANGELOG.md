@@ -6,6 +6,42 @@ Notable changes to RoleBand, newest first. The format follows
 
 ## [Unreleased]
 
+## [0.3.0]
+
+Your assistant works from your radar through one command, and you see
+everything it did.
+
+- **Assistant apps connect through the `roleband` command.** One switch in
+  Settings › AI lets apps such as Claude Code and Codex reach your radar, and
+  Customize holds back any kind of data or change. Run the command the card
+  shows, once, in a terminal; on a Mac it finds the app's engine by itself. An
+  assistant can then search postings, read pay, Insights, companies, your saved
+  roles and notes, your offer and what changed since it last asked, and save
+  roles and notes for you.
+- **See what your assistant did.** Activity, under Settings › AI, lists every
+  read, change and refusal, newest first.
+- **The MCP server is gone.** An assistant set up for it stops reaching your
+  radar at this update. Remove the `roleband` server from that app's MCP
+  settings, then run `roleband connect claude-code --apply` or
+  `roleband connect codex --apply`. A chat app that cannot run commands can no
+  longer connect.
+- **Your offer is shared like the rest.** Once the switch is on, assistants read
+  your offer too, and Customize keeps it back. The offer screen says where
+  entered figures go before you enter any.
+- **Updates open a window.** On Mac and Windows a new version opens its own
+  window instead of a notification, and the menu-bar or tray icon is marked
+  while one waits. Checks run once a day unless you turn them off, and an
+  important release's window comes back a day after Later.
+- **The pay card leads with the employer's figure.** Every amount reads in the
+  period it can really be, so a rate reads as a yearly base, and lines that say
+  nothing new are gone. Pay bands come from a newer measurement and keep the
+  ranges they can no longer measure.
+- **An application's whole history.** The Pipeline reads every entry, month by
+  month, with a jump to any moment.
+- **The Mac app.** Opening it again brings its window forward with its content,
+  and the About tab links to the project: star it on GitHub, or report a problem
+  and suggest an idea.
+
 ## [0.2.1]
 
 Pay opens on what employers post, a newer database runs underneath, and the
