@@ -348,13 +348,17 @@ and reads no project `.env`. The script names the bundle's own path, and is
 written only for an app in `/Applications` or `~/Applications`, never from a disk
 image or a translocated copy. Once the app has moved away, it prints one line
 asking the person to open the app and exits 3. Nothing edits a shell profile, and
-a `roleband` the app did not write is left alone.
+a `roleband` the app did not write is left alone. After it claims its database,
+the same start names its engine as the command's `app` context in the context
+file ([where it lives and what is kept](cli.md#connecting-an-agent),
+`backend/tracker/platform/cli_context.py`).
 
 All writable state lives in `~/.roleband` (database, plugins, logs, locks,
 pacing, models, backups, supervisor files), so moving or replacing the app moves
-none of it. The one file the app writes outside it is the `roleband` command in
-`~/.local/bin`, which names the app's path: after a move it stays stale until
-the app starts again. Database and secret-key overrides exist for isolated tests. Packaged
+none of it. The files the app writes outside it are the `roleband` command in
+`~/.local/bin`, which names the app's path, and the command's `app` context,
+which names the engine's port: after a move or a port change each stays stale
+until the app starts again. Database and secret-key overrides exist for isolated tests. Packaged
 supervision has no git activation, source preflight or dashboard build; schema
 compatibility still gates database jobs. Its backup job uses the runtime's
 Python and matching Postgres client tools, verifies the whole archive before
