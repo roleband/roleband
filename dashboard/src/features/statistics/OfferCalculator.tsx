@@ -40,6 +40,7 @@ import {
   insightsOfferFourYears,
   insightsOfferGrantUnit,
   insightsOfferGrantUnitOption,
+  insightsOfferKept,
   insightsOfferLater,
   insightsOfferListed,
   insightsOfferListedLabel,
@@ -363,7 +364,7 @@ export const OfferCalculator = forwardRef<HTMLHeadingElement, OfferCalculatorPro
         )}
         {offer.started_from && steps.some((s) => s !== "company" && !answered.includes(s)) && (
           <p className="traj-offer-typical">
-            {insightsOfferTypical()}{" "}
+            {insightsOfferTypical()} {insightsOfferKept()}{" "}
             <Button variant="primary" size="sm" onClick={() => ask(nextStep(answered, steps), "walk")}>{insightsOfferSwap()}</Button>
           </p>
         )}
@@ -435,6 +436,7 @@ export const OfferCalculator = forwardRef<HTMLHeadingElement, OfferCalculatorPro
           <div>
             <h3 id={headingId} ref={headingRef} tabIndex={-1}>{insightsOfferStartTitle()}</h3>
             <p className="sub">{insightsOfferStartIntro()}</p>
+            <p className="sub">{insightsOfferKept()}</p>
           </div>
         </div>
       )}
