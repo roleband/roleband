@@ -65,6 +65,34 @@ public sealed class UpdateWindowTests
     }
 
     [TestMethod]
+    public void AnImportantReleaseComesBackADayAfterAnyLaterUnlessItsSwitchIsOff()
+    {
+        var important = State(new UpdateState(Offer with { Important = true }));
+        AppState At(DateTimeOffset now) => important with { Now = now };
+        var once = new UpdateWindowRecord().Later("0.2.3", Now);
+        Assert.AreEqual(Drop, Decide(At(Now.AddDays(1).AddMinutes(-1)), once));
+        Assert.AreEqual(Open, Decide(At(Now.AddDays(1)), once));
+        var fourth = once.Later("0.2.3", Now.AddDays(1)).Later("0.2.3", Now.AddDays(2)).Later("0.2.3", Now.AddDays(3));
+        Assert.AreEqual(Open, Decide(At(Now.AddDays(4)), fourth), "Laters have no limit for an important release");
+        Assert.AreEqual(Drop, Decide(At(Now.AddDays(4)), fourth with { Shows = false }), "its switch still holds it closed");
+        Assert.AreEqual(Drop, Decide(State(now: Now.AddDays(1)), once), "an unmarked release waits its three days");
+        Assert.AreEqual(Open, Decide(At(Now.AddDays(1)), once), "a mark that arrives during a three-day wait shortens it");
+    }
+
+    [TestMethod]
+    public void OnlyAnImportantOfferSaysTheUpdateIsRecommended()
+    {
+        var marked = Offer with { Important = true };
+        Assert.AreEqual(Copy["update-window-body-important"], View(State(new UpdateState(marked))).Body);
+        Assert.AreEqual(Copy["update-window-body"], View(State()).Body);
+        Assert.AreEqual(Copy["update-window-body-important"],
+            View(State(Running(new UpdateRun(UpdateStep.Downloading, "0.2.3"), marked))).Body, "its own update keeps the line");
+        var installing = View(State(Running(new UpdateRun(UpdateStep.Installing, "0.2.2"), marked)));
+        Assert.AreEqual(Copy["update-window-body"], installing.Body, "an older version installing is not the marked one");
+        Assert.AreNotEqual(Copy["update-window-body"], Copy["update-window-body-important"]);
+    }
+
+    [TestMethod]
     public void TheRecordKeepsTheSwitchAndTheLatersAcrossOpens()
     {
         var state = Path.Combine(Path.GetTempPath(), "roleband-update-window", Guid.NewGuid().ToString("N"));

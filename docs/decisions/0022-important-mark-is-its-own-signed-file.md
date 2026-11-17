@@ -24,6 +24,11 @@ Ed25519 signature by the release key over `roleband-important v<version>` and a 
 - A marked release's window comes back a day after each Later, with no limit on Laters,
   and says the update is recommended. It never installs on its own, and About's switch
   still turns the window off.
+- The Windows app follows the same rules with its own file,
+  `RoleBand-<version>-Windows-x64.important`, signed by the Windows release key over the
+  same bytes; `launcher/windows/Tools/release.py important` attaches it. The two apps hold
+  different keys, so each platform's mark counts only for its own app, and a release can be
+  important on one and not the other. Settings' Update window switch turns it off.
 
 ## Consequences
 
@@ -35,7 +40,10 @@ Ed25519 signature by the release key over `roleband-important v<version>` and a 
 - Enforced by `anImportantMarkIsTheToolsSignatureOnThisVersionAlone`,
   `anImportantMarkCountsOnlyWhenItsSignatureHolds`, the important tests in
   `UpdateTests.swift`, `UpdateWindowTests.swift` and `PanelTests.swift`, and the important
-  tests in `Tools/test_release.py`.
+  tests in `Tools/test_release.py`; on Windows by the mark tests in
+  `backend/tests/test_windows_updates.py`, `ImportantMarkTests` in
+  `launcher/windows/Tools/test_release.py`, and the important tests in `UpdateWindowTests.cs`
+  and `AboutTests.cs`.
 
 ## Alternatives considered
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import subprocess
@@ -14,7 +15,14 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
 from tracker.platform import windows_updates
-from tracker.platform.windows_release import Identity, ReleaseError, names, prepare
+from tracker.platform.windows_release import (
+    Identity,
+    ReleaseError,
+    mark_name,
+    names,
+    prepare,
+    sign_important,
+)
 from tracker.platform.windows_updates import AUTOMATIC_INTERVAL, check, record_consent
 
 FEED = "roleband/roleband-trials"
@@ -52,6 +60,13 @@ class Feed:
             content[metadata] = content[metadata].replace(b'"bytes": ', b'"bytes": 1')
         self.releases[version] = content
         self.latest = version
+
+    def mark(self, version, *, key=None, signed_for=None, content=None):
+        """Attach the release's important mark, signed by `key` for `signed_for`, or the given bytes."""
+        if content is None:
+            signer = key or self.key
+            content = signer.sign(f"roleband-important v{signed_for or version}\n".encode())
+        self.releases[version][mark_name(version)] = content
 
     def listing(self) -> list[dict]:
         """The releases as GitHub lists them: newest first, each with the names of its files."""
@@ -217,6 +232,69 @@ def test_an_older_listing_never_replaces_a_verified_offer(state, identity, feed)
     result = run(state, identity, feed, manual=True, now=NOW + 1)
     assert (result.status, result.offer.version) == ("offered", "0.1.4")
     assert len(feed.requests) == asked + 1, "only the listing was read"
+
+
+def _important(state, identity):
+    return windows_updates.status(state, identity, "0.1.2")["important"]
+
+
+def test_an_important_mark_the_release_key_signed_for_its_release_marks_the_offer(state, identity, feed, key):
+    feed.publish("0.1.3")
+    feed.mark("0.1.3")
+    assert run(state, identity, feed, manual=True).offer.version == "0.1.3"
+    assert _important(state, identity), "the signed mark is kept with the offer"
+    assert sign_important(key, identity, "0.1.3") == feed.releases["0.1.3"][mark_name("0.1.3")]
+    with pytest.raises(ReleaseError):
+        sign_important(ed25519.Ed25519PrivateKey.generate(), identity, "0.1.3")
+
+
+def test_a_release_without_a_listed_mark_is_not_asked_for_one(state, identity, feed):
+    feed.publish("0.1.3")
+    run(state, identity, feed, manual=True)
+    assert not _important(state, identity)
+    assert not any(url.endswith(".important") for url in feed.requests)
+
+
+@pytest.mark.parametrize("mark", [
+    pytest.param({"key": ed25519.Ed25519PrivateKey.generate()}, id="another key"),
+    pytest.param({"signed_for": "0.1.2"}, id="another version's mark"),
+    pytest.param({"content": b"\0" * 63}, id="too short"),
+    pytest.param({"content": b"\0" * 65}, id="too long"),
+])
+def test_a_mark_that_is_not_the_release_key_s_signature_on_this_version_is_no_mark(state, identity, feed, mark):
+    feed.publish("0.1.3")
+    feed.mark("0.1.3", **mark)
+    result = run(state, identity, feed, manual=True)
+    assert (result.status, result.offer.version) == ("offered", "0.1.3"), "a bad mark never stops the offer"
+    assert not _important(state, identity)
+
+
+def test_a_mark_attached_after_the_release_is_read_by_the_next_check_and_then_stays(state, identity, feed):
+    feed.publish("0.1.3")
+    run(state, identity, feed, manual=True)
+    assert not _important(state, identity)
+    feed.mark("0.1.3")
+    run(state, identity, feed, manual=True, now=NOW + 1)
+    assert _important(state, identity), "a mark can be added once the release has shipped"
+    del feed.releases["0.1.3"][mark_name("0.1.3")]
+    asked = len(feed.requests)
+    run(state, identity, feed, manual=True, now=NOW + 2)
+    assert _important(state, identity), "a mark once read cannot be withdrawn"
+    assert len(feed.requests) == asked + 1, "a mark already read is not read again"
+
+
+def test_a_newer_release_starts_unmarked_and_a_kept_mark_must_still_verify(state, identity, feed, key):
+    feed.publish("0.1.3")
+    feed.mark("0.1.3")
+    run(state, identity, feed, manual=True)
+    record = json.loads((state / windows_updates.CHECK).read_text())
+    record["offer"]["important"] = base64.b64encode(key.sign(b"roleband-important v0.1.4\n")).decode()
+    (state / windows_updates.CHECK).write_text(json.dumps(record))
+    assert not _important(state, identity), "a kept mark counts only for its own version"
+    feed.publish("0.1.4")
+    run(state, identity, feed, manual=True, now=NOW + 1)
+    assert windows_updates.status(state, identity, "0.1.2")["offer"] == "0.1.4"
+    assert not _important(state, identity), "a newer release carries its own mark or none"
 
 
 def test_installing_the_offered_version_retires_the_offer(state, identity, feed):
@@ -399,7 +477,8 @@ def test_a_version_this_installation_undid_is_not_offered_again(state, identity,
 
 def test_status_reads_what_checks_kept_without_asking_the_feed(state, identity, feed):
     assert windows_updates.status(state, identity, "0.1.2") == {
-        "automatic": True, "checked_at": None, "offer": None, "release_page": None, "rate_limited_until": None}
+        "automatic": True, "checked_at": None, "offer": None, "release_page": None, "important": False,
+        "rate_limited_until": None}
     allow(state, False)
     feed.publish("0.1.3")
     run(state, identity, feed, manual=True)

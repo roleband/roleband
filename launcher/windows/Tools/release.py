@@ -1,8 +1,9 @@
-"""Write or check the four files of a Windows release for one signed MSIX."""
+"""Write or check the four files of a Windows release for one signed MSIX, or mark a published one important."""
 
 import argparse
 import json
 import subprocess
+import tempfile
 import zipfile
 from pathlib import Path
 from xml.etree import ElementTree
@@ -14,9 +15,12 @@ from cryptography.hazmat.primitives.asymmetric import ed25519
 from identity import FOUNDATION, PACKAGE_NAME, ROOT, passphrase
 from tracker.platform.windows_release import (
     ReleaseError,
+    is_important,
+    mark_name,
     names,
     prepare,
     read_identity,
+    sign_important,
     verify_offer,
     verify_package,
 )
@@ -83,6 +87,38 @@ def check(directory, identity, installed):
     return offer
 
 
+def gh(*arguments):
+    return subprocess.run(["gh", *arguments], check=True, capture_output=True, text=True).stdout
+
+
+def important(tag, identity, private_key, run=gh):
+    """Signs a published release's important mark and attaches it beside the release's files, once."""
+    if not tag.startswith("v"):
+        raise ReleaseError("Expected an exact release tag, such as v0.2.3")
+    version = tag[1:]
+    files, name = set(names(version)), mark_name(version)
+    mark = sign_important(private_key, identity, version)
+    listing = json.loads(run("release", "view", tag, "--repo", identity.feed, "--json",
+                             "tagName,isDraft,isPrerelease,assets"))
+    assets = [asset for asset in listing.get("assets") or [] if isinstance(asset, dict)]
+    uploaded = {asset.get("name") for asset in assets if asset.get("state", "uploaded") == "uploaded"}
+    # Apps offer only a published, non-prerelease release with all four files, so a mark anywhere else would never
+    # be read. A mark already there stays: without --clobber the upload could not replace it.
+    if listing.get("tagName") != tag or listing.get("isDraft") is not False or listing.get("isPrerelease") is not False:
+        raise ReleaseError("The important mark attaches only to a published release")
+    if not files <= uploaded:
+        raise ReleaseError("Attach the release files before marking it important")
+    if name in {asset.get("name") for asset in assets}:
+        raise ReleaseError("The release is already marked important")
+    if not is_important(identity, version, mark):
+        raise ReleaseError("The mark does not verify with the release identity")
+    with tempfile.TemporaryDirectory(prefix="roleband-important-") as directory:
+        path = Path(directory) / name
+        path.write_bytes(mark)
+        run("release", "upload", tag, "--repo", identity.feed, str(path))
+    return name
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="action", required=True)
@@ -99,6 +135,11 @@ def main(argv=None):
     verify.add_argument("--directory", type=Path, required=True)
     verify.add_argument("--identity", type=Path, required=True)
     verify.add_argument("--installed", required=True)
+    mark = commands.add_parser("important", help="mark a published release important: its window returns daily")
+    mark.add_argument("--tag", required=True)
+    mark.add_argument("--identity", type=Path, required=True)
+    mark.add_argument("--key", type=Path, required=True)
+    mark.add_argument("--passphrase-env", help="read the key's passphrase from this environment variable")
     args = parser.parse_args(argv)
     try:
         identity = read_identity(json.loads(args.identity.read_text(encoding="utf-8")))
@@ -109,6 +150,8 @@ def main(argv=None):
             for path in prepare(args.package, args.destination, identity, signing_key(args.key, args.passphrase_env),
                                 version=version, revision=args.revision, commit=commit):
                 print(path)
+        elif args.action == "important":
+            print(important(args.tag, identity, signing_key(args.key, args.passphrase_env)))
         else:
             print(json.dumps(check(args.directory, identity, args.installed).__dict__))
     except ReleaseError as error:

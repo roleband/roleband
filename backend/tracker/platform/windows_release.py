@@ -76,6 +76,36 @@ def names(version: str) -> tuple[str, str, str, str]:
     return prefix + ".msix", prefix + ".sha256", prefix + ".json", prefix + ".sig"
 
 
+def mark_name(version: str) -> str:
+    """The release's important mark: a signature on its own, which `Tools/release.py important` can attach to a
+    published release at any time. It is not one of `names`, so apps that do not know it never read it."""
+    return names(version)[0].removesuffix(".msix") + ".important"
+
+
+def important_message(version: str) -> bytes:
+    """What an important mark signs. It names the version, so a mark cannot be moved to another release, and it
+    cannot be mistaken for release metadata, whose signed bytes open with a checksum."""
+    stable_version(version)
+    return f"roleband-important v{version}\n".encode()
+
+
+def sign_important(private_key: ed25519.Ed25519PrivateKey, identity: Identity, version: str) -> bytes:
+    if private_key.public_key().public_bytes_raw() not in (identity.release_key, identity.spare_key):
+        raise ReleaseError("The signing key is not the release key the identity names")
+    return private_key.sign(important_message(version))
+
+
+def is_important(identity: Identity, version: str, mark: bytes) -> bool:
+    """Whether a mark is a signature by one of this installation's release keys on that version. Anything else, of
+    any size, is no mark."""
+    try:
+        message = important_message(version)
+    except ReleaseError:
+        return False
+    return len(mark) == 64 and any(key is not None and _signed(key, mark, message)
+                                   for key in (identity.release_key, identity.spare_key))
+
+
 def read_identity(record: Any) -> Identity:
     """The trust anchor stamped in a package, as JSON with the key in base64."""
     required = {"format", "feed", "release_public_key", "package_name", "publisher"}

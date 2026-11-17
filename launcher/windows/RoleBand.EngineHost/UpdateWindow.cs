@@ -12,8 +12,10 @@ namespace RoleBand.EngineHost;
 public sealed record UpdateWindowRecord(bool Shows = true, string? LaterVersion = null, int LaterCount = 0,
                                         DateTimeOffset? LaterUntil = null)
 {
-    /// <summary>How long Later keeps the window away, and how many Laters leave a version to the icon's badge alone.</summary>
+    /// <summary>How long Later keeps the window away, and how many Laters leave a version to the icon's badge alone. An
+    /// important release comes back a day after any number of Laters.</summary>
     public static readonly TimeSpan LaterInterval = TimeSpan.FromDays(3);
+    public static readonly TimeSpan ImportantLaterInterval = TimeSpan.FromDays(1);
     public const int LaterLimit = 3;
 
     public UpdateWindowRecord Later(string version, DateTimeOffset now) => this with
@@ -23,9 +25,11 @@ public sealed record UpdateWindowRecord(bool Shows = true, string? LaterVersion 
         LaterUntil = now + LaterInterval,
     };
 
-    /// <summary>Whether the person's Laters still let the window open for <paramref name="version"/>.</summary>
-    public bool Allows(string version, DateTimeOffset now) =>
-        LaterVersion != version || LaterUntil is not { } until || (LaterCount < LaterLimit && now >= until);
+    /// <summary>Whether the person's Laters still let the window open for <paramref name="version"/>. The wait is
+    /// measured from the last Later, so a mark that arrives during a three-day wait shortens it to a day.</summary>
+    public bool Allows(string version, DateTimeOffset now, bool important = false) =>
+        LaterVersion != version || LaterUntil is not { } until
+        || (important ? now >= until - LaterInterval + ImportantLaterInterval : LaterCount < LaterLimit && now >= until);
 }
 
 /// <summary>The update window's record in the account's state. One that is missing or cannot be read is a window that
@@ -107,7 +111,7 @@ public static class UpdateWindowRules
         if (update.Facts is not { Available: true } facts || facts.Offer != version || !record.Shows) return UpdateWindowDecision.Drop;
         if (!state.Setup.Complete || setupOpen || update.Switching) return UpdateWindowDecision.Hold;
         if (update.Installable != version) return UpdateWindowDecision.Drop;
-        return record.Allows(version, state.Now) ? UpdateWindowDecision.Open : UpdateWindowDecision.Drop;
+        return record.Allows(version, state.Now, facts.Important) ? UpdateWindowDecision.Open : UpdateWindowDecision.Drop;
     }
 
     /// <summary>An open window goes once it has nothing to show (the version was installed, withdrawn or held back, or an
@@ -141,10 +145,16 @@ public static class UpdateWindowRules
         };
     }
 
+    /// <summary>The page and an important release's line speak for the offer only, so an older version still
+    /// installing keeps the plain line.</summary>
     private static UpdateWindowView Window(NativeCopy copy, UpdateFacts? facts, string version, string? step, string? detail, int? percent,
-                                           bool working, bool failed, IReadOnlyList<UpdateWindowChoice> choices) =>
-        new(copy.Format("update-ready", ("version", version)), copy["update-window-body"], version,
-            facts is { } known && known.Offer == version ? known.Page : null, step, detail, percent, working, failed, choices);
+                                           bool working, bool failed, IReadOnlyList<UpdateWindowChoice> choices)
+    {
+        var offer = facts is { } known && known.Offer == version ? known : null;
+        return new(copy.Format("update-ready", ("version", version)),
+            copy[offer is { Important: true } ? "update-window-body-important" : "update-window-body"], version, offer?.Page, step, detail,
+            percent, working, failed, choices);
+    }
 
     private static int? Percent(UpdateRun run) =>
         run.Received is { } received && run.Total is { } total && total > 0 ? (int)(received * 100 / total) : null;
