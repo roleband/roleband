@@ -32,6 +32,9 @@ public sealed class AboutTests
         Assert.AreEqual(new UpdateFacts(true, true, Now.AddSeconds(-60), "0.1.3", null), status);
         var check = Facts($$$"""{"status":"rate-limited","until":{{{NowSeconds + 120}}},"checked_at":null,"automatic":false,"offer":{"version":"0.1.4","sha256":"ab"}}""");
         Assert.AreEqual(new UpdateFacts(true, false, null, "0.1.4", Now.AddSeconds(120)), check);
+        Assert.IsTrue(Facts("""{"status":"ok","offer":"0.1.3","important":true}""").Important, "a mark the update command verified");
+        Assert.IsFalse(Facts("""{"status":"ok","offer":"0.1.3","important":"true"}""").Important, "only true marks it");
+        Assert.IsFalse(Facts("""{"status":"ok","offer":null,"important":true}""").Important, "a mark needs its offer");
         Assert.ThrowsExactly<IOException>(() => Facts("""{"recorded":true}"""));
         Assert.ThrowsExactly<IOException>(() => Facts("[]"));
     }

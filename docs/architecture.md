@@ -315,7 +315,11 @@ owns the phases and what each entry point refuses. The update window
 ([decision 0021](decisions/0021-update-window-replaces-notifications.md)) is a window the app shows
 above the others without activating it; its switch and each version's Laters live in
 `launcher\update-window.json` in the account's state, and it opens only for a release an automatic
-check found and verified.
+check found and verified. A release's important mark
+([decision 0022](decisions/0022-important-mark-is-its-own-signed-file.md)) is
+`RoleBand-<version>-Windows-x64.important`, signed by the Windows release key; the update command reads it
+only when the listing names it, keeps it with the offer once it verifies, and `Tools\release.py important`
+attaches it.
 
 The Windows app ships as one signed MSIX per release;
 [decision 0011](decisions/0011-windows-msix-packaging.md) owns what the package and

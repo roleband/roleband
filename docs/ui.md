@@ -211,7 +211,8 @@ update window in the middle of the primary display, with the Mac's words and rul
 fixed line, What's new (the release's page), Later and Update. It stays above other windows without
 taking focus or a click's activation, and has no close button: Later is its way out. It follows the
 download, Windows' install or a failure with Try again, as the card does. Later hides that version for
-three days and after the third only the badge carries it; Check for updates never opens it, it waits
+three days and after the third only the badge carries it; a release marked important says it is recommended
+and comes back a day after each Later, however many. Check for updates never opens it, it waits
 while setup is open or unfinished and while an update or Undo runs, and Settings' switch turns it off.
 Update is the only press: the card and the banner
 follow the download, with how much has arrived of how much and Cancel, which keeps what arrived

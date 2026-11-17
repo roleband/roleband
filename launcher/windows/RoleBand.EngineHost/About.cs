@@ -32,8 +32,10 @@ public sealed record UpdateResult(string Version, string? Undone = null);
 /// which asks nothing of the network, or from a check's own answer.</summary>
 /// <param name="Last">The last package update, which says how it ended or that it is being undone.</param>
 /// <param name="Page">The offer's release page, where its notes are.</param>
+/// <param name="Important">The offer carries an important mark its release key signed: its window comes back sooner
+/// and says the update is recommended.</param>
 public sealed record UpdateFacts(bool Available, bool Automatic, DateTimeOffset? CheckedAt, string? Offer, DateTimeOffset? RateLimitedUntil,
-                                 LastUpdate? Last = null, string? Page = null)
+                                 LastUpdate? Last = null, string? Page = null, bool Important = false)
 {
     /// <summary>A build that does not update itself, or an app without an engine to ask.</summary>
     public static UpdateFacts Unavailable { get; } = new(false, false, null, null, null);
@@ -54,7 +56,8 @@ public sealed record UpdateFacts(bool Available, bool Automatic, DateTimeOffset?
             Moment(reply, "checked_at"), offer, Moment(reply, "rate_limited_until") ?? Moment(reply, "until"), ReadLast(reply),
             offer is not null && reply.TryGetProperty("release_page", out var page) && page.ValueKind == JsonValueKind.String
                 && Uri.TryCreate(page.GetString(), UriKind.Absolute, out var address) && address.Scheme == Uri.UriSchemeHttps
-                ? address.AbsoluteUri : null);
+                ? address.AbsoluteUri : null,
+            offer is not null && reply.TryGetProperty("important", out var important) && important.ValueKind == JsonValueKind.True);
     }
 
     /// <summary>The last update the answer names. A build that does not update itself still names one it left unfinished.</summary>

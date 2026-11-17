@@ -5,7 +5,8 @@ off; an install that never chose checks without a choice being recorded. A manua
 one request without changing that choice. A rate limit delays manual checks too. The listing is not signed, so an
 offer comes only from release files that verify with the installed package's key
 (`windows_release`); a failed check keeps the last verified offer, and a verified offer is
-never replaced by an older listing.
+never replaced by an older listing. An offer's important mark is read only when the listing names it, and counts
+only when the release key signed it for that version.
 """
 
 from __future__ import annotations
@@ -30,6 +31,8 @@ from tracker.platform.windows_release import (
     Identity,
     Offer,
     ReleaseError,
+    is_important,
+    mark_name,
     names,
     stable_version,
     verify_offer,
@@ -133,6 +136,18 @@ def _stored_offer(record: dict[str, Any], identity: Identity, installed: str, he
     return None if offer.version == held_back else offer
 
 
+def _marked(record: dict[str, Any], identity: Identity, offer: Offer | None) -> bool:
+    """Whether the kept offer carries an important mark signed by this installation's release keys."""
+    stored = record.get("offer")
+    if offer is None or not isinstance(stored, dict) or not isinstance(stored.get("important"), str):
+        return False
+    try:
+        mark = base64.b64decode(stored["important"], validate=True)
+    except ValueError:
+        return False
+    return is_important(identity, offer.version, mark)
+
+
 def stored_offer(state: Path, identity: Identity, installed: str,
                  held_back: str | None = None) -> tuple[Offer, tuple[bytes, bytes, bytes]] | None:
     """The verified offer a check kept, with the signed files it came from."""
@@ -156,6 +171,7 @@ def status(state: Path, identity: Identity, installed: str, held_back: str | Non
             "checked_at": float(checked) if isinstance(checked, (int, float)) else None,
             "offer": offer.version if offer else None,
             "release_page": release_page(identity.feed, offer.version) if offer else None,
+            "important": _marked(record, identity, offer),
             "rate_limited_until": float(limited) if isinstance(limited, (int, float)) else None}
 
 
@@ -231,9 +247,11 @@ def _windows_release(release: Any, feed: str) -> str | None:
     return tag[1:]
 
 
-def _newest(client: httpx.Client, feed: str, now: float, above: tuple[int, int, int]) -> str | None:
-    """The newest recent release with this app's files that is newer than `above`, or None. The listing is unsigned:
-    it only names which release's signed files to read."""
+def _newest(client: httpx.Client, feed: str, now: float,
+            above: tuple[int, int, int]) -> tuple[str | None, dict[str, set[str]]]:
+    """The newest recent release with this app's files that is newer than `above`, or None, and the files each
+    recent release with this app's files lists. The listing is unsigned: it only names which release's signed files
+    to read."""
     with client.stream("GET", releases_url(feed), headers={"Accept": "application/vnd.github+json",
                                                            "X-GitHub-Api-Version": API_VERSION}) as response:
         _rate_limit(response, now)
@@ -242,9 +260,11 @@ def _newest(client: httpx.Client, feed: str, now: float, above: tuple[int, int, 
         listing = json.loads(_read(response, LISTING_LIMIT))
     if not isinstance(listing, list):
         raise ReleaseError("The update feed did not answer with a list of releases")
-    versions = [version for version in (_windows_release(release, feed) for release in listing)
-                if version is not None and stable_version(version) > above]
-    return max(versions, key=stable_version, default=None)
+    listed = {version: {name for asset in release["assets"] if isinstance(asset, dict)
+                        and isinstance(name := asset.get("name"), str)}
+              for release in listing if (version := _windows_release(release, feed)) is not None}
+    versions = [version for version in listed if stable_version(version) > above]
+    return max(versions, key=stable_version, default=None), listed
 
 
 def _asset(client: httpx.Client, feed: str, version: str, name: str, limit: int, now: float) -> bytes:
@@ -263,6 +283,19 @@ def _asset(client: httpx.Client, feed: str, version: str, name: str, limit: int,
                 raise ReleaseError("The update feed did not send a release file")
             return _read(response, limit)
     raise ReleaseError("A release file redirected too many times")
+
+
+def _read_mark(client: httpx.Client, identity: Identity, version: str, listed: dict[str, set[str]],
+               now: float) -> bytes | None:
+    """The release's important mark when the listing names it and it verifies. A mark that is missing, unreadable
+    or not signed by this installation's release keys counts as none, and the next check reads it again."""
+    if mark_name(version) not in listed.get(version, set()):
+        return None
+    try:
+        mark = _asset(client, identity.feed, version, mark_name(version), 64, now)
+    except (httpx.HTTPError, ReleaseError, RateLimited):
+        return None
+    return mark if is_important(identity, version, mark) else None
 
 
 def fetch_release(identity: Identity, version: str, *,
@@ -308,7 +341,7 @@ def check(state: Path, identity: Identity, installed: str, *, manual: bool, now:
             # verified offer is never replaced by an older listing.
             known = (installed, held_back, offer.version if offer else None)
             above = max(stable_version(version) for version in known if version is not None)
-            version = _newest(client, identity.feed, now, above)
+            version, listed = _newest(client, identity.feed, now, above)
             checksum = None
             if version is not None:
                 try:
@@ -318,6 +351,10 @@ def check(state: Path, identity: Identity, installed: str, *, manual: bool, now:
                     pass
             # A check counts as done only once the feed answered with releases this build can read.
             if version is None or checksum is None:
+                # A mark can be attached after its release ships; one read stays, as a mark cannot be withdrawn.
+                if offer is not None and not _marked(record, identity, offer) and (
+                        mark := _read_mark(client, identity, offer.version, listed, now)) is not None:
+                    record["offer"]["important"] = base64.b64encode(mark).decode()
                 record.update(checked_at=now, installed=installed)
                 _save(state / CHECK, record)
                 return Result("up-to-date" if offer is None else "offered", offer)
@@ -325,6 +362,7 @@ def check(state: Path, identity: Identity, installed: str, *, manual: bool, now:
             metadata = _asset(client, identity.feed, version, metadata_name, METADATA_LIMIT, now)
             signature = _asset(client, identity.feed, version, signature_name, 64, now)
             offer = verify_offer(identity, installed, checksum, metadata, signature)
+            mark = _read_mark(client, identity, version, listed, now)
     except RateLimited as limit:
         record["rate_limited_until"] = limit.until
         _save(state / CHECK, record)
@@ -332,7 +370,8 @@ def check(state: Path, identity: Identity, installed: str, *, manual: bool, now:
     except (httpx.HTTPError, ReleaseError, ValueError):
         return Result("failed", offer)
     record["offer"] = {"checksum": base64.b64encode(checksum).decode(), "metadata": base64.b64encode(metadata).decode(),
-                       "signature": base64.b64encode(signature).decode()}
+                       "signature": base64.b64encode(signature).decode(),
+                       **({"important": base64.b64encode(mark).decode()} if mark is not None else {})}
     record.update(checked_at=now, installed=installed)
     _save(state / CHECK, record)
     return Result("offered", offer)

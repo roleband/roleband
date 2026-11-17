@@ -52,6 +52,7 @@ goes to Windows' deployment log first, even with updates unavailable, while a st
 cannot be read settles nothing, and the new version settles the update by its preparation;
 the real package switch needs an installed trial. `UpdateWindowTests` hold when the update window
 opens, waits for setup or an update, or lets a release go; Later's three days and its third Later;
+an important release's day after any Later and its recommended line;
 what it shows from the offer to Windows' install; and a real window that takes neither the
 foreground nor a click's activation, and shows on top wherever the desktop lets any window be
 topmost (a hosted runner does not). Build the actual
@@ -124,7 +125,8 @@ refuses a certificate that is not the committed one, lacks its private key, name
 another subject or expires within a year; a failed `generate` leaves both folders
 empty, and on Windows .NET opens the signing file with its key, as `signtool` does.
 `release.py prepare` refuses a release package that keeps the trial's folder or name,
-and a release key whose passphrase is missing or wrong, with a reason. Its `resources.pri` step, which lets Windows find
+and a release key whose passphrase is missing or wrong, with a reason; `release.py important` attaches a mark only
+with the release key, to a published release with all four Windows files, once. Its `resources.pri` step, which lets Windows find
 the sized icons and keeps the app's own resources, is checked by dumping the file with `makepri`. MSIX packing alone does not prove installation, retention or package recovery.
 
 `launcher/windows/Tools/PackageContextProbe` exercises the native package-policy
