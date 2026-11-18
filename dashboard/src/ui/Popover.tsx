@@ -1,6 +1,7 @@
 import { CSSProperties, ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useInRouterContext, useScreenKey } from "../routing/screen";
 import { Overlay } from "./Overlay";
+import { placeLeft, placeTop } from "./place";
 import "./Popover.css";
 
 // Anchor-positioned, non-modal overlay shell: glass panel below (or above) its
@@ -74,20 +75,14 @@ export function Popover({
     if (!isOpen || !anchor) return;
     const compute = () => {
       const rect = anchor.getBoundingClientRect();
-      const h = inner?.offsetHeight ?? 0;
-      let top = rect.bottom + GAP;
-      if (h && top + h > window.innerHeight - MARGIN) {
-        top = Math.max(MARGIN, rect.top - h - GAP);
-      }
+      const options = { gap: GAP, margin: MARGIN, align };
+      const top = placeTop(rect, inner?.offsetHeight ?? 0, window.innerHeight, options);
       if (within) {
         const column = within.getBoundingClientRect();
         setPos({ top, left: column.left, width: column.width });
         return;
       }
-      const w = inner?.offsetWidth ?? 0;
-      let left = align === "end" ? rect.right - w : rect.left;
-      left = Math.max(MARGIN, Math.min(left, window.innerWidth - w - MARGIN));
-      setPos({ top, left });
+      setPos({ top, left: placeLeft(rect, inner?.offsetWidth ?? 0, window.innerWidth, options) });
     };
     compute();
     const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(compute);

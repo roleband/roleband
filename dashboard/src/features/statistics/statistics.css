@@ -286,24 +286,7 @@
   white-space: nowrap;
 }
 
-/* The table's key: each source word over the sentence it stands for. A key
-   anchored to its help mark runs off a phone, so it hangs from the header row
-   instead: below it, from the table's left edge, no wider than the table. */
-.traj-table thead tr {
-  position: relative;
-}
-
-.traj-table thead .info-tip {
-  position: static;
-}
-
-.traj-table thead .info-tip-popover {
-  top: calc(100% + 7px);
-  left: 0;
-  /* A window unit is divided by the setup zoom, as InfoTip's own cap is. */
-  max-width: min(320px, 100%, calc(100vw / var(--page-zoom, 1) - 40px));
-}
-
+/* The table's key: each source word over the sentence it stands for. */
 .traj-split-key {
   display: grid;
   gap: 2px;

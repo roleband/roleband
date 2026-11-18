@@ -37,14 +37,18 @@
   background: var(--app-surface-hover);
 }
 
+/* Fixed to the window and placed by InfoTip.tsx. `inset` and `margin` undo the
+   popover's default of centring itself in the window. */
 .info-tip-popover {
-  position: absolute;
-  z-index: 80;
-  top: calc(100% + 7px);
-  left: 0;
+  position: fixed;
+  inset: auto;
+  margin: 0;
   width: max-content;
-  /* A window unit is divided by the setup zoom, which magnifies it (setupZoom.css). */
-  max-width: min(320px, calc(100vw / var(--page-zoom, 1) - 40px));
+  height: auto;
+  overflow: visible;
+  /* A window unit is divided by the setup zoom, which magnifies it (setupZoom.css).
+     `--info-tip-span` is the width of the box a tip hangs from (InfoTip.tsx). */
+  max-width: min(320px, var(--info-tip-span, 320px), calc(100vw / var(--page-zoom, 1) - 40px));
   padding: 9px 11px;
   border: 1px solid var(--app-border-strong);
   border-radius: var(--app-radius-sm);
@@ -59,19 +63,20 @@
   text-align: left;
   text-transform: none;
   white-space: normal;
-  opacity: 0;
-  visibility: hidden;
   pointer-events: none;
-  transform: translateY(-3px);
   transition:
     opacity var(--app-duration-fast),
-    transform var(--app-duration-fast),
-    visibility var(--app-duration-fast);
+    transform var(--app-duration-fast);
 }
 
-.info-tip:hover .info-tip-popover,
-.info-tip:focus-within .info-tip-popover {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
+.info-tip-popover:not([data-open]) {
+  display: none;
+}
+
+/* It fades in from just above where it lands. */
+@starting-style {
+  .info-tip-popover[data-open] {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
 }
