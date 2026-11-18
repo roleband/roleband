@@ -8,6 +8,7 @@ behind, not only the status.
 
 from __future__ import annotations
 
+import argparse
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -21,7 +22,9 @@ from tracker.agents.config import AgentAccessConfig, set_agent_access
 from tracker.agents.operations.workspace import ensure_workspace_id
 from tracker.api import agent_operations
 from tracker.api.agent_operations import IDEMPOTENCY_KEY_HEADER, PREFIX
+from tracker.cli import connect
 from tracker.db.models import AgentActivity, CommandReceipt, Job, Pursuit
+from tracker.platform.agent_hosts import HOST_HEADER
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("no_escape")]
 
@@ -283,7 +286,7 @@ NOW = datetime(2026, 11, 16, 14, 0, tzinfo=UTC)
 
 
 def _row(n: int, *, at: datetime, kind: str = "read", categories: tuple[str, ...] = ("public_posting",),
-         title: str | None = None, summary: str | None = None) -> AgentActivity:
+         title: str | None = None, summary: str | None = None, host: str | None = None) -> AgentActivity:
     subject: dict[str, Any] = {"topic": f"read.{categories[0]}" if categories else "read.engine"}
     if title is not None:
         subject["title"] = title
@@ -291,7 +294,7 @@ def _row(n: int, *, at: datetime, kind: str = "read", categories: tuple[str, ...
         occurred_at=at, principal_id="agent", operation="opportunities.search", kind=kind,
         categories=list(categories), refusal="category_disabled" if kind == "refused" else None,
         summary=summary or f"Read postings {n}", subject=subject,
-        changes=[] if kind == "change" else None,
+        changes=[] if kind == "change" else None, host=host,
     )
 
 
@@ -411,3 +414,78 @@ async def test_an_entry_that_is_not_in_the_log_is_not_found(api_client, db_sessi
     assert missing.json()["detail"]["code"] == "activity-entry-not-found"
     for bad in ("0", "-1", "abc", str(2**63)):
         assert (await api_client.get(f"/api/agent-activity/{bad}")).status_code == 422, bad
+
+
+# --------------------------------------------------------------------------- #
+# Which app made each entry
+# --------------------------------------------------------------------------- #
+
+
+async def test_every_entry_keeps_the_app_its_call_named(api_client, db_session, role):
+    """A read, a change and a refusal each keep the host the call named; a call
+    that names none, or one this engine does not know, counts as another app."""
+    claude = {HOST_HEADER: "claude-code"}
+    assert (await api_client.put(
+        f"{PREFIX}/pursuits/{role}", json={}, headers={IDEMPOTENCY_KEY_HEADER: KEY, **claude},
+    )).status_code == 200
+    assert (await api_client.get(f"{PREFIX}/pursuits", headers={HOST_HEADER: "codex"})).status_code == 200
+    assert (await api_client.get(f"{PREFIX}/pursuits")).status_code == 200
+    assert (await api_client.get(f"{PREFIX}/pursuits", headers={HOST_HEADER: "gemini"})).status_code == 200
+    await _access(db_session, enabled=False)
+    assert (await api_client.get(f"{PREFIX}/status", headers=claude)).status_code == 403
+
+    rows = await _rows(db_session)
+    assert [(row.kind, row.host) for row in rows] == [
+        ("change", "claude-code"), ("read", "codex"), ("read", "other"), ("read", "other"), ("refused", "claude-code"),
+    ]
+    page = await _list(api_client)
+    assert [item["host"] for item in page["items"]] == ["claude-code", "other", "other", "codex", "claude-code"]
+
+
+async def test_the_list_keeps_one_apps_entries(api_client, db_session):
+    await _seed(db_session, [
+        _row(1, at=NOW - timedelta(hours=1), host="claude-code"),
+        _row(2, at=NOW - timedelta(hours=2), host="codex"),
+        _row(3, at=NOW - timedelta(hours=3), host="other"),
+        # Recorded before calls named their app: listed under no app.
+        _row(4, at=NOW - timedelta(hours=4)),
+    ])
+
+    def summaries(page: dict[str, Any]) -> list[str]:
+        return [item["summary"] for item in page["items"]]
+
+    assert summaries(await _list(api_client, host="claude-code")) == ["Read postings 1"]
+    assert summaries(await _list(api_client, host="other")) == ["Read postings 3"]
+    assert len((await _list(api_client))["items"]) == 4
+    response = await api_client.get("/api/agent-activity", params={"host": "gemini"})
+    assert response.status_code == 422
+
+
+async def test_settings_shows_each_apps_last_call_and_what_its_files_say(
+    api_client, db_session, tmp_path, monkeypatch,
+):
+    """The card's state per app: the newest call each app made, and for a host
+    `roleband connect` sets up, what its files say. Empty folders here, so no
+    host reads as connected however recently it called."""
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude"))
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex"))
+    await _seed(db_session, [
+        _row(1, at=NOW - timedelta(minutes=5), host="claude-code"),
+        _row(2, at=NOW - timedelta(days=2), host="claude-code"),
+        _row(3, at=NOW - timedelta(hours=3), host="other"),
+        _row(4, at=NOW, host=None),
+    ])
+    response = await api_client.get("/api/intelligence/agents")
+    assert response.status_code == 200, response.text
+    apps = {app["app"]: app for app in response.json()["apps"]}
+    assert list(apps) == ["claude-code", "codex", "other"]
+    assert datetime.fromisoformat(apps["claude-code"]["last_call_at"]) == NOW - timedelta(minutes=5)
+    assert apps["codex"]["last_call_at"] is None
+    # The newest row names no app, so it is no app's last call.
+    assert datetime.fromisoformat(apps["other"]["last_call_at"]) == NOW - timedelta(hours=3)
+    assert {app["connection"] for app in apps.values()} == {None}
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    connect.run(argparse.Namespace(host="claude-code", connect_mode="apply"))
+    apps = {app["app"]: app for app in (await api_client.get("/api/intelligence/agents")).json()["apps"]}
+    assert (apps["claude-code"]["connection"], apps["codex"]["connection"]) == ("connected", None)

@@ -3966,6 +3966,8 @@ export interface components {
             categories: string[];
             /** Changes */
             changes: components["schemas"]["ActivityFieldChange"][];
+            /** Host */
+            host: ("claude-code" | "codex" | "other") | null;
             /** Id */
             id: number;
             /**
@@ -4083,7 +4085,7 @@ export interface components {
         /**
          * AgentAccessResponse
          * @description Both gates as saved, the choice for every data category and action
-         *     group, and the command that connects each agent host.
+         *     group, the command that connects each agent host, and each app's state.
          *
          *     `categories` and `groups` name every category and group, a missing choice
          *     filled in as open. A group reads as off while the connection is on and
@@ -4092,6 +4094,8 @@ export interface components {
         AgentAccessResponse: {
             /** Allow Writes */
             allow_writes: boolean;
+            /** Apps */
+            apps: components["schemas"]["AgentAppState"][];
             /** Categories */
             categories: {
                 [key: string]: "any_model" | "local_only" | "not_shared";
@@ -4104,6 +4108,26 @@ export interface components {
             groups: {
                 [key: string]: "on" | "off";
             };
+        };
+        /**
+         * AgentAppState
+         * @description One assistant app as Settings shows it: a host `roleband connect` sets
+         *     up, or `other` for every other caller.
+         *
+         *     `connection` is what the host's own files say (`agent_hosts.connection`):
+         *     null when it was never connected, and always null for `other`, which has
+         *     no files to read. `last_call_at` is the app's most recent recorded call.
+         */
+        AgentAppState: {
+            /**
+             * App
+             * @enum {string}
+             */
+            app: "claude-code" | "codex" | "other";
+            /** Connection */
+            connection: ("connected" | "outdated" | "rule_missing") | null;
+            /** Last Call At */
+            last_call_at: string | null;
         };
         /**
          * AgentConnectCommand
@@ -15990,6 +16014,7 @@ export interface operations {
                 q?: string | null;
                 kind?: "all" | "change" | "read" | "refused";
                 category?: ("public_posting" | "market_statistic" | "private_pursuit" | "offer" | "candidate") | null;
+                host?: ("claude-code" | "codex" | "other") | null;
                 since?: string | null;
                 until?: string | null;
                 cursor?: string | null;

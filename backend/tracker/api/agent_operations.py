@@ -78,6 +78,7 @@ from tracker.agents.receipts import (
     input_hash,
 )
 from tracker.api.deps import SessionDep, get_session
+from tracker.platform.agent_hosts import HOST_HEADER, OTHER, caller
 
 log = logging.getLogger(__name__)
 
@@ -138,6 +139,8 @@ class OperationContext:
     #: Who is calling, named by the engine. One legacy principal until
     #: assistants have credentials of their own.
     principal_id: str = LEGACY_AGENT_PRINCIPAL
+    #: The host the call names (`agent_hosts.caller`), recorded with its activity row.
+    host: str = OTHER
     #: A write's key from `IDEMPOTENCY_KEY_HEADER`; None on a read.
     idempotency_key: str | None = None
     #: This request's activity, shared with the route that lists it.
@@ -245,6 +248,7 @@ class OperationContext:
                     principal_id=self.principal_id,
                     workspace_id=self.workspace_id,
                     request_id=self.request_id,
+                    host=self.host,
                     idempotency_key=self.idempotency_key,
                 ),
             )
@@ -324,6 +328,7 @@ def admitted(descriptor: OperationDescriptor) -> Callable[..., Awaitable[Operati
             session,
             idempotency_key=key,
             heard=request.state.agent_heard,
+            host=request.state.agent_host,
         )
         context.heard.categories = context.answered_classes
         return context
@@ -493,6 +498,7 @@ class AgentRoute(APIRoute):
 
         async def answer(request: Request) -> Response:
             request.state.agent_request_id = request_id_or_new(request.headers.get(REQUEST_ID_HEADER))
+            request.state.agent_host = caller(request.headers.get(HOST_HEADER))
             request.state.agent_workspace_id = None
             request.state.agent_idempotency_key = idempotency_key_of(request) if keyed else None
             heard = request.state.agent_heard = Heard()
@@ -560,6 +566,7 @@ async def _list_read(request: Request, descriptor: OperationDescriptor, heard: H
                 principal_id=LEGACY_AGENT_PRINCIPAL,
                 workspace_id=request.state.agent_workspace_id,
                 request_id=request.state.agent_request_id,
+                host=request.state.agent_host,
             ),
         )
         await session.commit()
@@ -584,6 +591,7 @@ async def _list_refusal(request: Request, operation: str, refused: OperationErro
                     principal_id=LEGACY_AGENT_PRINCIPAL,
                     workspace_id=request.state.agent_workspace_id,
                     request_id=request.state.agent_request_id,
+                    host=request.state.agent_host,
                 ),
             )
             await session.commit()

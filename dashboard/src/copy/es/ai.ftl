@@ -35,17 +35,13 @@ ai-aim-line-add-your-aim = { $choice ->
 
 ## features/intelligence/AssistantsCard.tsx
 ai-assistants-card-assistant-apps = Apps de asistente
-ai-assistants-card-set-up = Configurar
 ai-assistants-card-allow-assistant-apps-to-connect = Permitir conectar apps de asistente
 ai-assistants-card-run-this-once-in-a = Ejecuta esto una vez en una terminal y luego reinicia la app.
 ai-assistants-card-let-the-app-run-commands = Permite que la app ejecute comandos y luego pídele que ejecute esto.
 ai-assistants-card-done = Listo
 ai-assistants-card-anthropic = Anthropic
-ai-assistants-card-set-up-claude-code = Configurar Claude Code
 ai-assistants-card-openai = OpenAI
-ai-assistants-card-set-up-the-codex-app = Configurar la app de Codex
 ai-assistants-card-any-app-that-can-run-commands = Cualquier app que pueda ejecutar comandos
-ai-assistants-card-set-up-another-app = Configurar otra app
 ai-assistants-card-assistant-apps-2 = Apps de asistente
 ai-assistants-card-allow-assistant-apps-to-connect-2 = Primero permite conectar apps de asistente
 ai-assistants-card-off-nothing-leaves-this-computer = { $choice ->
@@ -336,6 +332,21 @@ ai-assistants-card-changes-off = Cambios desactivados: { $list }.
 ai-assistants-card-read-only = Las apps solo leen.
 ai-assistants-card-customize = Personalizar
 ai-assistants-card-activity = Actividad
+ai-assistants-card-connect = Conectar
+ai-assistants-card-update = Actualizar
+ai-assistants-card-connect-claude-code = Conectar Claude Code
+ai-assistants-card-connect-the-codex-app = Conectar la app de Codex
+ai-assistants-card-connect-another-app = Conectar otra app
+ai-assistants-card-app-state = { $state ->
+    [connected] { $service } · conectada
+    [used] { $service } · usada { $age }
+    [outdated] { $service } · actualización disponible
+    [rule-missing] { $service } · pide permiso en cada comando
+   *[none] { $service }
+}
+ai-assistants-card-other-used = Usada { $age }
+ai-assistants-card-connected = Conectada
+ai-assistants-card-app-activity = Actividad de { $app }
 ai-access-dialog-title = Personaliza lo que reciben las apps
 ai-access-dialog-apply-at-once = Los cambios se aplican al momento.
 ai-access-dialog-data = Datos que leen las apps

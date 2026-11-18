@@ -639,7 +639,12 @@ async def test_each_band_previews_its_strongest_open_roles_best_first(api_client
 
 
 @pytest.mark.asyncio
-async def test_agent_access_is_off_until_saved_and_names_each_hosts_connect_command(api_client, machine):
+async def test_agent_access_is_off_until_saved_and_names_each_hosts_connect_command(
+    api_client, machine, tmp_path, monkeypatch,
+):
+    # Empty host folders: the person's own ~/.claude and ~/.codex are never read here.
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude"))
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex"))
     body = await _call(api_client, "GET", "/api/intelligence/agents")
     assert list(body) == _fields(contract.AgentAccessResponse)
     assert body == {
@@ -657,6 +662,12 @@ async def test_agent_access_is_off_until_saved_and_names_each_hosts_connect_comm
         "connect": [
             {"host": "claude-code", "command": "roleband connect claude-code --apply"},
             {"host": "codex", "command": "roleband connect codex --apply"},
+        ],
+        # No host's files say it is connected, and no app has called yet.
+        "apps": [
+            {"app": "claude-code", "connection": None, "last_call_at": None},
+            {"app": "codex", "connection": None, "last_call_at": None},
+            {"app": "other", "connection": None, "last_call_at": None},
         ],
     }
 
@@ -711,7 +722,7 @@ async def test_a_builder_that_drifts_fails_the_response(api_client, machine, mon
 @pytest.mark.asyncio
 async def test_agent_and_fit_builders_that_drift_fail_the_response(api_client, db_session, machine, monkeypatch):
     real_agents = router._agent_connection_state
-    monkeypatch.setattr(router, "_agent_connection_state", lambda config: {**real_agents(config), "token": "x"})
+    monkeypatch.setattr(router, "_agent_connection_state", lambda config, apps: {**real_agents(config, apps), "token": "x"})
     with pytest.raises(ResponseValidationError):
         await api_client.get("/api/intelligence/agents")
 

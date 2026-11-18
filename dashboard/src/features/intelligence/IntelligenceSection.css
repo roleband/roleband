@@ -413,6 +413,7 @@
 .intel-tile.is-waiting .intel-tile-mark { opacity: 0.55; }
 
 .intel-tile .intel-tile-mark {
+  position: relative;
   width: 36px;
   height: 36px;
   border-radius: var(--app-radius-md);
@@ -420,6 +421,31 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* A connected app's check sits on its mark's corner, so a tile's size and
+   its text never move with its state. Its ring parts it from the mark. */
+.intel-tile .intel-tile-check {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid var(--app-surface-raised);
+  background: var(--app-positive);
+  color: var(--app-surface-raised);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Activity and the gear, read as one pair, as Test and the gear are in a capability row. */
+.intel-tile .intel-tile-acts {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-1);
 }
 
 .intel-tile .intel-tile-name {

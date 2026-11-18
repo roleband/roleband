@@ -34,7 +34,7 @@ from datetime import datetime
 from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.agents.operations.descriptor import DataClass, OperationDescriptor
@@ -113,6 +113,7 @@ def row_of(
     principal_id: str,
     workspace_id: str | None,
     request_id: str | None,
+    host: str | None,
     idempotency_key: str | None = None,
 ) -> AgentActivity:
     return AgentActivity(
@@ -128,6 +129,7 @@ def row_of(
         subject=entry.said.subject(),
         changes=[change.as_dict() for change in entry.changes] if entry.kind == "change" else None,
         idempotency_key=idempotency_key,
+        host=host,
     )
 
 
@@ -202,6 +204,16 @@ def refused_entry(operation: str, code: str, category: str | None, *, group: str
     )
 
 
+async def last_calls(session: AsyncSession) -> dict[str, datetime]:
+    """Each host's most recent call, by host. Rows that name no host are left out."""
+    rows = await session.execute(
+        select(AgentActivity.host, func.max(AgentActivity.occurred_at))
+        .where(AgentActivity.host.is_not(None))
+        .group_by(AgentActivity.host)
+    )
+    return {host: at for host, at in rows.all() if host is not None}
+
+
 # --------------------------------------------------------------------------- #
 # The Activity screen's pages
 # --------------------------------------------------------------------------- #
@@ -219,6 +231,8 @@ class ActivityQuery:
     q: str | None = None
     kind: KindFilter = "all"
     category: str | None = None
+    #: A host from `agent_hosts.HOSTS` or `agent_hosts.OTHER`.
+    host: str | None = None
     since: datetime | None = None
     until: datetime | None = None
     cursor: str | None = None
@@ -262,14 +276,16 @@ async def activity_page(session: AsyncSession, query: ActivityQuery) -> Activity
     Keyset paging: a page resumes strictly after the previous page's last
     row, so rows recorded while the person pages never shift or repeat one.
     `q` matches the summary, the subject's facts and the operation, ignoring
-    case; `category` keeps the rows that read (or asked for) it; `since` is
-    inclusive and `until` exclusive.
+    case; `category` keeps the rows that read (or asked for) it; `host` keeps
+    one host's rows; `since` is inclusive and `until` exclusive.
     """
     conditions = []
     if query.kind != "all":
         conditions.append(AgentActivity.kind == query.kind)
     if query.category is not None:
         conditions.append(AgentActivity.categories.contains([query.category]))
+    if query.host is not None:
+        conditions.append(AgentActivity.host == query.host)
     if query.since is not None:
         conditions.append(AgentActivity.occurred_at >= query.since)
     if query.until is not None:

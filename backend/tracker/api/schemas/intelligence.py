@@ -329,9 +329,22 @@ class AgentConnectCommand(Built):
     command: str = Field(json_schema_extra=text("code"))
 
 
+class AgentAppState(Built):
+    """One assistant app as Settings shows it: a host `roleband connect` sets
+    up, or `other` for every other caller.
+
+    `connection` is what the host's own files say (`agent_hosts.connection`):
+    null when it was never connected, and always null for `other`, which has
+    no files to read. `last_call_at` is the app's most recent recorded call."""
+
+    app: Literal["claude-code", "codex", "other"]
+    connection: Literal["connected", "outdated", "rule_missing"] | None
+    last_call_at: datetime | None
+
+
 class AgentAccessResponse(Built):
     """Both gates as saved, the choice for every data category and action
-    group, and the command that connects each agent host.
+    group, the command that connects each agent host, and each app's state.
 
     `categories` and `groups` name every category and group, a missing choice
     filled in as open. A group reads as off while the connection is on and
@@ -342,6 +355,7 @@ class AgentAccessResponse(Built):
     categories: dict[DataClass, CategoryChoice]
     groups: dict[ActionGroup, GroupChoice]
     connect: list[AgentConnectCommand]
+    apps: list[AgentAppState]
 
 
 # --------------------------------------------------------------------------- #

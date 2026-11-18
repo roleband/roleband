@@ -99,12 +99,14 @@
     "    subject JSONB DEFAULT '{}'::jsonb NOT NULL,",
     "    changes JSONB,",
     "    idempotency_key VARCHAR(128),",
+    "    host VARCHAR(32),",
     "    PRIMARY KEY (id),",
     "    CONSTRAINT ck_agent_activity_kind CHECK (kind IN ('read', 'change', 'refused')),",
     "    CONSTRAINT ck_agent_activity_refusal CHECK ((kind = 'refused') = (refusal IS NOT NULL))",
     ")"
    ],
    "indexes": [
+    "CREATE INDEX ix_agent_activity_host ON agent_activity (host, occurred_at)",
     "CREATE INDEX ix_agent_activity_occurred ON agent_activity (occurred_at, id)"
    ],
    "python_defaults": {},

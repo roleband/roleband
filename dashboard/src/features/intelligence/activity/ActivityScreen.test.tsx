@@ -34,6 +34,7 @@ function entry(over: Partial<ActivityEntry> & { id: number }): ActivityEntry {
     summary: "Read postings",
     subject: { topic: "read.public_posting" },
     changes: [],
+    host: "claude-code",
     ...over,
   };
 }
@@ -267,6 +268,27 @@ describe("ActivityScreen: filters and pages", () => {
     await user.click(button(msg("activity-range-month")));
     await user.click(await screen.findByRole("radio", { name: msg("activity-range-all") }));
     await waitFor(() => expect(lastParams()).toMatchObject({ category: "offer", since: null }));
+  });
+
+  it("opens on one app's entries when the address names it, and lets that go", async () => {
+    const user = userEvent.setup();
+    renderScreen("/settings/intelligence/activity?app=codex");
+    await screen.findByText(ASKED_OFFER);
+    expect(lastParams()).toMatchObject({ host: "codex" });
+    // The button names the app it keeps, so the reader can see why the list is short.
+    await user.click(button(msg("ai-assistants-card-app-codex-app")));
+    await user.click(await screen.findByRole("radio", { name: msg("activity-app-any") }));
+    await waitFor(() => expect(lastParams()).toMatchObject({ host: null }));
+    await user.click(button(msg("activity-app-any")));
+    await user.click(await screen.findByRole("radio", { name: msg("ai-assistants-card-app-other-app") }));
+    await waitFor(() => expect(lastParams()).toMatchObject({ host: "other" }));
+  });
+
+  it("reads an app the address cannot name as any app", async () => {
+    renderScreen("/settings/intelligence/activity?app=gemini");
+    await screen.findByText(ASKED_OFFER);
+    expect(lastParams()).toMatchObject({ host: null });
+    expect(button(msg("activity-app-any"))).toBeInTheDocument();
   });
 
   it("searches on the server once typing pauses", async () => {

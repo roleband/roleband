@@ -70,7 +70,7 @@ def test_settings_offers_the_connect_command_for_exactly_the_hosts_connect_sets_
     """The card's commands are what `roleband connect` accepts: a host the
     command does not set up would hand the person a command that refuses, and a
     host it sets up without a tile would be unreachable from Settings."""
-    state = _agent_connection_state(AgentAccessConfig(enabled=True, allow_writes=False))
+    state = _agent_connection_state(AgentAccessConfig(enabled=True, allow_writes=False), [])
 
     assert (state["enabled"], state["allow_writes"]) == (True, False)
     assert [item["host"] for item in state["connect"]] == list(connect.HOSTS)
@@ -78,7 +78,7 @@ def test_settings_offers_the_connect_command_for_exactly_the_hosts_connect_sets_
         assert shlex.split(item["command"]) == ["roleband", "connect", item["host"], "--apply"]
     # The control: a host `connect` refuses as unmeasured is never offered.
     assert connect.UNTESTED and not set(connect.UNTESTED) & {item["host"] for item in state["connect"]}
-    assert set(state) == {"enabled", "allow_writes", "categories", "groups", "connect"}
+    assert set(state) == {"enabled", "allow_writes", "categories", "groups", "connect", "apps"}
     assert "api_key" not in str(state).lower() and "token" not in str(state).lower()
 
 

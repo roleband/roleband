@@ -7,9 +7,16 @@
 // want less open Customize; the card's last line names what they held back,
 // and only that. The tiles stay dimmed and their setup unreachable until the
 // switch is on.
+//
+// Each tile says what the engine knows of its app (`AgentAppState`): what the
+// app's own settings say, and its most recent call. An app that is connected
+// or has called wears a check, and trades its Connect button for its
+// Activity and the gear that reopens its command; one that needs a step
+// (an older skill, a removed rule) keeps a single button for that step.
 import { errorText } from "../../api/errorText";
 import { useEffect, useState } from "react";
 import { type AgentAccessInput, type AgentAccessState, api } from "../../api";
+import { ageLabel } from "../../format";
 import { list } from "../../copy/format";
 import { Button, CompanyIcon, Dialog, Icon, RouterLink, Switch } from "../../ui";
 import {
@@ -26,6 +33,8 @@ import {
   aiAssistantsCardAllowAssistantAppsToConnect,
   aiAssistantsCardAllowAssistantAppsToConnect2,
   aiAssistantsCardAnthropic,
+  aiAssistantsCardAppActivity,
+  aiAssistantsCardAppState,
   aiAssistantsCardAssistantApps,
   aiAssistantsCardAssistantApps2,
   aiAssistantsCardAnyAppThatCanRunCommands,
@@ -34,6 +43,11 @@ import {
   aiAssistantsCardAppOtherApp,
   aiAssistantsCardChangesOff,
   aiAssistantsCardClipboardAccessWasBlockedSelect,
+  aiAssistantsCardConnect,
+  aiAssistantsCardConnectAnotherApp,
+  aiAssistantsCardConnectClaudeCode,
+  aiAssistantsCardConnected,
+  aiAssistantsCardConnectTheCodexApp,
   aiAssistantsCardCopy,
   aiAssistantsCardActivity,
   aiAssistantsCardCustomize,
@@ -44,14 +58,13 @@ import {
   aiAssistantsCardNotShared,
   aiAssistantsCardOffNothingLeavesThisComputer,
   aiAssistantsCardOpenai,
+  aiAssistantsCardOtherUsed,
   aiAssistantsCardReadOnly,
   aiAssistantsCardRunThisOnceInA,
-  aiAssistantsCardSetUp,
-  aiAssistantsCardSetUpAnotherApp,
-  aiAssistantsCardSetUpClaudeCode,
-  aiAssistantsCardSetUpTheCodexApp,
+  aiAssistantsCardUpdate,
   aiAssistantsCardUpToTheApp,
   aiAssistantsCardWhatAppsDo,
+  aiCapabilitiesCardConfigure,
 } from "../../copy/gen/ai";
 
 type App = "claude-code" | "codex" | "other";
@@ -64,26 +77,61 @@ type App = "claude-code" | "codex" | "other";
  *  not a company. */
 const APPS: Record<
   App,
-  { name: string; service: string; slug?: string; setup: string }
+  { name: string; service: string; slug?: string; connect: string }
 > = {
   "claude-code": {
     get name() { return aiAssistantsCardAppClaudeCode(); },
     get service() { return aiAssistantsCardAnthropic(); },
     slug: "claude",
-    get setup() { return aiAssistantsCardSetUpClaudeCode(); },
+    get connect() { return aiAssistantsCardConnectClaudeCode(); },
   },
   codex: {
     get name() { return aiAssistantsCardAppCodexApp(); },
     get service() { return aiAssistantsCardOpenai(); },
     slug: "codex",
-    get setup() { return aiAssistantsCardSetUpTheCodexApp(); },
+    get connect() { return aiAssistantsCardConnectTheCodexApp(); },
   },
   other: {
     get name() { return aiAssistantsCardAppOtherApp(); },
     get service() { return aiAssistantsCardAnyAppThatCanRunCommands(); },
-    get setup() { return aiAssistantsCardSetUpAnotherApp(); },
+    get connect() { return aiAssistantsCardConnectAnotherApp(); },
   },
 };
+
+type AppState = AgentAccessState["apps"][number];
+
+/** What one tile shows: its second line, whether it wears the check, and its
+ *  one step when it has one. A connected host that has called says when,
+ *  the stronger fact; a host whose files need a step names it, whatever its
+ *  calls say, since the step is what the person can act on. The open door
+ *  has no files to read: it shows only its last call. */
+function tileView(app: App, state: AppState | undefined, now: number): {
+  line: string;
+  done: boolean;
+  step: "connect" | "update" | null;
+} {
+  const service = APPS[app].service;
+  const age = state?.last_call_at
+    ? ageLabel(Math.max(0, now - Date.parse(state.last_call_at)) / 3_600_000)
+    : null;
+  if (app === "other") {
+    return age
+      ? { line: aiAssistantsCardOtherUsed({ age }), done: true, step: null }
+      : { line: service, done: false, step: "connect" };
+  }
+  const connection = state?.connection ?? null;
+  if (connection === "outdated") {
+    return { line: aiAssistantsCardAppState({ state: "outdated", service, age: "" }), done: true, step: "update" };
+  }
+  if (connection === "rule_missing") {
+    return { line: aiAssistantsCardAppState({ state: "rule-missing", service, age: "" }), done: false, step: "connect" };
+  }
+  if (age) return { line: aiAssistantsCardAppState({ state: "used", service, age }), done: true, step: null };
+  if (connection === "connected") {
+    return { line: aiAssistantsCardAppState({ state: "connected", service, age: "" }), done: true, step: null };
+  }
+  return { line: service, done: false, step: "connect" };
+}
 
 /** What the open door's app is asked to run first. */
 const FIRST_COMMAND = /* not copy */ "roleband capabilities";
@@ -147,6 +195,8 @@ export function AssistantsCard() {
     });
 
   const lines = state ? heldBack(state) : [];
+  // Read once per load: "5m ago" is the age the engine answered with.
+  const [now] = useState(() => Date.now());
 
   return (
     <section className="intel-card" aria-label={aiAssistantsCardAssistantApps2()}>
@@ -177,29 +227,57 @@ export function AssistantsCard() {
       </div>
 
       <div className="intel-tiles">
-        {(Object.keys(APPS) as App[]).map((app) => (
-          <div key={app} className={`intel-tile${allowed ? "" : " is-waiting"}`}>
-            <span className="intel-tile-mark">
-              {APPS[app].slug ? (
-                <CompanyIcon slug={APPS[app].slug!} display={APPS[app].name} size={22} />
+        {(Object.keys(APPS) as App[]).map((app) => {
+          const view = tileView(app, state?.apps.find((item) => item.app === app), now);
+          return (
+            <div key={app} className={`intel-tile${allowed ? "" : " is-waiting"}`} data-app={app}>
+              <span className="intel-tile-mark">
+                {APPS[app].slug ? (
+                  <CompanyIcon slug={APPS[app].slug!} display={APPS[app].name} size={22} />
+                ) : (
+                  <Icon name="grid" size={20} />
+                )}
+                {view.done && (
+                  <span className="intel-tile-check" role="img" aria-label={aiAssistantsCardConnected()}>
+                    <Icon name="check" size={10} />
+                  </span>
+                )}
+              </span>
+              <span>
+                <span className="intel-tile-name">{APPS[app].name}</span>
+                <span className="intel-tile-state">{view.line}</span>
+              </span>
+              {view.step ? (
+                <Button
+                  className="ui-btn-strong"
+                  disabled={!allowed}
+                  title={allowed ? undefined : aiAssistantsCardAllowAssistantAppsToConnect2()}
+                  onClick={() => setSetup(app)}
+                >
+                  {view.step === "update" ? aiAssistantsCardUpdate() : aiAssistantsCardConnect()}
+                </Button>
               ) : (
-                <Icon name="grid" size={20} />
+                <span className="intel-tile-acts">
+                  <RouterLink
+                    to={`${ACTIVITY_ROUTE}?app=${app}`}
+                    aria-label={aiAssistantsCardAppActivity({ app: APPS[app].name })}
+                  >
+                    {aiAssistantsCardActivity()}
+                  </RouterLink>
+                  <Button
+                    variant="icon"
+                    disabled={!allowed}
+                    title={allowed ? undefined : aiAssistantsCardAllowAssistantAppsToConnect2()}
+                    aria-label={aiCapabilitiesCardConfigure({ name: APPS[app].name })}
+                    onClick={() => setSetup(app)}
+                  >
+                    <Icon name="gear" size={18} />
+                  </Button>
+                </span>
               )}
-            </span>
-            <span>
-              <span className="intel-tile-name">{APPS[app].name}</span>
-              <span className="intel-tile-state">{APPS[app].service}</span>
-            </span>
-            <Button
-              className="ui-btn-strong"
-              disabled={!allowed}
-              title={allowed ? undefined : aiAssistantsCardAllowAssistantAppsToConnect2()}
-              onClick={() => setSetup(app)}
-            >
-              {aiAssistantsCardSetUp()}
-            </Button>
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
 
       <div className="intel-access-foot">
@@ -272,12 +350,12 @@ function SetupDialog({
     <Dialog
       isOpen
       onClose={onClose}
-      label={APPS[app].setup}
+      label={APPS[app].connect}
       width={520}
       className="app-overlay"
     >
       <div className="ledger-form">
-        <h3>{APPS[app].setup}</h3>
+        <h3>{APPS[app].connect}</h3>
         <p className="intel-dialog-note">
           {app === "other"
             ? aiAssistantsCardLetTheAppRunCommands()

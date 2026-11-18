@@ -399,6 +399,7 @@ class Reply:
 class Stub:
     reply: Reply = field(default_factory=Reply)
     requests: list[str] = field(default_factory=list)
+    headers: list[dict[str, str]] = field(default_factory=list)
 
     def __enter__(self) -> Stub:
         stub = self
@@ -406,6 +407,7 @@ class Stub:
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:  # noqa: N802 - http.server's name
                 stub.requests.append(self.path)
+                stub.headers.append(dict(self.headers.items()))
                 time.sleep(stub.reply.delay)
                 self.send_response(stub.reply.status)
                 self.send_header("Content-Type", stub.reply.content_type)
@@ -462,6 +464,29 @@ STATUS_DATA = {
     "trust": {"mode": "local_loopback", "verified": False},
     "access": {"enabled": True, "allow_writes": False},
 }
+
+
+@pytest.mark.parametrize(
+    ("env", "named"),
+    [
+        ({"CLAUDECODE": "1"}, "claude-code"),
+        ({"CODEX_THREAD_ID": "019a7c1e-thread"}, "codex"),
+        ({"CODEX_SANDBOX": "seatbelt"}, "codex"),
+        ({}, None),
+        ({"CLAUDECODE": "0"}, None),
+    ],
+    ids=["claude-code", "codex-thread", "codex-sandbox", "a-terminal", "claude-code-off"],
+)
+def test_a_call_names_the_host_it_runs_under_and_nothing_else(home, env, named):
+    """The host comes from the variable its command runner sets. A call with
+    none of them names no host: the engine files it under the other apps, and
+    no value the person's own terminal happens to hold is sent."""
+    with Stub(Reply(403, _envelope("status", ok=False, error=_failure()))) as stub:
+        home.contexts(current="dev", dev={"url": stub.url})
+        result = cli(home, "status", "--json", **env)
+    assert result.status == 4, result
+    sent = {name.lower(): value for name, value in stub.headers[-1].items()}
+    assert sent.get("x-roleband-host") == named
 
 
 @pytest.mark.parametrize("fmt", ["json", "human"])

@@ -36,17 +36,22 @@ from typing import Any
 
 from tracker.cli.errors import ClientError
 from tracker.platform import command_shim
+from tracker.platform.agent_hosts import (
+    CLAUDE_EXCLUDED,
+    CLAUDE_RULE,
+    CODEX_KEY,
+    CODEX_TABLE,
+    HOSTS,
+    SKILL_RECORD,
+    SKILL_VERSION,
+    claude_dir,
+    codex_dir,
+)
 
-HOSTS = ("claude-code", "codex")
 #: Hosts people may name that were not measured. Each is refused rather than guessed at.
 UNTESTED = ("gemini", "gemini-cli")
 
-CLAUDE_EXCLUDED = "roleband *"
-CLAUDE_RULE = "Bash(roleband *)"
-
 SKILL_SOURCE = Path(__file__).with_name("skills") / "roleband" / "SKILL.md"
-SKILL_VERSION = 5
-SKILL_RECORD = ".roleband-skill.json"
 
 COSTS = {
     "claude-code": (
@@ -59,8 +64,8 @@ COSTS = {
     ),
 }
 
-_TOML_TABLE = "sandbox_workspace_write"
-_TOML_KEY = "network_access"
+_TOML_TABLE = CODEX_TABLE
+_TOML_KEY = CODEX_KEY
 _TOML_HEADER = re.compile(rf"^[ \t]*\[[ \t]*{_TOML_TABLE}[ \t]*\][ \t]*(#[^\n]*)?$", re.MULTILINE)
 
 
@@ -115,16 +120,6 @@ def _read(path: Path) -> tuple[str | None, bytes | None]:
 
 def _home() -> Path:
     return Path.home()
-
-
-def claude_dir() -> Path:
-    explicit = os.environ.get("CLAUDE_CONFIG_DIR")
-    return Path(explicit).expanduser() if explicit else _home() / ".claude"
-
-
-def codex_dir() -> Path:
-    explicit = os.environ.get("CODEX_HOME")
-    return Path(explicit).expanduser() if explicit else _home() / ".codex"
 
 
 def _no_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:

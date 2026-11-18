@@ -46,6 +46,7 @@ def _entry(row: AgentActivity) -> ActivityEntry:
         summary=row.summary,
         subject=dict(row.subject),
         changes=[ActivityFieldChange.model_validate(change) for change in row.changes or ()],
+        host=row.host,  # type: ignore[arg-type]
     )
 
 
@@ -55,12 +56,15 @@ async def agent_activity(
     q: Annotated[str | None, Query(max_length=200)] = None,
     kind: Literal["all", "change", "read", "refused"] = "all",
     category: DataClass | None = None,
+    host: Literal["claude-code", "codex", "other"] | None = None,
     since: AwareDatetime | None = None,
     until: AwareDatetime | None = None,
     cursor: Annotated[str | None, Query(max_length=512)] = None,
     limit: Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)] = PAGE_SIZE,
 ) -> ActivityPageResponse:
-    query = ActivityQuery(q=q, kind=kind, category=category, since=since, until=until, cursor=cursor, limit=limit)
+    query = ActivityQuery(
+        q=q, kind=kind, category=category, host=host, since=since, until=until, cursor=cursor, limit=limit
+    )
     try:
         page = await activity_page(session, query)
     except BadCursor:

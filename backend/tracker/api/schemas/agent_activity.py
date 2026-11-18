@@ -37,6 +37,8 @@ class ActivityEntry(Built):
     #: such as a role's `title` and `company`, a `count` or a `stage` slug.
     subject: dict[str, Any]
     changes: list[ActivityFieldChange]
+    #: The app the call ran under; null on an entry recorded before calls named one.
+    host: Literal["claude-code", "codex", "other"] | None
 
 
 class ActivityPageResponse(Built):
