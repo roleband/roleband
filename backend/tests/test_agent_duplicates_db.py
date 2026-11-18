@@ -25,7 +25,7 @@ from tracker.agents.operations.outcomes import outcome
 from tracker.agents.operations.search import COLUMNS
 from tracker.agents.operations.workspace import ensure_workspace_id
 from tracker.api.agent_operations import IDEMPOTENCY_KEY_HEADER, PREFIX
-from tracker.db.models import AgentActivity, Favorite, JobLineageLink, JobTwinLink
+from tracker.db.models import AgentActivity, Favorite, Job, JobLineageLink, JobTwinLink
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("no_escape")]
 
@@ -173,14 +173,37 @@ async def test_mine_keeps_only_pairs_with_a_role_the_person_saved(api_client, pa
 async def test_a_small_page_continues_where_it_stopped_and_reads_every_pair_once(api_client, pairs):
     seen: list[str] = []
     params: dict[str, Any] = {"limit": 1}
-    while True:
+    for _ in range(4):
         response, body = await _queue(api_client, **params)
         page = _data(response, body)
         seen += [pair["pair"] for pair in page["pairs"]]
-        if body["meta"]["next_cursor"] is None:
-            break
         params = {"limit": 1, "cursor": body["meta"]["next_cursor"]}
+    assert body["meta"]["next_cursor"] is None
     assert len(seen) == len(set(seen)) == 4
+
+
+async def test_deciding_a_page_before_reading_the_next_skips_no_pair(api_client, pairs):
+    """The agent's own loop: read a page, decide it, follow the cursor. The
+    decided pairs leave the queue, and the next page still starts after them."""
+    response, body = await _queue(api_client, limit=2, tier="full")
+    first = [pair["pair"] for pair in _data(response, body)["pairs"]]
+    _data(*await _decide(api_client, [_verdict(pair, "different_roles", "Different teams.") for pair in first]))
+    response, body = await _queue(api_client, limit=2, tier="full", cursor=body["meta"]["next_cursor"])
+    assert [pair["pair"] for pair in _data(response, body)["pairs"]] == [
+        f"lineage-{pairs['weak_stack']}", f"lineage-{pairs['strong_stack']}",
+    ]
+
+
+async def test_among_the_persons_roles_suspected_pairs_lead_and_automatic_ones_run_weakest_first(
+    db_session, api_client, pairs,
+):
+    *_, b2, _, _, _, d2 = pairs["jobs"]
+    db_session.add_all([Favorite(job_id=b2.id), Favorite(job_id=d2.id)])
+    await db_session.commit()
+    page = _data(*await _queue(api_client, mine=True, tier="full"))
+    assert [pair["pair"] for pair in page["pairs"]] == [
+        f"twin-{pairs['yours']}", f"lineage-{pairs['weak_stack']}", f"lineage-{pairs['strong_stack']}",
+    ]
 
 
 async def test_without_shared_pursuits_no_pair_is_the_persons_and_mine_is_refused(db_session, api_client, pairs):
@@ -270,6 +293,31 @@ async def test_unsure_leaves_the_pair_pending_with_the_note_and_out_of_the_queue
     response = await api_client.get("/api/lineage/review", params={"confidence": "auto"})
     noted = [item for item in response.json()["items"] if item["link"]["id"] == link_id]
     assert noted and noted[0]["link"]["decision_note"] == "The team names differ."
+
+
+async def test_unsure_on_a_pair_it_had_decided_takes_the_stack_apart(db_session, api_client, pairs):
+    a1, a2 = pairs["jobs"][:2]
+    pair = f"lineage-{pairs['shown_twice']}"
+
+    async def lineages() -> tuple[int | None, int | None]:
+        async with _fresh(db_session) as session:
+            older, newer = (await session.get(Job, a1.id)), (await session.get(Job, a2.id))
+            assert older is not None and newer is not None
+            return older.lineage_id, newer.lineage_id
+
+    _data(*await _decide(api_client, [_verdict(pair, "same_opening")]))
+    stacked = await lineages()
+    assert stacked[0] is not None and stacked[0] == stacked[1]
+    _data(*await _decide(api_client, [_verdict(pair, "unsure", "Second look: the sites differ.")], key=OTHER_KEY))
+    older, newer = await lineages()
+    assert older is None or older != newer
+
+
+async def test_the_person_filter_lists_no_pending_pair(api_client, pairs):
+    response = await api_client.get("/api/lineage/review", params={"confidence": "", "decided_by": "person"})
+    assert response.status_code == 200 and response.json()["items"] == []
+    response = await api_client.get("/api/twins/review", params={"decided_by": "person"})
+    assert response.status_code == 200 and response.json()["items"] == []
 
 
 async def test_a_pair_the_person_decided_is_refused_and_the_rest_of_the_batch_goes_ahead(

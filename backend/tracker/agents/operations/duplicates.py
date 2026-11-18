@@ -295,12 +295,17 @@ class _Pending:
         return f"{self.kind}-{self.link.id}"
 
 
-def _rank(item: _Pending) -> tuple[int, float, int]:
+_KIND_ORDER: dict[str, int] = {"lineage": 0, "twin": 1}
+_KIND_OF_CODE = {code: kind for kind, code in _KIND_ORDER.items()}
+
+
+def _rank(item: _Pending) -> tuple[int, float, int, int]:
     score = item.link.score or 0.0
-    # Shown twice: the strongest proposal first. Stacked: the weakest first,
-    # since a wrong automatic stack is the one that hides a role.
-    lean = -score if item.step != "stacked" else score
-    return (_STEP_ORDER[item.step], lean, item.link.id)
+    # A suspected pair: the strongest proposal first. An automatic match: the
+    # weakest first, since a wrong automatic stack is the one that hides a role.
+    # The kind and id make the order total, so a page can resume after a pair.
+    lean = -score if item.link.confidence == "suspected" else score
+    return (_STEP_ORDER[item.step], lean, _KIND_ORDER[item.kind], item.link.id)
 
 
 async def _yours(session: AsyncSession, ids: Collection[int]) -> set[int]:
@@ -332,9 +337,18 @@ async def _pending(session: AsyncSession, *, pursuits: bool) -> list[_Pending]:
         ("lineage", link, link.prior_job_id, link.job_id) for link in lineage
     ]
     pairs += [("twin", twin, twin.job_a_id, twin.job_b_id) for twin in twins]
+    return sorted(await _ranked(session, pairs, pursuits=pursuits), key=_rank)
+
+
+async def _ranked(
+    session: AsyncSession,
+    pairs: list[tuple[str, JobLineageLink | JobTwinLink, int, int]],
+    *,
+    pursuits: bool,
+) -> list[_Pending]:
     ids = {older for _, _, older, _ in pairs} | {newer for _, _, _, newer in pairs}
     yours = await _yours(session, ids) if pursuits else set()
-    found = [
+    return [
         _Pending(
             kind,  # type: ignore[arg-type]
             link,
@@ -346,7 +360,28 @@ async def _pending(session: AsyncSession, *, pursuits: bool) -> list[_Pending]:
         )
         for kind, link, older, newer in pairs
     ]
-    return sorted(found, key=_rank)
+
+
+async def _resume_after(session: AsyncSession, kind_code: int, link_id: int, *, pursuits: bool) -> tuple[int, float, int, int]:
+    """The rank of the pair a page ended on, read again now. The pair itself
+    may have been decided since, which takes it out of the queue but not out
+    of the order, so the next page starts after it and skips nothing."""
+    kind = _KIND_OF_CODE.get(kind_code)
+    link: JobLineageLink | JobTwinLink | None = None
+    pair: tuple[str, JobLineageLink | JobTwinLink, int, int] | None = None
+    if kind == "lineage":
+        link = await session.get(JobLineageLink, link_id)
+        pair = ("lineage", link, link.prior_job_id, link.job_id) if link is not None else None
+    elif kind == "twin":
+        link = await session.get(JobTwinLink, link_id)
+        pair = ("twin", link, link.job_a_id, link.job_b_id) if link is not None else None
+    if link is None or pair is None:
+        raise OperationError(
+            "invalid_input",
+            "This cursor does not continue this list. Read the first page again without it, with the same filters.",
+            details={"field": "cursor", "reason": "pair_gone"},
+        )
+    return _rank((await _ranked(session, [pair], pursuits=pursuits))[0])
 
 
 def _passages(passages: Any) -> list[PairPassage]:
@@ -415,11 +450,18 @@ async def queue(
     request = page_cursor.fingerprint(
         DUPLICATES_QUEUE.id, workspace_id, {"mine": params.mine, "pursuits": pursuits},
     )
-    offset = page_cursor.decode(params.cursor, request=request)[0] if params.cursor else 0
     ranked = await _pending(session, pursuits=pursuits)
     if params.mine:
         ranked = [item for item in ranked if item.step == "yours"]
-    window = ranked[offset: offset + params.limit]
+    total = len(ranked)
+    if params.cursor:
+        # The cursor names the last pair a page held (its id, and its kind as
+        # the count it carries), not a position: a verdict between two pages
+        # takes pairs out of the queue, and a position would then skip as many.
+        link_id, kind_code = page_cursor.decode(params.cursor, request=request)
+        after = await _resume_after(session, kind_code, link_id, pursuits=pursuits)
+        ranked = [item for item in ranked if _rank(item) > after]
+    window = ranked[: params.limit]
     ids = [posting for item in window for posting in (item.older, item.newer)]
     readable = await visible_jobs(session, ids, chosen_counts=pursuits)
     columns = shared_columns(withheld)
@@ -453,17 +495,20 @@ async def queue(
         pairs.append(pair)
         shown += [job for job in (older, newer) if job not in shown]
     rows = only_columns(await summary_rows(session, shown, now=now or datetime.now(UTC), pursuits=pursuits), columns)
-    next_offset = offset + taken
-    more = next_offset < len(ranked)
+    more = taken < len(ranked)
     continue_with = []
-    next_cursor = page_cursor.encode(request=request, offset=next_offset) if more else None
+    last = window[taken - 1] if taken else None
+    next_cursor = (
+        page_cursor.encode(request=request, offset=last.link.id, carried=_KIND_ORDER[last.kind])
+        if more and last is not None else None
+    )
     if next_cursor:
         arguments: dict[str, Any] = {"cursor": next_cursor, "tier": params.tier}
         if params.mine:
             arguments["mine"] = True
         continue_with.append(NextAction(operation=DUPLICATES_QUEUE.id, arguments=arguments))
     page = DuplicateQueue(
-        total=len(ranked), count=len(pairs), pairs=pairs, columns=columns, rows=rows, continue_with=continue_with,
+        total=total, count=len(pairs), pairs=pairs, columns=columns, rows=rows, continue_with=continue_with,
     )
     return page, next_cursor, more and taken < len(window)
 
@@ -525,7 +570,9 @@ async def decide(session: AsyncSession, params: DuplicateVerdictsInput) -> Dupli
     write commits the verdicts, the stacks, the receipt and the Activity entry
     together."""
     results = [await _one(session, item) for item in params.verdicts]
-    if any(result.outcome == "decided" for result in results):
+    # An "unsure" on a pair the assistant had decided withdraws that verdict,
+    # which changes the stacks as much as a decision does.
+    if any(result.outcome != "refused" and result.before != result.after for result in results):
         await rebuild_lineage_projection(session)
     return DuplicateVerdictsResult(
         decided=sum(result.outcome == "decided" for result in results),

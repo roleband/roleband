@@ -8,7 +8,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
-from sqlalchemy import ColumnElement, func, or_, select
+from sqlalchemy import ColumnElement, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.api.deps import OffBoardDep, Offset, SessionDep, end_read
@@ -73,10 +73,11 @@ def _decided_by(link: JobLineageLink | JobTwinLink) -> str | None:
 
 
 def _decided_by_is(model: type[JobLineageLink] | type[JobTwinLink], who: str) -> ColumnElement[bool]:
-    """Links decided by `who`: a decided link without attribution is the person's."""
+    """Links decided by `who`: a decided link without attribution is the person's,
+    and a pending link was decided by nobody."""
     if who == "agent":
         return model.decided_by == "agent"
-    return or_(model.decided_by.is_(None), model.decided_by == "person")
+    return or_(model.decided_by == "person", and_(model.decided_by.is_(None), model.status != "pending"))
 
 
 def _serialize_link(link: JobLineageLink) -> dict:
