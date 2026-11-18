@@ -143,6 +143,7 @@ describe("ReviewScreen", () => {
     // The reasons in the reader's words, never the detector's English.
     expect(screen.getByText(msg("duplicates-reason-descriptions-alike", { pct: 90 }))).toBeInTheDocument();
     expect(screen.queryByText("cosine 0.90 in review band")).toBeNull();
+    expect(document.body).not.toHaveTextContent(msg("duplicates-review-screen-assistant-unsure", { note: "X" }).split("X")[0].trim());
 
     vi.mocked(api.lineageReview).mockResolvedValue({ total: 0, limit: 50, offset: 0, items: [] });
     await user.keyboard("d");
@@ -664,6 +665,57 @@ describe("ReviewScreen", () => {
     // The score is said as the queue says it: a percentage, not a raw fraction.
     expect(history).toHaveTextContent("97%");
     expect(history).not.toHaveTextContent("0.972");
+  });
+
+  /* A verdict the person's assistant gave through the command line is told
+     apart from the person's own, and carries the assistant's reason. */
+  it("marks an assistant's verdict in Decided and shows its reason, never on the person's own", async () => {
+    mockList({ total: 0, limit: 50, offset: 0, items: [] });
+    const verdict = (id: number, title: string, decided_by: "person" | "agent", decision_note: string | null) => decided({
+      ...duplicatePair(),
+      prior: jobDetailRowFixture({ id: id * 10, req_id: `P${id}`, title }),
+      job: jobDetailRowFixture({ id: id * 10 + 1, req_id: `J${id}`, title: `${title}, II` }),
+      link: {
+        ...duplicatePair().link, id, job_id: id * 10 + 1, prior_job_id: id * 10, status: "confirmed", decision: "duplicate", score: 0.9,
+        reviewed_at: "2026-07-15T15:00:00Z", decided_by, decision_note,
+      },
+    });
+    mockHistory({
+      total: 2, limit: 20, offset: 0,
+      items: [
+        verdict(1, "Staff PM", "agent", "Same requisition text, reposted after 30 days"),
+        verdict(2, "Staff Designer", "person", null),
+      ],
+    });
+    vi.mocked(api.job).mockResolvedValue(jobDetailFixture());
+    render(<ReviewScreen />);
+
+    await userEvent.click(await screen.findByRole("tab", { name: /Decided/ }));
+    const history = await screen.findByRole("region", { name: "Decided" });
+    await waitFor(() => expect(history.getElementsByClassName("review-history-summary")).toHaveLength(2));
+    const [agentRow, personRow] = Array.from(history.getElementsByClassName("review-history-summary")) as HTMLElement[];
+    const byAssistant = msg("duplicates-review-history-by-assistant");
+    expect(within(agentRow).getByText(byAssistant)).toBeInTheDocument();
+    expect(within(personRow).queryByText(byAssistant)).toBeNull();
+    // The reason is read in the opened row, as the assistant wrote it.
+    expect(history).not.toHaveTextContent("Same requisition text");
+    await userEvent.click(agentRow);
+    const reason = await within(history).findByText("Same requisition text, reposted after 30 days");
+    expect(reason).toHaveAttribute("translate", "no");
+    expect(history).toHaveTextContent(msg("duplicates-review-history-assistant-reason", { reason: "Same requisition text, reposted after 30 days" }));
+  });
+
+  /* A pair the assistant was unsure about stays in the person's queue with the
+     assistant's note beside the evidence; a pair it never touched has none. */
+  it("shows the assistant's note on a pair it left for the person", async () => {
+    const pair = duplicatePair();
+    mockList({ total: 1, limit: 50, offset: 0, items: [{ ...pair, link: { ...pair.link, decision_note: "Titles match but the teams differ" } }] });
+    mockHistory();
+    render(<ReviewScreen />);
+
+    expect(await screen.findByText(toDecide(1))).toBeInTheDocument();
+    expect(screen.getByText("Titles match but the teams differ")).toHaveAttribute("translate", "no");
+    expect(document.body).toHaveTextContent(msg("duplicates-review-screen-assistant-unsure", { note: "Titles match but the teams differ" }));
   });
 
   // A reload must not land on the queue with the archive's filter and search

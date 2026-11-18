@@ -8,7 +8,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.api.deps import OffBoardDep, Offset, SessionDep, end_read
@@ -64,6 +64,21 @@ from tracker.local_llm.client import LocalLLMClient, LocalLLMError
 router = APIRouter()
 
 
+def _decided_by(link: JobLineageLink | JobTwinLink) -> str | None:
+    """Who made a link's verdict: a verdict recorded without attribution is the
+    person's; a pending link has none."""
+    if link.status == "pending":
+        return None
+    return link.decided_by or "person"
+
+
+def _decided_by_is(model: type[JobLineageLink] | type[JobTwinLink], who: str) -> ColumnElement[bool]:
+    """Links decided by `who`: a decided link without attribution is the person's."""
+    if who == "agent":
+        return model.decided_by == "agent"
+    return or_(model.decided_by.is_(None), model.decided_by == "person")
+
+
 def _serialize_link(link: JobLineageLink) -> dict:
     ev = link.evidence or {}
     return {
@@ -82,6 +97,8 @@ def _serialize_link(link: JobLineageLink) -> dict:
         "decision": ev.get("review_outcome"),
         "decision_changes": len(ev.get("decision_history", [])),
         "reviewed_at": link.reviewed_at,
+        "decided_by": _decided_by(link),
+        "decision_note": link.decision_note,
     }
 
 
@@ -104,6 +121,8 @@ def _serialize_twin_link(link: JobTwinLink) -> dict:
         "decision": ev.get("review_outcome"),
         "decision_changes": len(ev.get("decision_history", [])),
         "reviewed_at": link.reviewed_at,
+        "decided_by": _decided_by(link),
+        "decision_note": link.decision_note,
         "description_diff": ev.get("description_diff"),
     }
 
@@ -177,6 +196,7 @@ async def lineage_review(
     order: Literal["strongest", "weakest"] = "strongest",
     on_board: bool = True,
     detail: bool = True,
+    decided_by: Literal["person", "agent"] | None = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Offset = 0,
 ) -> dict:
@@ -198,6 +218,8 @@ async def lineage_review(
     conds = [JobLineageLink.status.in_(_review_statuses(status))]
     if confidence:
         conds.append(JobLineageLink.confidence == confidence)
+    if decided_by:
+        conds.append(_decided_by_is(JobLineageLink, decided_by))
     if status == "pending" and on_board:
         conds.append(pair_on_board(JobLineageLink.job_id, JobLineageLink.prior_job_id, hidden))
     total = await session.scalar(
@@ -283,6 +305,7 @@ async def twin_review(
     confidence: str | None = "suspected",
     on_board: bool = True,
     detail: bool = True,
+    decided_by: Literal["person", "agent"] | None = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Offset = 0,
 ) -> dict:
@@ -294,6 +317,8 @@ async def twin_review(
     conds = [JobTwinLink.status.in_(_review_statuses(status))]
     if confidence:
         conds.append(JobTwinLink.confidence == confidence)
+    if decided_by:
+        conds.append(_decided_by_is(JobTwinLink, decided_by))
     if status == "pending" and on_board:
         conds.append(pair_on_board(JobTwinLink.job_a_id, JobTwinLink.job_b_id, hidden))
     total = await session.scalar(select(func.count()).select_from(JobTwinLink).where(*conds))
@@ -409,6 +434,7 @@ async def create_twin_link(payload: TwinLinkPayload, session: SessionDep) -> dic
         payload.twin_job_id,
         method="manual",
         evidence={"review_outcome": "twin", "reasons": ["human-created twin relationship"]},
+        actor="person",
     )
     await session.commit()
     return {"id": twin["id"], "status": "confirmed", "decision": "twin"}

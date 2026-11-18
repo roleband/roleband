@@ -98,6 +98,8 @@ duplicates-proposed-as = { $kind ->
 }
 duplicates-review-history-reviewed = 已审核
 duplicates-review-history-revised = 已修改 { $count } 次
+duplicates-review-history-by-assistant = 你的助手
+duplicates-review-history-assistant-reason = 理由：{ $reason }
 duplicates-review-history-decided-2 = 已决定
 duplicates-review-history-search-decisions = 搜索决定
 duplicates-review-history-search-title-or-requisition-id = 搜索职位名称或编号
@@ -124,6 +126,7 @@ duplicates-review-screen-marked-as = { $decision ->
    *[different] 已标记为不同职位
 }
 duplicates-review-screen-undo = 撤销
+duplicates-review-screen-assistant-unsure = 你的助手无法确定：{ $note }
 duplicates-review-screen-could-not-record-the-verdict = 无法保存你的决定。{ $message }
 duplicates-review-screen-duplicate-review-views = 重复项审核视图
 duplicates-review-screen-queue = 队列

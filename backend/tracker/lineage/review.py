@@ -28,6 +28,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import Literal
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -44,9 +45,13 @@ from tracker.platform.locks import advisory_xact_lock
 # back, and what decides whether a row still holds what the verdict wrote.
 # Keyed by table name so the undo record on evidence names its rows.
 _RESTORED_COLUMNS = {
-    "job_twin_link": ("status", "method", "detector_version", "evidence", "reviewed_at"),
-    "job_lineage_link": ("status", "relation", "method", "evidence", "reviewed_at"),
+    "job_twin_link": ("status", "method", "detector_version", "evidence", "reviewed_at", "decided_by", "decision_note"),
+    "job_lineage_link": ("status", "relation", "method", "evidence", "reviewed_at", "decided_by", "decision_note"),
 }
+
+#: Who records a verdict. The person's verdict always stands over an
+#: assistant's; an assistant's never replaces or reverses the person's.
+Actor = Literal["person", "agent"]
 
 #: How a kept row is named on the wire: the kind of relationship it records.
 _KIND = {"job_twin_link": "twin", "job_lineage_link": "duplicate"}
@@ -54,6 +59,32 @@ _KIND = {"job_twin_link": "twin", "job_lineage_link": "duplicate"}
 
 class LinkNotFound(LookupError):
     """The reviewed link, or a job it joins, does not exist."""
+
+
+class DecidedByPerson(Exception):
+    """An assistant's verdict would change a decision the person made: the
+    reviewed link, or a pair the verdict would also decide."""
+
+    def __init__(self, link: str, link_id: int) -> None:
+        super().__init__(f"{link} {link_id} was decided by the person")
+        self.link = link
+        self.link_id = link_id
+
+
+def _person_decided(row: dict | JobLineageLink | JobTwinLink) -> bool:
+    """A decided row the person made: a verdict without attribution is theirs."""
+    status = row["status"] if isinstance(row, dict) else row.status
+    decided_by = row.get("decided_by") if isinstance(row, dict) else row.decided_by
+    return status != "pending" and decided_by != "agent"
+
+
+def _guard(actor: Actor, table: str, rows: list[dict]) -> None:
+    """Refuse an assistant's write onto any row the person decided."""
+    if actor != "agent":
+        return
+    for row in rows:
+        if _person_decided(row):
+            raise DecidedByPerson(_KIND[table], int(row["id"]))
 
 
 @dataclass(frozen=True)
@@ -145,7 +176,7 @@ async def _insert_decision(session: AsyncSession, table: str, values: dict) -> d
 
 
 async def _reject_twin_counterpart(
-    session: AsyncSession, left_id: int, right_id: int, *, outcome: str
+    session: AsyncSession, left_id: int, right_id: int, *, outcome: str, actor: Actor
 ) -> list[dict]:
     """A pair cannot be both a confirmed twin and one duplicate/unrelated pair.
     Returns each counterpart row touched, as it was and as it was left."""
@@ -153,19 +184,25 @@ async def _reject_twin_counterpart(
     rows = await _locked_rows(
         session, "job_twin_link", "job_a_id = :a AND job_b_id = :b", {"a": a, "b": b}
     )
+    _guard(actor, "job_twin_link", rows)
     return [
         await _write_decision(
             session,
             "job_twin_link",
             row,
-            {"status": "rejected", "evidence": _record_relationship_outcome(row["evidence"], outcome)},
+            {
+                "status": "rejected",
+                "evidence": _record_relationship_outcome(row["evidence"], outcome),
+                "decided_by": actor,
+                "decision_note": None,
+            },
         )
         for row in rows
     ]
 
 
 async def _reject_lineage_counterpart(
-    session: AsyncSession, left_id: int, right_id: int, *, outcome: str
+    session: AsyncSession, left_id: int, right_id: int, *, outcome: str, actor: Actor
 ) -> list[dict]:
     rows = await _locked_rows(
         session,
@@ -174,12 +211,18 @@ async def _reject_lineage_counterpart(
         " OR (job_id = :right_id AND prior_job_id = :left_id)",
         {"left_id": left_id, "right_id": right_id},
     )
+    _guard(actor, "job_lineage_link", rows)
     return [
         await _write_decision(
             session,
             "job_lineage_link",
             row,
-            {"status": "rejected", "evidence": _record_relationship_outcome(row["evidence"], outcome)},
+            {
+                "status": "rejected",
+                "evidence": _record_relationship_outcome(row["evidence"], outcome),
+                "decided_by": actor,
+                "decision_note": None,
+            },
         )
         for row in rows
     ]
@@ -194,12 +237,13 @@ def _decided_evidence(existing: dict | None, evidence: dict) -> dict:
 
 
 async def _confirm_pair(
-    session: AsyncSession, table: str, key_sql: str, key: dict, insert: dict, update: dict
+    session: AsyncSession, table: str, key_sql: str, key: dict, insert: dict, update: dict, *, actor: Actor
 ) -> dict:
-    """Upsert a human-confirmed row under `key`: insert `insert`, or write
+    """Upsert a confirmed row under `key`: insert `insert`, or write
     `update` onto the row that is there with its evidence merged."""
     for _ in range(2):
         rows = await _locked_rows(session, table, key_sql, key)
+        _guard(actor, table, rows)
         if rows:
             values = {**update, "evidence": _decided_evidence(rows[0]["evidence"], update["evidence"])}
             return await _write_decision(session, table, rows[0], values)
@@ -216,8 +260,9 @@ async def _confirm_twin_pair(
     *,
     method: str,
     evidence: dict,
+    actor: Actor,
 ) -> dict:
-    """Upsert a human-confirmed symmetric twin pair. Returns `{"id", "before",
+    """Upsert a confirmed symmetric twin pair. Returns `{"id", "before",
     "after"}`; `before` is `None` when the pair was new."""
     a, b = canonical_pair(left_id, right_id)
     decided = {
@@ -225,6 +270,8 @@ async def _confirm_twin_pair(
         "method": method,
         "detector_version": TWIN_DETECTOR_VERSION,
         "evidence": evidence,
+        "decided_by": actor,
+        "decision_note": None,
     }
     return await _confirm_pair(
         session,
@@ -233,11 +280,12 @@ async def _confirm_twin_pair(
         {"job_a_id": a, "job_b_id": b},
         {**decided, "confidence": "suspected"},
         decided,
+        actor=actor,
     )
 
 
 async def _confirm_duplicate_pair(
-    session: AsyncSession, left: Job, right: Job, *, source_twin_link_id: int
+    session: AsyncSession, left: Job, right: Job, *, source_twin_link_id: int, actor: Actor
 ) -> dict:
     """Upsert a human-confirmed duplicate link. Returns `{"id", "before",
     "after"}` like `_confirm_twin_pair`."""
@@ -251,6 +299,8 @@ async def _confirm_duplicate_pair(
             "source_twin_link_id": source_twin_link_id,
             "reasons": ["human marked a twin proposal as the same opening"],
         },
+        "decided_by": actor,
+        "decision_note": None,
     }
     return await _confirm_pair(
         session,
@@ -259,6 +309,7 @@ async def _confirm_duplicate_pair(
         {"job_id": newer.id, "prior_job_id": older.id},
         {**decided, "confidence": "suspected", "detector_version": LINEAGE_DETECTOR_VERSION},
         decided,
+        actor=actor,
     )
 
 
@@ -340,12 +391,18 @@ async def _withdraw_verdict(
     if previous:
         history = list(evidence.get("decision_history") or [])
         entry: dict = {"decision": previous, "changed_at": datetime.now(UTC).isoformat()}
+        if link.decided_by:
+            entry["decided_by"] = link.decided_by
+        if link.decision_note:
+            entry["note"] = link.decision_note
         if kept:
             entry["kept"] = kept
         history.append(entry)
         evidence["decision_history"] = history
     link.status = "pending"
     link.reviewed_at = None
+    link.decided_by = None
+    link.decision_note = None
     link.evidence = evidence
     return evidence, kept
 
@@ -359,11 +416,29 @@ async def _fresh(session: AsyncSession, model, link_id: int):
     return link
 
 
-async def decide_lineage_link(session: AsyncSession, link_id: int, verdict: str) -> VerdictOutcome:
+def _refuse_over_person(actor: Actor, link: JobLineageLink | JobTwinLink, kind: str) -> None:
+    """An assistant does not change a link the person decided."""
+    if actor == "agent" and _person_decided(link):
+        raise DecidedByPerson(kind, link.id)
+
+
+def _stamp(link: JobLineageLink | JobTwinLink, actor: Actor, note: str | None) -> None:
+    link.decided_by = actor
+    link.decision_note = note
+    link.reviewed_at = datetime.now(UTC)
+
+
+async def decide_lineage_link(
+    session: AsyncSession, link_id: int, verdict: str, *, actor: Actor = "person", note: str | None = None
+) -> VerdictOutcome:
     """Record a verdict on a duplicate proposal: `confirmed`, `rejected`,
     `twin` (a separate opening: the link is rejected and the pair confirmed a
-    twin) or `pending` (withdraw the last verdict). Flushes; commits nothing."""
+    twin) or `pending` (withdraw the last verdict). `actor` says who decided
+    and `note` carries an assistant's reason. An assistant's verdict that would
+    change anything the person decided raises `DecidedByPerson` before it
+    writes. Flushes; commits nothing."""
     link = await _fresh(session, JobLineageLink, link_id)
+    _refuse_over_person(actor, link, "duplicate")
     kept: list[dict] = []
     # Changing a verdict unwinds the one it replaces, first. `evidence["undo"]`
     # is a single slot: a second verdict overwrites it, so without this the FIRST
@@ -389,32 +464,37 @@ async def decide_lineage_link(session: AsyncSession, link_id: int, verdict: str)
                 "source_lineage_link_id": link.id,
                 "reasons": ["human marked a duplicate proposal as separate twin openings"],
             },
+            actor=actor,
         )
         twin_link_id = twin["id"]
         evidence["undo"] = {"job_twin_link": [twin]}
         link.status = "rejected"
         link.evidence = evidence
-        link.reviewed_at = datetime.now(UTC)
+        _stamp(link, actor, note)
     else:
         outcome = "duplicate" if verdict == "confirmed" else "different"
         evidence = _record_relationship_outcome(link.evidence, outcome)
         evidence["undo"] = {
             "job_twin_link": await _reject_twin_counterpart(
-                session, link.job_id, link.prior_job_id, outcome=outcome
+                session, link.job_id, link.prior_job_id, outcome=outcome, actor=actor
             )
         }
         link.status = verdict
         link.evidence = evidence
-        link.reviewed_at = datetime.now(UTC)
+        _stamp(link, actor, note)
     await session.flush()
     return VerdictOutcome(link=link, kept=kept, twin_link_id=twin_link_id)
 
 
-async def decide_twin_link(session: AsyncSession, link_id: int, verdict: str) -> VerdictOutcome:
+async def decide_twin_link(
+    session: AsyncSession, link_id: int, verdict: str, *, actor: Actor = "person", note: str | None = None
+) -> VerdictOutcome:
     """Record a verdict on a twin proposal: `confirmed`, `rejected`,
     `duplicate` (the same opening: the twin is rejected and the pair confirmed
-    a duplicate) or `pending`. Flushes; commits nothing."""
+    a duplicate) or `pending`. `actor` and `note` as on
+    `decide_lineage_link`. Flushes; commits nothing."""
     link = await _fresh(session, JobTwinLink, link_id)
+    _refuse_over_person(actor, link, "twin")
     kept: list[dict] = []
     if verdict != "pending" and link.status != "pending":
         _, kept = await _withdraw_verdict(session, link)
@@ -428,7 +508,9 @@ async def decide_twin_link(session: AsyncSession, link_id: int, verdict: str) ->
         raise LinkNotFound("linked job not found")
     if verdict == "duplicate":
         evidence = _record_relationship_outcome(link.evidence, "duplicate")
-        duplicate = await _confirm_duplicate_pair(session, left, right, source_twin_link_id=link.id)
+        duplicate = await _confirm_duplicate_pair(
+            session, left, right, source_twin_link_id=link.id, actor=actor
+        )
         evidence["undo"] = {"job_lineage_link": [duplicate]}
         link.status = "rejected"
     else:
@@ -436,12 +518,30 @@ async def decide_twin_link(session: AsyncSession, link_id: int, verdict: str) ->
         evidence = _record_relationship_outcome(link.evidence, outcome)
         evidence["undo"] = {
             "job_lineage_link": await _reject_lineage_counterpart(
-                session, link.job_a_id, link.job_b_id, outcome=outcome
+                session, link.job_a_id, link.job_b_id, outcome=outcome, actor=actor
             )
         }
         link.status = verdict
     link.evidence = evidence
-    link.reviewed_at = datetime.now(UTC)
+    _stamp(link, actor, note)
+    await session.flush()
+    return VerdictOutcome(link=link, kept=kept)
+
+
+async def leave_for_person(
+    session: AsyncSession, kind: Literal["duplicate", "twin"], link_id: int, note: str
+) -> VerdictOutcome:
+    """An assistant's "unsure": the link stays (or goes back to) pending with
+    the assistant's note for the person. A verdict the assistant made itself is
+    withdrawn first; one the person made raises `DecidedByPerson`. Flushes;
+    commits nothing."""
+    model = JobLineageLink if kind == "duplicate" else JobTwinLink
+    link = await _fresh(session, model, link_id)
+    _refuse_over_person("agent", link, kind)
+    kept: list[dict] = []
+    if link.status != "pending":
+        _, kept = await _withdraw_verdict(session, link)
+    link.decision_note = note
     await session.flush()
     return VerdictOutcome(link=link, kept=kept)
 

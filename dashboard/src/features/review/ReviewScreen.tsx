@@ -28,6 +28,7 @@ import {
   duplicatesProposedAs,
   duplicatesReviewHistoryDecided,
   duplicatesReviewScreenAboutSystemSimilarity,
+  duplicatesReviewScreenAssistantUnsure,
   duplicatesReviewScreenCandidatePair,
   duplicatesReviewScreenCouldNotRecordTheVerdict,
   duplicatesReviewScreenCouldNotUndo,
@@ -51,6 +52,7 @@ import {
   duplicatesReviewScreenUndo,
   duplicatesReviewScreenUndoneYourLaterDecisionOn,
 } from "../../copy/gen/duplicates";
+import { Content } from "../../ui/Content";
 import { Msg } from "../../ui/Msg";
 
 /* `queue` is the possible matches waiting for a verdict; `auto` the pairs the
@@ -460,6 +462,12 @@ function ReviewWorkspace({
       </header>
 
       <ComparisonLedger prior={item.prior} job={item.job} />
+
+      {item.link.decision_note && (
+        <p className="review-assistant-note">
+          <Msg of={duplicatesReviewScreenAssistantUnsure} elems={{ note: <Content text={item.link.decision_note} /> }} />
+        </p>
+      )}
 
       <QueueDecisionConsole
         busy={busy}

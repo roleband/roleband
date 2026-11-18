@@ -7024,6 +7024,94 @@
     "title": "DuplicateAssessmentBody",
     "type": "object"
    },
+   "DuplicatePair": {
+    "additionalProperties": false,
+    "properties": {
+     "fields": {
+      "additionalProperties": true,
+      "title": "Fields",
+      "type": "object"
+     },
+     "gap_days": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Gap Days"
+     },
+     "newer": {
+      "title": "Newer",
+      "type": "integer"
+     },
+     "older": {
+      "title": "Older",
+      "type": "integer"
+     },
+     "pair": {
+      "title": "Pair",
+      "type": "string",
+      "x-text": "code"
+     },
+     "proposed": {
+      "enum": [
+       "same_opening",
+       "two_openings"
+      ],
+      "title": "Proposed",
+      "type": "string",
+      "x-text": "code"
+     },
+     "reasons": {
+      "items": {
+       "$ref": "#/components/schemas/PairReason"
+      },
+      "title": "Reasons",
+      "type": "array"
+     },
+     "score": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Score"
+     },
+     "step": {
+      "enum": [
+       "yours",
+       "shown_twice",
+       "stacked"
+      ],
+      "title": "Step",
+      "type": "string",
+      "x-text": "code"
+     },
+     "text": {
+      "$ref": "#/components/schemas/PairTextDifference"
+     }
+    },
+    "required": [
+     "pair",
+     "proposed",
+     "step",
+     "older",
+     "newer",
+     "gap_days",
+     "score",
+     "reasons",
+     "fields",
+     "text"
+    ],
+    "title": "DuplicatePair",
+    "type": "object"
+   },
    "DuplicateProposal": {
     "additionalProperties": false,
     "description": "A `job_lineage_link` row: the newer posting may be the older one again.",
@@ -7031,6 +7119,21 @@
      "confidence": {
       "title": "Confidence",
       "type": "string"
+     },
+     "decided_by": {
+      "anyOf": [
+       {
+        "enum": [
+         "person",
+         "agent"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Decided By"
      },
      "decision": {
       "anyOf": [
@@ -7046,6 +7149,18 @@
      "decision_changes": {
       "title": "Decision Changes",
       "type": "integer"
+     },
+     "decision_note": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Decision Note",
+      "x-text": "content"
      },
      "gap_days": {
       "anyOf": [
@@ -7141,9 +7256,80 @@
      "said",
      "decision",
      "decision_changes",
-     "reviewed_at"
+     "reviewed_at",
+     "decided_by",
+     "decision_note"
     ],
     "title": "DuplicateProposal",
+    "type": "object"
+   },
+   "DuplicateQueue": {
+    "additionalProperties": false,
+    "properties": {
+     "columns": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Columns",
+      "type": "array",
+      "x-text": "code"
+     },
+     "continue_with": {
+      "items": {
+       "$ref": "#/components/schemas/NextAction"
+      },
+      "title": "Continue With",
+      "type": "array"
+     },
+     "count": {
+      "minimum": 0.0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "pairs": {
+      "items": {
+       "$ref": "#/components/schemas/DuplicatePair"
+      },
+      "title": "Pairs",
+      "type": "array"
+     },
+     "rows": {
+      "description": "One array per posting, its values in the order `columns` names.",
+      "items": {
+       "items": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "type": "array"
+      },
+      "title": "Rows",
+      "type": "array",
+      "x-text": "content"
+     },
+     "total": {
+      "minimum": 0.0,
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "total",
+     "count",
+     "pairs",
+     "columns",
+     "rows",
+     "continue_with"
+    ],
+    "title": "DuplicateQueue",
     "type": "object"
    },
    "DuplicateReviewItem": {
@@ -7275,6 +7461,80 @@
     "title": "DuplicateReviewSummaryList",
     "type": "object"
    },
+   "DuplicateVerdictItem": {
+    "additionalProperties": false,
+    "properties": {
+     "after": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "After",
+      "x-text": "code"
+     },
+     "before": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Before",
+      "x-text": "code"
+     },
+     "outcome": {
+      "enum": [
+       "decided",
+       "left_for_person",
+       "refused"
+      ],
+      "title": "Outcome",
+      "type": "string",
+      "x-text": "code"
+     },
+     "pair": {
+      "title": "Pair",
+      "type": "string",
+      "x-text": "code"
+     },
+     "refusal": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Refusal",
+      "x-text": "code"
+     },
+     "verdict": {
+      "enum": [
+       "same_opening",
+       "two_openings",
+       "different_roles",
+       "unsure"
+      ],
+      "title": "Verdict",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "pair",
+     "verdict",
+     "outcome"
+    ],
+    "title": "DuplicateVerdictItem",
+    "type": "object"
+   },
    "DuplicateVerdictResult": {
     "additionalProperties": false,
     "description": "`POST /api/lineage/links/{link_id}/review`. `twin_link_id` names the twin a\n`twin` verdict confirmed; `lineages` counts the rebuilt projection; `kept`\nnames what withdrawing the previous verdict left alone, empty when nothing.",
@@ -7348,6 +7608,41 @@
      "kept"
     ],
     "title": "DuplicateVerdictResult",
+    "type": "object"
+   },
+   "DuplicateVerdictsResult": {
+    "additionalProperties": false,
+    "properties": {
+     "decided": {
+      "minimum": 0.0,
+      "title": "Decided",
+      "type": "integer"
+     },
+     "left_for_person": {
+      "minimum": 0.0,
+      "title": "Left For Person",
+      "type": "integer"
+     },
+     "refused": {
+      "minimum": 0.0,
+      "title": "Refused",
+      "type": "integer"
+     },
+     "results": {
+      "items": {
+       "$ref": "#/components/schemas/DuplicateVerdictItem"
+      },
+      "title": "Results",
+      "type": "array"
+     }
+    },
+    "required": [
+     "decided",
+     "left_for_person",
+     "refused",
+     "results"
+    ],
+    "title": "DuplicateVerdictsResult",
     "type": "object"
    },
    "EffectsShape": {
@@ -8291,6 +8586,162 @@
      "error"
     ],
     "title": "Envelope[DoctorReport]",
+    "type": "object"
+   },
+   "Envelope_DuplicateQueue_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/DuplicateQueue"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[DuplicateQueue]",
+    "type": "object"
+   },
+   "Envelope_DuplicateVerdictsResult_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/DuplicateVerdictsResult"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[DuplicateVerdictsResult]",
     "type": "object"
    },
    "Envelope_FactsPage_": {
@@ -24223,6 +24674,104 @@
     "title": "PacketComponent",
     "type": "object"
    },
+   "PairPassage": {
+    "additionalProperties": false,
+    "properties": {
+     "section": {
+      "title": "Section",
+      "type": "string",
+      "x-text": "content"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "section",
+     "text"
+    ],
+    "title": "PairPassage",
+    "type": "object"
+   },
+   "PairReason": {
+    "additionalProperties": false,
+    "description": "One reason the detector gives, as a code and its numbers (`lineage.reasons`).",
+    "properties": {
+     "code": {
+      "title": "Code",
+      "type": "string",
+      "x-text": "code"
+     },
+     "params": {
+      "additionalProperties": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ]
+      },
+      "title": "Params",
+      "type": "object"
+     }
+    },
+    "required": [
+     "code",
+     "params"
+    ],
+    "title": "PairReason",
+    "type": "object"
+   },
+   "PairTextDifference": {
+    "additionalProperties": false,
+    "description": "The postings' texts side by side: whether they could be compared, how\nalike they are, and the passages each has that the other does not.",
+    "properties": {
+     "alike": {
+      "title": "Alike",
+      "type": "number"
+     },
+     "comparable": {
+      "title": "Comparable",
+      "type": "boolean"
+     },
+     "only_in_newer": {
+      "items": {
+       "$ref": "#/components/schemas/PairPassage"
+      },
+      "title": "Only In Newer",
+      "type": "array"
+     },
+     "only_in_newer_count": {
+      "title": "Only In Newer Count",
+      "type": "integer"
+     },
+     "only_in_older": {
+      "items": {
+       "$ref": "#/components/schemas/PairPassage"
+      },
+      "title": "Only In Older",
+      "type": "array"
+     },
+     "only_in_older_count": {
+      "title": "Only In Older Count",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "comparable",
+     "alike",
+     "only_in_older_count",
+     "only_in_newer_count",
+     "only_in_older",
+     "only_in_newer"
+    ],
+    "title": "PairTextDifference",
+    "type": "object"
+   },
    "ParsedQueryEcho": {
     "additionalProperties": false,
     "description": "The structured filters a search query was read as.",
@@ -36827,6 +37376,21 @@
       "title": "Confidence",
       "type": "string"
      },
+     "decided_by": {
+      "anyOf": [
+       {
+        "enum": [
+         "person",
+         "agent"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Decided By"
+     },
      "decision": {
       "anyOf": [
        {
@@ -36841,6 +37405,18 @@
      "decision_changes": {
       "title": "Decision Changes",
       "type": "integer"
+     },
+     "decision_note": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Decision Note",
+      "x-text": "content"
      },
      "description_diff": {
       "anyOf": [
@@ -36955,6 +37531,8 @@
      "decision",
      "decision_changes",
      "reviewed_at",
+     "decided_by",
+     "decision_note",
      "description_diff"
     ],
     "title": "TwinProposal",
@@ -39114,6 +39692,181 @@
      "agent"
     ],
     "x-operation": "doctor"
+   }
+  },
+  "/api/agent/v1/duplicates/queue": {
+   "get": {
+    "operationId": "duplicate_queue_api_agent_v1_duplicates_queue_get",
+    "parameters": [
+     {
+      "description": "Only pairs with a posting the person saved or pursues.",
+      "in": "query",
+      "name": "mine",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Mine",
+       "type": "boolean"
+      }
+     },
+     {
+      "description": "Most pairs on one page.",
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 10,
+       "maximum": 50,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     },
+     {
+      "description": "The next_cursor of the previous page, read with the same filters.",
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 512,
+         "minLength": 1,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Cursor"
+      }
+     },
+     {
+      "description": "The caller's tool tier, which bounds the page.",
+      "in": "query",
+      "name": "tier",
+      "required": false,
+      "schema": {
+       "default": "small",
+       "enum": [
+        "small",
+        "standard",
+        "full"
+       ],
+       "title": "Tier",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_DuplicateQueue_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Duplicate Queue",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "duplicates.queue"
+   }
+  },
+  "/api/agent/v1/duplicates/verdicts": {
+   "post": {
+    "operationId": "duplicate_decide_api_agent_v1_duplicates_verdicts_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "X-RoleBand-Idempotency-Key",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": false,
+        "properties": {
+         "verdicts": {
+          "description": "1 to 50 verdicts, each on its own pair.",
+          "items": {
+           "additionalProperties": false,
+           "properties": {
+            "pair": {
+             "description": "The pair, as duplicates.queue names it: lineage-<id> or twin-<id>.",
+             "pattern": "^(lineage|twin)-([1-9][0-9]{0,17})$",
+             "title": "Pair",
+             "type": "string"
+            },
+            "reason": {
+             "description": "One line the person reads beside the verdict: what in the postings decided it.",
+             "maxLength": 300,
+             "minLength": 3,
+             "title": "Reason",
+             "type": "string"
+            },
+            "verdict": {
+             "description": "same_opening (one opening listed again), two_openings (the same role, separate openings), different_roles, or unsure (leave it for the person).",
+             "enum": [
+              "same_opening",
+              "two_openings",
+              "different_roles",
+              "unsure"
+             ],
+             "title": "Verdict",
+             "type": "string"
+            }
+           },
+           "required": [
+            "pair",
+            "verdict",
+            "reason"
+           ],
+           "title": "DuplicateVerdictInput",
+           "type": "object"
+          },
+          "maxItems": 50,
+          "minItems": 1,
+          "title": "Verdicts",
+          "type": "array"
+         }
+        },
+        "required": [
+         "verdicts"
+        ],
+        "title": "DuplicateVerdictsInput",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_DuplicateVerdictsResult_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Duplicate Decide",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "duplicates.decide"
    }
   },
   "/api/agent/v1/insights/compensation": {
@@ -45775,6 +46528,26 @@
      },
      {
       "in": "query",
+      "name": "decided_by",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "person",
+          "agent"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Decided By"
+      }
+     },
+     {
+      "in": "query",
       "name": "limit",
       "required": false,
       "schema": {
@@ -49044,6 +49817,26 @@
        "default": true,
        "title": "Detail",
        "type": "boolean"
+      }
+     },
+     {
+      "in": "query",
+      "name": "decided_by",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "person",
+          "agent"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Decided By"
       }
      },
      {

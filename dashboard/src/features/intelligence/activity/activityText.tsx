@@ -17,19 +17,28 @@ import {
   activityCategoryPostings,
   activityCategoryProfile,
   activityCategoryProgressAndNotes,
+  activityDecidedAndLeftDuplicates,
+  activityDecidedDuplicates,
   activityDraftedRecipe,
   activityFieldDraft,
   activityFieldNextAction,
   activityFieldNextActionDue,
   activityFieldNotes,
+  activityFieldPair,
   activityFieldPriority,
   activityFieldStage,
   activityGroupControllingCollection,
   activityGroupKeepingFindings,
   activityGroupTrackingProgress,
   activityGroupTuningTheRadar,
+  activityLeftDuplicates,
   activityMadeChange,
   activityMovedRole,
+  activityPairDifferent,
+  activityPairLeftForYou,
+  activityPairRelated,
+  activityPairSame,
+  activityPairUndecided,
   activityReadConnection,
   activityReadMarketStatistics,
   activityReadOffer,
@@ -106,7 +115,19 @@ export function groupName(group: string): string {
   return own(GROUP_NAME, group)?.() ?? group;
 }
 
+/* A duplicate verdict's change names its pair (`lineage-12`, `twin-4`) and
+   records the pair's stored status. The same status means different things on
+   the two kinds of pair: `confirmed` is one role posted twice on a lineage
+   pair, but two related openings on a twin pair. */
+const PAIR = /^(lineage|twin)-(\d+)$/;
+const PAIR_STATE: Record<"lineage" | "twin", Record<string, () => string>> = {
+  lineage: { pending: activityPairUndecided, confirmed: activityPairSame, twin: activityPairRelated, rejected: activityPairDifferent },
+  twin: { pending: activityPairUndecided, duplicate: activityPairSame, confirmed: activityPairRelated, rejected: activityPairDifferent },
+};
+
 export function fieldName(field: string): string {
+  const pair = PAIR.exec(field);
+  if (pair) return activityFieldPair({ id: pair[2] });
   return own(FIELD_NAME, field)?.() ?? field;
 }
 
@@ -120,6 +141,12 @@ const text = (value: unknown): string | null => (typeof value === "string" && va
  *  and time; a stage is its name; anything else is shown as written. */
 export function fieldValue(field: string, value: unknown): ReactNode {
   if (field === "stage") return stageName(value);
+  const pair = PAIR.exec(field);
+  if (pair) {
+    if (value === "left_for_you") return activityPairLeftForYou();
+    const state = own(PAIR_STATE[pair[1] as "lineage" | "twin"], value);
+    if (state) return state();
+  }
   if (field === "next_action_due" && typeof value === "string") {
     return timestamp(value, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   }
@@ -157,6 +184,11 @@ export function entryText(entry: ActivityEntry, { plain = false }: { plain?: boo
   const recipe = text(subject.recipe);
   if (recipe && topic === "recipe.drafted") {
     return <Msg of={activityDraftedRecipe} elems={{ recipe: <Content text={recipe} /> }} />;
+  }
+  if (topic === "duplicates.decided" && typeof subject.decided === "number" && typeof subject.left === "number") {
+    const { decided, left } = subject;
+    if (decided > 0 && left > 0) return activityDecidedAndLeftDuplicates({ decided, left });
+    return left > 0 ? activityLeftDuplicates({ left }) : activityDecidedDuplicates({ decided });
   }
   if (topic === "change") return activityMadeChange();
   return <Content text={entry.summary} />;

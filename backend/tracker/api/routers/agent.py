@@ -21,6 +21,7 @@ from tracker.agents.operations import (
     applications,
     changes,
     companies,
+    duplicates,
     export,
     insights,
     offer,
@@ -662,6 +663,33 @@ async def opportunity_duplicates(
         withheld=withheld(relations.OPPORTUNITIES_DUPLICATES, op.switches),
     )
     return _fitted(op, data, rows_left=bool(fitted.rest), row_cut=fitted.row_cut)
+
+
+@router.get(
+    f"{PREFIX}/duplicates/queue",
+    response_model=Envelope[duplicates.DuplicateQueue],
+    openapi_extra=operation_route(duplicates.DUPLICATES_QUEUE),
+)
+async def duplicate_queue(
+    op: Annotated[OperationContext, Depends(admitted(duplicates.DUPLICATES_QUEUE))],
+) -> Envelope[Any]:
+    page, next_cursor, shortened = await duplicates.queue(
+        op.session, op.input_as(duplicates.DuplicateQueueInput), workspace_id=op.workspace_id,
+        withheld=withheld(duplicates.DUPLICATES_QUEUE, op.switches),
+    )
+    return _paged(op, page, next_cursor, shortened)
+
+
+@router.post(
+    f"{PREFIX}/duplicates/verdicts",
+    response_model=Envelope[duplicates.DuplicateVerdictsResult],
+    openapi_extra=operation_route(duplicates.DUPLICATES_DECIDE),
+)
+async def duplicate_decide(
+    op: Annotated[OperationContext, Depends(admitted(duplicates.DUPLICATES_DECIDE))],
+) -> Envelope[Any]:
+    params = op.input_as(duplicates.DuplicateVerdictsInput)
+    return await op.write(lambda: duplicates.decide(op.session, params), described=duplicates.DuplicateVerdictsActivity())
 
 
 @router.get(

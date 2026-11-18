@@ -106,6 +106,8 @@ duplicates-review-history-revised = { $count ->
     [many] Modificado { $count } de veces
    *[other] Modificado { $count } veces
 }
+duplicates-review-history-by-assistant = Tu asistente
+duplicates-review-history-assistant-reason = Su motivo: { $reason }
 duplicates-review-history-decided-2 = Decididos
 duplicates-review-history-search-decisions = Buscar decisiones
 duplicates-review-history-search-title-or-requisition-id = Buscar título o ID
@@ -136,6 +138,7 @@ duplicates-review-screen-marked-as = { $decision ->
    *[different] Marcado como puestos distintos
 }
 duplicates-review-screen-undo = Deshacer
+duplicates-review-screen-assistant-unsure = Tu asistente no estaba seguro: { $note }
 duplicates-review-screen-could-not-record-the-verdict = No se pudo guardar tu decisión. { $message }
 duplicates-review-screen-duplicate-review-views = Vistas de revisión de duplicados
 duplicates-review-screen-queue = Cola

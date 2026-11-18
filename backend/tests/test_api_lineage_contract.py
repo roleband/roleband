@@ -22,7 +22,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import timedelta
 from types import SimpleNamespace
-from typing import get_args
+from typing import Literal, get_args
 
 import pytest
 from fastapi.exceptions import ResponseValidationError
@@ -92,11 +92,14 @@ def test_the_assessment_body_is_the_validated_assessment():
 )
 def test_no_constraint_bounds_the_link_strings_the_models_leave_open(table, fields):
     checks = [c for c in table.__table__.constraints if isinstance(c, CheckConstraint)]
-    assert all("job_a_id < job_b_id" in str(c.sqltext) for c in checks), (
+    bounded = [c for c in checks if "job_a_id < job_b_id" not in str(c.sqltext)]
+    assert [str(c.sqltext) for c in bounded] == ["decided_by IS NULL OR decided_by IN ('person', 'agent')"], (
         f"a CHECK constraint now bounds a {table.__tablename__} string: type the field as its Literal"
     )
     for model, name in fields:
         assert model.model_fields[name].annotation in (str, str | None), f"{model.__name__}.{name}"
+    proposal = contract.DuplicateProposal if table is JobLineageLink else contract.TwinProposal
+    assert proposal.model_fields["decided_by"].annotation == (Literal["person", "agent"] | None)
 
 
 def _posting(**over) -> SimpleNamespace:
