@@ -690,8 +690,8 @@ describe("ReviewScreen", () => {
     vi.mocked(api.job).mockResolvedValue(jobDetailFixture());
     render(<ReviewScreen />);
 
-    await userEvent.click(await screen.findByRole("tab", { name: /Decided/ }));
-    const history = await screen.findByRole("region", { name: "Decided" });
+    await userEvent.click(await screen.findByRole("tab", { name: new RegExp(msg("duplicates-review-history-decided")) }));
+    const history = await screen.findByRole("region", { name: msg("duplicates-review-history-decided-2") });
     await waitFor(() => expect(history.getElementsByClassName("review-history-summary")).toHaveLength(2));
     const [agentRow, personRow] = Array.from(history.getElementsByClassName("review-history-summary")) as HTMLElement[];
     const byAssistant = msg("duplicates-review-history-by-assistant");

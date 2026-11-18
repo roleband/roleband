@@ -33,7 +33,7 @@ change any of them.
   `decided_by_person` and the rest of the batch goes ahead. An assistant may
   change its own earlier verdict.
 - The Review screen marks the assistant's verdicts with its reason, and shows
-  its note on a pair it left for the person. Undo and every change stay in the
+  its note on a pair it left for the person. Changing any of them stays in the
   app.
 
 ## Consequences

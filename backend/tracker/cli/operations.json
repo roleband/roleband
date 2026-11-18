@@ -4616,7 +4616,8 @@
    "client_effects": [],
    "contract_version": "1.0",
    "data_classes": [
-    "public_posting"
+    "public_posting",
+    "private_pursuit"
    ],
    "engine_effects": {
     "external_action": false,

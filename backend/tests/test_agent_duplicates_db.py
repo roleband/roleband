@@ -14,7 +14,7 @@ from typing import Any
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import select
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from tests.factories import make_company
@@ -188,6 +188,8 @@ async def test_deciding_a_page_before_reading_the_next_skips_no_pair(api_client,
     response, body = await _queue(api_client, limit=2, tier="full")
     first = [pair["pair"] for pair in _data(response, body)["pairs"]]
     _data(*await _decide(api_client, [_verdict(pair, "different_roles", "Different teams.") for pair in first]))
+    restarted = _data(*await _queue(api_client, tier="full"))
+    assert not set(first) & {pair["pair"] for pair in restarted["pairs"]}
     response, body = await _queue(api_client, limit=2, tier="full", cursor=body["meta"]["next_cursor"])
     assert [pair["pair"] for pair in _data(response, body)["pairs"]] == [
         f"lineage-{pairs['weak_stack']}", f"lineage-{pairs['strong_stack']}",
@@ -230,6 +232,53 @@ async def test_queue_rows_leave_out_the_estimate_and_pursuit_columns_of_a_catego
     page = _data(*await _queue(api_client))
     assert "estimated_pay" not in page["columns"] and "pursuit" not in page["columns"]
     assert all(len(row) == len(page["columns"]) for row in page["rows"])
+
+
+async def test_the_next_page_keeps_the_page_size_it_was_asked_for(api_client, pairs):
+    (action,) = _data(*await _queue(api_client, limit=1))["continue_with"]
+    assert action["arguments"]["limit"] == 1
+
+
+async def test_unsaving_the_role_a_page_ended_on_skips_no_pair_on_the_next(db_session, api_client, pairs):
+    """The page ended on the person's role; once it is unsaved the pair ranks
+    among the pairs shown twice, behind one not yet read. The next page still
+    starts where the first stopped."""
+    c2 = pairs["jobs"][5]
+    response, body = await _queue(api_client, limit=1, tier="full")
+    assert [pair["pair"] for pair in _data(response, body)["pairs"]] == [f"twin-{pairs['yours']}"]
+    await db_session.execute(delete(Favorite).where(Favorite.job_id == c2.id))
+    await db_session.commit()
+    page = _data(*await _queue(api_client, tier="full", cursor=body["meta"]["next_cursor"]))
+    assert page["pairs"][0]["pair"] == f"lineage-{pairs['shown_twice']}"
+
+
+async def test_a_twin_pair_lists_the_posting_seen_first_as_the_older(db_session, api_client, pairs):
+    later, earlier = await seed_rows(db_session, _job("e1", 30), _job("e2", 5))
+    assert later.id < earlier.id
+    (twin,) = await seed_rows(db_session, twin_proposal(later, earlier, score=0.8))
+    page = _data(*await _queue(api_client, tier="full"))
+    pair = next(item for item in page["pairs"] if item["pair"] == f"twin-{twin.id}")
+    assert (pair["older"], pair["newer"]) == (earlier.id, later.id)
+
+
+async def test_a_pairs_fields_leave_out_the_estimate_while_market_statistics_are_off(
+    db_session, api_client, pairs,
+):
+    c1, c2 = pairs["jobs"][4:6]
+    await db_session.execute(update(Job).where(Job.id == c1.id).values(comp_median=180000, comp_currency="USD"))
+    await db_session.execute(update(Job).where(Job.id == c2.id).values(comp_median=210000, comp_currency="USD"))
+    await db_session.commit()
+
+    async def fields() -> dict:
+        page = _data(*await _queue(api_client, tier="full"))
+        return next(item for item in page["pairs"] if item["pair"] == f"twin-{pairs['yours']}")["fields"]
+
+    assert (await fields())["comp_median"]["to"] == 210000
+    await set_agent_access(db_session, AgentAccessConfig(
+        enabled=True, allow_writes=True, categories={"market_statistic": "not_shared"},
+    ))
+    await db_session.commit()
+    assert "comp_median" not in await fields()
 
 
 # --- verdicts ---------------------------------------------------------------- #
@@ -427,3 +476,54 @@ async def test_verdicts_are_refused_while_the_person_keeps_radar_changes_off(db_
 async def test_a_malformed_batch_is_refused_whole(db_session, api_client, pairs, verdicts):
     _refused(*await _decide(api_client, verdicts), "invalid_input")
     assert await _changes(db_session) == []
+
+
+async def test_a_saved_pair_at_a_hidden_company_is_unknown_while_pursuits_are_not_shared(
+    db_session, api_client, pairs,
+):
+    db_session.add(make_company("hidden", "Hidden", visible=False))
+    h1, h2 = await seed_rows(db_session, lineage_job("h1", 0, company="hidden"), lineage_job("h2", 20, company="hidden"))
+    db_session.add_all([Favorite(job_id=h1.id), Favorite(job_id=h2.id)])
+    (link,) = await seed_rows(db_session, duplicate_proposal(h1, h2, relation="repost", score=0.95))
+    await set_agent_access(db_session, AgentAccessConfig(
+        enabled=True, allow_writes=True, categories={"private_pursuit": "not_shared"},
+    ))
+    await db_session.commit()
+    data = _data(*await _decide(api_client, [_verdict(f"lineage-{link.id}", "same_opening")]))
+    assert (data["results"][0]["outcome"], data["results"][0]["refusal"]) == ("refused", "not_found")
+    assert (await _lineage(db_session, link.id)).status == "pending"
+    await set_agent_access(db_session, AgentAccessConfig(
+        enabled=True, allow_writes=True, categories={"private_pursuit": "any_model"},
+    ))
+    await db_session.commit()
+    data = _data(*await _decide(api_client, [_verdict(f"lineage-{link.id}", "same_opening")], key=OTHER_KEY))
+    assert data["decided"] == 1, data
+
+
+async def test_a_rejected_twin_decided_the_same_opening_stacks_its_postings(db_session, api_client, pairs):
+    """The twin stays rejected, now as a duplicate; its status does not move,
+    but the repost link it writes does, and the stacks follow it."""
+    c1, c2 = pairs["jobs"][4:6]
+    pair = f"twin-{pairs['yours']}"
+    _data(*await _decide(api_client, [_verdict(pair, "different_roles", "Different teams.")]))
+    data = _data(*await _decide(api_client, [_verdict(pair, "same_opening")], key=OTHER_KEY))
+    assert (data["results"][0]["before"], data["results"][0]["after"]) == ("rejected", "rejected")
+    async with _fresh(db_session) as session:
+        older, newer = (await session.get(Job, c1.id)), (await session.get(Job, c2.id))
+        assert older is not None and newer is not None
+        assert older.lineage_id is not None and older.lineage_id == newer.lineage_id
+
+
+@pytest.mark.parametrize("verdict", ["two_openings", "different_roles"])
+async def test_the_persons_own_twin_link_over_an_assistants_verdict_is_theirs(
+    db_session, api_client, pairs, verdict,
+):
+    c1, c2 = pairs["jobs"][4:6]
+    pair = f"twin-{pairs['yours']}"
+    _data(*await _decide(api_client, [_verdict(pair, verdict, "Both open at once.")]))
+    response = await api_client.post("/api/twins/links", json={"job_id": c1.id, "twin_job_id": c2.id})
+    assert response.status_code == 201, response.text
+    twin = await _twin_of(db_session, c1.id, c2.id)
+    assert twin is not None and (twin.status, twin.decided_by) == ("confirmed", "person")
+    data = _data(*await _decide(api_client, [_verdict(pair, "different_roles", "Different teams.")], key=OTHER_KEY))
+    assert data["results"][0]["refusal"] == "decided_by_person"

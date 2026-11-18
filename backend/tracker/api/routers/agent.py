@@ -689,7 +689,11 @@ async def duplicate_decide(
     op: Annotated[OperationContext, Depends(admitted(duplicates.DUPLICATES_DECIDE))],
 ) -> Envelope[Any]:
     params = op.input_as(duplicates.DuplicateVerdictsInput)
-    return await op.write(lambda: duplicates.decide(op.session, params), described=duplicates.DuplicateVerdictsActivity())
+    decided = withheld(duplicates.DUPLICATES_DECIDE, op.switches)
+    return await op.write(
+        lambda: duplicates.decide(op.session, params, withheld=decided),
+        described=duplicates.DuplicateVerdictsActivity(),
+    )
 
 
 @router.get(

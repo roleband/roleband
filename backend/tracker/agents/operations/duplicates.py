@@ -3,8 +3,8 @@
 An assistant tidies the person's duplicates so the person does not have to:
 it reads `duplicates.queue`, settles the clear pairs with `duplicates.decide`
 and leaves the unclear ones for the person with a note. The person sees every
-verdict in the Review queue, marked as the assistant's with its reason, and
-takes any back there with one click.
+verdict in the Review screen, marked as the assistant's with its reason, and
+changes any of them there.
 
 `duplicates.queue` lists the pending pairs the person can act on (one posting
 on the Board, `pair_on_board`), in the order that changes most what the
@@ -79,6 +79,7 @@ from tracker.lineage.review import (
     decide_lineage_link,
     decide_twin_link,
     leave_for_person,
+    lock_relationships,
 )
 
 _CODE: JsonDict = {"x-text": "code"}
@@ -267,7 +268,9 @@ DUPLICATES_DECIDE = OperationDescriptor(
     idempotency="required_key",
     engine_effects=EngineEffects(state_write=True),
     tool_tiers=_EVERY_TIER,
-    data_classes=("public_posting",),
+    # Pursuits are declared so a saved posting at a hidden company counts as
+    # visible only while the person shares them, as in the queue.
+    data_classes=("public_posting", "private_pursuit"),
     examples=(
         {"verdicts": [
             {"pair": "lineage-4", "verdict": "same_opening", "reason": "Same site and pay; the first closed a day before."},
@@ -362,26 +365,33 @@ async def _ranked(
     ]
 
 
-async def _resume_after(session: AsyncSession, kind_code: int, link_id: int, *, pursuits: bool) -> tuple[int, float, int, int]:
-    """The rank of the pair a page ended on, read again now. The pair itself
+def _anchor(item: _Pending) -> int:
+    """The pair a page ended on, with the step it was shown in, as the count a
+    cursor carries."""
+    return _STEP_ORDER[item.step] * len(_KIND_ORDER) + _KIND_ORDER[item.kind]
+
+
+async def _resume_after(session: AsyncSession, anchor: int, link_id: int) -> tuple[int, float, int, int]:
+    """The rank of the pair a page ended on. Its step is the one the page
+    showed it in, since saving or unsaving its posting since would move the
+    boundary past pairs not yet read; its score is read again, and the pair
     may have been decided since, which takes it out of the queue but not out
     of the order, so the next page starts after it and skips nothing."""
+    step, kind_code = divmod(anchor, len(_KIND_ORDER))
     kind = _KIND_OF_CODE.get(kind_code)
     link: JobLineageLink | JobTwinLink | None = None
-    pair: tuple[str, JobLineageLink | JobTwinLink, int, int] | None = None
-    if kind == "lineage":
+    if step < len(_STEP_ORDER) and kind == "lineage":
         link = await session.get(JobLineageLink, link_id)
-        pair = ("lineage", link, link.prior_job_id, link.job_id) if link is not None else None
-    elif kind == "twin":
+    elif step < len(_STEP_ORDER) and kind == "twin":
         link = await session.get(JobTwinLink, link_id)
-        pair = ("twin", link, link.job_a_id, link.job_b_id) if link is not None else None
-    if link is None or pair is None:
+    if kind is None or link is None:
         raise OperationError(
             "invalid_input",
             "This cursor does not continue this list. Read the first page again without it, with the same filters.",
             details={"field": "cursor", "reason": "pair_gone"},
         )
-    return _rank((await _ranked(session, [pair], pursuits=pursuits))[0])
+    score = link.score or 0.0
+    return (step, -score if link.confidence == "suspected" else score, kind_code, link.id)
 
 
 def _passages(passages: Any) -> list[PairPassage]:
@@ -458,8 +468,8 @@ async def queue(
         # The cursor names the last pair a page held (its id, and its kind as
         # the count it carries), not a position: a verdict between two pages
         # takes pairs out of the queue, and a position would then skip as many.
-        link_id, kind_code = page_cursor.decode(params.cursor, request=request)
-        after = await _resume_after(session, kind_code, link_id, pursuits=pursuits)
+        link_id, anchor = page_cursor.decode(params.cursor, request=request)
+        after = await _resume_after(session, anchor, link_id)
         ranked = [item for item in ranked if _rank(item) > after]
     window = ranked[: params.limit]
     ids = [posting for item in window for posting in (item.older, item.newer)]
@@ -475,6 +485,13 @@ async def queue(
         taken += 1
         if older is None or newer is None:
             continue
+        # A twin pair stores its postings by id; the older is the one seen
+        # first, ties to the id, as `lineage.pairs.prior_and_later` orders them.
+        if (newer.first_seen, newer.id) < (older.first_seen, older.id):
+            older, newer = newer, older
+        fields = _jsonable(build_member_diff(older, newer))
+        if "market_statistic" in withheld:
+            fields.pop("comp_median", None)
         pair = DuplicatePair(
             pair=item.token,
             proposed="same_opening" if item.kind == "lineage" else "two_openings",
@@ -484,7 +501,7 @@ async def queue(
             gap_days=item.link.gap_days if item.kind == "lineage" else None,  # type: ignore[union-attr]
             score=item.link.score,
             reasons=_reasons(item),
-            fields=_jsonable(build_member_diff(older, newer)),
+            fields=fields,
             text=_text_difference(older, newer),
         )
         size = len(pair.model_dump_json()) + 400
@@ -499,11 +516,11 @@ async def queue(
     continue_with = []
     last = window[taken - 1] if taken else None
     next_cursor = (
-        page_cursor.encode(request=request, offset=last.link.id, carried=_KIND_ORDER[last.kind])
+        page_cursor.encode(request=request, offset=last.link.id, carried=_anchor(last))
         if more and last is not None else None
     )
     if next_cursor:
-        arguments: dict[str, Any] = {"cursor": next_cursor, "tier": params.tier}
+        arguments: dict[str, Any] = {"cursor": next_cursor, "limit": params.limit, "tier": params.tier}
         if params.mine:
             arguments["mine"] = True
         continue_with.append(NextAction(operation=DUPLICATES_QUEUE.id, arguments=arguments))
@@ -523,18 +540,20 @@ def parse_pair(token: str) -> tuple[Literal["lineage", "twin"], int]:
     return match.group(1), int(match.group(2))  # type: ignore[return-value]
 
 
-async def _one(session: AsyncSession, item: DuplicateVerdictInput) -> DuplicateVerdictItem:
+async def _one(session: AsyncSession, item: DuplicateVerdictInput, *, pursuits: bool) -> DuplicateVerdictItem:
     kind, link_id = parse_pair(item.pair)
     link: JobLineageLink | JobTwinLink | None
+    # Read under the relationship lock `decide` holds, past the session's own
+    # copy, so `before` is the status the verdict replaces.
     if kind == "lineage":
-        link = await session.get(JobLineageLink, link_id)
+        link = await session.get(JobLineageLink, link_id, populate_existing=True)
         postings = (link.prior_job_id, link.job_id) if link is not None else ()
     else:
-        link = await session.get(JobTwinLink, link_id)
+        link = await session.get(JobTwinLink, link_id, populate_existing=True)
         postings = (link.job_a_id, link.job_b_id) if link is not None else ()
     if link is None:
         return DuplicateVerdictItem(pair=item.pair, verdict=item.verdict, outcome="refused", refusal="not_found")
-    if len(await visible_jobs(session, list(postings), summary=True)) != 2:
+    if len(await visible_jobs(session, list(postings), summary=True, chosen_counts=pursuits)) != 2:
         return DuplicateVerdictItem(pair=item.pair, verdict=item.verdict, outcome="refused", refusal="not_found")
     before = link.status
     try:
@@ -564,15 +583,25 @@ async def _one(session: AsyncSession, item: DuplicateVerdictInput) -> DuplicateV
     )
 
 
-async def decide(session: AsyncSession, params: DuplicateVerdictsInput) -> DuplicateVerdictsResult:
+async def decide(
+    session: AsyncSession, params: DuplicateVerdictsInput, *, withheld: Collection[DataClass] = (),
+) -> DuplicateVerdictsResult:
     """Record each verdict in its own savepoint, so a refused pair leaves the
     others alone, then rebuild the stacks once. Commits nothing: the caller's
     write commits the verdicts, the stacks, the receipt and the Activity entry
-    together."""
-    results = [await _one(session, item) for item in params.verdicts]
-    # An "unsure" on a pair the assistant had decided withdraws that verdict,
-    # which changes the stacks as much as a decision does.
-    if any(result.outcome != "refused" and result.before != result.after for result in results):
+    together. Without the person's pursuits shared, a saved posting at a
+    hidden company is as unknown as any other there."""
+    await lock_relationships(session)
+    pursuits = "private_pursuit" not in withheld
+    results = [await _one(session, item, pursuits=pursuits) for item in params.verdicts]
+    # A decision can write the other kind of link while its own status stays
+    # (a rejected twin decided `same_opening` confirms a repost link), and an
+    # "unsure" on a pair the assistant had decided withdraws that verdict:
+    # both change the stacks.
+    if any(
+        result.outcome == "decided" or (result.outcome == "left_for_person" and result.before != result.after)
+        for result in results
+    ):
         await rebuild_lineage_projection(session)
     return DuplicateVerdictsResult(
         decided=sum(result.outcome == "decided" for result in results),
