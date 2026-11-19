@@ -4125,7 +4125,7 @@ export interface components {
              */
             app: "claude-code" | "codex" | "other";
             /** Connection */
-            connection: ("connected" | "outdated" | "rule_missing") | null;
+            connection: ("connected" | "outdated" | "rule_missing" | "read_only") | null;
             /** Last Call At */
             last_call_at: string | null;
         };

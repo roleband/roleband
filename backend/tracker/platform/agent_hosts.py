@@ -41,8 +41,10 @@ OPERATIONS_INDEX = Path(__file__).resolve().parents[1] / "cli" / "operations.jso
 
 #: What a host's files say about it, or None when it was never connected.
 #: `outdated` is an unedited skill older than `SKILL_VERSION`; `rule_missing`
-#: is a skill whose host no longer lets `roleband` run without asking.
-Connection = Literal["connected", "outdated", "rule_missing"]
+#: is a skill whose host no longer lets `roleband` run without asking;
+#: `read_only` is Codex set to its read-only sandbox, which blocks the engine
+#: whatever `connect` wrote and which `connect` never changes.
+Connection = Literal["connected", "outdated", "rule_missing", "read_only"]
 
 
 def _home() -> Path:
@@ -152,8 +154,22 @@ def _rule_present(host: Host) -> bool:
                 and listed("permissions", "allow", CLAUDE_RULE)
                 and claude_conflict(document) is None
             )
-        table = tomllib.loads((codex_dir() / "config.toml").read_text(encoding="utf-8")).get(CODEX_TABLE)
+        table = _codex_config().get(CODEX_TABLE)
         return isinstance(table, dict) and table.get(CODEX_KEY) is True
+    except (OSError, UnicodeDecodeError, ValueError):
+        return False
+
+
+def _codex_config() -> dict[str, object]:
+    return tomllib.loads((codex_dir() / "config.toml").read_text(encoding="utf-8"))
+
+
+def _codex_read_only() -> bool:
+    """Whether Codex's config sets its read-only sandbox, where no command reaches
+    the network. Only an explicit setting counts: an unset mode is Codex's choice
+    per workspace, which its files do not say."""
+    try:
+        return _codex_config().get("sandbox_mode") == "read-only"
     except (OSError, UnicodeDecodeError, ValueError):
         return False
 
@@ -190,6 +206,8 @@ def connection(host: Host) -> Connection | None:
         return None
     if skill is None:
         return None
+    if host == "codex" and _codex_read_only():
+        return "read_only"
     if not _rule_present(host):
         return "rule_missing"
     return "outdated" if skill == "outdated" else "connected"

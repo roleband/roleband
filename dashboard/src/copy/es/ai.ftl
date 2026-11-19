@@ -342,6 +342,7 @@ ai-assistants-card-app-state = { $state ->
     [used] { $service } · usada { $age }
     [outdated] { $service } · actualización disponible
     [rule-missing] { $service } · pide permiso en cada comando
+    [read-only] { $service } · bloqueada por el modo de solo lectura
    *[none] { $service }
 }
 ai-assistants-card-other-used = Usada { $age }

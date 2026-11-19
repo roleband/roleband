@@ -306,6 +306,7 @@ ai-assistants-card-app-state = { $state ->
     [used] { $service } · { $age }使用过
     [outdated] { $service } · 有可用更新
     [rule-missing] { $service } · 每条命令前都会询问
+    [read-only] { $service } · 被只读模式阻止
    *[none] { $service }
 }
 ai-assistants-card-other-used = { $age }使用过

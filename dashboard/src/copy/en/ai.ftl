@@ -535,6 +535,7 @@ ai-assistants-card-app-state = { $state ->
     [used] { $service } · used { $age }
     [outdated] { $service } · update available
     [rule-missing] { $service } · asks before each command
+    [read-only] { $service } · blocked by read-only mode
    *[none] { $service }
 }
 # kind=status note="The Other app tile's second line once any other app has run a command. $age is already worded, such as 5m ago or just now"

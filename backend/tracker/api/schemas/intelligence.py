@@ -338,7 +338,7 @@ class AgentAppState(Built):
     no files to read. `last_call_at` is the app's most recent recorded call."""
 
     app: Literal["claude-code", "codex", "other"]
-    connection: Literal["connected", "outdated", "rule_missing"] | None
+    connection: Literal["connected", "outdated", "rule_missing", "read_only"] | None
     last_call_at: datetime | None
 
 

@@ -86,6 +86,20 @@ def test_a_deny_rule_that_no_roleband_call_matches_leaves_it_connected(home, rul
     assert connection("claude-code") == "connected"
 
 
+@pytest.mark.parametrize(
+    ("mode", "expected"),
+    [('"read-only"', "read_only"), ('"workspace-write"', "connected"), (None, "connected")],
+)
+def test_codex_set_to_read_only_reads_as_blocked_whatever_its_network_setting(home, mode, expected):
+    _connect("codex")
+    config = home / ".codex" / "config.toml"
+    if mode is not None:
+        # A top-level key belongs before the first table.
+        config.write_text(f"sandbox_mode = {mode}\n" + config.read_text())
+    assert "network_access = true" in config.read_text()
+    assert connection("codex") == expected
+
+
 def test_codex_with_its_network_closed_again_reads_as_rule_missing(home):
     _connect("codex")
     config = home / ".codex" / "config.toml"

@@ -901,6 +901,86 @@ describe("assistants card", () => {
       expect(within(dialog).getByText("roleband connect claude-code --apply")).toBeInTheDocument();
     });
 
+    it("names Codex's read-only mode and offers no button that cannot fix it", async () => {
+      withApps([
+        { app: "claude-code", connection: null, last_call_at: null },
+        { app: "codex", connection: "read_only", last_call_at: ago(5) },
+        { app: "other", connection: null, last_call_at: null },
+      ]);
+      mount();
+      const codex = await tile(msg("ai-assistants-card-app-codex-app"));
+      // The block outranks the last call: the call was made before the mode changed.
+      expect(codex).toHaveTextContent(
+        msg("ai-assistants-card-app-state", { state: "read-only", service: msg("ai-assistants-card-openai"), age: "" }),
+      );
+      expect(checked(codex)).toBeNull();
+      expect(within(codex).queryByRole("button", { name: msg("ai-assistants-card-connect") })).toBeNull();
+      expect(within(codex).queryByRole("button", { name: msg("ai-assistants-card-update") })).toBeNull();
+      expect(
+        within(codex).getByRole("button", {
+          name: msg("ai-capabilities-card-configure", { name: msg("ai-assistants-card-app-codex-app") }),
+        }),
+      ).toBeInTheDocument();
+    });
+
+    it("drops a read that a save started after, so the switch keeps what was saved", async () => {
+      const apps = [
+        { app: "claude-code", connection: null, last_call_at: null },
+        { app: "codex", connection: null, last_call_at: null },
+        { app: "other", connection: null, last_call_at: null },
+      ] satisfies Apps;
+      withApps(apps);
+      mount();
+      const region = await card();
+      const allow = within(region).getByLabelText(msg("ai-assistants-card-allow-assistant-apps-to-connect"));
+      await waitFor(() => expect(allow).toBeChecked());
+
+      // The read the dialog's close starts answers late, with access still on.
+      let answer: (value: typeof agentAccessFixture) => void = () => undefined;
+      mocked.agentAccess.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+      mocked.setAgentAccess.mockResolvedValue({ ...agentAccessFixture, enabled: false, allow_writes: false, apps });
+      await userEvent.click(within(region).getAllByRole("button", { name: msg("ai-assistants-card-connect") })[0]);
+      await userEvent.click(screen.getByRole("button", { name: msg("ai-assistants-card-done") }));
+      await userEvent.click(allow);
+      await waitFor(() => expect(allow).not.toBeChecked());
+
+      await act(async () => answer({ ...agentAccessFixture, enabled: true, apps }));
+      expect(allow).not.toBeChecked();
+    });
+
+    it("ages a call a save brings back from the time of that save", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      try {
+        const start = new Date("2026-11-19T10:00:00Z").getTime();
+        vi.setSystemTime(start);
+        const apps = (last_call_at: string | null) => [
+          { app: "claude-code", connection: "connected", last_call_at },
+          { app: "codex", connection: null, last_call_at: null },
+          { app: "other", connection: null, last_call_at: null },
+        ] satisfies Apps;
+        withApps(apps(null));
+        mount();
+        const region = await card();
+        const allow = within(region).getByLabelText(msg("ai-assistants-card-allow-assistant-apps-to-connect"));
+        await waitFor(() => expect(allow).toBeChecked());
+
+        // An hour on, the app called 20 minutes ago, and a save returns that call.
+        vi.setSystemTime(start + 60 * 60_000);
+        mocked.setAgentAccess.mockResolvedValue({
+          ...agentAccessFixture, enabled: false, allow_writes: false,
+          apps: apps(new Date(start + 40 * 60_000).toISOString()),
+        });
+        await userEvent.click(allow);
+        await waitFor(async () =>
+          expect(await tile(msg("ai-assistants-card-app-claude-code"))).toHaveTextContent(
+            msg("ai-assistants-card-app-state", { state: "used", service: msg("ai-assistants-card-anthropic"), age: "20m ago" }),
+          ),
+        );
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it("reads the apps again when the connect dialog closes, and keeps the tiles if that read fails", async () => {
       const none = { app: "claude-code", connection: null, last_call_at: null } as const;
       withApps([none, { app: "codex", connection: null, last_call_at: null }, { app: "other", connection: null, last_call_at: null }]);

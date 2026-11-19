@@ -14,7 +14,7 @@
 // Activity and the gear that reopens its command; one that needs a step
 // (an older skill, a removed rule) keeps a single button for that step.
 import { errorText } from "../../api/errorText";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { type AgentAccessInput, type AgentAccessState, api } from "../../api";
 import { ageLabel } from "../../format";
 import { list } from "../../copy/format";
@@ -126,6 +126,11 @@ function tileView(app: App, state: AppState | undefined, now: number): {
   if (connection === "rule_missing") {
     return { line: aiAssistantsCardAppState({ state: "rule-missing", service, age: "" }), done: false, step: "connect" };
   }
+  // Connect never changes the app's sandbox mode, so it is offered no button;
+  // the gear still shows the command.
+  if (connection === "read_only") {
+    return { line: aiAssistantsCardAppState({ state: "read-only", service, age: "" }), done: false, step: null };
+  }
   if (age) return { line: aiAssistantsCardAppState({ state: "used", service, age }), done: true, step: null };
   if (connection === "connected") {
     return { line: aiAssistantsCardAppState({ state: "connected", service, age: "" }), done: true, step: null };
@@ -163,31 +168,38 @@ export function AssistantsCard() {
 
   // Read once per load: "5m ago" is the age the engine answered with.
   const [now, setNow] = useState(() => Date.now());
-  const loaded = (next: AgentAccessState) => {
+  const loaded = useCallback((next: AgentAccessState) => {
     setState(next);
     setNow(Date.now());
-  };
+  }, []);
+  // Counts the saves started. A read that a save started after answers with
+  // the access as it was before that save, so its answer is dropped.
+  const saves = useRef(0);
+  const read = useCallback(() => {
+    const before = saves.current;
+    return api.agentAccess().then((next) => {
+      if (saves.current === before) loaded(next);
+    });
+  }, [loaded]);
 
   useEffect(() => {
-    api
-      .agentAccess()
-      .then(loaded)
-      .catch((e) => setError(errorText(e)));
-  }, []);
+    read().catch((e) => setError(errorText(e)));
+  }, [read]);
 
   // The person runs the command while the dialog is open, so its close is when
   // the tiles may have changed. A failed read keeps the tiles as they were, and
   // the next close reads again.
   const closeSetup = () => {
     setSetup(null);
-    api.agentAccess().then(loaded, () => undefined);
+    read().catch(() => undefined);
   };
 
   const save = async (access: AgentAccessInput) => {
+    saves.current += 1;
     setSaving(true);
     setError(null);
     try {
-      setState(await api.setAgentAccess(access));
+      loaded(await api.setAgentAccess(access));
     } catch (e) {
       setError(errorText(e));
     } finally {

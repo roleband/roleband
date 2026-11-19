@@ -472,7 +472,8 @@
         "enum": [
          "connected",
          "outdated",
-         "rule_missing"
+         "rule_missing",
+         "read_only"
         ],
         "type": "string"
        },

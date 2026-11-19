@@ -76,8 +76,10 @@ from `roleband tools export`.
 **What the card shows for each app.** The engine reads each host's own files
 (`backend/tracker/platform/agent_hosts.py`, shared with `connect` so the two
 agree): connected when the skill and what `connect` writes are both there, an
-update when the installed skill is an unedited copy of an older version, and
-"asks before each command" when the skill is there but the rule is gone. An
+update when the installed skill is an unedited copy of an older version,
+"asks before each command" when the skill is there but the rule is gone or a
+deny or ask rule covers `roleband`, and blocked when Codex's `sandbox_mode` is
+`read-only`, which `connect` leaves to the person. An
 engine that cannot see the person's home folder shows every host as not
 connected. Each call also names its host in the `X-RoleBand-Host` header, from
 the variable the host sets in every command it runs (`CLAUDECODE=1`;
