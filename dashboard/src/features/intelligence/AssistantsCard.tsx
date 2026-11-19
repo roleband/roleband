@@ -161,12 +161,27 @@ export function AssistantsCard() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Read once per load: "5m ago" is the age the engine answered with.
+  const [now, setNow] = useState(() => Date.now());
+  const loaded = (next: AgentAccessState) => {
+    setState(next);
+    setNow(Date.now());
+  };
+
   useEffect(() => {
     api
       .agentAccess()
-      .then(setState)
+      .then(loaded)
       .catch((e) => setError(errorText(e)));
   }, []);
+
+  // The person runs the command while the dialog is open, so its close is when
+  // the tiles may have changed. A failed read keeps the tiles as they were, and
+  // the next close reads again.
+  const closeSetup = () => {
+    setSetup(null);
+    api.agentAccess().then(loaded, () => undefined);
+  };
 
   const save = async (access: AgentAccessInput) => {
     setSaving(true);
@@ -195,8 +210,6 @@ export function AssistantsCard() {
     });
 
   const lines = state ? heldBack(state) : [];
-  // Read once per load: "5m ago" is the age the engine answered with.
-  const [now] = useState(() => Date.now());
 
   return (
     <section className="intel-card" aria-label={aiAssistantsCardAssistantApps2()}>
@@ -301,7 +314,7 @@ export function AssistantsCard() {
       )}
 
       {state && setup && (
-        <SetupDialog app={setup} state={state} onClose={() => setSetup(null)} />
+        <SetupDialog app={setup} state={state} onClose={closeSetup} />
       )}
       {state && customizing && (
         <AgentAccessDialog

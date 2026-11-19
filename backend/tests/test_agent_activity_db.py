@@ -485,7 +485,9 @@ async def test_settings_shows_each_apps_last_call_and_what_its_files_say(
     assert datetime.fromisoformat(apps["other"]["last_call_at"]) == NOW - timedelta(hours=3)
     assert {app["connection"] for app in apps.values()} == {None}
 
+    # Connect also writes the command into the home folder: `HOME`, or `USERPROFILE` on Windows.
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
     connect.run(argparse.Namespace(host="claude-code", connect_mode="apply"))
     apps = {app["app"]: app for app in (await api_client.get("/api/intelligence/agents")).json()["apps"]}
     assert (apps["claude-code"]["connection"], apps["codex"]["connection"]) == ("connected", None)

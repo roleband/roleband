@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -23,10 +24,13 @@ from tracker.platform.agent_hosts import caller, connection, running_host
 def home(tmp_path, monkeypatch) -> Path:
     root = tmp_path / "home"
     root.mkdir()
+    # `Path.home()` reads `HOME`, and `USERPROFILE` on Windows.
     monkeypatch.setenv("HOME", str(root))
+    monkeypatch.setenv("USERPROFILE", str(root))
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
     monkeypatch.delenv("CODEX_HOME", raising=False)
-    monkeypatch.setenv("PATH", f"{root / '.local' / 'bin'}:/usr/bin:/bin")
+    monkeypatch.setenv("PATH", os.pathsep.join([str(root / ".local" / "bin"), os.defpath]))
+    assert Path.home() == root, "the scratch home must be the one every host folder resolves under"
     return root
 
 
@@ -56,6 +60,30 @@ def test_claude_code_without_its_permission_rule_asks_before_each_command(home):
     document["sandbox"]["excludedCommands"] = []
     settings.write_text(json.dumps(document))
     assert connection("claude-code") == "rule_missing"
+
+
+@pytest.mark.parametrize(
+    ("kind", "rule"),
+    [("deny", "Bash(roleband *)"), ("ask", "Bash(roleband describe *)"), ("deny", "Bash"),
+     ("ask", "Bash(roleband:*)"), ("deny", "Bash(*status*)")],
+)
+def test_a_deny_or_ask_rule_over_roleband_outweighs_the_allow_rule(home, kind, rule):
+    _connect("claude-code")
+    settings = home / ".claude" / "settings.json"
+    document = json.loads(settings.read_text())
+    document["permissions"][kind] = [rule]
+    settings.write_text(json.dumps(document))
+    assert connection("claude-code") == "rule_missing"
+
+
+@pytest.mark.parametrize("rule", ["Bash(sudo *)", "Bash(*--force*)", "Read(~/.ssh/**)"])
+def test_a_deny_rule_that_no_roleband_call_matches_leaves_it_connected(home, rule):
+    _connect("claude-code")
+    settings = home / ".claude" / "settings.json"
+    document = json.loads(settings.read_text())
+    document["permissions"]["deny"] = [rule]
+    settings.write_text(json.dumps(document))
+    assert connection("claude-code") == "connected"
 
 
 def test_codex_with_its_network_closed_again_reads_as_rule_missing(home):

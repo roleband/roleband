@@ -901,6 +901,34 @@ describe("assistants card", () => {
       expect(within(dialog).getByText("roleband connect claude-code --apply")).toBeInTheDocument();
     });
 
+    it("reads the apps again when the connect dialog closes, and keeps the tiles if that read fails", async () => {
+      const none = { app: "claude-code", connection: null, last_call_at: null } as const;
+      withApps([none, { app: "codex", connection: null, last_call_at: null }, { app: "other", connection: null, last_call_at: null }]);
+      mount();
+      const connect = within(await tile(msg("ai-assistants-card-app-claude-code"))).getByRole("button", {
+        name: msg("ai-assistants-card-connect"),
+      });
+      await waitFor(() => expect(connect).toBeEnabled());
+
+      // The read after a close fails: the tile still offers Connect.
+      mocked.agentAccess.mockRejectedValueOnce(new Error("engine restarting"));
+      await userEvent.click(connect);
+      await userEvent.click(screen.getByRole("button", { name: msg("ai-assistants-card-done") }));
+      await waitFor(() => expect(mocked.agentAccess).toHaveBeenCalledTimes(2));
+      expect(checked(await tile(msg("ai-assistants-card-app-claude-code")))).toBeNull();
+      expect(screen.queryByRole("alert")).toBeNull();
+
+      // The person ran the command while the dialog was open; Done shows it connected.
+      withApps([
+        { ...none, connection: "connected" },
+        { app: "codex", connection: null, last_call_at: null },
+        { app: "other", connection: null, last_call_at: null },
+      ]);
+      await userEvent.click(connect);
+      await userEvent.click(screen.getByRole("button", { name: msg("ai-assistants-card-done") }));
+      await waitFor(async () => expect(checked(await tile(msg("ai-assistants-card-app-claude-code")))).not.toBeNull());
+    });
+
     it("names the one step an app needs, and the other apps once any has called", async () => {
       withApps([
         { app: "claude-code", connection: "outdated", last_call_at: ago(5) },

@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import tomllib
 from collections.abc import Mapping
 from pathlib import Path
@@ -34,6 +35,9 @@ CODEX_KEY = "network_access"
 #: The skill's version. A copy installed at a lower one, and never edited, is out of date.
 SKILL_VERSION = 5
 SKILL_RECORD = ".roleband-skill.json"
+
+#: The command's bundled index of operations, which ships beside it in `tracker/cli/`.
+OPERATIONS_INDEX = Path(__file__).resolve().parents[1] / "cli" / "operations.json"
 
 #: What a host's files say about it, or None when it was never connected.
 #: `outdated` is an unedited skill older than `SKILL_VERSION`; `rule_missing`
@@ -79,9 +83,59 @@ def caller(header: str | None) -> str:
     return header if header in HOSTS else OTHER
 
 
+def roleband_calls() -> list[str]:
+    """The calls the skill teaches, for every operation the command knows: `status`,
+    `capabilities`, `describe OPERATION` and the operation's own command, each with and
+    without `--json`."""
+    try:
+        document = json.loads(OPERATIONS_INDEX.read_text(encoding="utf-8"))
+        operations = [entry["operation"] for entry in document["operations"]]
+    except (OSError, ValueError, KeyError, TypeError):
+        operations = ["status", "capabilities", "describe"]
+    calls = {"roleband status", "roleband capabilities", "roleband capabilities --offline"}
+    for operation in operations:
+        calls.add(f"roleband describe {operation}")
+        calls.add("roleband " + operation.replace(".", " ").replace("_", "-"))
+    return sorted(calls | {f"{call} --json" for call in calls})
+
+
+def covers(rule: str) -> bool:
+    """Whether a Claude Code Bash rule applies to a roleband call an agent makes: `Bash` alone,
+    a pattern (`*` is its one wildcard; `prefix:*` is the older prefix form) whose fixed start
+    is a roleband command, such as `Bash(roleband describe *)`, or one that matches a call
+    from `roleband_calls()`. A pattern that matches only some other text in a call's arguments,
+    such as `Bash(*sudo*)`, does not count: no call the skill teaches carries it."""
+    if rule == "Bash":
+        return True
+    match = re.fullmatch(r"Bash\((.*)\)", rule)
+    if match is None:
+        return False
+    pattern = match.group(1)
+    if pattern.endswith(":*"):
+        pattern = pattern[:-2] + "*"
+    if pattern.split("*", 1)[0].startswith("roleband "):
+        return True
+    compiled = re.compile(".*".join(re.escape(part) for part in pattern.split("*")), re.DOTALL)
+    return any(compiled.fullmatch(call) for call in roleband_calls())
+
+
+def claude_conflict(document: Mapping[str, object]) -> tuple[str, str] | None:
+    """The first rule in Claude Code's `permissions.deny`, then `permissions.ask`, that
+    applies to a roleband call, as (list, rule). Claude Code reads both before any allow
+    rule, so either one outweighs the rule `connect` writes."""
+    permissions = document.get("permissions")
+    for kind in ("deny", "ask"):
+        rules = permissions.get(kind) if isinstance(permissions, dict) else None
+        for rule in rules if isinstance(rules, list) else []:
+            if isinstance(rule, str) and covers(rule):
+                return kind, rule
+    return None
+
+
 def _rule_present(host: Host) -> bool:
-    """Whether the host's settings hold what `connect` writes there. A file
-    this cannot read or parse counts as not holding it."""
+    """Whether the host's settings hold what `connect` writes there, with no
+    deny or ask rule over it. A file this cannot read or parse counts as not
+    holding it."""
     try:
         if host == "claude-code":
             document = json.loads((claude_dir() / "settings.json").read_text(encoding="utf-8"))
@@ -93,8 +147,10 @@ def _rule_present(host: Host) -> bool:
                 entries = table.get(key) if isinstance(table, dict) else None
                 return isinstance(entries, list) and value in entries
 
-            return listed("sandbox", "excludedCommands", CLAUDE_EXCLUDED) and listed(
-                "permissions", "allow", CLAUDE_RULE
+            return (
+                listed("sandbox", "excludedCommands", CLAUDE_EXCLUDED)
+                and listed("permissions", "allow", CLAUDE_RULE)
+                and claude_conflict(document) is None
             )
         table = tomllib.loads((codex_dir() / "config.toml").read_text(encoding="utf-8")).get(CODEX_TABLE)
         return isinstance(table, dict) and table.get(CODEX_KEY) is True
