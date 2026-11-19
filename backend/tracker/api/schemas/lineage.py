@@ -87,6 +87,11 @@ class DuplicateProposal(Built):
     decision: str | None
     decision_changes: int
     reviewed_at: datetime | None
+    #: `person` or `agent` on a decided link; None while pending.
+    decided_by: Literal["person", "agent"] | None
+    #: An assistant's reason for its verdict, or its note on a pair it left
+    #: for the person; written by the assistant, shown as written.
+    decision_note: str | None = Field(json_schema_extra=text("content"))
 
 
 class TwinProposal(Built):
@@ -109,6 +114,11 @@ class TwinProposal(Built):
     decision: str | None
     decision_changes: int
     reviewed_at: datetime | None
+    #: `person` or `agent` on a decided link; None while pending.
+    decided_by: Literal["person", "agent"] | None
+    #: An assistant's reason for its verdict, or its note on a pair it left
+    #: for the person; written by the assistant, shown as written.
+    decision_note: str | None = Field(json_schema_extra=text("content"))
     description_diff: dict[str, Any] | None
 
 

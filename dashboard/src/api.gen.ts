@@ -191,6 +191,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/v1/duplicates/queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Duplicate Queue */
+        get: operations["duplicate_queue_api_agent_v1_duplicates_queue_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/duplicates/verdicts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Duplicate Decide */
+        post: operations["duplicate_decide_api_agent_v1_duplicates_verdicts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/v1/insights/compensation": {
         parameters: {
             query?: never;
@@ -6320,6 +6354,36 @@ export interface components {
             /** Summary */
             summary: string;
         };
+        /** DuplicatePair */
+        DuplicatePair: {
+            /** Fields */
+            fields: {
+                [key: string]: unknown;
+            };
+            /** Gap Days */
+            gap_days: number | null;
+            /** Newer */
+            newer: number;
+            /** Older */
+            older: number;
+            /** Pair */
+            pair: string;
+            /**
+             * Proposed
+             * @enum {string}
+             */
+            proposed: "same_opening" | "two_openings";
+            /** Reasons */
+            reasons: components["schemas"]["PairReason"][];
+            /** Score */
+            score: number | null;
+            /**
+             * Step
+             * @enum {string}
+             */
+            step: "yours" | "shown_twice" | "stacked";
+            text: components["schemas"]["PairTextDifference"];
+        };
         /**
          * DuplicateProposal
          * @description A `job_lineage_link` row: the newer posting may be the older one again.
@@ -6327,10 +6391,14 @@ export interface components {
         DuplicateProposal: {
             /** Confidence */
             confidence: string;
+            /** Decided By */
+            decided_by: ("person" | "agent") | null;
             /** Decision */
             decision: string | null;
             /** Decision Changes */
             decision_changes: number;
+            /** Decision Note */
+            decision_note: string | null;
             /** Gap Days */
             gap_days: number | null;
             /** Id */
@@ -6358,6 +6426,24 @@ export interface components {
             score: number | null;
             /** Status */
             status: string;
+        };
+        /** DuplicateQueue */
+        DuplicateQueue: {
+            /** Columns */
+            columns: string[];
+            /** Continue With */
+            continue_with: components["schemas"]["NextAction"][];
+            /** Count */
+            count: number;
+            /** Pairs */
+            pairs: components["schemas"]["DuplicatePair"][];
+            /**
+             * Rows
+             * @description One array per posting, its values in the order `columns` names.
+             */
+            rows: (number | string | null)[][];
+            /** Total */
+            total: number;
         };
         /** DuplicateReviewItem */
         DuplicateReviewItem: {
@@ -6411,6 +6497,27 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** DuplicateVerdictItem */
+        DuplicateVerdictItem: {
+            /** After */
+            after?: string | null;
+            /** Before */
+            before?: string | null;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "decided" | "left_for_person" | "refused";
+            /** Pair */
+            pair: string;
+            /** Refusal */
+            refusal?: string | null;
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "same_opening" | "two_openings" | "different_roles" | "unsure";
+        };
         /**
          * DuplicateVerdictResult
          * @description `POST /api/lineage/links/{link_id}/review`. `twin_link_id` names the twin a
@@ -6435,6 +6542,17 @@ export interface components {
             status: "confirmed" | "rejected" | "pending";
             /** Twin Link Id */
             twin_link_id: number | null;
+        };
+        /** DuplicateVerdictsResult */
+        DuplicateVerdictsResult: {
+            /** Decided */
+            decided: number;
+            /** Left For Person */
+            left_for_person: number;
+            /** Refused */
+            refused: number;
+            /** Results */
+            results: components["schemas"]["DuplicateVerdictItem"][];
         };
         /** EffectsShape */
         EffectsShape: {
@@ -6698,6 +6816,48 @@ export interface components {
              */
             contract_version: string;
             data: components["schemas"]["DoctorReport"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[DuplicateQueue] */
+        Envelope_DuplicateQueue_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["DuplicateQueue"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[DuplicateVerdictsResult] */
+        Envelope_DuplicateVerdictsResult_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["DuplicateVerdictsResult"] | null;
             error: components["schemas"]["EnvelopeError"] | null;
             meta: components["schemas"]["EnvelopeMeta"];
             /** Ok */
@@ -11443,6 +11603,44 @@ export interface components {
                 [key: string]: string | null;
             };
         };
+        /** PairPassage */
+        PairPassage: {
+            /** Section */
+            section: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * PairReason
+         * @description One reason the detector gives, as a code and its numbers (`lineage.reasons`).
+         */
+        PairReason: {
+            /** Code */
+            code: string;
+            /** Params */
+            params: {
+                [key: string]: number | null;
+            };
+        };
+        /**
+         * PairTextDifference
+         * @description The postings' texts side by side: whether they could be compared, how
+         *     alike they are, and the passages each has that the other does not.
+         */
+        PairTextDifference: {
+            /** Alike */
+            alike: number;
+            /** Comparable */
+            comparable: boolean;
+            /** Only In Newer */
+            only_in_newer: components["schemas"]["PairPassage"][];
+            /** Only In Newer Count */
+            only_in_newer_count: number;
+            /** Only In Older */
+            only_in_older: components["schemas"]["PairPassage"][];
+            /** Only In Older Count */
+            only_in_older_count: number;
+        };
         /**
          * ParsedQueryEcho
          * @description The structured filters a search query was read as.
@@ -15566,10 +15764,14 @@ export interface components {
         TwinProposal: {
             /** Confidence */
             confidence: string;
+            /** Decided By */
+            decided_by: ("person" | "agent") | null;
             /** Decision */
             decision: string | null;
             /** Decision Changes */
             decision_changes: number;
+            /** Decision Note */
+            decision_note: string | null;
             /** Description Diff */
             description_diff: {
                 [key: string]: unknown;
@@ -16337,6 +16539,84 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Envelope_DoctorReport_"];
+                };
+            };
+        };
+    };
+    duplicate_queue_api_agent_v1_duplicates_queue_get: {
+        parameters: {
+            query?: {
+                /** @description Only pairs with a posting the person saved or pursues. */
+                mine?: boolean;
+                /** @description Most pairs on one page. */
+                limit?: number;
+                /** @description The next_cursor of the previous page, read with the same filters. */
+                cursor?: string | null;
+                /** @description The caller's tool tier, which bounds the page. */
+                tier?: "small" | "standard" | "full";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_DuplicateQueue_"];
+                };
+            };
+        };
+    };
+    duplicate_decide_api_agent_v1_duplicates_verdicts_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-RoleBand-Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Verdicts
+                     * @description 1 to 50 verdicts, each on its own pair.
+                     */
+                    verdicts: {
+                        /**
+                         * Pair
+                         * @description The pair, as duplicates.queue names it: lineage-<id> or twin-<id>.
+                         */
+                        pair: string;
+                        /**
+                         * Reason
+                         * @description One line the person reads beside the verdict: what in the postings decided it.
+                         */
+                        reason: string;
+                        /**
+                         * Verdict
+                         * @description same_opening (one opening listed again), two_openings (the same role, separate openings), different_roles, or unsure (leave it for the person).
+                         * @enum {string}
+                         */
+                        verdict: "same_opening" | "two_openings" | "different_roles" | "unsure";
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_DuplicateVerdictsResult_"];
                 };
             };
         };
@@ -20121,6 +20401,7 @@ export interface operations {
                 order?: "strongest" | "weakest";
                 on_board?: boolean;
                 detail?: boolean;
+                decided_by?: ("person" | "agent") | null;
                 limit?: number;
                 offset?: number;
             };
@@ -22393,6 +22674,7 @@ export interface operations {
                 confidence?: string | null;
                 on_board?: boolean;
                 detail?: boolean;
+                decided_by?: ("person" | "agent") | null;
                 limit?: number;
                 offset?: number;
             };

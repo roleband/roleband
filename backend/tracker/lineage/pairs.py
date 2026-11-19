@@ -64,7 +64,8 @@ def require_one_company(a: Posting, b: Posting, relation: str) -> None:
 
 
 async def human_twin_row(session: AsyncSession, a_id: int, b_id: int) -> JobTwinLink | None:
-    """The pair's twin row when a person decided it (any orientation)."""
+    """The pair's twin row when a person decided it (any orientation). A row
+    an assistant decided is not here: the person's own link writes over it."""
     return (
         await session.scalars(
             select(JobTwinLink).where(
@@ -73,6 +74,7 @@ async def human_twin_row(session: AsyncSession, a_id: int, b_id: int) -> JobTwin
                     (JobTwinLink.job_a_id == b_id) & (JobTwinLink.job_b_id == a_id),
                 ),
                 JobTwinLink.status != "pending",
+                JobTwinLink.decided_by.is_distinct_from("agent"),
             )
         )
     ).first()

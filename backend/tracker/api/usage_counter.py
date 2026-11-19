@@ -132,6 +132,7 @@ NOT_COUNTED: Mapping[tuple[str, str], str] = {
             ("PUT", "/api/agent/v1/pursuits/{opportunity_id}"),
             ("PATCH", "/api/agent/v1/pursuits/{opportunity_id}"),
             ("POST", "/api/agent/v1/recipes/drafts"),
+            ("POST", "/api/agent/v1/duplicates/verdicts"),
         )
     },
     **{

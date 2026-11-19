@@ -4608,6 +4608,597 @@
    ]
   },
   {
+   "access": "write",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "public_posting",
+    "private_pursuit"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": true
+   },
+   "examples": [
+    {
+     "verdicts": [
+      {
+       "pair": "lineage-4",
+       "reason": "Same site and pay; the first closed a day before.",
+       "verdict": "same_opening"
+      },
+      {
+       "pair": "twin-9",
+       "reason": "Same title, but the team names differ.",
+       "verdict": "unsure"
+      }
+     ]
+    }
+   ],
+   "idempotency": "required_key",
+   "input_schema": {
+    "$defs": {
+     "DuplicateVerdictInput": {
+      "additionalProperties": false,
+      "properties": {
+       "pair": {
+        "description": "The pair, as duplicates.queue names it: lineage-<id> or twin-<id>.",
+        "pattern": "^(lineage|twin)-([1-9][0-9]{0,17})$",
+        "title": "Pair",
+        "type": "string"
+       },
+       "reason": {
+        "description": "One line the person reads beside the verdict: what in the postings decided it.",
+        "maxLength": 300,
+        "minLength": 3,
+        "title": "Reason",
+        "type": "string"
+       },
+       "verdict": {
+        "description": "same_opening (one opening listed again), two_openings (the same role, separate openings), different_roles, or unsure (leave it for the person).",
+        "enum": [
+         "same_opening",
+         "two_openings",
+         "different_roles",
+         "unsure"
+        ],
+        "title": "Verdict",
+        "type": "string"
+       }
+      },
+      "required": [
+       "pair",
+       "verdict",
+       "reason"
+      ],
+      "title": "DuplicateVerdictInput",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "verdicts": {
+      "description": "1 to 50 verdicts, each on its own pair.",
+      "items": {
+       "$ref": "#/$defs/DuplicateVerdictInput"
+      },
+      "maxItems": 50,
+      "minItems": 1,
+      "title": "Verdicts",
+      "type": "array"
+     }
+    },
+    "required": [
+     "verdicts"
+    ],
+    "title": "DuplicateVerdictsInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "duplicates.decide",
+   "output_schema": {
+    "$defs": {
+     "DuplicateVerdictItem": {
+      "additionalProperties": false,
+      "properties": {
+       "after": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "After",
+        "x-text": "code"
+       },
+       "before": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Before",
+        "x-text": "code"
+       },
+       "outcome": {
+        "enum": [
+         "decided",
+         "left_for_person",
+         "refused"
+        ],
+        "title": "Outcome",
+        "type": "string",
+        "x-text": "code"
+       },
+       "pair": {
+        "title": "Pair",
+        "type": "string",
+        "x-text": "code"
+       },
+       "refusal": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Refusal",
+        "x-text": "code"
+       },
+       "verdict": {
+        "enum": [
+         "same_opening",
+         "two_openings",
+         "different_roles",
+         "unsure"
+        ],
+        "title": "Verdict",
+        "type": "string",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "pair",
+       "verdict",
+       "outcome"
+      ],
+      "title": "DuplicateVerdictItem",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "decided": {
+      "minimum": 0,
+      "title": "Decided",
+      "type": "integer"
+     },
+     "left_for_person": {
+      "minimum": 0,
+      "title": "Left For Person",
+      "type": "integer"
+     },
+     "refused": {
+      "minimum": 0,
+      "title": "Refused",
+      "type": "integer"
+     },
+     "results": {
+      "items": {
+       "$ref": "#/$defs/DuplicateVerdictItem"
+      },
+      "title": "Results",
+      "type": "array"
+     }
+    },
+    "required": [
+     "decided",
+     "left_for_person",
+     "refused",
+     "results"
+    ],
+    "title": "DuplicateVerdictsResult",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled",
+    "agent_access.allow_writes"
+   ],
+   "summary": "Record verdicts on duplicate pairs, each with a one-line reason; unsure leaves a pair for the person. A pair the person decided is never changed.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "public_posting",
+    "market_statistic",
+    "private_pursuit"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [
+    {
+     "limit": 10
+    },
+    {
+     "mine": true
+    }
+   ],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "cursor": {
+      "anyOf": [
+       {
+        "maxLength": 512,
+        "minLength": 1,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "The next_cursor of the previous page, read with the same filters.",
+      "title": "Cursor"
+     },
+     "limit": {
+      "default": 10,
+      "description": "Most pairs on one page.",
+      "maximum": 50,
+      "minimum": 1,
+      "title": "Limit",
+      "type": "integer"
+     },
+     "mine": {
+      "default": false,
+      "description": "Only pairs with a posting the person saved or pursues.",
+      "title": "Mine",
+      "type": "boolean"
+     },
+     "tier": {
+      "default": "small",
+      "description": "The caller's tool tier, which bounds the page.",
+      "enum": [
+       "small",
+       "standard",
+       "full"
+      ],
+      "title": "Tier",
+      "type": "string"
+     }
+    },
+    "title": "DuplicateQueueInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "duplicates.queue",
+   "output_schema": {
+    "$defs": {
+     "DuplicatePair": {
+      "additionalProperties": false,
+      "properties": {
+       "fields": {
+        "additionalProperties": true,
+        "title": "Fields",
+        "type": "object"
+       },
+       "gap_days": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Gap Days"
+       },
+       "newer": {
+        "title": "Newer",
+        "type": "integer"
+       },
+       "older": {
+        "title": "Older",
+        "type": "integer"
+       },
+       "pair": {
+        "title": "Pair",
+        "type": "string",
+        "x-text": "code"
+       },
+       "proposed": {
+        "enum": [
+         "same_opening",
+         "two_openings"
+        ],
+        "title": "Proposed",
+        "type": "string",
+        "x-text": "code"
+       },
+       "reasons": {
+        "items": {
+         "$ref": "#/$defs/PairReason"
+        },
+        "title": "Reasons",
+        "type": "array"
+       },
+       "score": {
+        "anyOf": [
+         {
+          "type": "number"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Score"
+       },
+       "step": {
+        "enum": [
+         "yours",
+         "shown_twice",
+         "stacked"
+        ],
+        "title": "Step",
+        "type": "string",
+        "x-text": "code"
+       },
+       "text": {
+        "$ref": "#/$defs/PairTextDifference"
+       }
+      },
+      "required": [
+       "pair",
+       "proposed",
+       "step",
+       "older",
+       "newer",
+       "gap_days",
+       "score",
+       "reasons",
+       "fields",
+       "text"
+      ],
+      "title": "DuplicatePair",
+      "type": "object"
+     },
+     "NextAction": {
+      "additionalProperties": false,
+      "description": "A typed suggestion of an operation to call next. Never a shell string,\nand never a permission the caller did not already have.",
+      "properties": {
+       "arguments": {
+        "additionalProperties": true,
+        "title": "Arguments",
+        "type": "object"
+       },
+       "operation": {
+        "title": "Operation",
+        "type": "string",
+        "x-text": "identifier"
+       }
+      },
+      "required": [
+       "operation"
+      ],
+      "title": "NextAction",
+      "type": "object"
+     },
+     "PairPassage": {
+      "additionalProperties": false,
+      "properties": {
+       "section": {
+        "title": "Section",
+        "type": "string",
+        "x-text": "content"
+       },
+       "text": {
+        "title": "Text",
+        "type": "string",
+        "x-text": "content"
+       }
+      },
+      "required": [
+       "section",
+       "text"
+      ],
+      "title": "PairPassage",
+      "type": "object"
+     },
+     "PairReason": {
+      "additionalProperties": false,
+      "description": "One reason the detector gives, as a code and its numbers (`lineage.reasons`).",
+      "properties": {
+       "code": {
+        "title": "Code",
+        "type": "string",
+        "x-text": "code"
+       },
+       "params": {
+        "additionalProperties": {
+         "anyOf": [
+          {
+           "type": "integer"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        "title": "Params",
+        "type": "object"
+       }
+      },
+      "required": [
+       "code",
+       "params"
+      ],
+      "title": "PairReason",
+      "type": "object"
+     },
+     "PairTextDifference": {
+      "additionalProperties": false,
+      "description": "The postings' texts side by side: whether they could be compared, how\nalike they are, and the passages each has that the other does not.",
+      "properties": {
+       "alike": {
+        "title": "Alike",
+        "type": "number"
+       },
+       "comparable": {
+        "title": "Comparable",
+        "type": "boolean"
+       },
+       "only_in_newer": {
+        "items": {
+         "$ref": "#/$defs/PairPassage"
+        },
+        "title": "Only In Newer",
+        "type": "array"
+       },
+       "only_in_newer_count": {
+        "title": "Only In Newer Count",
+        "type": "integer"
+       },
+       "only_in_older": {
+        "items": {
+         "$ref": "#/$defs/PairPassage"
+        },
+        "title": "Only In Older",
+        "type": "array"
+       },
+       "only_in_older_count": {
+        "title": "Only In Older Count",
+        "type": "integer"
+       }
+      },
+      "required": [
+       "comparable",
+       "alike",
+       "only_in_older_count",
+       "only_in_newer_count",
+       "only_in_older",
+       "only_in_newer"
+      ],
+      "title": "PairTextDifference",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "columns": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Columns",
+      "type": "array",
+      "x-text": "code"
+     },
+     "continue_with": {
+      "items": {
+       "$ref": "#/$defs/NextAction"
+      },
+      "title": "Continue With",
+      "type": "array"
+     },
+     "count": {
+      "minimum": 0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "pairs": {
+      "items": {
+       "$ref": "#/$defs/DuplicatePair"
+      },
+      "title": "Pairs",
+      "type": "array"
+     },
+     "rows": {
+      "description": "One array per posting, its values in the order `columns` names.",
+      "items": {
+       "items": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "type": "array"
+      },
+      "title": "Rows",
+      "type": "array",
+      "x-text": "content"
+     },
+     "total": {
+      "minimum": 0,
+      "title": "Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "total",
+     "count",
+     "pairs",
+     "columns",
+     "rows",
+     "continue_with"
+    ],
+    "title": "DuplicateQueue",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "List the duplicate pairs worth deciding, the person's own roles first, each with what differs between its two postings.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
    "access": "read",
    "availability": {
     "reason": "offline",
@@ -17142,6 +17733,7 @@
   "context": "Everything about one opportunity as one hashed packet.",
   "describe": "How to call one operation.",
   "doctor": "The engine's checks and settings.",
+  "duplicates": "Duplicate postings: the pairs worth deciding, and verdicts on them.",
   "insights": "Market figures: open roles, pay by level and country, trends, skills asked for.",
   "offer": "The person's own offer.",
   "opportunities": "Open roles: search, one posting, its history, similar and duplicate postings.",
@@ -17197,6 +17789,14 @@
   "doctor": {
    "method": "GET",
    "path": "/api/agent/v1/doctor"
+  },
+  "duplicates.decide": {
+   "method": "POST",
+   "path": "/api/agent/v1/duplicates/verdicts"
+  },
+  "duplicates.queue": {
+   "method": "GET",
+   "path": "/api/agent/v1/duplicates/queue"
   },
   "insights.compensation": {
    "method": "GET",

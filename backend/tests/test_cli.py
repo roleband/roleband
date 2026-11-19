@@ -712,13 +712,17 @@ def test_capabilities_answers_where_no_home_folder_can_be_found(monkeypatch):
     installed skill to look at."""
     from tracker.cli import connect
     from tracker.cli import main as cli_main
+    from tracker.platform import agent_hosts
 
     def no_home() -> Path:
         raise RuntimeError("Could not determine home directory.")
 
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
     monkeypatch.delenv("CODEX_HOME", raising=False)
-    monkeypatch.setattr(connect, "_home", no_home)
+    # The host folders are found where `agent_hosts` asks for the home folder.
+    monkeypatch.setattr(agent_hosts, "_home", no_home)
+    with pytest.raises(RuntimeError):
+        agent_hosts.claude_dir()
     assert connect.refresh_installed_skills() == []
     out = io.StringIO()
     status = cli_main.run(["capabilities", "--offline", "--json"], stdout=out, stderr=io.StringIO(), environ={})

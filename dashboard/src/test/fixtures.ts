@@ -195,6 +195,8 @@ export function duplicateProposalFixture(overrides: Partial<DuplicateProposal> =
     said: [{ code: "descriptions_alike", params: { pct: 90 } }],
     decision: null,
     decision_changes: 0,
+    decided_by: null,
+    decision_note: null,
     reviewed_at: null,
     ...overrides,
   };
@@ -218,6 +220,8 @@ export function twinProposalFixture(overrides: Partial<TwinProposal> = {}): Twin
     said: [{ code: "titles_alike", params: { pct: 90 } }],
     decision: null,
     decision_changes: 0,
+    decided_by: null,
+    decision_note: null,
     reviewed_at: null,
     description_diff: null,
     ...overrides,

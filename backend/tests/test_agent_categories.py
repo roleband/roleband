@@ -645,6 +645,12 @@ LEFT_OUT_BY: dict[tuple[str, DataClass], str] = {
         "test_agent_offer_export_reads::test_market_statistics_not_shared_leave_the_estimates_out_of_the_export",
     ("context.export", "private_pursuit"):
         "test_agent_offer_export_reads::test_pursuits_kept_from_assistants_are_left_out_of_the_export",
+    ("duplicates.decide", "private_pursuit"):
+        "test_agent_duplicates_db::test_a_saved_pair_at_a_hidden_company_is_unknown_while_pursuits_are_not_shared",
+    ("duplicates.queue", "market_statistic"):
+        "test_agent_duplicates_db::test_queue_rows_leave_out_the_estimate_and_pursuit_columns_of_a_category_off",
+    ("duplicates.queue", "private_pursuit"):
+        "test_agent_duplicates_db::test_without_shared_pursuits_no_pair_is_the_persons_and_mine_is_refused",
     ("insights.overview", "private_pursuit"):
         "test_agent_categories::test_the_overview_counts_saved_roles_only_while_pursuits_are_shared",
     ("opportunities.duplicates", "market_statistic"):

@@ -33,7 +33,7 @@ CODEX_TABLE = "sandbox_workspace_write"
 CODEX_KEY = "network_access"
 
 #: The skill's version. A copy installed at a lower one, and never edited, is out of date.
-SKILL_VERSION = 5
+SKILL_VERSION = 6
 SKILL_RECORD = ".roleband-skill.json"
 
 #: The command's bundled index of operations, which ships beside it in `tracker/cli/`.

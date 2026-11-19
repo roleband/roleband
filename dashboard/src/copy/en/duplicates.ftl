@@ -160,6 +160,10 @@ duplicates-review-history-revised = { $count ->
     [one] Revised once
    *[other] Revised { $count } times
 }
+# kind=label note="Marks a decision the person's AI assistant made through the command line, not the person"
+duplicates-review-history-by-assistant = Your assistant
+# kind=status note="The AI assistant's one-line reason for its decision, as it wrote it: $reason"
+duplicates-review-history-assistant-reason = Its reason: { $reason }
 # kind=aria wording=as-is
 duplicates-review-history-decided-2 = Decided
 # kind=label wording=as-is
@@ -206,6 +210,8 @@ duplicates-review-screen-marked-as = { $decision ->
 }
 # kind=label wording=as-is
 duplicates-review-screen-undo = Undo
+# kind=status note="The AI assistant looked at this pair and left it for the person to decide; $note is its note, as it wrote it"
+duplicates-review-screen-assistant-unsure = Your assistant wasn't sure: { $note }
 # kind=toast
 duplicates-review-screen-could-not-record-the-verdict = Couldn't save your decision. { $message }
 # kind=label wording=as-is

@@ -132,6 +132,33 @@ activity-moved-role = Moved { $title } at { $company } to { $stage }
 activity-updated-role = Updated { $title } at { $company }
 # kind=status note="A collection recipe drafted for a careers site; $recipe names the recipe"
 activity-drafted-recipe = Drafted a recipe for { $recipe }
+# kind=status note="An AI assistant gave verdicts on pairs of postings that may be the same role"
+activity-decided-duplicates = { $decided ->
+    [one] Decided { $decided } duplicate pair
+   *[other] Decided { $decided } duplicate pairs
+}
+# kind=status note="An AI assistant looked at pairs of postings and left them for the person to decide"
+activity-left-duplicates = { $left ->
+    [one] Left { $left } duplicate pair for you
+   *[other] Left { $left } duplicate pairs for you
+}
+# kind=status note="Both of the above in one batch: $decided pairs decided, $left left for the person"
+activity-decided-and-left-duplicates = { $decided ->
+    [one] Decided { $decided } duplicate pair
+   *[other] Decided { $decided } duplicate pairs
+}, left { $left } for you
+# kind=label note="A field name in the change list: one pair of postings, named by its ID"
+activity-field-pair = Pair { $id }
+# kind=label note="A pair's state: not decided yet"
+activity-pair-undecided = Not decided
+# kind=label note="A pair's state: the two postings are one role posted twice"
+activity-pair-same = Same role
+# kind=label note="A pair's state: two openings for the same kind of role"
+activity-pair-related = Related roles
+# kind=label note="A pair's state: unrelated roles"
+activity-pair-different = Different roles
+# kind=label note="A pair's state: the assistant was unsure and left it for the person"
+activity-pair-left-for-you = Left for you
 # kind=status note="A change this screen has no words for yet"
 activity-made-change = Made a change
 
