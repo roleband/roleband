@@ -55,23 +55,32 @@ export async function hiddenEdges(locator: Locator): Promise<Edges> {
 
     const rect = el.getBoundingClientRect();
     const clip = { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight };
+    // The body's overflow is the viewport's, counted above, only while the
+    // root's is visible on both axes; otherwise the body clips like any box.
+    const root = style(document.documentElement);
+    const bodyIsViewport = root.overflowX === "visible" && root.overflowY === "visible";
     let node: Element = el;
     while (!inTopLayer(node)) {
       const block = containingBlock(node);
-      // The root's and the body's overflow belong to the viewport, counted above.
-      if (!block || block === document.body || block === document.documentElement) break;
+      if (!block || block === document.documentElement) break;
+      if (block === document.body && bodyIsViewport) break;
       const s = style(block);
       const paint = /paint|strict|content/.test(s.contain);
       const box = block.getBoundingClientRect();
-      const left = box.left + block.clientLeft;
-      const top = box.top + block.clientTop;
+      // `client*` is the untransformed box; the bounding rect is the painted
+      // one. A scaled box scales its border and content by the same factor.
+      const html = block as HTMLElement;
+      const sx = html.offsetWidth ? box.width / html.offsetWidth : 1;
+      const sy = html.offsetHeight ? box.height / html.offsetHeight : 1;
+      const left = box.left + block.clientLeft * sx;
+      const top = box.top + block.clientTop * sy;
       if (paint || s.overflowX !== "visible") {
         clip.left = Math.max(clip.left, left);
-        clip.right = Math.min(clip.right, left + block.clientWidth);
+        clip.right = Math.min(clip.right, left + block.clientWidth * sx);
       }
       if (paint || s.overflowY !== "visible") {
         clip.top = Math.max(clip.top, top);
-        clip.bottom = Math.min(clip.bottom, top + block.clientHeight);
+        clip.bottom = Math.min(clip.bottom, top + block.clientHeight * sy);
       }
       node = block;
     }

@@ -686,7 +686,7 @@ for (const longest of [false, true]) {
     isMobile,
   }) => {
     if (longest) await bootPseudo(page);
-    await page.route("/api/intelligence/cloud-models", (route) => route.fulfill({
+    await mockGet(page, "/api/intelligence/cloud-models", (route) => route.fulfill({
       json: { profiles: [{ ...cloudModelProfileFixture, id: "cloud-openai", name: "OpenAI production", enabled: true }] } satisfies CloudLLMState,
     }));
     await page.goto("/settings/intelligence");
@@ -767,6 +767,34 @@ test("the clipping check sees a box that cuts a child off, and what escapes it",
   expect(await hiddenEdges(page.locator("#cut"))).toEqual({ left: 0, right: 50, top: 0, bottom: 0 });
   expect(await hiddenEdges(page.locator("#top-layer"))).toEqual({ left: 0, right: 0, top: 0, bottom: 0 });
   expect(await hiddenEdges(page.locator("#placed-outside"))).toEqual({ left: 0, right: 0, top: 0, bottom: 0 });
+});
+
+test("the clipping check measures a scaled box as painted, and a body that clips", async ({ page }) => {
+  // 200px scaled to half from its left edge paints 100px wide; a 200px child
+  // starting 50px in paints 100px from 25px in, so 25 painted pixels fall outside.
+  await page.setContent(`
+    <div style="position:relative;width:200px;height:100px;overflow:hidden;transform:scale(0.5);transform-origin:0 0">
+      <span id="scaled" style="position:absolute;left:50px;top:0;width:150px;height:20px">scaled</span>
+    </div>
+    <div style="position:relative;width:200px;height:100px;overflow:hidden">
+      <span id="unscaled" style="position:absolute;left:50px;top:0;width:200px;height:20px">unscaled</span>
+    </div>`);
+  expect(await hiddenEdges(page.locator("#scaled"))).toEqual({ left: 0, right: 0, top: 0, bottom: 0 });
+  await page.locator("#scaled").evaluate((el) => ((el as HTMLElement).style.width = "200px"));
+  expect(await hiddenEdges(page.locator("#scaled"))).toEqual({ left: 0, right: 25, top: 0, bottom: 0 });
+  expect(await hiddenEdges(page.locator("#unscaled"))).toEqual({ left: 0, right: 50, top: 0, bottom: 0 });
+
+  // With the root's overflow hidden, the body's own does not reach the viewport.
+  // Without a doctype the page is in quirks mode, where the body reports the
+  // window's client width.
+  await page.setContent(`<!doctype html>
+    <style>html{overflow:hidden}body{margin:0;width:200px;overflow:hidden}</style>
+    <div id="wide" style="width:300px;height:20px">wide</div>`);
+  expect(await hiddenEdges(page.locator("#wide"))).toEqual({ left: 0, right: 100, top: 0, bottom: 0 });
+  await page.addStyleTag({ content: "html{overflow:visible}" });
+  expect(await hiddenEdges(page.locator("#wide")), "the body's overflow is the viewport's").toEqual({
+    left: 0, right: 0, top: 0, bottom: 0,
+  });
 });
 
 test("Intelligence types by rank: same-rank text never differs in colour or weight", async ({

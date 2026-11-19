@@ -4,6 +4,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { useEscapeLayer } from "./escapeLayer";
 import { InfoTip } from "./InfoTip";
 
 /* Every stylesheet under src/ but InfoTip's own, read from disk: the test
@@ -55,6 +56,52 @@ describe("InfoTip", () => {
     fireEvent.pointerEnter(wrap);
     fireEvent.pointerLeave(wrap);
     expect(isOpen(tip), "focus still holds it open").toBe(true);
+  });
+
+  it("hides on Escape, keeps focus on the mark, and shows again on the next entry", async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <InfoTip label="About the split">Base is the fixed part.</InfoTip>
+        <button type="button">Next</button>
+      </>,
+    );
+    const mark = screen.getByRole("button", { name: "About the split" });
+    const tip = screen.getByRole("tooltip", { hidden: true });
+    const wrap = mark.parentElement!;
+
+    await user.tab();
+    expect(isOpen(tip)).toBe(true);
+    await user.keyboard("{Escape}");
+    expect(isOpen(tip)).toBe(false);
+    expect(mark).toHaveFocus();
+    // The pointer passing over the mark is a new entry.
+    fireEvent.pointerEnter(wrap);
+    expect(isOpen(tip)).toBe(true);
+    await user.keyboard("{Escape}");
+    fireEvent.pointerLeave(wrap);
+    expect(isOpen(tip)).toBe(false);
+    // So is focus coming back to it.
+    await user.tab();
+    await user.tab({ shift: true });
+    expect(mark).toHaveFocus();
+    expect(isOpen(tip)).toBe(true);
+  });
+
+  it("takes the Escape a dialog under it would otherwise take", async () => {
+    const user = userEvent.setup();
+    const closed: string[] = [];
+    function Dialog() {
+      useEscapeLayer(true, () => closed.push("dialog"));
+      return <InfoTip label="About the split">Base is the fixed part.</InfoTip>;
+    }
+    render(<Dialog />);
+    await user.tab();
+    await user.keyboard("{Escape}");
+    expect(isOpen(screen.getByRole("tooltip", { hidden: true }))).toBe(false);
+    expect(closed).toEqual([]);
+    await user.keyboard("{Escape}");
+    expect(closed).toEqual(["dialog"]);
   });
 
   it("is the only place a tip is placed: no stylesheet positions it from outside", () => {

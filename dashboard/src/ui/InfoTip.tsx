@@ -1,11 +1,14 @@
 import "./InfoTip.css";
 import { useId, useLayoutEffect, useRef, useState } from "react";
+import { useEscapeLayer } from "./escapeLayer";
 import { Icon } from "./Icon";
 import { placeLeft, placeTop } from "./place";
 import { uiInfoTipMoreInformation } from "../copy/gen/ui";
 
 const GAP = 7;
 const MARGIN = 8;
+/** The stylesheet's width cap, repeated where a hung tip narrows it to its host. */
+const MAX_WIDTH = "320px, calc(100vw / var(--page-zoom, 1) - 40px)";
 
 /** Whether this engine can open a popover. One that only knows the attribute
  *  hides the element and can never show it, so the attribute is set only where
@@ -41,7 +44,11 @@ export function InfoTip({
   const id = useId();
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
-  const open = hovered || focused;
+  // Escape hides the tip and leaves focus on the mark; it shows again on the
+  // next pointer entry or focus, not while the mark keeps the focus it had.
+  const [dismissed, setDismissed] = useState(false);
+  const open = (hovered || focused) && !dismissed;
+  useEscapeLayer(open, () => setDismissed(true));
   const trigger = useRef<HTMLButtonElement | null>(null);
   const tip = useRef<HTMLSpanElement | null>(null);
 
@@ -55,8 +62,8 @@ export function InfoTip({
       const from = (host ?? anchor).getBoundingClientRect();
       // Capped to the host's width before it is measured, so the measure is the
       // size it is placed at.
-      if (host) panel.style.setProperty("--info-tip-span", `${from.width}px`);
-      else panel.style.removeProperty("--info-tip-span");
+      if (host) panel.style.maxWidth = `min(${from.width}px, ${MAX_WIDTH})`;
+      else panel.style.removeProperty("max-width");
       const options = { gap: GAP, margin: MARGIN, align };
       panel.style.top = `${placeTop(from, panel.offsetHeight, window.innerHeight, options)}px`;
       panel.style.left = `${placeLeft(from, panel.offsetWidth, window.innerWidth, options)}px`;
@@ -75,9 +82,15 @@ export function InfoTip({
   return (
     <span
       className="info-tip"
-      onPointerEnter={() => setHovered(true)}
+      onPointerEnter={() => {
+        setHovered(true);
+        setDismissed(false);
+      }}
       onPointerLeave={() => setHovered(false)}
-      onFocus={() => setFocused(true)}
+      onFocus={() => {
+        if (!focused) setDismissed(false);
+        setFocused(true);
+      }}
       onBlur={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocused(false);
       }}
