@@ -144,7 +144,7 @@ def test_a_linked_skill_reads_as_current_since_connect_keeps_it(home, host, tmp_
     _make_older(directory, edited=False)
     # The link points at the very bytes the older record names, so only the link
     # tells it apart from an unedited copy.
-    target = tmp_path / "my-skill.md"
+    target = tmp_path / "linked-skill"
     target.write_bytes((directory / "SKILL.md").read_bytes())
     (directory / "SKILL.md").unlink()
     (directory / "SKILL.md").symlink_to(target)
