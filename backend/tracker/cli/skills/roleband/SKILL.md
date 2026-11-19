@@ -2,7 +2,7 @@
 name: roleband
 description: Read and update the person's job search in RoleBand (opportunities, pursuits, recipes, radar) through the `roleband` command. Use when the person asks about roles, companies, pay or applications they track in RoleBand.
 ---
-<!-- roleband skill, version 5. `roleband connect` installed this file and `roleband capabilities` keeps it current; once you edit it, neither changes it. -->
+<!-- roleband skill, version 6. `roleband connect` installed this file and `roleband capabilities` keeps it current; once you edit it, neither changes it. -->
 
 # RoleBand
 
@@ -36,3 +36,13 @@ The exit status says what to do next:
 | 9 | Part of a batch answered, not a failure | Use what `data` holds; `error.message` names where the items that did not resolve are listed, such as `data.not_found` |
 
 Never repeat a change under a new key after a failure, and never reach the engine's database or web routes another way.
+
+## Tidying duplicate postings
+
+When the person asks you to go through their duplicates:
+
+1. `roleband duplicates queue --json` lists the pairs worth a verdict, those touching the person's own roles first (`--mine` keeps only those). Each pair carries its evidence: the fields that differ, the days between the postings, and the passages only one of them has.
+2. Decide from that evidence. `same_opening`: one role posted twice. `two_openings`: two openings for the same kind of role, such as another city or team. `different_roles`: unrelated roles. `unsure`: leave it for the person, with a reason that says what would settle it.
+3. Send up to 50 verdicts in one call, each with a one-line reason the person will read: `echo '{"verdicts": [{"pair": "lineage-12", "verdict": "same_opening", "reason": "Same text, posted again after 30 days"}]}' | roleband duplicates decide --input - --idempotency-key dup-batch-1 --json`.
+4. A pair the person decided themselves comes back `refused` with `decided_by_person`: their verdict stands. The person sees your verdicts marked in the app's duplicate review, with your reasons, and can change any of them there.
+5. Tell the person how many pairs you decided and which ones you left for them.

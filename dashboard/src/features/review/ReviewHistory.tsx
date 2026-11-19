@@ -13,6 +13,8 @@ import { DescriptionComparison } from "./DescriptionComparison";
 import { DECISION_COPY, DecidedList, RelationshipDecision, decisionOf, proposalKey, similarityText } from "./decision";
 import {
   duplicatesReviewHistoryAllDecisions,
+  duplicatesReviewHistoryAssistantReason,
+  duplicatesReviewHistoryByAssistant,
   duplicatesReviewHistoryDecided,
   duplicatesReviewHistoryDecided2,
   duplicatesReviewHistoryEveryJudgmentReadyToRevisit,
@@ -29,6 +31,7 @@ import {
   duplicatesReviewHistorySystemScore,
   duplicatesReviewHistoryTryAnotherTitleRequisitionId,
 } from "../../copy/gen/duplicates";
+import { Content } from "../../ui/Content";
 import { Msg } from "../../ui/Msg";
 
 /* The decision archive: every past judgment, searchable and filterable, each
@@ -152,12 +155,14 @@ export function ReviewHistory({
             const decision = decisionOf(item);
             const score = similarityText(item.link.score);
             const revisions = item.link.decision_changes ?? 0;
+            const byAssistant = item.link.decided_by === "agent";
             return (
               <li key={key} className={isOpen ? "is-open" : ""}>
                 <button className="review-history-summary" type="button" aria-expanded={isOpen} onClick={() => setExpanded(isOpen ? null : key)}>
                   <Badge tone={DECISION_TONE[decision]} className="review-history-decision">
                     {DECISION_COPY[decision].short}
                   </Badge>
+                  {byAssistant && <Badge tone="neutral" className="review-history-assistant">{duplicatesReviewHistoryByAssistant()}</Badge>}
                   <span className="review-history-titles"><strong>{item.prior.title}</strong><small>{item.prior.req_id} · {item.job.req_id}</small></span>
                   <span className="review-history-connector" aria-hidden="true">
                     <Icon name="arrowLeftRight" size={12} />
@@ -176,6 +181,11 @@ export function ReviewHistory({
                       <span>{duplicatesProposedAs({ kind: item.link.proposal_kind })}</span>
                       <span>{duplicatesReviewHistoryReviewed()} <strong>{fmtDate(item.link.reviewed_at)}</strong></span>
                       {revisions > 0 && <span>{duplicatesReviewHistoryRevised({ count: revisions })}</span>}
+                      {byAssistant && item.link.decision_note && (
+                        <span className="review-history-assistant-reason">
+                          <Msg of={duplicatesReviewHistoryAssistantReason} elems={{ reason: <Content text={item.link.decision_note} /> }} />
+                        </span>
+                      )}
                     </div>
                     <DecidedPair
                       item={item}

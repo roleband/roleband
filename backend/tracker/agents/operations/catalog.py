@@ -15,6 +15,7 @@ from tracker.agents.operations import (
     applications,
     changes,
     companies,
+    duplicates,
     export,
     insights,
     meta,
@@ -49,6 +50,7 @@ REGISTERED: tuple[OperationDescriptor, ...] = (
     *applications.OPERATIONS,
     *export.OPERATIONS,
     *insights.OPERATIONS,
+    *duplicates.OPERATIONS,
 )
 
 
@@ -86,6 +88,7 @@ RESOURCES: dict[str, str] = {
     "context": "Everything about one opportunity as one hashed packet.",
     "describe": "How to call one operation.",
     "doctor": "The engine's checks and settings.",
+    "duplicates": "Duplicate postings: the pairs worth deciding, and verdicts on them.",
     "insights": "Market figures: open roles, pay by level and country, trends, skills asked for.",
     "offer": "The person's own offer.",
     "opportunities": "Open roles: search, one posting, its history, similar and duplicate postings.",

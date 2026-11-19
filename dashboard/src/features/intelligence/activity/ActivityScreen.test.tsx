@@ -156,6 +156,45 @@ describe("ActivityScreen: the inspector", () => {
     expect(panel).toHaveTextContent(msg("activity-group-tracking-progress"));
   });
 
+  /* A batch of duplicate verdicts names each pair and says its state in the
+     reader's words. The stored status means different things on the two kinds
+     of pair: `confirmed` is the same role on a lineage pair, related roles on a
+     twin pair. */
+  it("says a batch of duplicate verdicts, and each pair's state by its kind", async () => {
+    const batch = entry({
+      id: 21,
+      operation: "duplicates.decide",
+      kind: "change",
+      action_group: "tuning_radar",
+      summary: "stored sentence",
+      subject: { topic: "duplicates.decided", decided: 2, left: 1 },
+      changes: [
+        { field: "lineage-12", before: "pending", after: "confirmed" },
+        { field: "twin-4", before: "pending", after: "confirmed" },
+        { field: "lineage-13", before: "pending", after: "left_for_you" },
+      ],
+    });
+    const onlyLeft = entry({
+      id: 20, operation: "duplicates.decide", kind: "change", action_group: "tuning_radar",
+      summary: "stored sentence", subject: { topic: "duplicates.decided", decided: 0, left: 3 },
+    });
+    vi.mocked(api.agentActivity).mockResolvedValue(page({ items: [batch, onlyLeft] }));
+    renderScreen();
+    await screen.findByText(range(1, 2));
+    const [both, left] = rows();
+    expect(both).toHaveTextContent(msg("activity-decided-and-left-duplicates", { decided: 2, left: 1 }));
+    expect(left).toHaveTextContent(msg("activity-left-duplicates", { left: 3 }));
+    expect(left).not.toHaveTextContent(msg("activity-decided-duplicates", { decided: 0 }));
+
+    const changed = within(inspector()).getByLabelText(msg("activity-what-changed"));
+    const pairRow = (id: string) => within(changed).getByText(msg("activity-field-pair", { id })).parentElement as HTMLElement;
+    expect(pairRow("12")).toHaveTextContent(msg("activity-pair-same"));
+    expect(pairRow("4")).toHaveTextContent(msg("activity-pair-related"));
+    expect(pairRow("13")).toHaveTextContent(msg("activity-pair-left-for-you"));
+    expect(within(pairRow("12")).getByText(msg("activity-pair-undecided")).closest("s")).not.toBeNull();
+    expect(changed).not.toHaveTextContent("confirmed");
+  });
+
   it("opens a link to an entry on an older page on that entry, not on the newest", async () => {
     const older = entry({
       id: 77, occurred_at: ago(72), operation: "recipes.draft.save", kind: "change",

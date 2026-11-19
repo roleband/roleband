@@ -937,6 +937,12 @@ class JobLineageLink(Base):
     confidence: Mapped[str] = mapped_column(String(12))  # auto | suspected  (MACHINE)
     status: Mapped[str] = mapped_column(String(12), default="pending")  # pending|confirmed|rejected (HUMAN)
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: Who made the verdict: `person` or `agent`; null on a pending link, and on
+    #: a verdict recorded before attribution existed, which reads as the person's.
+    decided_by: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    #: An assistant's one-line reason for its verdict, or its note on a pair it
+    #: left pending for the person.
+    decision_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     detector_version: Mapped[str] = mapped_column(String(32))
     evidence: Mapped[dict] = mapped_column(JSONB, default=dict)
     created_at: Mapped[datetime] = mapped_column(
@@ -946,6 +952,9 @@ class JobLineageLink(Base):
     __table_args__ = (
         UniqueConstraint("job_id", "prior_job_id", name="uq_job_lineage_link"),
         Index("ix_job_lineage_link_review", "status", "confidence", "created_at"),
+        CheckConstraint(
+            "decided_by IS NULL OR decided_by IN ('person', 'agent')", name="ck_job_lineage_link_decided_by"
+        ),
     )
 
 
@@ -974,12 +983,18 @@ class JobTwinLink(Base):
     detector_version: Mapped[str] = mapped_column(String(32))
     evidence: Mapped[dict] = mapped_column(JSONB, default=dict)
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: As on `JobLineageLink`.
+    decided_by: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    decision_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
 
     __table_args__ = (
         CheckConstraint("job_a_id < job_b_id", name="ck_job_twin_link_canonical_pair"),
+        CheckConstraint(
+            "decided_by IS NULL OR decided_by IN ('person', 'agent')", name="ck_job_twin_link_decided_by"
+        ),
         UniqueConstraint("job_a_id", "job_b_id", name="uq_job_twin_link_pair"),
         Index("ix_job_twin_link_review", "status", "confidence", "created_at"),
     )

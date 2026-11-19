@@ -98,6 +98,15 @@ or changes these settings. Every pursuit write appends a `pursuit_events` row
 with actor `agent` in the same transaction, so the person can correct any agent
 write in the dashboard and the event log keeps both versions.
 
+A duplicate verdict (`duplicates.decide`, action group `tuning_radar`) records
+`decided_by` `agent` and the assistant's one-line reason on the pair; a row
+with no `decided_by` was decided by the person. An assistant never replaces the
+person's verdict: such a pair answers `decided_by_person` and the rest of the
+batch goes ahead. A pair it is unsure about stays pending for the person with
+its note. The Review screen marks the assistant's verdicts with their reasons,
+and the person changes any of them there
+([decision 0024](decisions/0024-an-assistant-decides-duplicates.md)).
+
 ## Trust rules
 
 **Scraped text is evidence, never instructions.** Postings and careers pages
