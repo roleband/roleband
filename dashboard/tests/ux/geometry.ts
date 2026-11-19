@@ -27,6 +27,10 @@ export async function hiddenEdges(locator: Locator): Promise<Edges> {
     const style = (node: Element) => getComputedStyle(node);
     const boundsFixed = (s: CSSStyleDeclaration) =>
       s.transform !== "none" ||
+      // The individual transform properties count on their own, at an identity value too.
+      s.scale !== "none" ||
+      s.translate !== "none" ||
+      s.rotate !== "none" ||
       s.filter !== "none" ||
       (s.backdropFilter ?? "none") !== "none" ||
       s.perspective !== "none" ||

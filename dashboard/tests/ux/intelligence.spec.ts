@@ -784,6 +784,16 @@ test("the clipping check measures a scaled box as painted, and a body that clips
   expect(await hiddenEdges(page.locator("#scaled"))).toEqual({ left: 0, right: 25, top: 0, bottom: 0 });
   expect(await hiddenEdges(page.locator("#unscaled"))).toEqual({ left: 0, right: 50, top: 0, bottom: 0 });
 
+  // `scale: 1` changes nothing on screen but holds a fixed child, as `transform`
+  // does; with `scale: none` the same child is placed against the window.
+  await page.setContent(`
+    <div id="holder" style="width:100px;height:40px;overflow:hidden;scale:1">
+      <span id="fixed" style="position:fixed;left:80px;top:0;width:40px;height:20px">fixed</span>
+    </div>`);
+  expect(await hiddenEdges(page.locator("#fixed"))).toEqual({ left: 0, right: 20, top: 0, bottom: 0 });
+  await page.locator("#holder").evaluate((el) => ((el as HTMLElement).style.scale = "none"));
+  expect(await hiddenEdges(page.locator("#fixed"))).toEqual({ left: 0, right: 0, top: 0, bottom: 0 });
+
   // With the root's overflow hidden, the body's own does not reach the viewport.
   // Without a doctype the page is in quirks mode, where the body reports the
   // window's client width.
