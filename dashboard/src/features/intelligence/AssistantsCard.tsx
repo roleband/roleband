@@ -131,11 +131,13 @@ function tileView(app: App, state: AppState | undefined, now: number): {
   if (connection === "read_only") {
     return { line: aiAssistantsCardAppState({ state: "read-only", service, age: "" }), done: false, step: null };
   }
-  if (age) return { line: aiAssistantsCardAppState({ state: "used", service, age }), done: true, step: null };
+  const used = age ? aiAssistantsCardAppState({ state: "used", service, age }) : null;
   if (connection === "connected") {
-    return { line: aiAssistantsCardAppState({ state: "connected", service, age: "" }), done: true, step: null };
+    return { line: used ?? aiAssistantsCardAppState({ state: "connected", service, age: "" }), done: true, step: null };
   }
-  return { line: service, done: false, step: "connect" };
+  // A call made before the skill was removed, or without one: the call is a
+  // fact worth keeping, but the app is not set up, so Connect stays offered.
+  return { line: used ?? service, done: false, step: "connect" };
 }
 
 /** What the open door's app is asked to run first. */

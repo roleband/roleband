@@ -177,12 +177,15 @@ def _codex_read_only() -> bool:
 def _skill_state(host: Host) -> Literal["current", "outdated"] | None:
     """The installed skill: None when there is none, `outdated` when it is an
     unedited copy of an older version. An edited copy is the person's and
-    counts as current: `connect` never replaces it."""
+    counts as current: `connect` never replaces it, nor a link in its place."""
     directory = skill_dir(host)
+    path = directory / "SKILL.md"
     try:
-        present = (directory / "SKILL.md").read_bytes()
+        present = path.read_bytes()
     except OSError:
         return None
+    if path.is_symlink():
+        return "current"
     try:
         record = json.loads((directory / SKILL_RECORD).read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, ValueError):

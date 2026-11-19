@@ -137,6 +137,23 @@ def test_an_unedited_older_skill_reads_as_outdated_and_an_edited_one_does_not(ho
     assert connection(host) == "connected"
 
 
+@pytest.mark.parametrize("host", agent_hosts.HOSTS)
+def test_a_linked_skill_reads_as_current_since_connect_keeps_it(home, host, tmp_path):
+    _connect(host)
+    directory = agent_hosts.skill_dir(host)
+    _make_older(directory, edited=False)
+    # The link points at the very bytes the older record names, so only the link
+    # tells it apart from an unedited copy.
+    target = tmp_path / "my-skill.md"
+    target.write_bytes((directory / "SKILL.md").read_bytes())
+    (directory / "SKILL.md").unlink()
+    (directory / "SKILL.md").symlink_to(target)
+    assert connection(host) == "connected"
+    _connect(host)
+    assert (directory / "SKILL.md").is_symlink(), "connect keeps the link"
+    assert connection(host) == "connected"
+
+
 def test_a_host_whose_skill_was_deleted_reads_as_never_connected_whatever_its_settings_say(home):
     _connect("claude-code")
     (agent_hosts.skill_dir("claude-code") / "SKILL.md").unlink()

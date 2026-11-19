@@ -901,6 +901,21 @@ describe("assistants card", () => {
       expect(within(dialog).getByText("roleband connect claude-code --apply")).toBeInTheDocument();
     });
 
+    it("keeps an app's last call but offers Connect again once its skill is gone", async () => {
+      withApps([
+        { app: "claude-code", connection: null, last_call_at: ago(5) },
+        { app: "codex", connection: null, last_call_at: null },
+        { app: "other", connection: null, last_call_at: null },
+      ]);
+      mount();
+      const claude = await tile(msg("ai-assistants-card-app-claude-code"));
+      expect(claude).toHaveTextContent(
+        msg("ai-assistants-card-app-state", { state: "used", service: msg("ai-assistants-card-anthropic"), age: "5m ago" }),
+      );
+      expect(checked(claude)).toBeNull();
+      expect(within(claude).getByRole("button", { name: msg("ai-assistants-card-connect") })).toBeInTheDocument();
+    });
+
     it("names Codex's read-only mode and offers no button that cannot fix it", async () => {
       withApps([
         { app: "claude-code", connection: null, last_call_at: null },
