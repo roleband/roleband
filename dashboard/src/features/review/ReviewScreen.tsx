@@ -493,7 +493,7 @@ function SystemSimilarity({ item }: { item: LineageReviewItem }) {
     >
       <span>{duplicatesReviewScreenSystemSimilarity()}</span>
       {score !== null && <strong>{score}</strong>}
-      <InfoTip label={duplicatesReviewScreenAboutSystemSimilarity()}>
+      <InfoTip label={duplicatesReviewScreenAboutSystemSimilarity()} align="end">
         <span className="review-system-detail">
           <strong>{duplicatesProposedAs({ kind: link.proposal_kind })}</strong>
           {reasonsText(link.said).length > 0 && <span>{reasonsText(link.said).join(" · ")}</span>}

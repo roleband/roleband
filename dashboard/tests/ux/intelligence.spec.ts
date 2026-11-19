@@ -5,6 +5,7 @@
 import { expect, mockApi, mockGet, test } from "./fixtures";
 import type { CloudLLMState, LocalLLMState, LocalLLMTestResult, LocalServerControlResult, LocalServerStatus } from "../../src/api";
 import {
+  agentAccessFixture,
   cloudModelProfileFixture,
   jobFixture,
   jobListFixture,
@@ -14,6 +15,8 @@ import {
 } from "../../src/test/fixtures";
 import { installSettingsRoutes, intelligence, intelligenceFit, otherLocalModelProfile } from "./settingsHarness";
 import { msg } from "../../src/test/msg";
+import { bootPseudo } from "./pseudoScan";
+import { expectFullyVisible, hiddenEdges, laidOut, overlapping } from "./geometry";
 
 test.beforeEach(async ({ page }) => {
   await installSettingsRoutes(page);
@@ -668,6 +671,140 @@ test("a saved online service brings the egress switch and its own row", async ({
   await expect(
     capabilities.getByRole("button", { name: "Configure OpenAI production" }),
   ).toBeEnabled();
+});
+
+/* What a capability row is made of, as a person sees it: the switch, the mark,
+   the name and its line, each button, and the badge saying where it runs. */
+const CAPABILITY_PARTS = ".ui-switch-track, .intel-cap-mark, .intel-cap-name, .intel-cap-sub, button, .intel-origin";
+
+// Every kind of row at once: your own model (Stop and the gear), Apple
+// Intelligence (Test), the permission row (Add) and a saved service (Test and
+// the gear). The pseudo locale lengthens every label, as a translation does.
+for (const longest of [false, true]) {
+  test(`every capability row keeps its controls apart and in line${longest ? ", in the longest words" : ""}`, async ({
+    page,
+    isMobile,
+  }) => {
+    if (longest) await bootPseudo(page);
+    await mockGet(page, "/api/intelligence/cloud-models", (route) => route.fulfill({
+      json: { profiles: [{ ...cloudModelProfileFixture, id: "cloud-openai", name: "OpenAI production", enabled: true }] } satisfies CloudLLMState,
+    }));
+    await page.goto("/settings/intelligence");
+    const rows = page.locator(".intel-cap");
+    await expect(rows).toHaveCount(4);
+    await expect(rows.locator(".ui-btn-icon")).toHaveCount(2);
+
+    for (let i = 0; i < 4; i++) {
+      const row = rows.nth(i);
+      const parts = await laidOut(row, CAPABILITY_PARTS);
+      expect(overlapping(parts), `row ${i + 1}: parts on top of each other`).toEqual([]);
+      const box = (await row.boundingBox())!;
+      for (const part of parts) {
+        expect(part.left, `row ${i + 1}: ${part.what} starts inside the row`).toBeGreaterThanOrEqual(box.x - 0.5);
+        expect(part.right, `row ${i + 1}: ${part.what} ends inside the row`).toBeLessThanOrEqual(box.x + box.width + 0.5);
+      }
+    }
+
+    // On a desktop the rows read as one table: each kind of control keeps one
+    // place, whichever controls a row has.
+    if (isMobile) return;
+    const card = page.locator(".intel-card").filter({ has: rows.first() });
+    const edges = async (selector: string, edge: "left" | "right" | "centre") =>
+      (await laidOut(card, selector)).map((b) =>
+        Math.round(edge === "left" ? b.left : edge === "right" ? b.right : (b.left + b.right) / 2),
+      );
+    const one = (xs: number[], what: string) => expect(new Set(xs).size, `${what}: ${xs.join(", ")}`).toBe(1);
+    one(await edges(".intel-cap .ui-btn-strong", "right"), "text buttons end on one line");
+    one(await edges(".intel-cap .ui-btn-icon", "centre"), "gears stand in one column");
+    one(await edges(".intel-cap .intel-origin", "right"), "badges end on one line");
+    one(await edges(".intel-cap .intel-cap-name", "left"), "names start on one line");
+  });
+}
+
+test("an information tip near a dialog's edge is shown whole, and goes when the pointer leaves", async ({ page }) => {
+  await mockGet(page, "/api/intelligence/agents", (route) => route.fulfill({
+    json: { ...agentAccessFixture, enabled: true, allow_writes: true },
+  }));
+  await page.goto("/settings/intelligence");
+  await page.getByRole("button", { name: msg("ai-assistants-card-customize") }).click();
+  const customize = page.getByRole("dialog", { name: msg("ai-access-dialog-title") });
+  await expect(customize).toBeVisible();
+
+  const trigger = customize.getByRole("columnheader", { name: msg("ai-access-dialog-local-only") }).getByRole("button");
+  const tip = page.getByRole("tooltip").filter({ hasText: msg("ai-access-dialog-local-only-tip") });
+
+  await trigger.hover();
+  await expectFullyVisible(tip, "the Local only tip on hover");
+  // It still belongs to its mark: just below or above it, across its column.
+  const mark = (await trigger.boundingBox())!;
+  const shown = (await tip.boundingBox())!;
+  expect(shown.x).toBeLessThanOrEqual(mark.x + mark.width);
+  expect(shown.x + shown.width).toBeGreaterThanOrEqual(mark.x);
+  expect(Math.min(Math.abs(shown.y - (mark.y + mark.height)), Math.abs(mark.y - (shown.y + shown.height)))).toBeLessThan(12);
+
+  await customize.getByRole("heading", { name: msg("ai-access-dialog-title") }).hover();
+  await expect(tip).toBeHidden();
+
+  // The keyboard gets the same tip, as whole.
+  await trigger.focus();
+  await expectFullyVisible(tip, "the Local only tip on focus");
+  await customize.getByRole("button", { name: "Done" }).focus();
+  await expect(tip).toBeHidden();
+});
+
+test("the clipping check sees a box that cuts a child off, and what escapes it", async ({ page }) => {
+  await page.setContent(`
+    <div style="position:relative;width:200px;height:100px;overflow:auto;backdrop-filter:blur(1px)">
+      <span id="cut" style="position:absolute;left:150px;top:10px;width:100px;height:20px">cut</span>
+      <span id="top-layer" popover="manual" style="position:fixed;inset:auto;margin:0;left:150px;top:10px;width:100px;height:20px">top</span>
+    </div>
+    <div style="position:relative;width:200px;height:100px">
+      <div style="overflow:hidden;width:200px;height:100px">
+        <span id="placed-outside" style="position:absolute;left:150px;width:100px">out</span>
+      </div>
+    </div>`);
+  await page.locator("#top-layer").evaluate((el) => (el as HTMLElement).showPopover());
+  expect(await hiddenEdges(page.locator("#cut"))).toEqual({ left: 0, right: 50, top: 0, bottom: 0 });
+  expect(await hiddenEdges(page.locator("#top-layer"))).toEqual({ left: 0, right: 0, top: 0, bottom: 0 });
+  expect(await hiddenEdges(page.locator("#placed-outside"))).toEqual({ left: 0, right: 0, top: 0, bottom: 0 });
+});
+
+test("the clipping check measures a scaled box as painted, and a body that clips", async ({ page }) => {
+  // 200px scaled to half from its left edge paints 100px wide; a 200px child
+  // starting 50px in paints 100px from 25px in, so 25 painted pixels fall outside.
+  await page.setContent(`
+    <div style="position:relative;width:200px;height:100px;overflow:hidden;transform:scale(0.5);transform-origin:0 0">
+      <span id="scaled" style="position:absolute;left:50px;top:0;width:150px;height:20px">scaled</span>
+    </div>
+    <div style="position:relative;width:200px;height:100px;overflow:hidden">
+      <span id="unscaled" style="position:absolute;left:50px;top:0;width:200px;height:20px">unscaled</span>
+    </div>`);
+  expect(await hiddenEdges(page.locator("#scaled"))).toEqual({ left: 0, right: 0, top: 0, bottom: 0 });
+  await page.locator("#scaled").evaluate((el) => ((el as HTMLElement).style.width = "200px"));
+  expect(await hiddenEdges(page.locator("#scaled"))).toEqual({ left: 0, right: 25, top: 0, bottom: 0 });
+  expect(await hiddenEdges(page.locator("#unscaled"))).toEqual({ left: 0, right: 50, top: 0, bottom: 0 });
+
+  // `scale: 1` changes nothing on screen but holds a fixed child, as `transform`
+  // does; with `scale: none` the same child is placed against the window.
+  await page.setContent(`
+    <div id="holder" style="width:100px;height:40px;overflow:hidden;scale:1">
+      <span id="fixed" style="position:fixed;left:80px;top:0;width:40px;height:20px">fixed</span>
+    </div>`);
+  expect(await hiddenEdges(page.locator("#fixed"))).toEqual({ left: 0, right: 20, top: 0, bottom: 0 });
+  await page.locator("#holder").evaluate((el) => ((el as HTMLElement).style.scale = "none"));
+  expect(await hiddenEdges(page.locator("#fixed"))).toEqual({ left: 0, right: 0, top: 0, bottom: 0 });
+
+  // With the root's overflow hidden, the body's own does not reach the viewport.
+  // Without a doctype the page is in quirks mode, where the body reports the
+  // window's client width.
+  await page.setContent(`<!doctype html>
+    <style>html{overflow:hidden}body{margin:0;width:200px;overflow:hidden}</style>
+    <div id="wide" style="width:300px;height:20px">wide</div>`);
+  expect(await hiddenEdges(page.locator("#wide"))).toEqual({ left: 0, right: 100, top: 0, bottom: 0 });
+  await page.addStyleTag({ content: "html{overflow:visible}" });
+  expect(await hiddenEdges(page.locator("#wide")), "the body's overflow is the viewport's").toEqual({
+    left: 0, right: 0, top: 0, bottom: 0,
+  });
 });
 
 test("Intelligence types by rank: same-rank text never differs in colour or weight", async ({

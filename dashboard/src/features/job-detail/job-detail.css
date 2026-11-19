@@ -1117,26 +1117,11 @@
   margin-left: -1px;
 }
 
-/* The split label and its help mark sit on the header's first row, away from
-   its left edge, where a sentence anchored to the small mark would run off a
-   narrow screen. The sentence hangs from the header instead: right-aligned
-   to it, no wider than it, just below the row (18px mark, the 7px every
-   help mark keeps). `.pkg-head` is its containing block. */
+/* The split label and its help mark sit on the header's first row. */
 .pkg-split {
   display: inline-flex;
   flex: none;
   align-items: center;
-}
-
-.pkg-split .info-tip {
-  position: static;
-}
-
-.pkg-split .info-tip-popover {
-  top: calc(18px + 7px);
-  right: 0;
-  left: auto;
-  max-width: min(320px, 100%);
 }
 
 .pkg-note {

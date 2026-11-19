@@ -17,11 +17,6 @@
      at `label` with 0.1em tracking, which measures 118px; anything narrower
      wraps it onto two lines. */
   --intel-model-label-w: 124px;
-  /* The capability row's two trailing columns. Sized to the widest content
-     they must hold (Start + gear = 101px; "ON THIS COMPUTER" = 159px) so no
-     row can size them differently and knock the block out of alignment. */
-  --intel-cap-acts-w: 104px;
-  --intel-cap-origin-w: 160px;
   display: grid;
   gap: var(--app-space-5);
   font-family: var(--app-font-sans);
@@ -520,28 +515,39 @@
 
 /* ---- extended capabilities ----------------------------------------------- */
 
-/* Every row is the same five columns, and the last two are FIXED widths on
-   purpose: with `auto` each row sizes its own trailing columns, so the badges
-   and the action groups start at different x positions. Fixed columns are
-   what make the block read as one table instead of three rows that happen to
-   be stacked. Origin sits last: it is where the capability RUNS, the steadiest fact in the row, so it
-   belongs at the end of the line rather than between name and action. */
-.intel-cap {
+/* The card's columns belong to the list, not to each row: every row takes them
+   through `subgrid`, so one column is as wide as the widest thing any row puts
+   in it. Widths sized by hand to one label break when a longer label, a
+   translation or another font lands in them; sized from the content, a column
+   grows instead and the rows still line up. Each kind of control has its own
+   column (a text button, the gear, the badge), so a row without one leaves a
+   gap rather than shifting the rest. Origin sits last: it is where the
+   capability RUNS, the steadiest fact in the row. */
+.intel-caps {
   display: grid;
   grid-template-columns:
-    28px 40px minmax(0, 1fr)
-    var(--intel-cap-acts-w) var(--intel-cap-origin-w);
-  gap: 0 var(--app-space-3);
+    [switch] 28px [mark] 40px [text] minmax(0, 1fr)
+    [act] max-content [gear] max-content [origin] max-content [end];
+  column-gap: var(--app-space-3);
+}
+
+.intel-cap {
+  grid-column: switch / end;
+  display: grid;
+  grid-template-columns: subgrid;
   align-items: center;
   min-height: 64px;
   padding: var(--app-space-2) 0;
   border-top: 1px solid var(--app-border);
 }
 
-/* Right-aligned so the action's trailing edge and the badge's trailing edge
-   each land on one vertical line, whatever the label inside them. */
-.intel-cap .intel-cap-acts { justify-content: flex-end; }
-.intel-cap .intel-origin { justify-self: end; }
+.intel-cap > .ui-switch { grid-column: switch; }
+.intel-cap .intel-cap-mark { grid-column: mark; }
+.intel-cap .intel-cap-text { grid-column: text; }
+/* Right-aligned so text buttons end on one line whatever their labels. */
+.intel-cap .intel-cap-act { grid-column: act; justify-self: end; }
+.intel-cap .intel-cap-gear { grid-column: gear; }
+.intel-cap .intel-origin { grid-column: origin; justify-self: end; }
 
 .intel-cap:first-of-type { border-top: 0; }
 
@@ -586,15 +592,11 @@
   font-size: var(--app-type-meta);
 }
 
-.intel-cap .intel-cap-acts {
-  display: flex;
-  align-items: center;
-  gap: var(--app-space-1);
-}
-
-/* The built-in model's transient test result, below its row. */
+/* The built-in model's transient test result, below its row, from the name's
+   column to the card's edge. */
 .intel-result {
-  margin: 0 0 var(--app-space-2) 82px;
+  grid-column: text / end;
+  margin: 0 0 var(--app-space-2);
   padding: var(--app-space-3) var(--app-space-4);
   border: 1px solid var(--app-border-strong);
   border-radius: var(--app-radius-md);
@@ -820,9 +822,9 @@
 
 @media (max-width: 640px) {
   .intel-origin .intel-origin-to { display: none; }
-  .intel-cap {
-    grid-template-columns: 28px minmax(0, 1fr) auto;
-    grid-auto-flow: dense;
+  .intel-caps {
+    grid-template-columns:
+      [switch] 28px [text] minmax(0, 1fr) [act] max-content [gear] max-content [end];
   }
   .intel-cap .intel-cap-mark { display: none; }
   .intel-cap .intel-origin { display: none; }

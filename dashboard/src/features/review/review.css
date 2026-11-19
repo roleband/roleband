@@ -127,11 +127,6 @@
   vertical-align: 0;
 }
 
-.review-system-indicator .info-tip-popover {
-  right: 0;
-  left: auto;
-}
-
 .review-system-detail {
   display: flex;
   flex-direction: column;

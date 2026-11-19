@@ -390,7 +390,7 @@ export default function JobCompPanel({ job }: { job: Job }) {
             <span className={`split-src split-src-${pkg.split_source}${suspectLevel ? " split-src-suspect" : ""}`}>
               {SPLIT_LABEL[pkg.split_source]}
             </span>
-            <InfoTip label={roleJobCompPanelAboutTheSplit()}>
+            <InfoTip label={roleJobCompPanelAboutTheSplit()} hangFrom=".pkg-head" align="end">
               {suspectLevel
                 ? roleJobCompPanelThePostedBandDoesNot({ sPLIT_TITLE: String(SPLIT_TITLE[pkg.split_source]) })
                 : SPLIT_TITLE[pkg.split_source]}

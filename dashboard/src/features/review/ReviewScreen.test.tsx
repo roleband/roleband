@@ -1061,9 +1061,11 @@ describe("the review screens in the reader's language", () => {
     render(<ReviewScreen />);
 
     const similarity = await screen.findByRole("group", { name: new RegExp(msg("duplicates-review-screen-system-similarity")) });
+    await user.hover(within(similarity).getByRole("button"));
     const detail = within(similarity).getByRole("tooltip");
     expect(detail).toHaveTextContent(msg("duplicates-proposed-as", { kind: "duplicate" }));
     expect(detail).not.toHaveTextContent(/duplicate/);
+    await user.unhover(within(similarity).getByRole("button"));
 
     vi.mocked(api.lineageReview).mockResolvedValue({ total: 0, limit: 50, offset: 0, items: [] });
     await user.keyboard("d");
