@@ -948,6 +948,42 @@ describe("assistants card", () => {
       expect(allow).not.toBeChecked();
     });
 
+    it("drops a read a later read overtook, so the tile keeps the newer answer", async () => {
+      const apps = (connection: "connected" | null) => [
+        { app: "claude-code", connection, last_call_at: null },
+        { app: "codex", connection: null, last_call_at: null },
+        { app: "other", connection: null, last_call_at: null },
+      ] satisfies Apps;
+      withApps(apps(null));
+      mount();
+      const region = await card();
+      await waitFor(() =>
+        expect(within(region).getAllByRole("button", { name: msg("ai-assistants-card-connect") })[0]).toBeEnabled(),
+      );
+
+      // Two closes start two reads; the second answers first, after the command ran.
+      let first: (value: typeof agentAccessFixture) => void = () => undefined;
+      mocked.agentAccess
+        .mockReturnValueOnce(new Promise((resolve) => (first = resolve)))
+        .mockResolvedValueOnce({ ...agentAccessFixture, apps: apps("connected") });
+      for (let i = 0; i < 2; i++) {
+        await userEvent.click(
+          within(await tile(msg("ai-assistants-card-app-claude-code"))).getByRole("button", {
+            name: msg("ai-assistants-card-connect"),
+          }),
+        );
+        await userEvent.click(screen.getByRole("button", { name: msg("ai-assistants-card-done") }));
+        if (!i) await waitFor(() => expect(mocked.agentAccess).toHaveBeenCalledTimes(2));
+      }
+      const connected = msg("ai-assistants-card-app-state", {
+        state: "connected", service: msg("ai-assistants-card-anthropic"), age: "",
+      });
+      await waitFor(async () => expect(await tile(msg("ai-assistants-card-app-claude-code"))).toHaveTextContent(connected));
+
+      await act(async () => first({ ...agentAccessFixture, apps: apps(null) }));
+      expect(await tile(msg("ai-assistants-card-app-claude-code"))).toHaveTextContent(connected);
+    });
+
     it("ages a call a save brings back from the time of that save", async () => {
       vi.useFakeTimers({ toFake: ["Date"] });
       try {

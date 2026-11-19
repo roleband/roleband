@@ -172,13 +172,14 @@ export function AssistantsCard() {
     setState(next);
     setNow(Date.now());
   }, []);
-  // Counts the saves started. A read that a save started after answers with
-  // the access as it was before that save, so its answer is dropped.
-  const saves = useRef(0);
+  // Counts the requests started. A read answers only if nothing started after
+  // it: a later read saw newer files, and a save started or finished after it
+  // answers with the access as saved, which the read may predate.
+  const requests = useRef(0);
   const read = useCallback(() => {
-    const before = saves.current;
+    const ticket = ++requests.current;
     return api.agentAccess().then((next) => {
-      if (saves.current === before) loaded(next);
+      if (requests.current === ticket) loaded(next);
     });
   }, [loaded]);
 
@@ -195,11 +196,13 @@ export function AssistantsCard() {
   };
 
   const save = async (access: AgentAccessInput) => {
-    saves.current += 1;
+    requests.current += 1;
     setSaving(true);
     setError(null);
     try {
-      loaded(await api.setAgentAccess(access));
+      const next = await api.setAgentAccess(access);
+      requests.current += 1;
+      loaded(next);
     } catch (e) {
       setError(errorText(e));
     } finally {
