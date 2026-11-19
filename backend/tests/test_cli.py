@@ -399,6 +399,7 @@ class Reply:
 class Stub:
     reply: Reply = field(default_factory=Reply)
     requests: list[str] = field(default_factory=list)
+    headers: list[dict[str, str]] = field(default_factory=list)
 
     def __enter__(self) -> Stub:
         stub = self
@@ -406,6 +407,7 @@ class Stub:
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:  # noqa: N802 - http.server's name
                 stub.requests.append(self.path)
+                stub.headers.append(dict(self.headers.items()))
                 time.sleep(stub.reply.delay)
                 self.send_response(stub.reply.status)
                 self.send_header("Content-Type", stub.reply.content_type)
@@ -462,6 +464,29 @@ STATUS_DATA = {
     "trust": {"mode": "local_loopback", "verified": False},
     "access": {"enabled": True, "allow_writes": False},
 }
+
+
+@pytest.mark.parametrize(
+    ("env", "named"),
+    [
+        ({"CLAUDECODE": "1"}, "claude-code"),
+        ({"CODEX_THREAD_ID": "019a7c1e-thread"}, "codex"),
+        ({"CODEX_SANDBOX": "seatbelt"}, "codex"),
+        ({}, None),
+        ({"CLAUDECODE": "0"}, None),
+    ],
+    ids=["claude-code", "codex-thread", "codex-sandbox", "a-terminal", "claude-code-off"],
+)
+def test_a_call_names_the_host_it_runs_under_and_nothing_else(home, env, named):
+    """The host comes from the variable its command runner sets. A call with
+    none of them names no host: the engine files it under the other apps, and
+    no value the person's own terminal happens to hold is sent."""
+    with Stub(Reply(403, _envelope("status", ok=False, error=_failure()))) as stub:
+        home.contexts(current="dev", dev={"url": stub.url})
+        result = cli(home, "status", "--json", **env)
+    assert result.status == 4, result
+    sent = {name.lower(): value for name, value in stub.headers[-1].items()}
+    assert sent.get("x-roleband-host") == named
 
 
 @pytest.mark.parametrize("fmt", ["json", "human"])
@@ -687,13 +712,17 @@ def test_capabilities_answers_where_no_home_folder_can_be_found(monkeypatch):
     installed skill to look at."""
     from tracker.cli import connect
     from tracker.cli import main as cli_main
+    from tracker.platform import agent_hosts
 
     def no_home() -> Path:
         raise RuntimeError("Could not determine home directory.")
 
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
     monkeypatch.delenv("CODEX_HOME", raising=False)
-    monkeypatch.setattr(connect, "_home", no_home)
+    # The host folders are found where `agent_hosts` asks for the home folder.
+    monkeypatch.setattr(agent_hosts, "_home", no_home)
+    with pytest.raises(RuntimeError):
+        agent_hosts.claude_dir()
     assert connect.refresh_installed_skills() == []
     out = io.StringIO()
     status = cli_main.run(["capabilities", "--offline", "--json"], stdout=out, stderr=io.StringIO(), environ={})

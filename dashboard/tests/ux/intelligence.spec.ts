@@ -316,7 +316,7 @@ test("assistants: one switch lets apps connect, and Customize holds back the res
 
   // Nothing is reachable until the gate is on, and that holds for every tile,
   // the open door included.
-  const setup = assistants.getByRole("button", { name: "Set up" });
+  const setup = assistants.getByRole("button", { name: msg("ai-assistants-card-connect") });
   await expect(setup).toHaveCount(3);
   for (let i = 0; i < 3; i++) {
     await expect(setup.nth(i)).toBeDisabled();
@@ -372,9 +372,9 @@ test("assistants: one switch lets apps connect, and Customize holds back the res
   await expect(customize).toBeHidden();
   await expect(assistants.getByText(msg("ai-assistants-card-not-shared", { list: msg("ai-access-dialog-offer") }))).toBeVisible();
 
-  // Set up is a dialog carrying the literal command, run once in a terminal.
+  // Connect is a dialog carrying the literal command, run once in a terminal.
   await setup.first().click();
-  const dialog = page.getByRole("dialog", { name: msg("ai-assistants-card-set-up-claude-code") });
+  const dialog = page.getByRole("dialog", { name: msg("ai-assistants-card-connect-claude-code") });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText("roleband connect claude-code --apply", { exact: true })).toBeVisible();
   await expect(dialog.getByText(msg("ai-assistants-card-run-this-once-in-a"), { exact: false })).toBeVisible();
@@ -384,13 +384,94 @@ test("assistants: one switch lets apps connect, and Customize holds back the res
 
   // The open door names no host's setup: the app runs `roleband` itself.
   await setup.nth(2).click();
-  const other = page.getByRole("dialog", { name: msg("ai-assistants-card-set-up-another-app") });
+  const other = page.getByRole("dialog", { name: msg("ai-assistants-card-connect-another-app") });
   await expect(other).toBeVisible();
   await expect(other.getByText(msg("ai-assistants-card-let-the-app-run-commands"), { exact: false })).toBeVisible();
   await expect(other.getByText("roleband capabilities", { exact: true })).toBeVisible();
   await expect(other.getByText(/roleband connect/)).toHaveCount(0);
   await other.getByRole("button", { name: "Done" }).click();
   await expect(other).toBeHidden();
+});
+
+test("assistants: a connected app shows its last call, and its Activity and gear sit in line", async ({
+  page,
+  isMobile,
+}) => {
+  const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+  await mockApi(page, ["GET", "PUT"], "/api/intelligence/agents", (route) => route.fulfill({
+    json: {
+      ...agentAccessFixture,
+      enabled: true,
+      allow_writes: true,
+      apps: [
+        // Mid-bucket, so the page's own clock reads the same "3h ago".
+        { app: "claude-code", connection: "connected", last_call_at: minutesAgo(180) },
+        { app: "codex", connection: "connected", last_call_at: null },
+        { app: "other", connection: null, last_call_at: null },
+      ],
+    },
+  }));
+  const requests: URL[] = [];
+  await mockGet(page, "/api/agent-activity?**", (route) => {
+    requests.push(new URL(route.request().url()));
+    return route.fulfill({ json: { items: [], next_cursor: null } });
+  });
+  await page.goto("/settings/intelligence");
+  const assistants = page.getByRole("region", { name: msg("ai-assistants-card-assistant-apps-2") });
+  const tile = (name: string) => assistants.locator(".intel-tile").filter({ hasText: name });
+  const claude = tile(msg("ai-assistants-card-app-claude-code"));
+  const codex = tile(msg("ai-assistants-card-app-codex-app"));
+  const other = tile(msg("ai-assistants-card-app-other-app"));
+
+  await expect(claude.getByText(msg("ai-assistants-card-app-state", {
+    state: "used", service: msg("ai-assistants-card-anthropic"), age: "3h ago",
+  }))).toBeVisible();
+  await expect(claude.getByRole("img", { name: msg("ai-assistants-card-connected") })).toBeVisible();
+  await expect(other.getByRole("img", { name: msg("ai-assistants-card-connected") })).toHaveCount(0);
+  // One Connect left on the card: the app that has nothing to show.
+  await expect(assistants.getByRole("button", { name: msg("ai-assistants-card-connect") })).toHaveCount(1);
+
+  const configure = (name: string) => msg("ai-capabilities-card-configure", { name });
+  for (const [box, name] of [[claude, msg("ai-assistants-card-app-claude-code")], [codex, msg("ai-assistants-card-app-codex-app")]] as const) {
+    const activity = box.getByRole("link", { name: msg("ai-assistants-card-app-activity", { app: name }) });
+    const gear = box.getByRole("button", { name: configure(name) });
+    await expect(activity).toBeVisible();
+    await expect(gear).toBeEnabled();
+    const [tileBox, textBox, activityBox, gearBox, checkBox, markBox] = await Promise.all([
+      box.boundingBox(),
+      box.locator(".intel-tile-state").boundingBox(),
+      activity.boundingBox(),
+      gear.boundingBox(),
+      box.getByRole("img", { name: msg("ai-assistants-card-connected") }).boundingBox(),
+      box.locator(".intel-tile-mark").boundingBox(),
+    ]);
+    // Both controls inside the tile, after its text, Activity before the gear,
+    // one height and one centre line: a pair, as Test and the gear are.
+    expect(activityBox!.x).toBeGreaterThanOrEqual(textBox!.x + textBox!.width - 0.5);
+    expect(gearBox!.x).toBeGreaterThanOrEqual(activityBox!.x + activityBox!.width);
+    expect(gearBox!.x + gearBox!.width).toBeLessThanOrEqual(tileBox!.x + tileBox!.width);
+    expect(Math.abs(activityBox!.height - gearBox!.height)).toBeLessThan(1);
+    expect(Math.abs(activityBox!.y + activityBox!.height / 2 - (gearBox!.y + gearBox!.height / 2))).toBeLessThan(1);
+    // The check sits on the mark's corner, inside the tile.
+    expect(checkBox!.x + checkBox!.width).toBeGreaterThan(markBox!.x + markBox!.width);
+    expect(checkBox!.y + checkBox!.height).toBeGreaterThan(markBox!.y + markBox!.height);
+    expect(checkBox!.x + checkBox!.width).toBeLessThan(tileBox!.x + tileBox!.width);
+  }
+  if (!isMobile) {
+    // The tiles keep one height whatever each one shows.
+    const heights = await Promise.all([claude, codex, other].map(async (box) => (await box.boundingBox())!.height));
+    expect(Math.max(...heights) - Math.min(...heights)).toBeLessThan(1);
+  }
+
+  // The gear reopens the command; Activity opens the list on this app alone.
+  await claude.getByRole("button", { name: configure(msg("ai-assistants-card-app-claude-code")) }).click();
+  const dialog = page.getByRole("dialog", { name: msg("ai-assistants-card-connect-claude-code") });
+  await expect(dialog.getByText("roleband connect claude-code --apply", { exact: true })).toBeVisible();
+  await dialog.getByRole("button", { name: "Done" }).click();
+  await claude.getByRole("link", { name: msg("ai-assistants-card-app-activity", { app: msg("ai-assistants-card-app-claude-code") }) }).click();
+  await expect(page).toHaveURL(/\/settings\/intelligence\/activity\?app=claude-code$/);
+  await expect(page.getByRole("button", { name: msg("ai-assistants-card-app-claude-code") })).toBeVisible();
+  await expect.poll(() => requests.at(-1)?.searchParams.get("host")).toBe("claude-code");
 });
 
 test("your own model: the probe decides the action, configuration is a dialog", async ({ page }) => {

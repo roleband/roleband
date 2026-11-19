@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import http.client
 import json
+import os
 import socket
 import threading
 import time
@@ -21,6 +22,7 @@ from urllib.parse import quote, urlencode
 from tracker.agents.operations.outcomes import compatible
 from tracker.cli.contexts import Context
 from tracker.cli.errors import ClientError
+from tracker.platform.agent_hosts import HOST_HEADER, running_host
 
 PREFIX = "/api/agent/v1"
 REQUEST_ID_HEADER = "X-RoleBand-Request-Id"
@@ -111,6 +113,8 @@ def send(
                     "Accept": "application/json",
                     "User-Agent": user_agent,
                     REQUEST_ID_HEADER: request_id,
+                    # The host this command runs under, for the person's activity list.
+                    **({HOST_HEADER: host} if (host := running_host(os.environ)) else {}),
                 },
             )
             response = connection.getresponse()

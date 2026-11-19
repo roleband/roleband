@@ -609,10 +609,10 @@ describe("assistants card", () => {
     const region = await card();
     // Three tiles: the two hosts `roleband connect` sets up plus the open
     // door, so the card may not imply only two products can connect.
-    const setup = within(region).getAllByRole("button", { name: msg("ai-assistants-card-set-up") });
-    expect(setup).toHaveLength(3);
+    const connect = within(region).getAllByRole("button", { name: msg("ai-assistants-card-connect") });
+    expect(connect).toHaveLength(3);
     expect(within(region).getByText(msg("ai-assistants-card-app-other-app"))).toBeInTheDocument();
-    for (const button of setup) expect(button).toBeDisabled();
+    for (const button of connect) expect(button).toBeDisabled();
     // One switch, not two: changes are not a second consent.
     expect(within(region).getAllByRole("checkbox")).toHaveLength(1);
     expect(within(region).getByText(msg("ai-assistants-card-what-apps-do"))).toBeInTheDocument();
@@ -623,7 +623,7 @@ describe("assistants card", () => {
     // keeps whatever the person held back in Customize.
     expect(mocked.setAgentAccess).toHaveBeenCalledWith({ enabled: true, allow_writes: true });
     await waitFor(() => {
-      expect(within(region).getAllByRole("button", { name: msg("ai-assistants-card-set-up") })[0]).toBeEnabled();
+      expect(within(region).getAllByRole("button", { name: msg("ai-assistants-card-connect") })[0]).toBeEnabled();
     });
     // Once on with nothing held back, the last line says nothing at all.
     expect(within(region).queryByText(msg("ai-assistants-card-everything-shared"))).toBeNull();
@@ -813,11 +813,11 @@ describe("assistants card", () => {
     });
     mount();
     const card = await screen.findByRole("region", { name: msg("ai-assistants-card-assistant-apps-2") });
-    const [claude, codex, other] = within(card).getAllByRole("button", { name: msg("ai-assistants-card-set-up") });
+    const [claude, codex, other] = within(card).getAllByRole("button", { name: msg("ai-assistants-card-connect") });
     await waitFor(() => expect(claude).toBeEnabled());
 
     await userEvent.click(claude);
-    let dialog = screen.getByRole("dialog", { name: msg("ai-assistants-card-set-up-claude-code") });
+    let dialog = screen.getByRole("dialog", { name: msg("ai-assistants-card-connect-claude-code") });
     // The engine's string, not one the card spells itself, and never another host's.
     expect(within(dialog).getByText("roleband connect claude-code --apply --from-engine")).toBeInTheDocument();
     expect(within(dialog).queryByText(/connect codex/)).toBeNull();
@@ -825,16 +825,293 @@ describe("assistants card", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: msg("ai-assistants-card-done") }));
 
     await userEvent.click(codex);
-    dialog = screen.getByRole("dialog", { name: msg("ai-assistants-card-set-up-the-codex-app") });
+    dialog = screen.getByRole("dialog", { name: msg("ai-assistants-card-connect-the-codex-app") });
     expect(within(dialog).getByText("roleband connect codex --apply --from-engine")).toBeInTheDocument();
     expect(within(dialog).queryByText(/connect claude-code/)).toBeNull();
     await userEvent.click(within(dialog).getByRole("button", { name: msg("ai-assistants-card-done") }));
 
     await userEvent.click(other);
-    dialog = screen.getByRole("dialog", { name: msg("ai-assistants-card-set-up-another-app") });
+    dialog = screen.getByRole("dialog", { name: msg("ai-assistants-card-connect-another-app") });
     expect(within(dialog).getByText("roleband capabilities")).toBeInTheDocument();
     expect(within(dialog).getByText(msg("ai-assistants-card-let-the-app-run-commands"), { exact: false })).toBeInTheDocument();
     expect(within(dialog).queryByText(/roleband connect/)).toBeNull();
+  });
+
+  describe("each app's tile", () => {
+    const MINUTE = 60_000;
+    // Half a minute into the bucket, so a slow render still reads "5m ago".
+    const ago = (minutes: number) => new Date(Date.now() - (minutes + 0.5) * MINUTE).toISOString();
+    type Apps = typeof agentAccessFixture.apps;
+    const withApps = (apps: Apps) => mocked.agentAccess.mockResolvedValue({ ...agentAccessFixture, enabled: true, apps });
+    /** A tile, found by the app name a reader sees on it. */
+    const tile = async (name: string) =>
+      (await within(await card()).findByText(name)).closest(".intel-tile") as HTMLElement;
+    const checked = (element: HTMLElement) => within(element).queryByRole("img", { name: msg("ai-assistants-card-connected") });
+
+    it("shows a connected app's last call, a check, and its Activity and gear in place of Connect", async () => {
+      withApps([
+        { app: "claude-code", connection: "connected", last_call_at: ago(5) },
+        { app: "codex", connection: "connected", last_call_at: null },
+        { app: "other", connection: null, last_call_at: null },
+      ]);
+      mount();
+
+      const claude = await tile(msg("ai-assistants-card-app-claude-code"));
+      // The stronger fact replaces "connected"; the two never stack.
+      expect(claude).toHaveTextContent(
+        msg("ai-assistants-card-app-state", { state: "used", service: msg("ai-assistants-card-anthropic"), age: "5m ago" }),
+      );
+      expect(claude).not.toHaveTextContent(/· connected/);
+      expect(checked(claude)).not.toBeNull();
+      const activity = within(claude).getByRole("link", {
+        name: msg("ai-assistants-card-app-activity", { app: msg("ai-assistants-card-app-claude-code") }),
+      });
+      expect(activity).toHaveAttribute("href", "/settings/intelligence/activity?app=claude-code");
+      expect(activity).toHaveTextContent(msg("ai-assistants-card-activity"));
+      expect(within(claude).queryByRole("button", { name: msg("ai-assistants-card-connect") })).toBeNull();
+
+      const codex = await tile(msg("ai-assistants-card-app-codex-app"));
+      expect(codex).toHaveTextContent(
+        msg("ai-assistants-card-app-state", { state: "connected", service: msg("ai-assistants-card-openai"), age: "" }),
+      );
+      expect(checked(codex)).not.toBeNull();
+
+      // The control: an app with nothing to show keeps Connect and wears no check.
+      const other = await tile(msg("ai-assistants-card-app-other-app"));
+      expect(other).toHaveTextContent(msg("ai-assistants-card-any-app-that-can-run-commands"));
+      expect(checked(other)).toBeNull();
+      expect(within(other).getByRole("button", { name: msg("ai-assistants-card-connect") })).toBeEnabled();
+      expect(within(other).queryByRole("link")).toBeNull();
+    });
+
+    it("reopens a connected app's command from its gear", async () => {
+      withApps([
+        { app: "claude-code", connection: "connected", last_call_at: null },
+        { app: "codex", connection: null, last_call_at: null },
+        { app: "other", connection: null, last_call_at: null },
+      ]);
+      mount();
+      const claude = await tile(msg("ai-assistants-card-app-claude-code"));
+      const gear = within(claude).getByRole("button", {
+        name: msg("ai-capabilities-card-configure", { name: msg("ai-assistants-card-app-claude-code") }),
+      });
+      await waitFor(() => expect(gear).toBeEnabled());
+      await userEvent.click(gear);
+      const dialog = screen.getByRole("dialog", { name: msg("ai-assistants-card-connect-claude-code") });
+      expect(within(dialog).getByText("roleband connect claude-code --apply")).toBeInTheDocument();
+    });
+
+    it("keeps an app's last call but offers Connect again once its skill is gone", async () => {
+      withApps([
+        { app: "claude-code", connection: null, last_call_at: ago(5) },
+        { app: "codex", connection: null, last_call_at: null },
+        { app: "other", connection: null, last_call_at: null },
+      ]);
+      mount();
+      const claude = await tile(msg("ai-assistants-card-app-claude-code"));
+      expect(claude).toHaveTextContent(
+        msg("ai-assistants-card-app-state", { state: "used", service: msg("ai-assistants-card-anthropic"), age: "5m ago" }),
+      );
+      expect(checked(claude)).toBeNull();
+      expect(within(claude).getByRole("button", { name: msg("ai-assistants-card-connect") })).toBeInTheDocument();
+    });
+
+    it("names Codex's read-only mode and offers no button that cannot fix it", async () => {
+      withApps([
+        { app: "claude-code", connection: null, last_call_at: null },
+        { app: "codex", connection: "read_only", last_call_at: ago(5) },
+        { app: "other", connection: null, last_call_at: null },
+      ]);
+      mount();
+      const codex = await tile(msg("ai-assistants-card-app-codex-app"));
+      // The block outranks the last call: the call was made before the mode changed.
+      expect(codex).toHaveTextContent(
+        msg("ai-assistants-card-app-state", { state: "read-only", service: msg("ai-assistants-card-openai"), age: "" }),
+      );
+      expect(checked(codex)).toBeNull();
+      expect(within(codex).queryByRole("button", { name: msg("ai-assistants-card-connect") })).toBeNull();
+      expect(within(codex).queryByRole("button", { name: msg("ai-assistants-card-update") })).toBeNull();
+      expect(
+        within(codex).getByRole("button", {
+          name: msg("ai-capabilities-card-configure", { name: msg("ai-assistants-card-app-codex-app") }),
+        }),
+      ).toBeInTheDocument();
+    });
+
+    it("drops a read that a save started after, so the switch keeps what was saved", async () => {
+      const apps = [
+        { app: "claude-code", connection: null, last_call_at: null },
+        { app: "codex", connection: null, last_call_at: null },
+        { app: "other", connection: null, last_call_at: null },
+      ] satisfies Apps;
+      withApps(apps);
+      mount();
+      const region = await card();
+      const allow = within(region).getByLabelText(msg("ai-assistants-card-allow-assistant-apps-to-connect"));
+      await waitFor(() => expect(allow).toBeChecked());
+
+      // The read the dialog's close starts answers late, with access still on.
+      let answer: (value: typeof agentAccessFixture) => void = () => undefined;
+      mocked.agentAccess.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+      mocked.setAgentAccess.mockResolvedValue({ ...agentAccessFixture, enabled: false, allow_writes: false, apps });
+      await userEvent.click(within(region).getAllByRole("button", { name: msg("ai-assistants-card-connect") })[0]);
+      await userEvent.click(screen.getByRole("button", { name: msg("ai-assistants-card-done") }));
+      await userEvent.click(allow);
+      await waitFor(() => expect(allow).not.toBeChecked());
+
+      await act(async () => answer({ ...agentAccessFixture, enabled: true, apps }));
+      expect(allow).not.toBeChecked();
+    });
+
+    it("drops a read a later read overtook, so the tile keeps the newer answer", async () => {
+      const apps = (connection: "connected" | null) => [
+        { app: "claude-code", connection, last_call_at: null },
+        { app: "codex", connection: null, last_call_at: null },
+        { app: "other", connection: null, last_call_at: null },
+      ] satisfies Apps;
+      withApps(apps(null));
+      mount();
+      const region = await card();
+      await waitFor(() =>
+        expect(within(region).getAllByRole("button", { name: msg("ai-assistants-card-connect") })[0]).toBeEnabled(),
+      );
+
+      // Two closes start two reads; the second answers first, after the command ran.
+      let first: (value: typeof agentAccessFixture) => void = () => undefined;
+      mocked.agentAccess
+        .mockReturnValueOnce(new Promise((resolve) => (first = resolve)))
+        .mockResolvedValueOnce({ ...agentAccessFixture, apps: apps("connected") });
+      for (let i = 0; i < 2; i++) {
+        await userEvent.click(
+          within(await tile(msg("ai-assistants-card-app-claude-code"))).getByRole("button", {
+            name: msg("ai-assistants-card-connect"),
+          }),
+        );
+        await userEvent.click(screen.getByRole("button", { name: msg("ai-assistants-card-done") }));
+        if (!i) await waitFor(() => expect(mocked.agentAccess).toHaveBeenCalledTimes(2));
+      }
+      const connected = msg("ai-assistants-card-app-state", {
+        state: "connected", service: msg("ai-assistants-card-anthropic"), age: "",
+      });
+      await waitFor(async () => expect(await tile(msg("ai-assistants-card-app-claude-code"))).toHaveTextContent(connected));
+
+      await act(async () => first({ ...agentAccessFixture, apps: apps(null) }));
+      expect(await tile(msg("ai-assistants-card-app-claude-code"))).toHaveTextContent(connected);
+    });
+
+    it("ages a call a save brings back from the time of that save", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      try {
+        const start = new Date("2026-11-19T10:00:00Z").getTime();
+        vi.setSystemTime(start);
+        const apps = (last_call_at: string | null) => [
+          { app: "claude-code", connection: "connected", last_call_at },
+          { app: "codex", connection: null, last_call_at: null },
+          { app: "other", connection: null, last_call_at: null },
+        ] satisfies Apps;
+        withApps(apps(null));
+        mount();
+        const region = await card();
+        const allow = within(region).getByLabelText(msg("ai-assistants-card-allow-assistant-apps-to-connect"));
+        await waitFor(() => expect(allow).toBeChecked());
+
+        // An hour on, the app called 20 minutes ago, and a save returns that call.
+        vi.setSystemTime(start + 60 * 60_000);
+        mocked.setAgentAccess.mockResolvedValue({
+          ...agentAccessFixture, enabled: false, allow_writes: false,
+          apps: apps(new Date(start + 40 * 60_000).toISOString()),
+        });
+        await userEvent.click(allow);
+        await waitFor(async () =>
+          expect(await tile(msg("ai-assistants-card-app-claude-code"))).toHaveTextContent(
+            msg("ai-assistants-card-app-state", { state: "used", service: msg("ai-assistants-card-anthropic"), age: "20m ago" }),
+          ),
+        );
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("reads the apps again when the connect dialog closes, and keeps the tiles if that read fails", async () => {
+      const none = { app: "claude-code", connection: null, last_call_at: null } as const;
+      withApps([none, { app: "codex", connection: null, last_call_at: null }, { app: "other", connection: null, last_call_at: null }]);
+      mount();
+      const connect = within(await tile(msg("ai-assistants-card-app-claude-code"))).getByRole("button", {
+        name: msg("ai-assistants-card-connect"),
+      });
+      await waitFor(() => expect(connect).toBeEnabled());
+
+      // The read after a close fails: the tile still offers Connect.
+      mocked.agentAccess.mockRejectedValueOnce(new Error("engine restarting"));
+      await userEvent.click(connect);
+      await userEvent.click(screen.getByRole("button", { name: msg("ai-assistants-card-done") }));
+      await waitFor(() => expect(mocked.agentAccess).toHaveBeenCalledTimes(2));
+      expect(checked(await tile(msg("ai-assistants-card-app-claude-code")))).toBeNull();
+      expect(screen.queryByRole("alert")).toBeNull();
+
+      // The person ran the command while the dialog was open; Done shows it connected.
+      withApps([
+        { ...none, connection: "connected" },
+        { app: "codex", connection: null, last_call_at: null },
+        { app: "other", connection: null, last_call_at: null },
+      ]);
+      await userEvent.click(connect);
+      await userEvent.click(screen.getByRole("button", { name: msg("ai-assistants-card-done") }));
+      await waitFor(async () => expect(checked(await tile(msg("ai-assistants-card-app-claude-code")))).not.toBeNull());
+    });
+
+    it("names the one step an app needs, and the other apps once any has called", async () => {
+      withApps([
+        { app: "claude-code", connection: "outdated", last_call_at: ago(5) },
+        { app: "codex", connection: "rule_missing", last_call_at: ago(5) },
+        { app: "other", connection: null, last_call_at: ago(180) },
+      ]);
+      mount();
+
+      // An older skill still works: the check stays, and the step is Update.
+      const claude = await tile(msg("ai-assistants-card-app-claude-code"));
+      expect(claude).toHaveTextContent(
+        msg("ai-assistants-card-app-state", { state: "outdated", service: msg("ai-assistants-card-anthropic"), age: "" }),
+      );
+      expect(checked(claude)).not.toBeNull();
+      expect(within(claude).getByRole("button", { name: msg("ai-assistants-card-update") })).toBeInTheDocument();
+      expect(within(claude).queryByRole("link")).toBeNull();
+
+      // A removed rule is what the person can act on, so it wins over a recent call.
+      const codex = await tile(msg("ai-assistants-card-app-codex-app"));
+      expect(codex).toHaveTextContent(
+        msg("ai-assistants-card-app-state", { state: "rule-missing", service: msg("ai-assistants-card-openai"), age: "" }),
+      );
+      expect(checked(codex)).toBeNull();
+      await userEvent.click(within(codex).getByRole("button", { name: msg("ai-assistants-card-connect") }));
+      expect(screen.getByRole("dialog", { name: msg("ai-assistants-card-connect-the-codex-app") })).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: msg("ai-assistants-card-done") }));
+
+      const other = await tile(msg("ai-assistants-card-app-other-app"));
+      expect(other).toHaveTextContent(msg("ai-assistants-card-other-used", { age: "3h ago" }));
+      expect(checked(other)).not.toBeNull();
+      expect(within(other).getByRole("link", {
+        name: msg("ai-assistants-card-app-activity", { app: msg("ai-assistants-card-app-other-app") }),
+      })).toHaveAttribute("href", "/settings/intelligence/activity?app=other");
+    });
+
+    it("keeps a connected app's gear out of reach while apps may not connect, and its Activity open", async () => {
+      mocked.agentAccess.mockResolvedValue({
+        ...agentAccessFixture,
+        apps: [
+          { app: "claude-code", connection: "connected", last_call_at: ago(5) },
+          { app: "codex", connection: null, last_call_at: null },
+          { app: "other", connection: null, last_call_at: null },
+        ],
+      });
+      mount();
+      const claude = await tile(msg("ai-assistants-card-app-claude-code"));
+      expect(within(claude).getByRole("button", {
+        name: msg("ai-capabilities-card-configure", { name: msg("ai-assistants-card-app-claude-code") }),
+      })).toBeDisabled();
+      // What an app already did stays readable after the switch goes off.
+      expect(within(claude).getByRole("link")).toHaveAttribute("href", "/settings/intelligence/activity?app=claude-code");
+    });
   });
 });
 

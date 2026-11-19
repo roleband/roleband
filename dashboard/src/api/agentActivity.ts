@@ -17,12 +17,16 @@ export type ActivityPage = Schemas["ActivityPageResponse"];
 export type ActivityKind = ActivityEntry["kind"];
 /** A data category slug, as the list filters by it. */
 export type ActivityCategory = NonNullable<ActivityQuery["category"]>;
+/** The app a call ran under: a host `roleband connect` sets up, or `other`. */
+export type ActivityApp = NonNullable<ActivityQuery["host"]>;
 
 export interface ActivityParams {
   q?: string | null;
   kind?: "all" | ActivityKind;
   /** The entries that read this category, or asked for it. */
   category?: ActivityCategory | null;
+  /** The entries one app made. */
+  host?: ActivityApp | null;
   /** ISO instants: `since` inclusive, `until` exclusive. */
   since?: string | null;
   until?: string | null;

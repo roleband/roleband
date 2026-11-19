@@ -749,6 +749,12 @@ export const agentAccessFixture: AgentAccessState = {
     { host: "claude-code", command: "roleband connect claude-code --apply" },
     { host: "codex", command: "roleband connect codex --apply" },
   ],
+  // Never connected and never called: every tile offers Connect.
+  apps: [
+    { app: "claude-code", connection: null, last_call_at: null },
+    { app: "codex", connection: null, last_call_at: null },
+    { app: "other", connection: null, last_call_at: null },
+  ],
 };
 
 /** A saved oMLX connection as the local-model routes serve it: the default

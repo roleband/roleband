@@ -44,8 +44,6 @@ ai-aim-line-add-your-aim = { $choice ->
 ## features/intelligence/AssistantsCard.tsx
 # kind=heading
 ai-assistants-card-assistant-apps = Assistant apps
-# kind=button wording=as-is
-ai-assistants-card-set-up = Set up
 # kind=label wording=as-is
 ai-assistants-card-allow-assistant-apps-to-connect = Allow assistant apps to connect
 # kind=sentence wording=as-is
@@ -56,16 +54,10 @@ ai-assistants-card-let-the-app-run-commands = Let the app run commands, then ask
 ai-assistants-card-done = Done
 # kind=label wording=as-is
 ai-assistants-card-anthropic = Anthropic
-# kind=label
-ai-assistants-card-set-up-claude-code = Set up Claude Code
 # kind=label wording=as-is
 ai-assistants-card-openai = OpenAI
-# kind=label wording=as-is
-ai-assistants-card-set-up-the-codex-app = Set up the Codex app
 # kind=status note="The Other app tile's second line, under its name; the other tiles show a company name here"
 ai-assistants-card-any-app-that-can-run-commands = Any app that can run commands
-# kind=label
-ai-assistants-card-set-up-another-app = Set up another app
 # kind=aria
 ai-assistants-card-assistant-apps-2 = Assistant apps
 # kind=label wording=as-is
@@ -527,6 +519,31 @@ ai-assistants-card-read-only = Apps only read.
 ai-assistants-card-customize = Customize
 # kind=link note="Opens the screen listing each read, change and refusal by assistant apps"
 ai-assistants-card-activity = Activity
+# kind=button note="An app tile's action while the app is not connected, or its settings no longer let it run commands without asking"
+ai-assistants-card-connect = Connect
+# kind=button note="An app tile's action while the instructions installed for the app are older than this version's"
+ai-assistants-card-update = Update
+# kind=heading note="The dialog with the command that connects Claude Code"
+ai-assistants-card-connect-claude-code = Connect Claude Code
+# kind=heading note="The dialog with the command that connects the Codex app"
+ai-assistants-card-connect-the-codex-app = Connect the Codex app
+# kind=heading note="The dialog with the first command any other app runs"
+ai-assistants-card-connect-another-app = Connect another app
+# kind=status note="An app tile's second line: the company that makes it, then what the app's own settings say. $age is already worded, such as 5m ago or just now. Without a state, the company alone"
+ai-assistants-card-app-state = { $state ->
+    [connected] { $service } · connected
+    [used] { $service } · used { $age }
+    [outdated] { $service } · update available
+    [rule-missing] { $service } · asks before each command
+    [read-only] { $service } · blocked by read-only mode
+   *[none] { $service }
+}
+# kind=status note="The Other app tile's second line once any other app has run a command. $age is already worded, such as 5m ago or just now"
+ai-assistants-card-other-used = Used { $age }
+# kind=aria note="The check on the icon of an app that is connected or has run a command"
+ai-assistants-card-connected = Connected
+# kind=aria note="An app tile's Activity button: the Activity screen, showing only this app's entries"
+ai-assistants-card-app-activity = { $app } activity
 
 ## features/intelligence/AgentAccessDialog.tsx
 # kind=heading

@@ -19,17 +19,13 @@ ai-aim-line-add-your-aim = { $choice ->
 
 ## features/intelligence/AssistantsCard.tsx
 ai-assistants-card-assistant-apps = 助手应用
-ai-assistants-card-set-up = 设置
 ai-assistants-card-allow-assistant-apps-to-connect = 允许助手应用连接
 ai-assistants-card-run-this-once-in-a = 在终端中运行一次，然后重启应用。
 ai-assistants-card-let-the-app-run-commands = 允许该应用运行命令，然后让它运行这条命令。
 ai-assistants-card-done = 完成
 ai-assistants-card-anthropic = Anthropic
-ai-assistants-card-set-up-claude-code = 设置 Claude Code
 ai-assistants-card-openai = OpenAI
-ai-assistants-card-set-up-the-codex-app = 设置 Codex 应用
 ai-assistants-card-any-app-that-can-run-commands = 任何能运行命令的应用
-ai-assistants-card-set-up-another-app = 设置其他应用
 ai-assistants-card-assistant-apps-2 = 助手应用
 ai-assistants-card-allow-assistant-apps-to-connect-2 = 先允许助手应用连接
 ai-assistants-card-off-nothing-leaves-this-computer = { $choice ->
@@ -300,6 +296,22 @@ ai-assistants-card-changes-off = 已关闭的更改：{ $list }。
 ai-assistants-card-read-only = 应用只能读取。
 ai-assistants-card-customize = 自定义
 ai-assistants-card-activity = 活动记录
+ai-assistants-card-connect = 连接
+ai-assistants-card-update = 更新
+ai-assistants-card-connect-claude-code = 连接 Claude Code
+ai-assistants-card-connect-the-codex-app = 连接 Codex 应用
+ai-assistants-card-connect-another-app = 连接其他应用
+ai-assistants-card-app-state = { $state ->
+    [connected] { $service } · 已连接
+    [used] { $service } · { $age }使用过
+    [outdated] { $service } · 有可用更新
+    [rule-missing] { $service } · 每条命令前都会询问
+    [read-only] { $service } · 被只读模式阻止
+   *[none] { $service }
+}
+ai-assistants-card-other-used = { $age }使用过
+ai-assistants-card-connected = 已连接
+ai-assistants-card-app-activity = { $app } 的活动记录
 ai-access-dialog-title = 自定义应用可获取的内容
 ai-access-dialog-apply-at-once = 更改会立即生效。
 ai-access-dialog-data = 应用读取的数据

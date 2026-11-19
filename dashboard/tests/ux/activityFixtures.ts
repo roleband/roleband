@@ -1,6 +1,7 @@
 /* The Activity screen's list, as `/api/agent-activity` answers it: a full
    first page over three days, led by a change, a refusal and a read, and the
-   cursor of an older page. Times count back from today's local noon, not
+   cursor of an older page, whose row was recorded before calls named
+   their app. Times count back from today's local noon, not
    from the wall clock, so the first day is today at any hour of the run. */
 
 import type { ActivityEntry, ActivityPage } from "../../src/api/agentActivity";
@@ -13,7 +14,7 @@ const todayNoon = () => new Date(new Date().setHours(12, 0, 0, 0)).getTime();
 export function activityPage(now = todayNoon()): ActivityPage {
   const lead: ActivityEntry[] = [
     {
-      id: 500, occurred_at: minutesAgo(1, now), operation: "pursuits.patch", kind: "change",
+      id: 500, occurred_at: minutesAgo(1, now), operation: "pursuits.patch", kind: "change", host: "claude-code",
       categories: ["private_pursuit", "public_posting"], action_group: "tracking_progress", refusal: null,
       summary: "Moved Design Lead at contoso to interviewing",
       subject: { topic: "pursuit.moved", title: "Design Lead", company: "contoso", stage: "interviewing" },
@@ -23,14 +24,14 @@ export function activityPage(now = todayNoon()): ActivityPage {
       ],
     },
     {
-      id: 499, occurred_at: minutesAgo(2, now), operation: "offer.get", kind: "refused",
+      id: 499, occurred_at: minutesAgo(2, now), operation: "offer.get", kind: "refused", host: "codex",
       categories: ["offer"], action_group: null, refusal: "category_disabled",
       summary: "Asked for your offer", subject: { topic: "refused.category", category: "offer" }, changes: [],
     },
   ];
   // Reads spread back over today, yesterday and the day before.
   const reads: ActivityEntry[] = Array.from({ length: 48 }, (_, n) => ({
-    id: 498 - n, occurred_at: minutesAgo(3 + n * 60, now), operation: "opportunities.search", kind: "read",
+    id: 498 - n, occurred_at: minutesAgo(3 + n * 60, now), operation: "opportunities.search", kind: "read", host: "claude-code",
     categories: ["public_posting", "market_statistic"], action_group: null, refusal: null,
     summary: `Read ${n + 1} postings`, subject: { topic: "read.public_posting", count: n + 1 }, changes: [],
   }));
@@ -39,7 +40,7 @@ export function activityPage(now = todayNoon()): ActivityPage {
 
 export const olderActivityPage: ActivityPage = {
   items: [{
-    id: 1, occurred_at: "2026-10-01T09:00:00Z", operation: "recipes.draft.save", kind: "change",
+    id: 1, occurred_at: "2026-10-01T09:00:00Z", operation: "recipes.draft.save", kind: "change", host: null,
     categories: ["public_posting"], action_group: null, refusal: null,
     summary: "Drafted a recipe for careers-fabrikam",
     subject: { topic: "recipe.drafted", recipe: "careers-fabrikam" },

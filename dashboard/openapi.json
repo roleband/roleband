@@ -46,6 +46,22 @@
       "title": "Changes",
       "type": "array"
      },
+     "host": {
+      "anyOf": [
+       {
+        "enum": [
+         "claude-code",
+         "codex",
+         "other"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Host"
+     },
      "id": {
       "title": "Id",
       "type": "integer"
@@ -102,7 +118,8 @@
      "refusal",
      "summary",
      "subject",
-     "changes"
+     "changes",
+     "host"
     ],
     "title": "ActivityEntry",
     "type": "object"
@@ -360,11 +377,18 @@
    },
    "AgentAccessResponse": {
     "additionalProperties": false,
-    "description": "Both gates as saved, the choice for every data category and action\ngroup, and the command that connects each agent host.\n\n`categories` and `groups` name every category and group, a missing choice\nfilled in as open. A group reads as off while the connection is on and\n`allow_writes` is off, since no change is allowed then whatever it says.",
+    "description": "Both gates as saved, the choice for every data category and action\ngroup, the command that connects each agent host, and each app's state.\n\n`categories` and `groups` name every category and group, a missing choice\nfilled in as open. A group reads as off while the connection is on and\n`allow_writes` is off, since no change is allowed then whatever it says.",
     "properties": {
      "allow_writes": {
       "title": "Allow Writes",
       "type": "boolean"
+     },
+     "apps": {
+      "items": {
+       "$ref": "#/components/schemas/AgentAppState"
+      },
+      "title": "Apps",
+      "type": "array"
      },
      "categories": {
       "additionalProperties": {
@@ -423,9 +447,61 @@
      "allow_writes",
      "categories",
      "groups",
-     "connect"
+     "connect",
+     "apps"
     ],
     "title": "AgentAccessResponse",
+    "type": "object"
+   },
+   "AgentAppState": {
+    "additionalProperties": false,
+    "description": "One assistant app as Settings shows it: a host `roleband connect` sets\nup, or `other` for every other caller.\n\n`connection` is what the host's own files say (`agent_hosts.connection`):\nnull when it was never connected, and always null for `other`, which has\nno files to read. `last_call_at` is the app's most recent recorded call.",
+    "properties": {
+     "app": {
+      "enum": [
+       "claude-code",
+       "codex",
+       "other"
+      ],
+      "title": "App",
+      "type": "string"
+     },
+     "connection": {
+      "anyOf": [
+       {
+        "enum": [
+         "connected",
+         "outdated",
+         "rule_missing",
+         "read_only"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Connection"
+     },
+     "last_call_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Call At"
+     }
+    },
+    "required": [
+     "app",
+     "connection",
+     "last_call_at"
+    ],
+    "title": "AgentAppState",
     "type": "object"
    },
    "AgentConnectCommand": {
@@ -38739,6 +38815,27 @@
         }
        ],
        "title": "Category"
+      }
+     },
+     {
+      "in": "query",
+      "name": "host",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "claude-code",
+          "codex",
+          "other"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Host"
       }
      },
      {

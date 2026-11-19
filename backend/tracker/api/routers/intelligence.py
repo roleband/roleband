@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tracker.agents.activity import last_calls
 from tracker.agents.config import AgentAccessConfig, get_agent_access, set_agent_access
 from tracker.agents.operations.descriptor import ActionGroup, DataClass
 from tracker.api.deps import OffBoardDep, SessionDep, end_read
@@ -97,6 +98,7 @@ from tracker.local_llm.client import LocalLLMClient, LocalLLMError
 from tracker.local_llm.models import LocalLLMProfileInput
 from tracker.local_llm.server import binary_path as omlx_binary_path
 from tracker.local_llm.server import control as control_omlx_server
+from tracker.platform import agent_hosts
 from tracker.platform.os_process import shell_join
 from tracker.search.fit import (
     BAND_KEYS,
@@ -538,10 +540,21 @@ async def test_local_llm_profile(
 
 #: The agent hosts `roleband connect` sets up, in the order Settings shows them.
 #: `tests/test_agents.py` holds this to the command's own list.
-CONNECT_HOSTS = ("claude-code", "codex")
+CONNECT_HOSTS = agent_hosts.HOSTS
 
 
-def _agent_connection_state(config: AgentAccessConfig) -> dict:
+async def _agent_apps(session: AsyncSession) -> list[dict]:
+    """Each app's state for the Assistant apps card: what its host's files say,
+    read off the event loop, and its most recent recorded call."""
+    connections = await asyncio.to_thread(lambda: {host: agent_hosts.connection(host) for host in agent_hosts.HOSTS})
+    calls = await last_calls(session)
+    return [
+        {"app": app, "connection": connections.get(app), "last_call_at": calls.get(app)}
+        for app in (*agent_hosts.HOSTS, agent_hosts.OTHER)
+    ]
+
+
+def _agent_connection_state(config: AgentAccessConfig, apps: list[dict]) -> dict:
     read_only = config.enabled and not config.allow_writes
     return {
         "enabled": config.enabled,
@@ -554,19 +567,20 @@ def _agent_connection_state(config: AgentAccessConfig) -> dict:
             {"host": host, "command": shell_join(["roleband", "connect", host, "--apply"])}
             for host in CONNECT_HOSTS
         ],
+        "apps": apps,
     }
 
 
 @router.get("/api/intelligence/agents", response_model=AgentAccessResponse)
 async def get_agent_access_ep(session: SessionDep) -> dict:
-    return _agent_connection_state(await get_agent_access(session))
+    return _agent_connection_state(await get_agent_access(session), await _agent_apps(session))
 
 
 @router.put("/api/intelligence/agents", response_model=AgentAccessResponse)
 async def put_agent_access_ep(payload: AgentAccessConfig, session: SessionDep) -> dict:
     saved = await set_agent_access(session, payload)
     await session.commit()
-    return _agent_connection_state(saved)
+    return _agent_connection_state(saved, await _agent_apps(session))
 
 
 # --------------------------------------------------------------------------- #

@@ -23,6 +23,10 @@ activity-kind-refused = Refused
 activity-category-menu = Kind of data
 # kind=button note="The kind-of-data menu's button while no kind is picked"
 activity-category-any = Any data
+# kind=aria note="The menu that narrows the list to the entries of one assistant app"
+activity-app-menu = App
+# kind=button note="The app menu's button while no app is picked"
+activity-app-any = Any app
 # kind=aria note="The menu that narrows the list to a span of days"
 activity-range-menu = Dates
 # kind=button

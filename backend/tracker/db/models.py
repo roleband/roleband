@@ -1758,12 +1758,18 @@ class AgentActivity(Base):
     changes: Mapped[list | None] = mapped_column(JSONB)
     #: A change's idempotency key: with the principal and operation it names its receipt.
     idempotency_key: Mapped[str | None] = mapped_column(String(128))
+    #: The host the call ran under (`tracker/platform/agent_hosts.py`): a host
+    #: `roleband connect` sets up, or `other`. None on a row recorded before
+    #: calls named their host.
+    host: Mapped[str | None] = mapped_column(String(32))
 
     __table_args__ = (
         CheckConstraint("kind IN ('read', 'change', 'refused')", name="ck_agent_activity_kind"),
         CheckConstraint("(kind = 'refused') = (refusal IS NOT NULL)", name="ck_agent_activity_refusal"),
         # The screen pages newest first by (occurred_at, id): one index, read backwards.
         Index("ix_agent_activity_occurred", "occurred_at", "id"),
+        # Each host's last call, for Settings, and the screen's list for one host.
+        Index("ix_agent_activity_host", "host", "occurred_at"),
     )
 
 

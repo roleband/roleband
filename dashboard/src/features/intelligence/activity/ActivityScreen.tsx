@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, isNotFound } from "../../../api";
-import type { ActivityCategory, ActivityPage } from "../../../api/agentActivity";
+import type { ActivityApp, ActivityCategory, ActivityPage } from "../../../api/agentActivity";
 import { useAsyncResource } from "../../../hooks/useAsyncResource";
 import { useMeasuredCssSize } from "../../../hooks/useMeasuredCssSize";
 import { PageHeader } from "../../../patterns/PageHeader";
@@ -14,6 +14,13 @@ import { ActivityList } from "./ActivityList";
 import { CATEGORIES, categoryName } from "./activityText";
 import "./activity.css";
 import {
+  aiAssistantsCardAppClaudeCode,
+  aiAssistantsCardAppCodexApp,
+  aiAssistantsCardAppOtherApp,
+} from "../../../copy/gen/ai";
+import {
+  activityAppAny,
+  activityAppMenu,
   activityCategoryAny,
   activityCategoryMenu,
   activityCustomize,
@@ -56,6 +63,14 @@ const KIND_LABEL: Record<KindFilter, () => string> = {
 
 const ANY = "any";
 const CATEGORY_OPTIONS = [ANY, ...CATEGORIES] as const;
+
+/** The apps an entry can name, as the Assistant apps card names them. */
+const APPS = [ANY, "claude-code", "codex", "other"] as const;
+const APP_LABEL: Record<ActivityApp, () => string> = {
+  "claude-code": aiAssistantsCardAppClaudeCode,
+  codex: aiAssistantsCardAppCodexApp,
+  other: aiAssistantsCardAppOtherApp,
+};
 
 const RANGES = ["today", "week", "month", "all"] as const;
 type Range = (typeof RANGES)[number];
@@ -110,17 +125,19 @@ function entryId(value: string | null): number | null {
 /** The Activity screen: every read, change and refusal by a connected
  *  assistant app, newest first, a page of 50 at a time, with the picked
  *  entry in the inspector beside the list. Filters live in the address
- *  (`?kind=`, `?category=`, `?range=`), as does the picked entry (`?entry=`);
+ *  (`?kind=`, `?category=`, `?app=`, `?range=`), as does the picked entry (`?entry=`);
  *  the search and the page stay in memory. */
 export function ActivityScreen() {
   const [kind, setKind] = useSearchParam("kind", { options: KINDS, fallback: "all" });
   const [category, setCategory] = useSearchParam("category", { options: CATEGORY_OPTIONS, fallback: ANY });
+  const [app, setApp] = useSearchParam("app", { options: APPS, fallback: ANY });
   const [range, setRange] = useSearchParam("range", { options: RANGES, fallback: "month" });
   const [searchParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
-  const [open, setOpen] = useState<"category" | "range" | null>(null);
+  const [open, setOpen] = useState<"category" | "app" | "range" | null>(null);
   const [categoryButton, setCategoryButton] = useState<HTMLButtonElement | null>(null);
+  const [appButton, setAppButton] = useState<HTMLButtonElement | null>(null);
   const [rangeButton, setRangeButton] = useState<HTMLButtonElement | null>(null);
   const root = useRef<HTMLElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
@@ -137,7 +154,7 @@ export function ActivityScreen() {
   const since = useMemo(() => rangeStart(range, new Date(today)), [range, today]);
   // The pages read so far, by the cursor each was read with. Any filter edit
   // starts over at the newest: a cursor belongs to the list it was read from.
-  const filterKey = [kind, category, since, query].join("\u001f");
+  const filterKey = [kind, category, app, since, query].join("\u001f");
   const [paging, setPaging] = useState<{ key: string; cursors: (string | null)[] }>({ key: filterKey, cursors: [null] });
   if (paging.key !== filterKey) {
     // Drop the old stack, not just hide it: coming back to a filter is a new list.
@@ -152,13 +169,14 @@ export function ActivityScreen() {
       q: query || null,
       kind,
       category: category === ANY ? null : (category as ActivityCategory),
+      host: app === ANY ? null : app,
       since,
       cursor,
     }, signal),
-    [kind, category, since, query, cursor],
+    [kind, category, app, since, query, cursor],
   );
 
-  const narrowed = kind !== "all" || category !== ANY || range !== "month" || query !== "";
+  const narrowed = kind !== "all" || category !== ANY || app !== ANY || range !== "month" || query !== "";
   const picked = entryId(searchParams.get("entry"));
   const emptyState = (
     <EmptyState title={activityEmptyTitle({ choice: narrowed ? "yes" : "no" })}>
@@ -208,6 +226,14 @@ export function ActivityScreen() {
           {category === ANY ? activityCategoryAny() : categoryName(category)} <Icon name="chevronDown" size={14} />
         </Button>
         <Button
+          ref={setAppButton}
+          aria-haspopup="dialog"
+          aria-expanded={open === "app"}
+          onClick={() => setOpen(open === "app" ? null : "app")}
+        >
+          {app === ANY ? activityAppAny() : APP_LABEL[app]()} <Icon name="chevronDown" size={14} />
+        </Button>
+        <Button
           ref={setRangeButton}
           aria-haspopup="dialog"
           aria-expanded={open === "range"}
@@ -227,6 +253,20 @@ export function ActivityScreen() {
               onChange={() => { setCategory(option); setOpen(null); }}
             >
               {option === ANY ? activityCategoryAny() : categoryName(option)}
+            </MenuRadio>
+          ))}
+        </MenuGroup>
+      </Menu>
+      <Menu isOpen={open === "app"} onClose={() => setOpen(null)} anchor={appButton} label={activityAppMenu()} align="start">
+        <MenuGroup>
+          {APPS.map((option) => (
+            <MenuRadio
+              key={option}
+              name="activity-app"
+              checked={app === option}
+              onChange={() => { setApp(option); setOpen(null); }}
+            >
+              {option === ANY ? activityAppAny() : APP_LABEL[option]()}
             </MenuRadio>
           ))}
         </MenuGroup>
