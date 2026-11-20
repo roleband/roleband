@@ -41,17 +41,19 @@ export function usePostingText(
   const [state, setState] = useState<{ id: number; phase: TextReadPhase } | null>(null);
   const [arrivedFor, setArrivedFor] = useState<number | null>(null);
   const asked = useRef<number | null>(null);
-  /** The posting whose read is in flight, if one is. */
-  const reading = useRef<number | null>(null);
-  const attempt = useRef(0);
+  /** Each posting's latest read: the newest is the one whose answer counts,
+   *  and a posting with one still in flight is never asked a second time. */
+  const attempts = useRef(new Map<number, number>());
+  const inFlight = useRef(new Set<number>());
   const shown = useRef(id);
   shown.current = id;
 
   const start = useCallback(
     (jobId: number, retry: boolean) => {
-      const mine = ++attempt.current;
-      reading.current = jobId;
-      const current = () => attempt.current === mine && shown.current === jobId;
+      const mine = (attempts.current.get(jobId) ?? 0) + 1;
+      attempts.current.set(jobId, mine);
+      inFlight.current.add(jobId);
+      const current = () => attempts.current.get(jobId) === mine && shown.current === jobId;
       /** An answer that came while another posting was on screen is dropped,
        *  and frees this posting to be asked again when it comes back: kept as
        *  asked, a posting whose read failed while away would show a line that
@@ -84,7 +86,7 @@ export function usePostingText(
         })
         .finally(() => {
           window.clearTimeout(slow);
-          if (attempt.current === mine) reading.current = null;
+          if (attempts.current.get(jobId) === mine) inFlight.current.delete(jobId);
         });
     },
     [show, reread],
@@ -92,12 +94,14 @@ export function usePostingText(
 
   useEffect(() => {
     // Another posting is shown: one whose read has answered is asked again on
-    // its next open, failed or not. One still being read is not asked twice;
-    // its answer lands if it is shown again first.
-    if (asked.current !== id && asked.current !== reading.current) asked.current = null;
+    // its next open, failed or not. One still being read is not asked twice,
+    // whatever was shown meanwhile; its answer lands now that it is shown.
+    if (asked.current !== id && !(asked.current != null && inFlight.current.has(asked.current))) {
+      asked.current = null;
+    }
     if (!readable || id == null || asked.current === id) return;
     asked.current = id;
-    start(id, false);
+    if (!inFlight.current.has(id)) start(id, false);
   }, [readable, id, start]);
 
   const retry = useCallback(() => {

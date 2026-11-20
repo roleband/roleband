@@ -178,6 +178,24 @@ describe("usePostingText", () => {
     expect(show).toHaveBeenCalledWith(7, answer("read"));
   });
 
+  it("keeps the read of a posting that another readable posting interrupted", async () => {
+    // 7 is still being read when 8, which has its own read, is shown; back on
+    // 7 before its answer, the first read is the one that lands.
+    const first = pending();
+    const read = vi.spyOn(api, "readPostingText").mockReturnValueOnce(first.promise);
+    const { result, rerender } = hook(blank(7));
+
+    read.mockReturnValueOnce(new Promise(() => {}));
+    rerender({ posting: blank(8) });
+    expect(read).toHaveBeenLastCalledWith(8, false);
+    rerender({ posting: blank(7) });
+    expect(read).toHaveBeenCalledTimes(2); // 7 once, 8 once
+    expect(result.current.read?.phase).toBe("reading");
+
+    await act(async () => first.settle(answer("read")));
+    expect(show).toHaveBeenCalledWith(7, answer("read"));
+  });
+
   it("under StrictMode reads once and still lands the answer", async () => {
     // StrictMode unmounts and mounts again before the answer comes: a read
     // retired by that practice unmount would leave the line running forever.
