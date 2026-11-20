@@ -1742,6 +1742,7 @@
  "launcher-skip": "v2:52255a9cf2f9c7649caf87095192408920b74d88f20072972ca0f8a6e13b06d0",
  "launcher-step-done": "v2:b4d0db740125db4dc73a55a420a2899329bb9f9096bd8be2bd50d64949e987dc",
  "launcher-step-login": "v2:e712fe0b9a946ea924ae18e5a33740ccb44f523a2b68e771de9ab4e846e7ce06",
+ "launcher-step-progress": "v2:c4f92c51590ab2d152974abfb3dfd6448cc4490469dfe6fd656dbc87457a75af",
  "launcher-step-welcome": "v2:513ddefb3ad01062313cb3ecc6340d09e27d69aaa5531709d5b2afb6c115965c",
  "launcher-update-before-you-update": "v2:cf57d942b6f89335017bf8fedb2b85e303f4e0332dbc3f7fe8e069d08fe6efee",
  "launcher-update-cancel": "v2:6e6e987312e2a81c8823ff10f8ab862dc39545709e230d015d9b647de978301c",

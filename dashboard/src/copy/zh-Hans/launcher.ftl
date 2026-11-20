@@ -51,6 +51,7 @@ launcher-step-welcome = 欢迎
 launcher-step-login = 登录时
 # kind=label
 launcher-step-done = 就绪
+launcher-step-progress = 第 { $current } 步，共 { $total } 步：{ $name }
 # kind=error
 launcher-login-error = 无法更改登录设置。请重试。
 

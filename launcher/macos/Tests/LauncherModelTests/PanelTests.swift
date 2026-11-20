@@ -464,3 +464,16 @@ private final class PanelClock: @unchecked Sendable {
     #expect(image.isTemplate && image.size == BrandGlyph.menuBar.size)
     #expect(NSImage(systemSymbolName: "arrow.down.circle.fill", accessibilityDescription: nil) != nil)
 }
+
+/// The step bar is one stop for VoiceOver: it says where the person is and how many steps there
+/// are, and names only the current step, not all four in a row.
+@MainActor @Test func theSetupStepBarSaysWhichStepOfHowMany() {
+    let english = LauncherCopy(language: "en")
+    #expect(SetupView.steps.map { SetupView.progressLabel($0, copy: english) } == [
+        "Step 1 of 4: Welcome", "Step 2 of 4: Get ready", "Step 3 of 4: At login", "Step 4 of 4: Ready",
+    ])
+    // Installation runs inside the first bar and reads as it.
+    #expect(SetupView.progressLabel(.installation, copy: english) == "Step 1 of 4: Welcome")
+    #expect(SetupView.progressLabel(.login, copy: LauncherCopy(language: "es")) == "Paso 3 de 4: Al iniciar sesión")
+    #expect(SetupView.progressLabel(.login, copy: LauncherCopy(language: "zh-Hans")) == "第 3 步，共 4 步：登录时")
+}
