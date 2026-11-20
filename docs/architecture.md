@@ -1322,8 +1322,11 @@ with no choice is on, and with `allow_writes` off every group is off. The
 Settings route answers every category and group with a missing choice filled
 in as open, and a group as off while the connection is on and `allow_writes`
 off. A Settings save of the two switches keeps the stored choices, those the
-engine cannot read as they are, so the row still reads as everything off. A
-keyed write's receipt keeps the whole result; its
+engine cannot read as they are, so the row still reads as everything off.
+Customize saves just the named choices under the same row lock as the master
+switch. It uses the current connection state. Turning on a group from a
+read-only connection grants the named groups and starts the others off.
+A keyed write's receipt keeps the whole result; its
 answer, fresh or replayed, leaves the part out. Every operation but the
 handshake declares at least one data class.
 A class covers what its part reveals, not where the part is stored. Public
@@ -1497,7 +1500,8 @@ from `job_lifecycle_events`, stated-pay changes from its `disclosed_base`
 detail, source health from `scrape_source_runs`, a plugin job's health from
 `plugin_run_ends` (one row per plugin run closed since the table exists,
 inserted by the transaction that closes it), and pursuit actions falling due from
-`pursuits.next_action_due`. Each event says whether it is recorded or derived
+`pursuits.next_action_due` and the `pursuit_events` that scheduled or reactivated
+them. Each event says whether it is recorded or derived
 at the read (a repost label, a health move, a due time). The records carry the
 inserting transaction (`change_xact`, `xid8`, and `change_cluster`), and a read
 stops below the oldest transaction of the database still running, so a row that

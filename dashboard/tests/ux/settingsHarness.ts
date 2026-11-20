@@ -307,8 +307,17 @@ export async function installSettingsRoutes(page: Page) {
   await mockGet(page, "/api/intelligence/fit", (route) => route.fulfill({ json: intelligenceFit }));
   // Kept between calls, as the engine keeps it: the card reads it again after a save.
   let agents = agentAccess;
-  await mockApi(page, ["GET", "PUT"], "/api/intelligence/agents", async (route) => {
-    if (route.request().method() === "PUT") agents = { ...agents, ...route.request().postDataJSON() };
+  await mockApi(page, ["GET", "PUT", "PATCH"], "/api/intelligence/agents", async (route) => {
+    const request = route.request();
+    if (request.method() === "PUT") agents = { ...agents, ...request.postDataJSON() };
+    if (request.method() === "PATCH") {
+      const { categories, groups } = request.postDataJSON();
+      agents = {
+        ...agents,
+        categories: { ...agents.categories, ...categories },
+        groups: { ...agents.groups, ...groups },
+      };
+    }
     await route.fulfill({ json: agents });
   });
   await mockGet(page, "/api/connector-recipes", (route) =>

@@ -41,12 +41,11 @@ that comes first, ordered by id, and only to a read from the beginning or a
   run's end is recorded once by the transaction that closed it
   (`plugin_run_ends`); its health is compared with the job's previous ended
   run. A run the person stopped says nothing about its source's health.
-- `pursuit_due`: derived. A next action's due time is state the person can
-  move, not an event: a read reports the pursuits whose due time passed
-  within its window of wall-clock time, so a due time moved after it passed
-  can be reported twice or not at all. A window read while pursuits are not
-  shared still moves the due-time window on, so the due times that passed in
-  it are not reported once sharing turns back on.
+- `pursuit_due`: derived from the current pursuit and the audit event that
+  scheduled or reactivated it. The schedule joins the feed below the
+  transaction frontier. Once due, it is reported when either its deadline
+  crosses the wall-clock window or its schedule joins the transaction window.
+  Windows advance while pursuits are withheld as well.
 
 Visibility is the Board's: a posting or source of a company the person hides
 or does not follow is left out, as of the read. A plugin reads for every
@@ -101,6 +100,7 @@ from tracker.db.models import (
     PluginRun,
     PluginRunEnd,
     Pursuit,
+    PursuitEvent,
     ScrapeSourceRun,
 )
 from tracker.notifications.pursuit_due import TERMINAL_STAGES
@@ -692,27 +692,52 @@ async def _plugin_runs(
     return found
 
 
-async def _due(session: AsyncSession, position: _Position, *, limit: int) -> list[_Candidate]:
-    assert position.th is not None
+async def _due(session: AsyncSession, position: _Position, cluster: str, *, limit: int) -> list[_Candidate]:
+    assert position.th is not None and position.hi is not None
     after = position.a
     if after is not None and after[0] > _DERIVED:
         return []
-    statement = (
-        select(Pursuit.id, Pursuit.job_id, Pursuit.next_action_due, Job.company)
-        .join(Job, Job.id == Pursuit.job_id)
+    event = PursuitEvent
+    schedule = (
+        select(event.change_xact, event.change_cluster)
         .where(
-            Pursuit.next_action_due.is_not(None),
-            Pursuit.next_action_due <= _moment(position.th),
-            Pursuit.stage.not_in(TERMINAL_STAGES),
+            event.pursuit_id == Pursuit.id,
+            or_(
+                event.event_type == "created",
+                event.detail["after"].has_key("next_action_due"),
+                and_(event.from_stage.in_(TERMINAL_STAGES), event.to_stage.not_in(TERMINAL_STAGES)),
+            ),
         )
-        .order_by(Pursuit.next_action_due, Pursuit.id)
+        .order_by(event.id.desc())
+        .limit(1)
+        .correlate(Pursuit)
+        .lateral("schedule")
+    )
+    xact = schedule.c.change_xact
+    positioned = and_(xact.is_not(None), schedule.c.change_cluster.is_not_distinct_from(int(cluster)))
+    due = Pursuit.next_action_due
+    statement = (
+        select(Pursuit.id, Pursuit.job_id, due, Job.company)
+        .join(Job, Job.id == Pursuit.job_id)
+        .outerjoin(schedule, true())
+        .where(
+            due <= _moment(position.th),
+            Pursuit.stage.not_in(TERMINAL_STAGES),
+            or_(not_(positioned), xact < position.hi),
+        )
+        .order_by(due, Pursuit.id)
         .limit(limit)
     )
+    if position.st is not None:
+        statement = statement.where(due >= _moment(position.st))
     if position.tl is not None:
-        statement = statement.where(Pursuit.next_action_due > _moment(position.tl))
+        fell_due = due > _moment(position.tl)
+        # An already-due schedule may only now be visible below the frontier.
+        entered = and_(positioned, xact >= position.lo) if position.lo is not None else false()
+        statement = statement.where(or_(fell_due, entered))
     if after is not None and after[0] == _DERIVED:
         statement = statement.where(
-            tuple_(Pursuit.next_action_due, Pursuit.id) > tuple_(literal(_moment(after[1])), literal(after[3]))
+            tuple_(due, Pursuit.id) > tuple_(literal(_moment(after[1])), literal(after[3]))
         )
     return [
         _Candidate(
@@ -787,7 +812,7 @@ async def changes_page(
           if "source_health" in served else []),
         *(await _plugin_runs(session, position, frontier.cluster, limit=room)
           if "plugin_source_health" in served else []),
-        *(await _due(session, position, limit=room) if "pursuit_due" in served else []),
+        *(await _due(session, position, frontier.cluster, limit=room) if "pursuit_due" in served else []),
     ]
     candidates.sort(key=lambda candidate: candidate.key)
     candidates = candidates[:room]

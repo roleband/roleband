@@ -1403,6 +1403,8 @@ class PursuitEvent(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )
+    change_xact: Mapped[int | None] = _change_xact_column()
+    change_cluster: Mapped[int | None] = _change_cluster_column()
 
 
 class PursuitComment(Base):

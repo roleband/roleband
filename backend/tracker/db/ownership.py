@@ -517,7 +517,7 @@ TABLE_OWNERS: dict[str, TableOwnership] = {
         claim="user",
         lifecycle="append_only",
         writers=("tracker/agents/pursuits.py",),
-        readers=("tracker/agents/applications.py",),
+        readers=("tracker/agents/applications.py", "tracker/agents/operations/changes.py"),
     ),
     "pursuit_interviews": TableOwnership(
         claim="user",

@@ -32,6 +32,7 @@ from tracker.agents.operations.changes import (
 )
 from tracker.agents.operations.outcomes import outcome
 from tracker.agents.operations.workspace import ensure_workspace_id
+from tracker.agents.pursuits import PursuitUpdate, upsert_pursuit
 from tracker.agents.receipts import LEGACY_AGENT_PRINCIPAL
 from tracker.api.agent_operations import PREFIX
 from tracker.db.models import (
@@ -362,6 +363,56 @@ async def test_a_pursuit_due_time_that_passes_is_reported_once_and_a_terminal_on
     events, since = await _drain(api_client, since=since, kinds=["pursuit_due"])
     assert [(e["kind"], e["opportunity_id"]) for e in events] == [("pursuit_due", owed)]
     assert (await _drain(api_client, since=since, kinds=["pursuit_due"]))[0] == []
+
+
+@pytest.mark.parametrize("change", ["create", "reschedule", "reactivate"])
+async def test_due_waits_for_the_transaction_and_delivers_once_after_commit(api_client, feed, change):
+    job = await _posting(feed, "late-reminder")
+    kinds = ["pursuit_due"]
+    async with _factory(feed)() as writer:
+        now = (await writer.execute(text("SELECT clock_timestamp()"))).scalar_one()
+        if change == "reschedule":
+            await upsert_pursuit(writer, job, PursuitUpdate(next_action_due=now + timedelta(days=1)), actor="user")
+        elif change == "reactivate":
+            await upsert_pursuit(writer, job, PursuitUpdate(stage="withdrawn", next_action_due=now), actor="user")
+        await writer.commit()
+    since = await _start(api_client, kinds=kinds)
+
+    async with _factory(feed)() as writer:
+        if change == "reactivate":
+            payload = PursuitUpdate(stage="applied")
+        else:
+            due = (await writer.execute(text("SELECT clock_timestamp()"))).scalar_one()
+            payload = PursuitUpdate(next_action_due=due)
+        await upsert_pursuit(writer, job, payload, actor="user")
+        events, since = await _drain(api_client, since=since, kinds=kinds)
+        assert events == []
+        await writer.commit()
+
+    events, since = await _drain(api_client, since=since, kinds=kinds)
+    assert [(event["kind"], event["opportunity_id"]) for event in events] == [("pursuit_due", job)]
+
+    async with _factory(feed)() as writer:
+        await upsert_pursuit(writer, job, PursuitUpdate(stage="applied", notes="Sent the letter"), actor="user")
+        await writer.commit()
+    assert (await _drain(api_client, since=since, kinds=kinds))[0] == []
+
+
+async def test_due_can_be_saved_overdue_but_respects_the_original_start_time(api_client, feed):
+    included, excluded = [await _posting(feed, name) for name in ("overdue", "older-than-start")]
+    kinds = ["pursuit_due"]
+    async with _factory(feed)() as writer:
+        now = (await writer.execute(text("SELECT clock_timestamp()"))).scalar_one()
+    _, since = await _drain(api_client, kinds=kinds, start_time=(now - timedelta(hours=2)).isoformat())
+
+    async with _factory(feed)() as writer:
+        for job, hours in ((included, 1), (excluded, 3)):
+            await upsert_pursuit(writer, job, PursuitUpdate(next_action_due=now - timedelta(hours=hours)), actor="user")
+        await writer.commit()
+
+    events, since = await _drain(api_client, since=since, kinds=kinds)
+    assert [event["opportunity_id"] for event in events] == [included]
+    assert (await _drain(api_client, since=since, kinds=kinds))[0] == []
 
 
 async def test_a_start_time_still_ahead_keeps_earlier_due_times_out_of_later_windows(api_client, feed):

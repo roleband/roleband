@@ -139,6 +139,47 @@ async def test_the_settings_switches_keep_the_stored_choices(api_client, workspa
     )
 
 
+async def test_customize_keeps_another_tabs_disable_and_unrelated_choices(api_client, workspace):
+    url = "/api/intelligence/agents"
+    original = (await api_client.get(url)).json()
+    assert original["enabled"] and original["allow_writes"]
+    response = await api_client.patch(url, json={
+        "categories": {"private_pursuit": "not_shared"}, "groups": {"tracking_progress": "off"},
+    })
+    assert response.status_code == 200, response.text
+    response = await api_client.put(url, json={"enabled": False, "allow_writes": False})
+    assert response.status_code == 200, response.text
+    rejected = await api_client.patch(url, json={"enabled": True})
+    assert rejected.status_code == 422, rejected.text
+
+    response = await api_client.patch(url, json={
+        "categories": {"offer": "local_only"}, "groups": {"keeping_findings": "on"},
+    })
+
+    assert response.status_code == 200, response.text
+    saved = response.json()
+    assert not saved["enabled"] and not saved["allow_writes"]
+    assert saved["categories"]["private_pursuit"] == "not_shared"
+    assert saved["categories"]["offer"] == "local_only"
+    assert saved["groups"]["tracking_progress"] == "off"
+    assert (await _get(api_client, "/opportunities"))[1]["error"]["code"] == "access_disabled"
+
+
+async def test_customize_opens_only_the_write_group_picked_from_read_only(api_client, workspace):
+    url = "/api/intelligence/agents"
+    response = await api_client.put(url, json={"enabled": True, "allow_writes": False})
+    assert response.status_code == 200, response.text
+
+    response = await api_client.patch(url, json={"groups": {"tuning_radar": "on"}})
+
+    assert response.status_code == 200, response.text
+    assert response.json()["allow_writes"]
+    assert response.json()["groups"] == {
+        "tracking_progress": "off", "keeping_findings": "off",
+        "tuning_radar": "on", "controlling_collection": "off",
+    }
+
+
 async def test_settings_reads_every_category_and_group_with_a_missing_choice_open(api_client, workspace):
     await set_agent_access(workspace, AgentAccessConfig(
         enabled=True, allow_writes=True, categories={"offer": "not_shared", "candidate": "local_only"},

@@ -20,7 +20,13 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.agents.activity import last_calls
-from tracker.agents.config import AgentAccessConfig, get_agent_access, set_agent_access
+from tracker.agents.config import (
+    AgentAccessChoices,
+    AgentAccessConfig,
+    get_agent_access,
+    patch_agent_access,
+    set_agent_access,
+)
 from tracker.agents.operations.descriptor import ActionGroup, DataClass
 from tracker.api.deps import OffBoardDep, SessionDep, end_read
 from tracker.api.errors import ErrorCode, api_error
@@ -579,6 +585,13 @@ async def get_agent_access_ep(session: SessionDep) -> dict:
 @router.put("/api/intelligence/agents", response_model=AgentAccessResponse)
 async def put_agent_access_ep(payload: AgentAccessConfig, session: SessionDep) -> dict:
     saved = await set_agent_access(session, payload)
+    await session.commit()
+    return _agent_connection_state(saved, await _agent_apps(session))
+
+
+@router.patch("/api/intelligence/agents", response_model=AgentAccessResponse)
+async def patch_agent_access_ep(payload: AgentAccessChoices, session: SessionDep) -> dict:
+    saved = await patch_agent_access(session, payload)
     await session.commit()
     return _agent_connection_state(saved, await _agent_apps(session))
 

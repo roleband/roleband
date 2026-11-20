@@ -35,6 +35,7 @@ vi.mock("../../api", () => ({
     stats: vi.fn(),
     agentAccess: vi.fn(),
     setAgentAccess: vi.fn(),
+    patchAgentAccess: vi.fn(),
     setMatchingTier: vi.fn(),
     stopMatchingSwitch: vi.fn(),
     resumeMatchingSwitch: vi.fn(),
@@ -690,11 +691,15 @@ describe("assistants card", () => {
     ).toBeNull();
   });
 
-  it("stores each Customize choice at once, with the whole grid it changed", async () => {
-    // The engine keeps what a save leaves out, so the mock does too.
+  it("stores each Customize choice at once, without resending unrelated choices", async () => {
+    // The engine merges individual choices into the current settings.
     let stored: AgentAccessState = { ...agentAccessFixture, enabled: true, allow_writes: true };
     mocked.agentAccess.mockResolvedValue(stored);
-    mocked.setAgentAccess.mockImplementation(async (access) => (stored = { ...stored, ...access }));
+    mocked.patchAgentAccess.mockImplementation(async ({ categories, groups }) => (stored = {
+      ...stored,
+      categories: { ...stored.categories, ...categories },
+      groups: { ...stored.groups, ...groups },
+    }));
     mount();
 
     const region = await card();
@@ -710,10 +715,8 @@ describe("assistants card", () => {
     expect(within(dialog).queryByRole("button", { name: /Save/ })).toBeNull();
 
     await userEvent.click(within(dialog).getByRole("radio", { name: offerKept() }));
-    expect(mocked.setAgentAccess).toHaveBeenLastCalledWith({
-      enabled: true,
-      allow_writes: true,
-      categories: { ...agentAccessFixture.categories, offer: "not_shared" },
+    expect(mocked.patchAgentAccess).toHaveBeenLastCalledWith({
+      categories: { offer: "not_shared" },
     });
     await waitFor(() => expect(within(dialog).getByRole("radio", { name: offerKept() })).toBeChecked());
 
@@ -722,10 +725,8 @@ describe("assistants card", () => {
         name: cell(msg("ai-access-dialog-tuning-the-radar"), msg("ai-access-dialog-off")),
       }),
     );
-    expect(mocked.setAgentAccess).toHaveBeenLastCalledWith({
-      enabled: true,
-      allow_writes: true,
-      groups: { ...agentAccessFixture.groups, tuning_radar: "off" },
+    expect(mocked.patchAgentAccess).toHaveBeenLastCalledWith({
+      groups: { tuning_radar: "off" },
     });
     // The group save left the data grid as the person set it.
     await waitFor(() =>
@@ -738,9 +739,7 @@ describe("assistants card", () => {
     expect(within(dialog).getByRole("radio", { name: offerKept() })).toBeChecked();
 
     await userEvent.click(await within(dialog).findByRole("button", { name: msg("ai-access-dialog-share-everything") }));
-    expect(mocked.setAgentAccess).toHaveBeenLastCalledWith({
-      enabled: true,
-      allow_writes: true,
+    expect(mocked.patchAgentAccess).toHaveBeenLastCalledWith({
       categories: agentAccessFixture.categories,
       groups: agentAccessFixture.groups,
     });
@@ -759,7 +758,11 @@ describe("assistants card", () => {
       groups: { tracking_progress: "off", keeping_findings: "off", tuning_radar: "off", controlling_collection: "off" },
     } as const;
     mocked.agentAccess.mockResolvedValue(readOnly);
-    mocked.setAgentAccess.mockImplementation(async (access) => ({ ...readOnly, ...access }));
+    mocked.patchAgentAccess.mockImplementation(async ({ categories, groups }) => ({
+      ...readOnly,
+      categories: { ...readOnly.categories, ...categories },
+      groups: { ...readOnly.groups, ...groups },
+    }));
     mount();
 
     const region = await card();
@@ -768,28 +771,24 @@ describe("assistants card", () => {
 
     await userEvent.click(within(dialog).getByRole("radio", { name: offerKept() }));
     // Neither the groups shown off nor a change to the switches is saved.
-    expect(mocked.setAgentAccess).toHaveBeenLastCalledWith({
-      enabled: true,
-      allow_writes: false,
-      categories: { ...agentAccessFixture.categories, offer: "not_shared" },
+    expect(mocked.patchAgentAccess).toHaveBeenLastCalledWith({
+      categories: { offer: "not_shared" },
     });
 
-    // Turning a kind of change on allows changes, with the grid as shown.
+    // Turning on a group sends only the group the person picked.
     await userEvent.click(
       within(dialog).getByRole("radio", {
         name: cell(msg("ai-access-dialog-tracking-progress"), msg("ai-access-dialog-on")),
       }),
     );
-    expect(mocked.setAgentAccess).toHaveBeenLastCalledWith({
-      enabled: true,
-      allow_writes: true,
-      groups: { ...readOnly.groups, tracking_progress: "on" },
+    expect(mocked.patchAgentAccess).toHaveBeenLastCalledWith({
+      groups: { tracking_progress: "on" },
     });
   });
 
   it("keeps the choice on screen and says why when a save fails", async () => {
     mocked.agentAccess.mockResolvedValue({ ...agentAccessFixture, enabled: true, allow_writes: true });
-    mocked.setAgentAccess.mockRejectedValue(new Error("boom"));
+    mocked.patchAgentAccess.mockRejectedValue(new Error("boom"));
     mount();
 
     const region = await card();

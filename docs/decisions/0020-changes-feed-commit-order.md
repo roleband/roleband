@@ -51,7 +51,15 @@ commit there. `xid8` gives that id in 64 bits, so it never wraps.
   `plugin_run_ends`, once per run; that table is the plugin record.
 - A kind with no ordered record of its own is derived at the read and labelled
   so (a repost label, a source's or a plugin job's health move, a pursuit's due
-  time) or reported unavailable. None is synthesized as a recorded event.
+  time) or reported unavailable.
+- A due reminder must still be active when the feed reads it. Its latest
+  scheduling or reactivation event in `pursuit_events` carries the same
+  transaction position as the other records. The feed returns the reminder
+  once its deadline has passed and its schedule is below the transaction
+  frontier. Either crossing can happen first: a scheduled reminder becomes
+  due in a later wall-clock window, or an already overdue schedule becomes
+  visible in a later transaction window. A schedule with no position in this
+  cluster uses only the wall-clock window.
 
 ## Consequences
 
