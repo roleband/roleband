@@ -59,7 +59,7 @@ export function FreshnessBadge() {
   ].filter(Boolean).join(". ");
 
   return (
-    <span className={`freshness-badge ${tone}`} role="status" aria-label={!status ? shellFreshnessLoadingAria() : marketShown ? title : shellFreshnessAria({ state: text })} title={status ? title : undefined}>
+    <span className={`freshness-badge ${tone}`} role="status" aria-label={!status ? shellFreshnessLoadingAria() : marketShown ? title : shellFreshnessAria({ state: (!hold && freshness.age) || text })} title={status ? title : undefined}>
       <span className="dot" aria-hidden="true" />
       <span className="freshness-label">{shellFreshnessLabel()}</span>
       <strong>{text}</strong>

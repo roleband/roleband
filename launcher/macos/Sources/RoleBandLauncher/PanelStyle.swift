@@ -137,15 +137,18 @@ struct PanelRow<Trailing: View, Caption: View>: View {
                 }
                 .foregroundStyle(symbolTint ?? p.secondary).frame(width: PanelMetrics.rowIcon)
                 .accessibilityHidden(true)
+                // The caption view may be a link: it stays its own element, outside the combined text.
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(title).font(PanelType.row).foregroundStyle(p.ink)
-                    if let caption {
-                        Text(caption).font(PanelType.fact).foregroundStyle(captionTint ?? p.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(title).font(PanelType.row).foregroundStyle(p.ink)
+                        if let caption {
+                            Text(caption).font(PanelType.fact).foregroundStyle(captionTint ?? p.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
+                    .accessibilityElement(children: .combine)
                     captionView
                 }
-                .accessibilityElement(children: .combine)
                 Spacer(minLength: 8)
                 trailing
             }
@@ -186,7 +189,7 @@ struct LinkRow: View {
             Button(action: action) {
                 PanelRow(symbol: symbol, title: title, caption: caption, mark: mark, trailing: {
                     Image(systemName: "arrow.up.right").font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(hovering ? p.ink : p.secondary)
+                        .foregroundStyle(hovering ? p.ink : p.secondary).accessibilityHidden(true)
                 }, captionView: { EmptyView() })
                 .background(hovering ? p.hover : .clear)
             }
@@ -335,6 +338,16 @@ struct ProgressLine: View {
             }
         }
         .frame(height: 3)
+    }
+}
+
+extension View {
+    /// Speaks `text` to VoiceOver when it appears or changes. On macOS the `updatesFrequently`
+    /// trait announces nothing, so an error that shows after a click would otherwise go unheard.
+    func announces(_ text: String?) -> some View {
+        onChange(of: text, initial: true) { _, spoken in
+            if let spoken, !spoken.isEmpty { AccessibilityNotification.Announcement(spoken).post() }
+        }
     }
 }
 
