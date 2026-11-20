@@ -31,7 +31,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 
 from tracker.company_store import (
     ScanTarget,
@@ -600,7 +600,8 @@ class TickPlan:
 
     `plan_kind` is `full`/`quick` for a planned run, `continue` for the
     companies the current full read has not read yet, `manual` for a drain of
-    user-queued or never-scanned companies, None for a shard of pinned work.
+    user-queued or never-scanned companies, None for a shard of pinned work
+    or for retries alone.
     `roster` is the automatic roster a planned or manual run is measured
     against, so a Scan now of everyone moves the plan's clock and a scan of
     three companies does not."""
@@ -610,6 +611,9 @@ class TickPlan:
     roster: int = 0
     #: The user asked planned scans to wait for mains power.
     wait_for_mains: bool = False
+    #: Companies asked again after a failed read in the current full read
+    #: (`schedule_plan.left_to_read`); the run says nothing of them failing again.
+    retries: frozenset[str] = frozenset()
 
 
 def _pinned(row: SyncScheduleState, mode: ScanMode) -> bool:
@@ -629,9 +633,9 @@ async def plan_tick(now: datetime | None = None, *, dry_run: bool = False) -> Ti
 
     In order: a drain of user-queued and never-scanned companies;
     then, with the schedule plan on, the companies the current full read has
-    not read yet, a planned full read or quick check of the whole automatic
-    roster when the plan says so, else a shard of pinned deadlines only; with
-    it off, a shard of whatever is due.
+    not read yet or whose failed read is due another try, a planned full read
+    or quick check of the whole automatic roster when the plan says so, else a
+    shard of pinned deadlines only; with it off, a shard of whatever is due.
 
     A dry run plans from the same seeding and then rolls it back: it writes
     nothing, so a rehearsal from a branch leaves the database it reaches as it
@@ -720,10 +724,17 @@ async def _plan(session, now: datetime, settings: Settings, *, seed: bool) -> Ti
     rules, _usual = schedule_plan.context_rules(context, now=now, choices=choices, settings=settings)
     began = schedule_plan.continuation_start(context.runs, now=now, rules=rules)
     if began is not None and roster:
-        read = await schedule_plan.read_since(session, began)
-        rest = [item for item in roster if item.binding_id not in read]
+        left = await schedule_plan.left_to_read(
+            session, began, now=now, not_before={row.binding_id: row.next_reconcile_at for row in rows},
+        )
+        rest = [item for item in roster if item.binding_id not in left.waiting]
         if rest:
-            return TickPlan(rest, schedule_plan.CONTINUE, len(roster), choices.mains_only)
+            retries = frozenset(item.company_slug for item in rest if item.binding_id in left.retries)
+            # Retries alone are no read of the roster: no plan run, so the
+            # plan's clock (the next quick check, the next full read) stays
+            # where the full read put it.
+            kind = None if len(retries) == len(rest) else schedule_plan.CONTINUE
+            return TickPlan(rest, kind, len(roster), choices.mains_only, retries)
     kind = schedule_plan.decide(context, now=now, choices=choices, settings=settings)
     if kind == schedule_plan.FULL and roster:
         return TickPlan(roster, kind, len(roster), choices.mains_only)
@@ -978,6 +989,24 @@ async def _mark_started(work: list[DueWork], now: datetime) -> None:
             row = await session.get(ProviderPressureState, provider)
             if row is not None:
                 row.last_started_at = now
+
+
+async def _hold_retries(work: list[DueWork], now: datetime, settings: Settings) -> None:
+    """Hold each retry past the end of the full read it belongs to before it
+    reads: a deadline the longest a full read stays current on. Its recorded
+    read sets the deadline as usual. A process that dies first records
+    nothing, and a retry leaves no plan run to close as interrupted, so this
+    deadline is what `left_to_read` waits for, however long the retry had
+    read and whatever the company's cadence: a retry that keeps dying is never
+    started again and again, and the next full read reads the company."""
+    if not work:
+        return
+    async with session_scope() as session:
+        await session.execute(
+            update(SyncScheduleState)
+            .where(SyncScheduleState.binding_id.in_([item.binding_id for item in work]))
+            .values(next_reconcile_at=now + schedule_plan.longest_full_read(settings))
+        )
 
 
 async def _record_result(
@@ -1248,6 +1277,7 @@ async def run_once(*, dry_run: bool = False) -> dict:
 
     mode = work[0].mode
     await _mark_started(work, now)
+    await _hold_retries([item for item in work if item.company_slug in tick.retries], now, settings)
     plan_run_id = await _start_plan_run(tick, now)
     by_company = {item.company_slug: item for item in work}
     recorded: set[str] = set()
@@ -1270,6 +1300,7 @@ async def run_once(*, dry_run: bool = False) -> dict:
             scan_mode=mode,
             on_source_recorded=record,
             join_requests=True,
+            retries=tick.retries,
         )
     except Exception:
         await _record_dispatch_failure(
