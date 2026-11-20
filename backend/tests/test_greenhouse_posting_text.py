@@ -34,7 +34,7 @@ LISTED = json.loads((FIXTURES / "listings" / "greenhouse" / "page1.json").read_t
 
 
 @pytest.fixture
-def board(monkeypatch):
+def board(monkeypatch, no_escape):
     """The Greenhouse board API, answering with `board.status` and `board.body`
     and counting requests."""
     state = type("Board", (), {"status": 200, "body": POSTING, "requests": []})()
