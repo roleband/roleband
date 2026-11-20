@@ -452,9 +452,11 @@ class SigningTests(unittest.TestCase):
                         tool = folder / f'{keys.name}-tool'
                         shutil.copy('/usr/bin/true', tool)
                         subprocess.run(['codesign', '--remove-signature', str(tool)], check=True, timeout=60)
-                        subprocess.run(['codesign', '--force', '--sign', identity, '--keychain', str(keychain), str(tool)],
-                                       check=True, capture_output=True, stdin=subprocess.DEVNULL, timeout=60)
-                        subprocess.run(['codesign', '--verify', str(tool)], check=True, timeout=60)
+                        # The flags bundle.sign_tree signs with.
+                        for command in (['codesign', '--force', '--timestamp=none', '--sign', identity,
+                                         '--keychain', str(keychain), str(tool)], ['codesign', '--verify', str(tool)]):
+                            done = subprocess.run(command, capture_output=True, stdin=subprocess.DEVNULL, timeout=60)
+                            self.assertEqual(done.returncode, 0, done.stderr.decode())
                         held = security('find-certificate', '-a', '-Z', str(keychain)).stdout.decode()
                         self.assertEqual(held.count('SHA-1 hash:'), 1 if typed is None else 2, 'each certificate once')
                         if typed is None:
