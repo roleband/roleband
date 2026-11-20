@@ -57,8 +57,9 @@ logger = logging.getLogger(__name__)
 ON_OPEN_RETRIES = 1
 
 #: The longest one open waits on its read, whatever the adapter's requests add
-#: up to. Past it the read is a failure the person can retry, never a request
-#: the page waits on with no end.
+#: up to, counted from the open and so including any wait behind another
+#: reader of the posting. Past it the read is a failure the person can retry,
+#: never a request the page waits on with no end.
 ON_OPEN_DEADLINE_SECONDS = 20.0
 
 #: After a read that found no text, another open of the same posting answers
@@ -221,9 +222,9 @@ class OpenTextReads:
                 del self._holders[job_id]
                 self._locks.pop(job_id, None)
 
-    async def _read(self, target: TextTarget, raw: RawJob) -> str | None:
-        """One paced, breaker-guarded read within the deadline. Never raises:
-        a failure of the source's or of ours is no text."""
+    async def _read(self, target: TextTarget, raw: RawJob, budget: float) -> str | None:
+        """One paced, breaker-guarded read within `budget` seconds. Never
+        raises: a failure of the source's or of ours is no text."""
         try:
             adapter = build_adapter(
                 target.slug,
@@ -237,7 +238,7 @@ class OpenTextReads:
                 consent=target.consent,
             )
             adapter.max_retries = ON_OPEN_RETRIES
-            async with asyncio.timeout(ON_OPEN_DEADLINE_SECONDS), adapter:
+            async with asyncio.timeout(budget), adapter:
                 return await read_text(adapter, raw, target.adapter)
         except Exception as exc:  # noqa: BLE001 - one posting's read is best effort
             logger.warning("text read on open failed for %s %s: %s", target.slug, raw.req_id, exc)
@@ -253,8 +254,11 @@ class OpenTextReads:
         `not_available` is a posting nothing may read on open; `failed` stored
         nothing, and another open answers it from memory until the cool-down
         ends, unless it asks again on purpose (`retry`). A concurrent open of
-        the same posting waits for this one and answers from storage.
+        the same posting waits for this one and answers from storage, and
+        its wait counts against its own deadline.
         """
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + ON_OPEN_DEADLINE_SECONDS
         async with self._one_reader(job_id):
             job = await session.get(Job, job_id, populate_existing=True)
             if job is None:
@@ -271,7 +275,12 @@ class OpenTextReads:
                 return "not_available", job
             if not retry and self._cooling(job_id):
                 return "failed", job
-            text = await self._read(target, raw)
+            budget = deadline - loop.time()
+            if budget <= 0:
+                # The wait behind another reader spent the deadline: no
+                # request starts, and nothing is learned to cool down on.
+                return "failed", job
+            text = await self._read(target, raw, budget)
             if text is None:
                 # Read again: a scan may have stored the text while the
                 # source failed us, and then the posting has its text.

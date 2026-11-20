@@ -1111,10 +1111,14 @@ its primary is View & apply, an anchor wearing the primary classes.
   value) and *Getting the description from Spotify…*; from 6 s the line keeps
   running, the site is said to be slow and the posting on it is offered in a
   new tab; a read that found nothing stops the line and offers Try again
-  beside the posting. One live region says each change. The text comes in
-  where the line stood, and the posting is read again behind it, since its
-  text also moves what the pay panel says. A posting nothing can read says
-  *No description for this role.*, as before.
+  beside the posting. One live region says each change and stays when the
+  text comes: it then says the text came, never the text itself. The text
+  comes in where the line stood, and the posting is read again behind it,
+  since its text also moves what the pay panel says. A new open of a posting
+  whose read failed asks again, which the server answers from its memory of
+  the failure for ten minutes without asking the site; Try again asks the
+  site at once. A posting nothing can read says *No description for this
+  role.*
 
 Job detail steps up on a wider window, by the width of its own scroll box
 (a container query, `posting`, so no window breakpoint is added) and never by

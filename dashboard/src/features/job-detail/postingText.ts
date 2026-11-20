@@ -15,7 +15,9 @@ export type TextRead = { phase: TextReadPhase; retry: () => void };
  * Reads the text of a posting that opened with none, AFTER the screen shows,
  * so an open never waits on the employer's site. The detail says whether
  * there is anything to read (`description_readable`); the read is asked once
- * per posting per open, and again only by `retry`.
+ * per open of a posting, and again within that open only by `retry`. A new
+ * open after a failure asks again: the server answers it from its cool-down
+ * without asking the site.
  *
  * `show` writes an answer's text into the posting on screen. `reread` reads
  * the posting again after a fresh read, because its text also moves what the
@@ -39,6 +41,8 @@ export function usePostingText(
   const [state, setState] = useState<{ id: number; phase: TextReadPhase } | null>(null);
   const [arrivedFor, setArrivedFor] = useState<number | null>(null);
   const asked = useRef<number | null>(null);
+  /** The posting whose read is in flight, if one is. */
+  const reading = useRef<number | null>(null);
   const attempt = useRef(0);
   const shown = useRef(id);
   shown.current = id;
@@ -46,6 +50,7 @@ export function usePostingText(
   const start = useCallback(
     (jobId: number, retry: boolean) => {
       const mine = ++attempt.current;
+      reading.current = jobId;
       const current = () => attempt.current === mine && shown.current === jobId;
       /** An answer that came while another posting was on screen is dropped,
        *  and frees this posting to be asked again when it comes back: kept as
@@ -77,12 +82,19 @@ export function usePostingText(
         .catch(() => {
           if (landed()) setState({ id: jobId, phase: "failed" });
         })
-        .finally(() => window.clearTimeout(slow));
+        .finally(() => {
+          window.clearTimeout(slow);
+          if (attempt.current === mine) reading.current = null;
+        });
     },
     [show, reread],
   );
 
   useEffect(() => {
+    // Another posting is shown: one whose read has answered is asked again on
+    // its next open, failed or not. One still being read is not asked twice;
+    // its answer lands if it is shown again first.
+    if (asked.current !== id && asked.current !== reading.current) asked.current = null;
     if (!readable || id == null || asked.current === id) return;
     asked.current = id;
     start(id, false);

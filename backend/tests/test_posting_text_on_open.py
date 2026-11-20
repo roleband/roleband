@@ -236,6 +236,54 @@ async def test_two_opens_at_once_send_one_request(api_client, db_session, lever)
 
 
 @pytest.mark.asyncio
+async def test_the_wait_behind_another_reader_counts_against_the_deadline(
+    api_client, db_session, lever, monkeypatch
+):
+    """Try again, sent while the first read still runs, has only what is left
+    of its own deadline once that read lets go. Spent waiting, it asks the
+    source nothing: the page never waits two deadlines end to end."""
+    job_id = await _seed(db_session)
+    lever.status = 404  # one request, not retried, then no text
+    in_flight = asyncio.Event()
+
+    async def slow_source():
+        in_flight.set()
+        await asyncio.sleep(1.0)
+
+    lever.during = slow_source
+    first = asyncio.create_task(_open(api_client, job_id))
+    await in_flight.wait()
+    # The retry's deadline ends while the first read holds the posting.
+    monkeypatch.setattr(posting_text, "ON_OPEN_DEADLINE_SECONDS", 0.3)
+    again = await _open(api_client, job_id, retry=True)
+
+    assert again == {"outcome": "failed", **NOTHING}
+    assert await first == {"outcome": "failed", **NOTHING}
+    assert len(lever.requests) == 1
+
+
+@pytest.mark.asyncio
+async def test_two_first_opens_build_one_reader(api_client, lever, monkeypatch):
+    """The process holds one `OpenTextReads` however its first opens
+    interleave: two would each let a read of the same posting through."""
+    built = []
+    real_init = posting_text.OpenTextReads.__init__
+
+    def slow_init(self):
+        built.append(self)
+        time.sleep(0.2)  # the window between finding none and storing one
+        real_init(self)
+
+    monkeypatch.setattr(posting_text.OpenTextReads, "__init__", slow_init)
+    answers = await asyncio.gather(
+        api_client.post("/api/jobs/999998/description"), api_client.post("/api/jobs/999999/description")
+    )
+
+    assert [answer.status_code for answer in answers] == [404, 404]
+    assert len(built) == 1
+
+
+@pytest.mark.asyncio
 async def test_text_another_writer_stored_meanwhile_stays(api_client, db_session, lever):
     """A scan that writes the posting's text while the open waits keeps it:
     the open only fills a gap."""

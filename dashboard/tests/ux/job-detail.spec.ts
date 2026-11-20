@@ -1512,6 +1512,8 @@ test("a posting that opened with no text reads it once, says so meanwhile, then 
   await expect(panel.getByRole("heading", { name: "About the role" })).toBeVisible();
   await expect(panel.getByText(READ_TEXT.description_text)).toBeVisible();
   await expect(reading).toHaveCount(0);
+  // The region that said "reading" says the text came, out of sight.
+  await expect(panel.getByRole("status").filter({ hasText: msg("role-job-description-arrived", { company: "OpenAI" }) })).toHaveCount(1);
   expect(textReads.started).toBe(1);
 });
 

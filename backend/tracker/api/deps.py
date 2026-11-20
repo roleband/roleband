@@ -63,12 +63,15 @@ async def get_off_board_companies(session: SessionDep) -> OffBoardSlugs:
 OffBoardDep = Annotated[OffBoardSlugs, Depends(get_off_board_companies)]
 
 
-def get_page_reads(request: Request) -> OpenPageReads:
+async def get_page_reads(request: Request) -> OpenPageReads:
     """The app's one `OpenPageReads`: its pacer, breakers and
     per-posting readers are process state, so they live on the app that serves
     the opens, not in the workflows layer. Built at the first open rather than
     at startup: that is after the lifespan enabled shared pacing, and an app
-    built without its lifespan (the tests) still gets one."""
+    built without its lifespan (the tests) still gets one. A coroutine with no
+    await, so the check and the store run on the event loop with nothing in
+    between: FastAPI runs a plain function in a worker thread, where two first
+    opens could each build one, and each let its own read of a posting through."""
     reads = getattr(request.app.state, "page_reads", None)
     if reads is None:
         reads = request.app.state.page_reads = OpenPageReads()
@@ -78,7 +81,7 @@ def get_page_reads(request: Request) -> OpenPageReads:
 PageReadsDep = Annotated[OpenPageReads, Depends(get_page_reads)]
 
 
-def get_text_reads(request: Request) -> OpenTextReads:
+async def get_text_reads(request: Request) -> OpenTextReads:
     """The app's one `OpenTextReads`, held and built as `get_page_reads`
     holds and builds the page reads, for the same reasons."""
     reads = getattr(request.app.state, "text_reads", None)

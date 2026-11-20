@@ -105,7 +105,35 @@ describe("JobDescription while its text is read", () => {
       />,
     );
     expect(screen.getByText("Lead the platform.")).toBeVisible();
-    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByRole("progressbar")).toBeNull();
+    expect(screen.queryByText(msg("role-job-description-reading", { company: "Spotify" }))).toBeNull();
     expect(container.querySelector(".jd-sections")).toHaveClass("jd-arrived");
+  });
+
+  it("keeps one live region from the read to the text, and says the text came", () => {
+    const { rerender } = render(
+      <JobDescription sections={[]} fallback={null} read={{ phase: "slow", retry: vi.fn() }} company="Spotify" postingUrl={posting} />,
+    );
+    const region = screen.getByRole("status");
+
+    rerender(
+      <JobDescription
+        sections={[{ key: "summary", title: "Summary", content: "Lead the platform." }]}
+        arrived
+        company="Spotify"
+        postingUrl={posting}
+      />,
+    );
+    // The same node: a region mounted with its words says nothing.
+    expect(screen.getByRole("status")).toBe(region);
+    expect(region).toHaveTextContent(msg("role-job-description-arrived", { company: "Spotify" }));
+    // It says the text came, never the text itself.
+    expect(region).not.toHaveTextContent("Lead the platform.");
+    expect(screen.getByText("Lead the platform.")).toBeVisible();
+  });
+
+  it("a posting whose text was there all along has no live region", () => {
+    render(<JobDescription sections={[{ key: "summary", title: "Summary", content: "Lead the platform." }]} company="Spotify" />);
+    expect(screen.queryByRole("status")).toBeNull();
   });
 });

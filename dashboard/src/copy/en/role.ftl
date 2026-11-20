@@ -84,6 +84,8 @@ role-job-description-reading-slow = { $company }'s site is slow to answer.
 role-job-description-read-failed = Couldn't get the description from { $company }'s site just now.
 # kind=link note="Opens the posting on the employer's own site in a new tab, after role-job-description-reading-slow or role-job-description-read-failed"
 role-job-description-open-posting = Read it on { $company }'s site
+# kind=status note="Said by screen readers, not shown, when the text read from the employer's site comes in under the Description heading, in place of role-job-description-reading. $company is the company's name"
+role-job-description-arrived = Got the description from { $company }'s site.
 
 ## features/job-detail/JobDetail.tsx
 # kind=button wording=as-is

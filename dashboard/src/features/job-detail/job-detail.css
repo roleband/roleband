@@ -643,21 +643,6 @@
   gap: var(--app-space-3);
 }
 
-.jd-read-posting {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--app-space-1);
-  color: var(--app-action-text);
-  font-size: var(--app-type-body);
-  text-decoration: underline;
-  text-decoration-color: var(--app-action-line);
-  text-underline-offset: 3px;
-}
-
-.jd-read-posting:hover {
-  text-decoration-color: currentColor;
-}
-
 /* Text that landed while the posting was open comes in, rather than standing
    there as if it always had. */
 @media (prefers-reduced-motion: no-preference) {
