@@ -30,7 +30,10 @@ for (const hasHistory of [false, true]) {
       : msg("shell-freshness-never");
     await expect(text).toHaveText(idleText);
     await expect(badge).toBeVisible();
-    await expect(badge).toHaveAttribute("aria-label", msg("shell-freshness-aria", { state: idleText }));
+    // The spoken name says "Last scan" once: it wraps the bare age, not the badge's words.
+    await expect(badge).toHaveAttribute("aria-label", msg("shell-freshness-aria", {
+      state: hasHistory ? msg("format-age-hours", { count: 2 }) : idleText,
+    }));
     if (testInfo.project.name === "chromium") await expect(text).toBeVisible();
     const previousTitle = await badge.getAttribute("title");
 
@@ -55,7 +58,7 @@ for (const hasHistory of [false, true]) {
       age: msg("format-age-minutes", { count: 15 }),
     }));
     await expect(badge).toHaveAttribute("aria-label", msg("shell-freshness-aria", {
-      state: msg("shell-freshness-checked", { age: msg("format-age-minutes", { count: 15 }) }),
+      state: msg("format-age-minutes", { count: 15 }),
     }));
     expect(await badge.getAttribute("title")).toContain(msg("shell-freshness-oldest", { when: "" }));
     expect(await badge.getAttribute("title")).not.toBe(previousTitle);

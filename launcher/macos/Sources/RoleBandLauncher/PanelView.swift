@@ -338,6 +338,7 @@ private struct UpdateLine: View {
             }
         }
         .help(help ?? "")
+        .announces(title)
     }
 
     /// A full line with a spinner, not a byte count, says the download is done and a later step is at work.
@@ -372,6 +373,8 @@ private struct UpdateLine: View {
                             .allowsHitTesting(false)
                         }
                     }
+                    .accessibilityElement()
+                    .accessibilityLabel(title)
                     .accessibilityValue(megabytes.map { Text($0) }
                         ?? Text((total > 0 ? Double(received) / Double(total) : 0).formatted(.percent.precision(.fractionLength(0)).locale(model.copy.locale))))
                     .padding(.bottom, -6)
@@ -572,7 +575,7 @@ private struct PortRow: View {
             .disabled(model.controlBusy)
             if let refusal = model.portRefusal {
                 Text(model.text(refusal.key, refusal.values)).font(PanelType.fact).foregroundStyle(p.warning)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .fixedSize(horizontal: false, vertical: true).announces(model.text(refusal.key, refusal.values))
             } else if model.showsPortNote {
                 Text(model.text("panel-port-note")).font(PanelType.fact).foregroundStyle(p.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -657,7 +660,7 @@ struct AboutTab: View {
         }
         return PanelRow(symbol: row.symbol, title: row.title, caption: row.caption, symbolTint: row.tint) {
             HStack(spacing: 8) {
-                if state == .checking { ProgressView().controlSize(.mini) }
+                if state == .checking { ProgressView().controlSize(.mini).accessibilityHidden(true) }
                 Button(model.text("update-check-now")) { updates.checkManually() }
                     .buttonStyle(MiniButtonStyle()).disabled(state == .checking)
             }
@@ -681,6 +684,7 @@ struct AboutTab: View {
                     Text(model.text("panel-version", ["version": version])).font(PanelType.fact).foregroundStyle(p.secondary)
                 }
             }
+            .accessibilityElement(children: .combine)
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 5) {
                 Button(model.text("notes-title"), action: notes).buttonStyle(LinkButtonStyle()).disabled(model.verified == nil)
@@ -753,6 +757,7 @@ private struct ScanTab: View {
                     if model.hostProblem == .portInUse, let refusal = model.portRefusal {
                         Text(model.text(refusal.key, refusal.values)).font(PanelType.fact).foregroundStyle(p.warning)
                             .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.updatesFrequently)
+                            .announces(model.text(refusal.key, refusal.values))
                     }
                 }
             }
@@ -775,9 +780,11 @@ private struct ScanTab: View {
                     }
                 }
                 .accessibilityElement(children: .combine).accessibilityAddTraits(.updatesFrequently)
+                .announces(attention ? model.text(model.titleKey, model.helpValues) : nil)
                 Spacer(minLength: 0)
                 if let start = model.verified.flatMap({ Stamp.date($0.presentation.activitySince) }), model.verified?.presentation.isActive == true {
                     Text(start, style: .timer).font(.system(size: 12, weight: .medium)).monospacedDigit().foregroundStyle(p.cyan)
+                        .accessibilityLabel(model.text(model.titleKey, model.helpValues))
                 } else if model.checking {
                     ProgressView().controlSize(.mini).accessibilityLabel(model.text("connecting"))
                 }
@@ -819,6 +826,7 @@ private struct ScanTab: View {
             else { Text(model.text("not-scanned")).foregroundStyle(p.secondary) }
         }
         .font(PanelType.fact)
+        .accessibilityElement(children: .combine)
     }
 
     /// Restarting a stopped engine is the one thing the tab is for while it needs attention;

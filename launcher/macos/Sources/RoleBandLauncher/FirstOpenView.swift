@@ -70,6 +70,7 @@ struct SetupView: View {
                         if let refusal = model.setupPortRefusal {
                             Text(model.text(refusal.key, refusal.values)).font(.system(size: 13)).foregroundStyle(palette.warning)
                                 .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.updatesFrequently)
+                                .announces(model.text(refusal.key, refusal.values))
                         }
                     }
                     content
@@ -101,11 +102,13 @@ struct SetupView: View {
                         if let preparation = model.preparation, preparation.totalBytes > 0 && preparation.model == "downloading" {
                             Text(preparation.fraction.formatted(.percent.precision(.fractionLength(0)).locale(model.copy.locale)))
                                 .font(.system(size: 11, weight: .semibold, design: .monospaced)).foregroundStyle(palette.cyan)
+                                .accessibilityHidden(true)
                         } else { mark(model.preparation?.model ?? "waiting") }
                     }
                     if let progress = model.preparation, !progress.modelComplete, progress.totalBytes > 0 {
                         VStack(alignment: .leading, spacing: 4) {
                             ProgressView(value: progress.fraction).tint(palette.cyan).controlSize(.small)
+                                .accessibilityLabel(model.text("first-model"))
                             Text(model.preparationBytes).font(.system(size: 11)).foregroundStyle(palette.secondary)
                         }.padding(.leading, 41).padding(.trailing, 10).padding(.bottom, 10)
                     }
@@ -126,7 +129,7 @@ struct SetupView: View {
                         Button(model.text("login-settings")) { model.openLoginSettings() }
                             .buttonStyle(.link).font(.system(size: 12)).padding(.leading, 41).padding(.bottom, 10)
                     }
-                    if model.loginError { Text(model.text("login-error")).font(.system(size: 11)).padding(10) }
+                    if model.loginError { Text(model.text("login-error")).font(.system(size: 11)).padding(10).announces(model.text("login-error")) }
                     rowDivider
                     row("arrow.triangle.2.circlepath", title: "update-automatic", caption: "first-updates-caption") {
                         Toggle(model.text("update-automatic"), isOn: Binding(get: { model.updates.automatic },
@@ -150,6 +153,7 @@ struct SetupView: View {
                 if model.setupOpenFailed {
                     Label(model.text("setup-browser-error"), systemImage: "exclamationmark.triangle.fill")
                         .font(.system(size: 13)).foregroundStyle(palette.warning).fixedSize(horizontal: false, vertical: true)
+                        .announces(model.text("setup-browser-error"))
                 }
             }
         }
@@ -179,12 +183,13 @@ struct SetupView: View {
     }
     @ViewBuilder private func mark(_ state: String) -> some View {
         if state == "ready" || state == "unused" {
-            Image(systemName: "checkmark.circle.fill").foregroundStyle(palette.cyan)
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(palette.cyan).accessibilityHidden(true)
         } else if state == "failed" {
-            Image(systemName: "exclamationmark.circle.fill").foregroundStyle(palette.warning)
+            Image(systemName: "exclamationmark.circle.fill").foregroundStyle(palette.warning).accessibilityHidden(true)
         } else if state == "waiting" {
             Image(systemName: model.preparation?.reason == "offline" ? "wifi.slash" : "circle.dashed").foregroundStyle(palette.graphic)
-        } else { ProgressView().controlSize(.small).frame(width: 14) }
+                .accessibilityHidden(true)
+        } else { ProgressView().controlSize(.small).frame(width: 14).accessibilityHidden(true) }
     }
     private func group<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 0, content: content)
@@ -200,6 +205,7 @@ struct SetupView: View {
                 Text(model.text(title)).font(.system(size: 13, weight: .medium)).fixedSize(horizontal: false, vertical: true)
                 Text(model.text(caption)).font(.system(size: 11)).foregroundStyle(palette.secondary).fixedSize(horizontal: false, vertical: true)
             }
+            .accessibilityElement(children: .combine)
             Spacer(minLength: 0)
             trailing().font(.system(size: 14))
         }.padding(.horizontal, 10).padding(.vertical, 8)
@@ -239,7 +245,7 @@ struct SetupView: View {
             } else {
                 Button { Task { await model.advanceSetup() } } label: {
                     HStack(spacing: 7) {
-                        if model.step == .connection && !model.preparationReady { ProgressView().controlSize(.small) }
+                        if model.step == .connection && !model.preparationReady { ProgressView().controlSize(.small).accessibilityHidden(true) }
                         Text(model.text(model.step == .connection && !model.preparationReady ? "first-busy" : "continue"))
                     }
                 }.buttonStyle(LaunchButtonStyle(palette: palette, primary: true)).keyboardShortcut(.defaultAction)

@@ -92,15 +92,18 @@ describe("format helpers", () => {
     }
     expect(freshnessLabel(idle(3, 3, false))).toEqual({
       text: msg("shell-freshness-checked", { age: msg("format-age-hours", { count: 3 }) }), tone: "fresh",
+      age: msg("format-age-hours", { count: 3 }),
     });
     expect(freshnessLabel(idle(50, 50, true))).toEqual({
       text: msg("shell-freshness-checked", { age: msg("format-age-days", { count: 2 }) }), tone: "stale",
+      age: msg("format-age-days", { count: 2 }),
     });
     // One company unread for three days beside a scan 15 minutes ago: amber,
     // and the words stay the newest scan's age, with no count.
     expect(freshnessLabel(idle(0.25, 75, true, [{ company: "shopify" }]))).toEqual({
       text: msg("shell-freshness-checked", { age: msg("format-age-minutes", { count: 15 }) }),
       tone: "behind",
+      age: msg("format-age-minutes", { count: 15 }),
     });
     expect(freshnessLabel(idle(0.25, 0.25, false)).text)
       .toBe(msg("shell-freshness-checked", { age: msg("format-age-minutes", { count: 15 }) }));
@@ -134,6 +137,7 @@ describe("format helpers", () => {
     expect(freshnessLabel(idle(30, 30, true))).toEqual({
       text: msg("shell-freshness-checked", { age: msg("format-age-days", { count: 1 }) }),
       tone: "stale",
+      age: msg("format-age-days", { count: 1 }),
     });
     // The pass waits while a scan reads.
     expect(freshnessLabel({ ...idle(0.25, 0.25, false), running: true }).text).toBe(msg("shell-scan-scanning"));

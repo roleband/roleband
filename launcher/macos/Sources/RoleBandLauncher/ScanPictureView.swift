@@ -36,7 +36,7 @@ struct ScanPictureCard: View {
         Group {
             if model.requestedScan != nil {
                 // As tall as the time it stands in for, so the panel does not jump by a point.
-                ProgressView().controlSize(.mini).frame(height: 11)
+                ProgressView().controlSize(.mini).frame(height: 11).accessibilityHidden(true)
             } else if live && picture.stage == .finishing, let start = Stamp.date(model.verified?.presentation.activitySince) {
                 // The percent has said 100 since the last company; the clock shows the scan still moving.
                 TimelineView(.periodic(from: .now, by: 1)) { timeline in
@@ -46,6 +46,7 @@ struct ScanPictureCard: View {
             } else if live {
                 if let percent = picture.percent {
                     Text("\(min(percent, 100))%").font(ScanType.figure(11)).foregroundStyle(p.cyan)
+                        .accessibilityHidden(true)
                 }
             } else if let last = Stamp.date(model.verified?.presentation.lastScanAt) {
                 Text(ScanTime.moment(last, now: now, model: model)).font(PanelType.fact).foregroundStyle(p.secondary)
@@ -508,7 +509,7 @@ struct ScanPictureActions: View {
         if let requested = model.requestedScan {
             Button {} label: {
                 HStack(spacing: 7) {
-                    ProgressView().controlSize(.mini)
+                    ProgressView().controlSize(.mini).accessibilityHidden(true)
                     Text(model.text(requested == .start ? "scan-sending" : "scan-stop-requested"))
                 }
             }
@@ -536,9 +537,9 @@ struct ScanPictureActions: View {
             }
         } label: {
             HStack(spacing: 5) {
-                Image(systemName: "pause").font(.system(size: 10, weight: .bold))
+                Image(systemName: "pause").font(.system(size: 10, weight: .bold)).accessibilityHidden(true)
                 Text(model.text(paused ? "scan-paused" : "scan-pause"))
-                Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold)).opacity(0.7)
+                Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold)).opacity(0.7).accessibilityHidden(true)
             }
         }
         .menuStyle(.button).menuIndicator(.hidden).buttonStyle(QuietButtonStyle())
