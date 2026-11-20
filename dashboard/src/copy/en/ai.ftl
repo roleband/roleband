@@ -77,13 +77,13 @@ ai-assistants-card-copy = { $choice ->
 
 ## features/intelligence/CapabilitiesCard.tsx
 # kind=heading
-ai-egress-title = Allow sending to AI providers?
+ai-egress-title = Allow AI providers?
 # kind=consent
-ai-egress-detail = Text from { -posting(num: "other") } is sent only to the AI providers you turn on, including providers you add or turn on later.
+ai-egress-detail = Only the AI providers you turn on are used, each with your own API key. That includes ones you add or turn on later. Turning this off stops them all.
 # kind=heading
 ai-egress-destinations = Saved providers
 # kind=sentence
-ai-egress-empty = No AI providers added. Nothing is sent until one is added and turned on.
+ai-egress-empty = No AI providers added. Nothing leaves this computer until one is added and turned on.
 # kind=button
 ai-egress-allow = Allow
 # kind=heading wording=as-is
@@ -110,7 +110,7 @@ ai-capabilities-card-none-connected = None added ·
 # kind=button wording=as-is
 ai-capabilities-card-add = Add
 # kind=label
-ai-capabilities-card-send-postings-to-online-services = Send postings
+ai-capabilities-card-send-postings-to-online-services = Allow AI providers
 # kind=label wording=as-is
 ai-capabilities-card-the-example-says = the example says
 # kind=label wording=as-is
@@ -166,15 +166,15 @@ ai-capabilities-card-test = { $choice ->
     [yes] Testing…
    *[no] Test
 }
-# kind=status note="After None added, before any AI provider exists: whether postings could be sent (yes: Send postings is on)"
+# kind=status note="After None added, before any AI provider exists: whether an AI provider could be contacted (yes: Allow AI providers is on)"
 ai-capabilities-card-nothing-is-sent = { $choice ->
     [yes] allowed once you add a provider
-   *[no] nothing is sent
+   *[no] nothing leaves this computer
 }
-# kind=status note="The Send postings row's sub-line, by the switch's state"
+# kind=status note="The Allow AI providers row's sub-line, by the switch's state"
 ai-capabilities-card-off-nothing-is-sent = { $choice ->
-    [yes] on · providers you turn on receive postings
-   *[no] off · nothing is sent
+    [yes] on · only providers you turn on are used
+   *[no] off · nothing leaves this computer
 }
 # kind=status
 ai-capabilities-card-no-pay-range-found = { $choice ->
@@ -186,16 +186,16 @@ ai-capabilities-card-no-pay-range-found = { $choice ->
 }
 # kind=label
 ai-capabilities-card-on-device = on this computer
-# kind=tooltip note="Hover text on an AI provider row that can't run: its own switch is off (yes), or Send postings is off (no)"
+# kind=tooltip note="Hover text on an AI provider row that can't run: its own switch is off (yes), or Allow AI providers is off (no)"
 ai-capabilities-card-allow-sending-postings-to-online = { $choice ->
     [yes] Turn { $name } on to use it
-   *[no] Turn on Send postings first
+   *[no] Allow AI providers first
 }
 # kind=status note="An AI provider row's state, the last part of a line of facts joined by dots"
 ai-capabilities-card-blocked-online-services-are-switched = { $choice ->
-    [v1] in use
+    [v1] allowed
     [v2] off
-   *[v3] blocked · sending is off
+   *[v3] blocked · AI providers are off
 }
 # kind=toast wording=as-is
 ai-capabilities-card-connection-ready-ms = connection ready · { $latency_ms } ms
@@ -212,8 +212,8 @@ ai-capabilities-card-test-2 = Test { $name }
 ai-capabilities-card-configure = Configure { $name }
 
 ## features/intelligence/CloudDialog.tsx
-# kind=sentence note="$b is the Send postings switch's name, in bold"
-ai-cloud-dialog-a-direct-api-connection-billed = Uses your own API key, billed separately from any ChatGPT or Claude plan. Postings are sent only when { $b } is on.
+# kind=sentence note="$b is the Allow AI providers switch's name, in bold"
+ai-cloud-dialog-a-direct-api-connection-billed = Uses your own API key, billed separately from any ChatGPT or Claude plan. Used only while { $b } is on.
 # kind=label wording=as-is
 ai-cloud-dialog-name = Name
 # kind=label wording=as-is
@@ -618,7 +618,7 @@ ai-availability-not-configured = No model is set up. Add one in Settings › AI.
 # kind=sentence
 ai-availability-server-unreachable = Your local AI server didn't respond. Start it, then test again.
 # kind=sentence
-ai-availability-egress-not-permitted = Sending postings to AI providers is off. Turn it on in Settings › AI.
+ai-availability-egress-not-permitted = AI providers are off. Turn them on in Settings › AI.
 # kind=label wording=as-is
 ai-origin-none = No model ran
 # kind=status

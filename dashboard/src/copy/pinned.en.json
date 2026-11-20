@@ -1,5 +1,5 @@
 {
-  "ai-egress-detail": "Text from postings is sent only to the AI providers you turn on, including providers you add or turn on later.",
+  "ai-egress-detail": "Only the AI providers you turn on are used, each with your own API key. That includes ones you add or turn on later. Turning this off stops them all.",
   "spike-consent-wall": "Its careers site limits automated collection.",
   "jobs-standing-hedge": "patterns in how it is listed, not a verdict on the company. It may still be hiring.",
   "privacy-consent-intro": "We're free and open source, and we get better with every release.",

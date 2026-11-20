@@ -89,7 +89,7 @@ error-model-unreachable = Couldn't reach the model. Check that it is running, th
 # kind=error
 error-local-models-off = Your own model is off. Turn it on in Settings › AI.
 # kind=error
-error-ai-egress-off = Sending postings to AI providers is off. Turn it on in Settings › AI.
+error-ai-egress-off = AI providers are off. Turn them on in Settings › AI.
 # kind=error
 error-no-local-model = Your own model isn't set up. Add one in Settings › AI.
 # kind=error next=none note="Saving an AI connection after an update: the saved connections no longer validate, so the save was refused and nothing was lost"

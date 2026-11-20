@@ -1,9 +1,10 @@
 """BYOK cloud transport.
 
-`test_connection` stays what it always was: an explicit, user-triggered check
-that never runs on its own. `CloudLLMClient.chat` is the generation path used by
-the routed cloud tier — it sends job text OFF this Mac, so nothing here may be
-reached without the egress opt-in checked in `intelligence.registry`.
+`test_connection` is an explicit, user-triggered check that never runs on its
+own and carries no job text. `CloudLLMClient.chat` is the generation path of the
+routed cloud tier, which only the model bench drives: it sends job text off this
+computer, so nothing here may be reached without the egress opt-in checked in
+`intelligence_runtime/routing.py`.
 """
 
 from __future__ import annotations

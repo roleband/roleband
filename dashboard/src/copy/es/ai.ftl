@@ -68,7 +68,7 @@ ai-capabilities-card-ready = listo
 ai-capabilities-card-online-model-services = Proveedores de IA
 ai-capabilities-card-none-connected = Ninguno añadido ·
 ai-capabilities-card-add = Añadir
-ai-capabilities-card-send-postings-to-online-services = Enviar { -posting(num: "other") }
+ai-capabilities-card-send-postings-to-online-services = Permitir proveedores de IA
 ai-capabilities-card-the-example-says = el ejemplo dice
 ai-capabilities-card-it-found = encontró
 ai-capabilities-card-found-pay = { $band } · { $basis ->
@@ -108,11 +108,11 @@ ai-capabilities-card-test = { $choice ->
 }
 ai-capabilities-card-nothing-is-sent = { $choice ->
     [yes] permitido cuando añadas un proveedor
-   *[no] no se envía nada
+   *[no] nada sale de este ordenador
 }
 ai-capabilities-card-off-nothing-is-sent = { $choice ->
-    [yes] activado · los proveedores que actives reciben las { -posting(num: "other") }
-   *[no] desactivado · no se envía nada
+    [yes] activado · solo se usan los proveedores que actives
+   *[no] desactivado · nada sale de este ordenador
 }
 ai-capabilities-card-no-pay-range-found = { $choice ->
     [v1] La prueba falló
@@ -124,12 +124,12 @@ ai-capabilities-card-no-pay-range-found = { $choice ->
 ai-capabilities-card-on-device = en este ordenador
 ai-capabilities-card-allow-sending-postings-to-online = { $choice ->
     [yes] Activa { $name } para usarlo
-   *[no] Activa primero Enviar { -posting(num: "other") }
+   *[no] Permite primero los proveedores de IA
 }
 ai-capabilities-card-blocked-online-services-are-switched = { $choice ->
-    [v1] en uso
+    [v1] permitido
     [v2] desactivado
-   *[v3] bloqueado · el envío está desactivado
+   *[v3] bloqueado · los proveedores de IA están desactivados
 }
 ai-capabilities-card-connection-ready-ms = conexión lista · { $latency_ms } ms
 ai-capabilities-card-use = Usar { $name }
@@ -141,7 +141,7 @@ ai-capabilities-card-test-2 = Probar { $name }
 ai-capabilities-card-configure = Configurar { $name }
 
 ## features/intelligence/CloudDialog.tsx
-ai-cloud-dialog-a-direct-api-connection-billed = Usa tu propia clave de API, facturada aparte de cualquier plan de ChatGPT o Claude. Las { -posting(num: "other") } solo se envían cuando { $b } está activado.
+ai-cloud-dialog-a-direct-api-connection-billed = Usa tu propia clave de API, facturada aparte de cualquier plan de ChatGPT o Claude. Solo se usa mientras { $b } está activado.
 ai-cloud-dialog-name = Nombre
 ai-cloud-dialog-provider = Proveedor
 ai-cloud-dialog-server-address-https = Dirección del servidor (HTTPS)
@@ -385,7 +385,7 @@ ai-availability-device-ineligible = Este ordenador no es compatible con Apple In
 ai-availability-model-not-ready = Aún no está listo. Puede que siga descargándose.
 ai-availability-not-configured = No hay ningún modelo configurado. Añade uno en Ajustes › IA.
 ai-availability-server-unreachable = Tu servidor de IA local no respondió. Inícialo y vuelve a probar.
-ai-availability-egress-not-permitted = El envío de { -posting(num: "other") } a proveedores de IA está desactivado. Actívalo en Ajustes › IA.
+ai-availability-egress-not-permitted = Los proveedores de IA están desactivados. Actívalos en Ajustes › IA.
 ai-origin-none = No se ejecutó ningún modelo
 ai-origin-on-device = En este ordenador: Apple Intelligence
 ai-origin-this-mac = En este ordenador: tu propio modelo
@@ -405,10 +405,9 @@ ai-capabilities-card-running = en marcha
 ## Una lectura fallida, dicha.
 ai-intelligence-section-matches-load-failed = No se pudieron cargar los puestos que mejor encajan contigo
 ai-intelligence-section-band-load-failed = No se pudieron cargar los puestos de este grado
-ai-egress-title = ¿Permitir el envío a proveedores de IA?
-ai-egress-detail = El texto de las { -posting(num: "other") } solo se envía a los proveedores de IA que actives, incluidos los que añadas o actives más adelante.
+ai-egress-title = ¿Permitir proveedores de IA?
 ai-egress-destinations = Proveedores guardados
-ai-egress-empty = No has añadido ningún proveedor de IA. No se envía nada hasta que añadas y actives uno.
+ai-egress-empty = No has añadido ningún proveedor de IA. Nada sale de este ordenador hasta que añadas y actives uno.
 ai-egress-allow = Permitir
 
 ai-capabilities-card-apple-off = desactivado

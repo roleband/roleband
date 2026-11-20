@@ -8,8 +8,10 @@ import { number as copyNumber } from "../../copy/format";
 //   Online model services · cloud-connected  · none until the user adds one
 //
 // Configuration lives one step in, behind each row's own dialog. The cloud
-// row additionally carries the permission to send posting text off this
-// computer (`ai_egress_enabled`), including to services connected later.
+// row additionally carries the master switch for every online service
+// (`ai_egress_enabled`), including services connected later: off, none of them
+// is reached. Its consent names no data, because no product task sends posting
+// text to an online service (`backend/tests/test_ai_egress_reach.py`).
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CloudLLMProfile,
@@ -632,7 +634,7 @@ function CloudRow({
   const state = aiCapabilitiesCardBlockedOnlineServicesAreSwitched({ choice: (usable) ? "v1" : (!profile.enabled) ? "v2" : "v3" });
 
   // Testing authenticates to the vendor with the saved key. It carries no job
-  // text (that path is gated in `intelligence.registry`), but it is still a
+  // text, but it is still a
   // request this computer makes to a service the user has switched off, which
   // is exactly what the switches are there to prevent.
   const test = async () => {

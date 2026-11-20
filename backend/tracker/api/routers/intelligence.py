@@ -252,7 +252,11 @@ async def put_intelligence_ep(payload: IntelligencePayload, session: SessionDep)
 
 @router.put("/api/intelligence/egress", response_model=IntelligenceStateResponse)
 async def put_ai_egress_ep(payload: EgressPayload, session: SessionDep) -> dict:
-    """Allow (or stop) job text leaving this Mac.
+    """Allow (or stop) this computer contacting a cloud AI provider.
+
+    What it admits is the connection test, and search query parsing where that
+    is configured; no product task sends job text to a cloud model
+    (`tests/test_ai_egress_reach.py`).
 
     Its own endpoint rather than a field on the Apple FM toggle: this is the one
     consent that changes what the shipped privacy copy can truthfully say, so it
