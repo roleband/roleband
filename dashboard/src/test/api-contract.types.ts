@@ -318,6 +318,7 @@ export type IntelligenceRouteContract = [
   Expect<Equals<Returns<typeof api.intelligenceFitBand>, Ok<"intelligence_fit_band_api_intelligence_fit_band__band__get">>>,
   Expect<Equals<Returns<typeof api.agentAccess>, Ok<"get_agent_access_ep_api_intelligence_agents_get">>>,
   Expect<Equals<Returns<typeof api.setAgentAccess>, Ok<"put_agent_access_ep_api_intelligence_agents_put">>>,
+  Expect<Equals<Returns<typeof api.patchAgentAccess>, Ok<"patch_agent_access_ep_api_intelligence_agents_patch">>>,
   Expect<MatchingStopResult extends IntelligenceStatus ? true : false>,
 ];
 

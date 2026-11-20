@@ -1604,7 +1604,8 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Patch Agent Access Ep */
+        patch: operations["patch_agent_access_ep_api_intelligence_agents_patch"];
         trace?: never;
     };
     "/api/intelligence/cloud-models": {
@@ -4092,6 +4093,17 @@ export interface components {
             consent?: components["schemas"]["AgreementPayload"] | null;
             /** Name */
             name?: string | null;
+        };
+        /** AgentAccessChoices */
+        AgentAccessChoices: {
+            /** Categories */
+            categories?: {
+                [key: string]: "any_model" | "local_only" | "not_shared";
+            };
+            /** Groups */
+            groups?: {
+                [key: string]: "on" | "off";
+            };
         };
         /** AgentAccessConfig */
         AgentAccessConfig: {
@@ -18932,6 +18944,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["AgentAccessConfig"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentAccessResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_agent_access_ep_api_intelligence_agents_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentAccessChoices"];
             };
         };
         responses: {

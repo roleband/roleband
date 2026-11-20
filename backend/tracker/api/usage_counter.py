@@ -113,6 +113,7 @@ ACTIONS: Mapping[tuple[str, str], str] = {
 
 #: Unsafe routes deliberately not counted, each with its reason.
 NOT_COUNTED: Mapping[tuple[str, str], str] = {
+    ("PATCH", "/api/intelligence/agents"): "individual sharing and action choices stay in Settings",
     ("POST", "/api/companies/{company}/recipe-rebind"): "source identity review is recorded in the local audit",
     ("POST", "/api/companies/{company}/recipe-rebind/{binding_id}/decisions"): "source identity decisions stay in the local audit",
     ("POST", "/api/companies/{company}/recipe-rebind/{binding_id}/rollback"): "source rollback is recorded in the local audit",

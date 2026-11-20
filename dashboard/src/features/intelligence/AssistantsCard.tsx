@@ -15,12 +15,11 @@
 // (an older skill, a removed rule) keeps a single button for that step.
 import { errorText } from "../../api/errorText";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type AgentAccessInput, type AgentAccessState, api } from "../../api";
+import { type AgentAccessChoices, type AgentAccessState, api } from "../../api";
 import { ageLabel } from "../../format";
 import { list } from "../../copy/format";
 import { Button, CompanyIcon, Dialog, Icon, RouterLink, Switch } from "../../ui";
 import {
-  type AccessChoices,
   AgentAccessDialog,
   CATEGORIES,
   GROUPS,
@@ -197,12 +196,12 @@ export function AssistantsCard() {
     read().catch(() => undefined);
   };
 
-  const save = async (access: AgentAccessInput) => {
+  const save = async (write: () => Promise<AgentAccessState>) => {
     requests.current += 1;
     setSaving(true);
     setError(null);
     try {
-      const next = await api.setAgentAccess(access);
+      const next = await write();
       requests.current += 1;
       loaded(next);
     } catch (e) {
@@ -215,16 +214,8 @@ export function AssistantsCard() {
   const allowed = state?.enabled ?? false;
   // Changes ride on the connection: turning it on allows them, and each kind
   // the person switched off stays off, since the save leaves the groups out.
-  const connect = (next: boolean) => save({ enabled: next, allow_writes: next });
-  // A choice in Customize stores the whole grid it changed, so what the dialog
-  // showed is what is saved. A data choice leaves changes as they are; a choice
-  // of changes allows them, so the grid the person set is the one that applies.
-  const customize = (choices: Partial<AccessChoices>) =>
-    save({
-      enabled: allowed,
-      allow_writes: choices.groups ? allowed : (state?.allow_writes ?? false),
-      ...choices,
-    });
+  const connect = (next: boolean) => save(() => api.setAgentAccess({ enabled: next, allow_writes: next }));
+  const customize = (choices: AgentAccessChoices) => save(() => api.patchAgentAccess(choices));
 
   const lines = state ? heldBack(state) : [];
 

@@ -358,15 +358,9 @@ test("assistants: one switch lets apps connect, and Customize holds back the res
     expect(Math.abs(postings - tracking)).toBeLessThan(3);
   }
 
-  // A choice is stored at once; the card then names it, and only it.
-  const saved = page.waitForRequest((request) => request.method() === "PUT" && request.url().endsWith("/api/intelligence/agents"));
-  // A radio shows the stored choice, so it moves once the save answers.
+  const saved = page.waitForRequest((request) => request.method() === "PATCH" && request.url().endsWith("/api/intelligence/agents"));
   await customize.getByRole("radio", { name: offerKept }).click();
-  const body = (await saved).postDataJSON();
-  expect(body.categories.offer).toBe("not_shared");
-  expect(body.categories.public_posting).toBe("any_model");
-  // A data choice leaves the stored kinds of change alone.
-  expect(body.groups).toBeUndefined();
+  expect((await saved).postDataJSON()).toEqual({ categories: { offer: "not_shared" } });
   await expect(customize.getByRole("radio", { name: offerKept })).toBeChecked();
   await customize.getByRole("button", { name: "Done" }).click();
   await expect(customize).toBeHidden();
