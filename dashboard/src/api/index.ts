@@ -103,7 +103,7 @@ export type {
   StoredPersonaProfile,
 } from "./scope";
 export type {
-  AgentAccessInput, AgentAccessState, CloudLLMProfile, CloudLLMProfileInput, CloudLLMState, CloudLLMTestResult,
+  AgentAccessChoices, AgentAccessInput, AgentAccessState, CloudLLMProfile, CloudLLMProfileInput, CloudLLMState, CloudLLMTestResult,
   IntelligenceAvailability, IntelligenceExtracted, IntelligenceFit, IntelligenceFitBand,
   IntentStatementResult,
   IntelligenceFitBandPreview, IntelligenceRouting, IntelligenceStatus, IntelligenceTestResult,

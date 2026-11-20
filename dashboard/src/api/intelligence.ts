@@ -2,7 +2,7 @@
    One domain of the typed client; `index.ts` composes `api`. */
 
 import type { Schemas } from "./schemas";
-import { getJSON, putJSON, postJSON, deleteJSON } from "./transport";
+import { getJSON, putJSON, patchJSON, postJSON, deleteJSON } from "./transport";
 
 // --- Settings > AI: the state, matching, the experimental self-test, fit -----
 //
@@ -99,10 +99,11 @@ export type LocalLLMTestResult = Schemas["LocalModelTestResult"];
 /** Both gates as saved, and the command that connects each agent host. */
 export type AgentAccessState = Schemas["AgentAccessResponse"];
 
-/** What Settings saves: both switches, and the choices when they change. A
- *  save that leaves `categories` or `groups` out keeps the stored ones. */
-export type AgentAccessInput = Pick<Schemas["AgentAccessConfig"], "enabled" | "allow_writes"> &
-  Partial<Pick<Schemas["AgentAccessConfig"], "categories" | "groups">>;
+/** A change to the master switch saves both gates together. */
+export type AgentAccessInput = Pick<Schemas["AgentAccessConfig"], "enabled" | "allow_writes">;
+
+/** Customize sends the individual choices the person changed. */
+export type AgentAccessChoices = Schemas["AgentAccessChoices"];
 
 /** A saved BYOK connection; the key is write-only. */
 export type CloudLLMProfile = Schemas["CloudModelProfile"];
@@ -164,6 +165,8 @@ export const intelligenceApi = {
   agentAccess: () => getJSON<AgentAccessState>("/api/intelligence/agents"),
   setAgentAccess: (access: AgentAccessInput) =>
     putJSON<AgentAccessState>("/api/intelligence/agents", access),
+  patchAgentAccess: (choices: AgentAccessChoices) =>
+    patchJSON<AgentAccessState>("/api/intelligence/agents", choices),
   cloudLLMProfiles: () => getJSON<CloudLLMState>("/api/intelligence/cloud-models"),
   addCloudLLMProfile: (profile: CloudLLMProfileInput) =>
     postJSON<CloudLLMProfile>("/api/intelligence/cloud-models", profile),

@@ -9,9 +9,9 @@ switch off, so a bad write never opens access.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, get_args
 
-from pydantic import BaseModel, StrictBool
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,6 +34,13 @@ class AgentAccessConfig(BaseModel):
     categories: dict[DataClass, CategoryChoice] = {}
     #: The person's choice per action group; a group left out is on.
     groups: dict[ActionGroup, GroupChoice] = {}
+
+
+class AgentAccessChoices(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    categories: dict[DataClass, CategoryChoice] = Field(default_factory=dict)
+    groups: dict[ActionGroup, GroupChoice] = Field(default_factory=dict)
 
 
 async def get_agent_access(session: AsyncSession) -> AgentAccessConfig:
@@ -68,6 +75,30 @@ async def set_agent_access(
         stored = await _locked_choices(session)
         for name in kept:
             value[name] = stored.get(name, {})
+    return await _save_access(session, value)
+
+
+async def patch_agent_access(session: AsyncSession, choices: AgentAccessChoices) -> AgentAccessConfig:
+    """Apply only the choices named, under the same lock as the master switch."""
+    changes_by_field = choices.model_dump(mode="json", exclude_defaults=True)
+    if not changes_by_field:
+        return await get_agent_access(session)
+    value = await _locked_choices(session)
+    before = _read(value)
+    if not before.enabled and value.get("enabled") is True:
+        # Repairing an unreadable choice must not activate a row that reads as off.
+        value = {**value, "enabled": False, "allow_writes": False}
+    if before.enabled and not before.allow_writes and "on" in choices.groups.values():
+        # A read-only connection shows every group off. Grant only the groups explicitly chosen.
+        value["allow_writes"] = True
+        value["groups"] = dict.fromkeys(get_args(ActionGroup), "off")
+    for name, changes in changes_by_field.items():
+        stored = value.get(name)
+        value[name] = {**(stored if isinstance(stored, dict) else {}), **changes}
+    return await _save_access(session, value)
+
+
+async def _save_access(session: AsyncSession, value: dict[str, object]) -> AgentAccessConfig:
     stmt = insert(AppSetting).values(key=AGENT_ACCESS_KEY, value=value)
     stmt = stmt.on_conflict_do_update(
         index_elements=[AppSetting.key], set_={"value": value}

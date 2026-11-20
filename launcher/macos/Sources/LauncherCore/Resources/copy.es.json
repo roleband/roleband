@@ -53,6 +53,7 @@
   "step-welcome": "Bienvenida",
   "step-login": "Al iniciar sesión",
   "step-done": "Listo",
+  "step-progress": "Paso {current} de {total}: {name}",
   "login-error": "No se pudo cambiar el ajuste de inicio. Inténtalo de nuevo.",
   "installer-title": "Instala RoleBand",
   "installer-open": "Abre la copia instalada para comenzar la configuración.",

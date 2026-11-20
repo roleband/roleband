@@ -1056,13 +1056,26 @@ so its lane goes on. Never-read companies go first, in the plan's roster
 (`scheduler.planned_roster`) and inside each lane (`collector_lanes`). A full read
 something stopped is continued, not started over: while the newest full read began
 within `daily_full_after`, a tick reads the companies with no full read since it
-began (`schedule_plan.continuation_start`, `read_since`) as a `continue` plan run.
+began (`schedule_plan.continuation_start`, `left_to_read`) as a `continue` plan run.
 A run whose process ended is closed as `interrupted` and continued at the next
 tick. A `continue` run that finished or failed is tried again only after
 `FAILED_RETRY`, so a network that stays down is asked every half hour, not on every
-tick. A site's failure is its answer and is not retried there; only a company its
-lane never started is still unread. A company asked for by name during a run is
-queued, taken by the run's writer between companies or on a short timer, and read
+tick. A company whose read failed in a way another try may change
+(`schedule_plan.RETRY_OUTCOMES`: `RETRYABLE` without `unattempted`) is read again
+in the same full read, `FAILED_RETRY` after its failed read and then at doubling
+gaps, while its provider is out of cooldown and never before its own next
+deadline. Before a retry reads, the tick holds that deadline past the end of the
+full read (`schedule_plan.longest_full_read`); the retry's recorded read sets it
+as usual, so a process killed mid-retry
+leaves the company for the next full read instead of restarting the retry on
+every tick. A board gone from its address, a
+refusal, a page ceiling or a lossy read answers the same later and waits for the
+next full read. A tick of retries alone records no plan run, so it moves neither
+the next quick check nor the next full read. Each retry's record is marked
+`retry`, and a retry that fails again adds nothing to the feed: the full read
+already reported that failure (`run_result._read_sources`). A company asked for
+by name during a run is queued, taken by the run's writer between companies or on
+a short timer, and read
 at the front of its lane or in a lane of its own at the next free slot
 (`run_pipeline(join_requests=True)`); asking for every company during a run queues
 nothing. A scan is stuck only when it finishes no company and no source makes
@@ -1322,8 +1335,11 @@ with no choice is on, and with `allow_writes` off every group is off. The
 Settings route answers every category and group with a missing choice filled
 in as open, and a group as off while the connection is on and `allow_writes`
 off. A Settings save of the two switches keeps the stored choices, those the
-engine cannot read as they are, so the row still reads as everything off. A
-keyed write's receipt keeps the whole result; its
+engine cannot read as they are, so the row still reads as everything off.
+Customize saves just the named choices under the same row lock as the master
+switch. It uses the current connection state. Turning on a group from a
+read-only connection grants the named groups and starts the others off.
+A keyed write's receipt keeps the whole result; its
 answer, fresh or replayed, leaves the part out. Every operation but the
 handshake declares at least one data class.
 A class covers what its part reveals, not where the part is stored. Public
@@ -1497,7 +1513,8 @@ from `job_lifecycle_events`, stated-pay changes from its `disclosed_base`
 detail, source health from `scrape_source_runs`, a plugin job's health from
 `plugin_run_ends` (one row per plugin run closed since the table exists,
 inserted by the transaction that closes it), and pursuit actions falling due from
-`pursuits.next_action_due`. Each event says whether it is recorded or derived
+`pursuits.next_action_due` and the `pursuit_events` that scheduled or reactivated
+them. Each event says whether it is recorded or derived
 at the read (a repost label, a health move, a due time). The records carry the
 inserting transaction (`change_xact`, `xid8`, and `change_cluster`), and a read
 stops below the oldest transaction of the database still running, so a row that

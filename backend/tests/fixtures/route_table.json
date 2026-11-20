@@ -695,6 +695,11 @@
   },
   {
    "method": "PATCH",
+   "path": "/api/intelligence/agents",
+   "response_schema": "AgentAccessResponse"
+  },
+  {
+   "method": "PATCH",
    "path": "/api/jobs/{job_id}/pursuit/interviews/{interview_id}",
    "response_schema": "ApplicationInterviewResponse"
   },

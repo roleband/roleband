@@ -317,6 +317,53 @@
     "title": "AddCompanyPayload",
     "type": "object"
    },
+   "AgentAccessChoices": {
+    "additionalProperties": false,
+    "properties": {
+     "categories": {
+      "additionalProperties": {
+       "enum": [
+        "any_model",
+        "local_only",
+        "not_shared"
+       ],
+       "type": "string"
+      },
+      "propertyNames": {
+       "enum": [
+        "public_posting",
+        "market_statistic",
+        "private_pursuit",
+        "offer",
+        "candidate"
+       ]
+      },
+      "title": "Categories",
+      "type": "object"
+     },
+     "groups": {
+      "additionalProperties": {
+       "enum": [
+        "on",
+        "off"
+       ],
+       "type": "string"
+      },
+      "propertyNames": {
+       "enum": [
+        "tracking_progress",
+        "keeping_findings",
+        "tuning_radar",
+        "controlling_collection"
+       ]
+      },
+      "title": "Groups",
+      "type": "object"
+     }
+    },
+    "title": "AgentAccessChoices",
+    "type": "object"
+   },
    "AgentAccessConfig": {
     "properties": {
      "allow_writes": {
@@ -44365,6 +44412,42 @@
      }
     },
     "summary": "Get Agent Access Ep"
+   },
+   "patch": {
+    "operationId": "patch_agent_access_ep_api_intelligence_agents_patch",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AgentAccessChoices"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AgentAccessResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Patch Agent Access Ep"
    },
    "put": {
     "operationId": "put_agent_access_ep_api_intelligence_agents_put",

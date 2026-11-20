@@ -2,11 +2,8 @@
 // less than everything. The card's switch is the one consent; this dialog only
 // narrows it. Each choice is a column heading said once, and each row a radio
 // group, so a choice is never repeated row after row. A click is stored at
-// once, as Settings switches are, so the dialog has no Save. A click hands up
-// only the grid it changed: while changes are off, the engine reports every
-// group off, and saving that with a data choice would overwrite the groups the
-// person stored.
-import type { AgentAccessState } from "../../api";
+// once, as Settings switches are, so the dialog has no Save.
+import type { AgentAccessChoices, AgentAccessState } from "../../api";
 import { Button, Dialog, InfoTip } from "../../ui";
 import {
   aiAccessDialogAnyModel,
@@ -89,22 +86,7 @@ function everythingOpen(state: AgentAccessState): boolean {
   );
 }
 
-export interface AccessChoices {
-  categories: Record<Category, CategoryChoice>;
-  groups: Record<Group, GroupChoice>;
-}
-
-function choicesOf(state: AgentAccessState): AccessChoices {
-  return {
-    categories: Object.fromEntries(CATEGORIES.map((c) => [c.id, categoryChoice(state, c.id)])) as Record<
-      Category,
-      CategoryChoice
-    >,
-    groups: Object.fromEntries(GROUPS.map((g) => [g.id, groupChoice(state, g.id)])) as Record<Group, GroupChoice>,
-  };
-}
-
-const OPEN: AccessChoices = {
+const OPEN: AgentAccessChoices = {
   categories: Object.fromEntries(CATEGORIES.map((c) => [c.id, "any_model"])) as Record<Category, CategoryChoice>,
   groups: Object.fromEntries(GROUPS.map((g) => [g.id, "on"])) as Record<Group, GroupChoice>,
 };
@@ -119,13 +101,12 @@ export function AgentAccessDialog({
   state: AgentAccessState;
   saving: boolean;
   error: string | null;
-  onChange: (choices: Partial<AccessChoices>) => void;
+  onChange: (choices: AgentAccessChoices) => void;
   onClose: () => void;
 }) {
-  const current = choicesOf(state);
   const setCategory = (id: Category, choice: CategoryChoice) =>
-    onChange({ categories: { ...current.categories, [id]: choice } });
-  const setGroup = (id: Group, choice: GroupChoice) => onChange({ groups: { ...current.groups, [id]: choice } });
+    onChange({ categories: { [id]: choice } });
+  const setGroup = (id: Group, choice: GroupChoice) => onChange({ groups: { [id]: choice } });
 
   return (
     <Dialog isOpen onClose={onClose} label={aiAccessDialogTitle()} width={720} className="app-overlay">
@@ -140,7 +121,7 @@ export function AgentAccessDialog({
           caption={aiAccessDialogData()}
           rows={CATEGORIES}
           choices={CATEGORY_CHOICES}
-          value={(id) => current.categories[id]}
+          value={(id) => categoryChoice(state, id)}
           onPick={setCategory}
           disabled={saving}
         />
@@ -149,7 +130,7 @@ export function AgentAccessDialog({
           caption={aiAccessDialogChanges()}
           rows={GROUPS}
           choices={GROUP_CHOICES}
-          value={(id) => current.groups[id]}
+          value={(id) => groupChoice(state, id)}
           onPick={setGroup}
           disabled={saving}
         />

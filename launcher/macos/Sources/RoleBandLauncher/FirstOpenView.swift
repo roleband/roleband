@@ -8,15 +8,25 @@ struct SetupView: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.colorSchemeContrast) private var contrast
     private var palette: LaunchPalette { LaunchPalette(dark: scheme == .dark, increasedContrast: contrast == .increased) }
-    private let steps: [SetupStep] = [.welcome, .connection, .login, .done]
+    private var steps: [SetupStep] { Self.steps }
+    static let steps: [SetupStep] = [.welcome, .connection, .login, .done]
 
-    private func stepName(_ step: SetupStep) -> String {
+    private func stepName(_ step: SetupStep) -> String { Self.stepName(step) }
+    static func stepName(_ step: SetupStep) -> String {
         switch step {
         case .welcome, .installation: "step-welcome"
         case .connection: "first-step-preparing"
         case .login: "step-login"
         case .done: "step-done"
         }
+    }
+    /// What VoiceOver reads for the step bar: where the person is and how far there is to go, in
+    /// one phrase. Installation runs inside the first bar, so it counts as that step.
+    static func progressLabel(_ step: SetupStep, copy: LauncherCopy) -> String {
+        let shown = step == .installation ? .welcome : step
+        let position = (steps.firstIndex(of: shown) ?? 0) + 1
+        return copy.text("step-progress", ["current": String(position), "total": String(steps.count),
+                                           "name": copy.text(stepName(shown))])
     }
     private var heading: String {
         switch model.step {
@@ -57,7 +67,7 @@ struct SetupView: View {
                     }.frame(maxWidth: .infinity, alignment: .leading)
                 }
             }.padding(.top, 38).padding(.horizontal, 32)
-                .accessibilityElement(children: .combine).accessibilityValue(model.text(stepName(model.step)))
+                .accessibilityElement(children: .ignore).accessibilityLabel(Self.progressLabel(model.step, copy: model.copy))
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     VStack(alignment: .leading, spacing: 6) {

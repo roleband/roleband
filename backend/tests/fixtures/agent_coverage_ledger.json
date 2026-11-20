@@ -528,6 +528,12 @@
   },
   {
    "method": "PATCH",
+   "path": "/api/intelligence/agents",
+   "excluded": "app_setting",
+   "reason": "The person's sharing and action choices stay in Settings."
+  },
+  {
+   "method": "PATCH",
    "path": "/api/jobs/{job_id}/pursuit/interviews/{interview_id}",
    "operation": "interviews.patch"
   },

@@ -670,6 +670,30 @@ async def test_a_tick_beside_a_live_scan_closes_nothing(db_session, board):
             await live
 
 
+@pytest.mark.parametrize("retried", [True, False])
+async def test_a_retried_company_that_fails_again_leaves_the_feed_as_it_was(db_session, board, retried):
+    """The full read already said this company's read failed. Asked again
+    and failing again, the run marks its record a retry and writes nothing to
+    the feed; the same failure on a company not retried still speaks up."""
+    from tracker.db.models import Notification
+
+    board.plans["apple"] = ([], "error")
+    board.plans["amazon"] = (["a1"], "complete")
+
+    await pipeline.run_pipeline(
+        companies=["apple", "amazon"], hydrate=False, retries=["apple"] if retried else [],
+    )
+
+    run = (await db_session.scalars(select(ScrapeRun).order_by(ScrapeRun.id.desc()))).first()
+    assert run.per_source["apple"]["outcome"] == "failed"
+    source_run = (await db_session.scalars(
+        select(ScrapeSourceRun).where(ScrapeSourceRun.run_id == run.id, ScrapeSourceRun.company_slug == "apple")
+    )).one()
+    assert bool(source_run.stats.get("retry")) is retried
+    feed = (await db_session.scalars(select(Notification.category).where(Notification.run_id == run.id))).all()
+    assert (feed == []) is retried, feed
+
+
 async def test_a_run_that_crashes_holds_no_job_site_back(db_session, board, monkeypatch):
     """An exception out of the run is the run's own: a job site's answer is
     each company's outcome, recorded inside the run. The companies it never

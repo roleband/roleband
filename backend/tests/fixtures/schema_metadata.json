@@ -1853,6 +1853,8 @@
     "    detail JSONB NOT NULL,",
     "    source VARCHAR(16) DEFAULT 'app' NOT NULL,",
     "    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,",
+    "    change_xact xid8 DEFAULT pg_current_xact_id(),",
+    "    change_cluster BIGINT DEFAULT (pg_control_system()).system_identifier,",
     "    PRIMARY KEY (id),",
     "    FOREIGN KEY(pursuit_id) REFERENCES pursuits (id) ON DELETE CASCADE",
     ")"
