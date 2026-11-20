@@ -77,6 +77,20 @@ def exported_identity(folder, key=None, authorities=1):
         [*chain, chain[0]], serialization.BestAvailableEncryption(CERTIFICATE_PASSWORD)))
 
 
+@contextlib.contextmanager
+def searched(keychain):
+    """The keychain on the user's search list while the block runs, then the list as it was."""
+    def keychains(*arguments):
+        return subprocess.run(['security', 'list-keychains', '-d', 'user', *arguments], capture_output=True,
+                              text=True, check=True, stdin=subprocess.DEVNULL, timeout=60).stdout
+    before = [line.strip().strip('"') for line in keychains().splitlines() if line.strip()]
+    keychains('-s', str(keychain), *before)
+    try:
+        yield
+    finally:
+        keychains('-s', *before)
+
+
 def received(keywords):
     """What a step's stdin holds as the step starts: every byte, or None when a writer is still open
     or the bytes are only written once it runs."""
@@ -452,11 +466,15 @@ class SigningTests(unittest.TestCase):
                         tool = folder / f'{keys.name}-tool'
                         shutil.copy('/usr/bin/true', tool)
                         subprocess.run(['codesign', '--remove-signature', str(tool)], check=True, timeout=60)
-                        # The flags bundle.sign_tree signs with.
-                        for command in (['codesign', '--force', '--timestamp=none', '--sign', identity,
-                                         '--keychain', str(keychain), str(tool)], ['codesign', '--verify', str(tool)]):
-                            done = subprocess.run(command, capture_output=True, stdin=subprocess.DEVNULL, timeout=60)
-                            self.assertEqual(done.returncode, 0, done.stderr.decode())
+                        # The flags bundle.sign_tree signs with. Some macOS versions let codesign reach a key
+                        # only in a keychain on the user's search list, whatever --keychain names.
+                        with searched(keychain):
+                            for command in (['codesign', '--force', '--timestamp=none', '--sign', identity,
+                                             '--keychain', str(keychain), str(tool)],
+                                            ['codesign', '--verify', str(tool)]):
+                                done = subprocess.run(command, capture_output=True, stdin=subprocess.DEVNULL,
+                                                      timeout=60)
+                                self.assertEqual(done.returncode, 0, done.stderr.decode())
                         held = security('find-certificate', '-a', '-Z', str(keychain)).stdout.decode()
                         self.assertEqual(held.count('SHA-1 hash:'), 1 if typed is None else 2, 'each certificate once')
                         if typed is None:
