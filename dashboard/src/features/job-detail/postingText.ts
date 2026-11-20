@@ -45,6 +45,8 @@ export function usePostingText(
    *  and a posting with one still in flight is never asked a second time. */
   const attempts = useRef(new Map<number, number>());
   const inFlight = useRef(new Set<number>());
+  /** Postings whose read in flight has run past `SLOW_AFTER_MS`, shown or not. */
+  const slowFor = useRef(new Set<number>());
   const shown = useRef(id);
   shown.current = id;
 
@@ -53,6 +55,7 @@ export function usePostingText(
       const mine = (attempts.current.get(jobId) ?? 0) + 1;
       attempts.current.set(jobId, mine);
       inFlight.current.add(jobId);
+      slowFor.current.delete(jobId);
       const current = () => attempts.current.get(jobId) === mine && shown.current === jobId;
       /** An answer that came while another posting was on screen is dropped,
        *  and frees this posting to be asked again when it comes back: kept as
@@ -66,6 +69,8 @@ export function usePostingText(
       // its failure, and a new open of the posting starts over.
       setState({ id: jobId, phase: "reading" });
       const slow = window.setTimeout(() => {
+        if (attempts.current.get(jobId) !== mine) return;
+        slowFor.current.add(jobId);
         if (current()) setState({ id: jobId, phase: "slow" });
       }, SLOW_AFTER_MS);
       api
@@ -86,11 +91,19 @@ export function usePostingText(
         })
         .finally(() => {
           window.clearTimeout(slow);
-          if (attempts.current.get(jobId) === mine) inFlight.current.delete(jobId);
+          if (attempts.current.get(jobId) === mine) {
+            inFlight.current.delete(jobId);
+            slowFor.current.delete(jobId);
+          }
         });
     },
     [show, reread],
   );
+
+  /** Back on a posting whose read is still in flight: say what it has reached. */
+  const resume = useCallback((jobId: number) => {
+    setState({ id: jobId, phase: slowFor.current.has(jobId) ? "slow" : "reading" });
+  }, []);
 
   useEffect(() => {
     // Another posting is shown: one whose read has answered is asked again on
@@ -101,8 +114,9 @@ export function usePostingText(
     }
     if (!readable || id == null || asked.current === id) return;
     asked.current = id;
-    if (!inFlight.current.has(id)) start(id, false);
-  }, [readable, id, start]);
+    if (inFlight.current.has(id)) resume(id);
+    else start(id, false);
+  }, [readable, id, start, resume]);
 
   const retry = useCallback(() => {
     if (shown.current != null) start(shown.current, true);

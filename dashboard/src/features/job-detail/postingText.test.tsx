@@ -196,6 +196,19 @@ describe("usePostingText", () => {
     expect(show).toHaveBeenCalledWith(7, answer("read"));
   });
 
+  it("back on a posting whose read went slow while away, says it is slow", () => {
+    const read = vi.spyOn(api, "readPostingText").mockReturnValue(new Promise(() => {}));
+    const { result, rerender } = hook(blank(7));
+
+    rerender({ posting: blank(8) });
+    act(() => vi.advanceTimersByTime(SLOW_AFTER_MS));
+    expect(result.current.read?.phase).toBe("slow"); // 8's own read, also slow by now
+    rerender({ posting: blank(7) });
+
+    expect(result.current.read?.phase).toBe("slow"); // 7's read passed six seconds too
+    expect(read).toHaveBeenCalledTimes(2); // 7 once, 8 once
+  });
+
   it("under StrictMode reads once and still lands the answer", async () => {
     // StrictMode unmounts and mounts again before the answer comes: a read
     // retired by that practice unmount would leave the line running forever.
