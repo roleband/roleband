@@ -314,6 +314,12 @@ READY_GRACE = timedelta(hours=3)
 READY_FULL_AFTER = timedelta(hours=30)
 
 
+def longest_full_read(settings: Settings) -> timedelta:
+    """The longest a full read stays current (`PlanRules.daily_full_after`),
+    with or without a ready-by time."""
+    return max(timedelta(hours=settings.schedule_plan_full_after_hours), READY_FULL_AFTER)
+
+
 @dataclass(frozen=True)
 class PlanRules:
     """Everything the plan's decision and its projection read besides the runs.

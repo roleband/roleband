@@ -1023,10 +1023,13 @@ async def test_a_retry_whose_process_died_waits_for_the_next_full_read(scratch_s
     """A process killed mid-retry (a quit, an update, a stuck-scan stop)
     records nothing, and a retry leaves no plan run to close as interrupted,
     however long it had been reading. The deadline the tick moved on before
-    reading holds the company until the next full read, so a retry that keeps
-    dying is never started again and again; the next full read reads it."""
+    reading holds the company past the end of the full read it belongs to,
+    whatever the company's own cadence, so a retry that keeps dying is never
+    started again and again; the next full read reads it."""
+    from tracker.config import get_settings
     from tracker.workflows import scheduler
 
+    monkeypatch.setattr(get_settings(), "sync_reconcile_cadence_seconds", 6 * 3600)
     unlucky = await _full_read_with(scratch_scope, "failed")
     at = NOW + timedelta(minutes=71)
 
@@ -1047,12 +1050,13 @@ async def test_a_retry_whose_process_died_waits_for_the_next_full_read(scratch_s
     with pytest.raises(SystemExit):
         await scheduler.run_once()
 
-    for later in (timedelta(minutes=10), timedelta(hours=2), timedelta(hours=8)):
-        tick = await scheduler.plan_tick(at + later)
-        assert tick.retries == frozenset(), later
+    window_end = NOW + FULL_AFTER - timedelta(minutes=1)
+    for moment in (at + timedelta(minutes=10), at + timedelta(hours=2), at + timedelta(hours=7), window_end):
+        tick = await scheduler.plan_tick(moment)
+        assert tick.retries == frozenset(), moment
         assert unlucky.binding_id not in {
             item.binding_id for item in tick.work if item.mode is ScanMode.RECONCILE
-        }, later
+        }, moment
     full = await scheduler.plan_tick(NOW + FULL_AFTER + timedelta(minutes=1))
     assert full.plan_kind == FULL and unlucky.company_slug in {item.company_slug for item in full.work}
 
