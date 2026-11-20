@@ -933,6 +933,139 @@ async def test_an_interrupted_full_read_continues_with_exactly_the_companies_it_
     assert (later.plan_kind, later.work) == (None, []), "finished: no second full read, no more continuing"
 
 
+async def _read_ended(scratch_scope, at: datetime, item, outcome: str, **stats) -> None:
+    """One company's read in a scan run, ended at `at` with `outcome`, recorded
+    the way the run's writer records it: the source-run row and the schedule's
+    own bookkeeping (its next try, its provider's pressure)."""
+    from tracker.config import get_settings
+    from tracker.db.models import ScrapeRun, ScrapeSourceRun
+    from tracker.workflows import scheduler
+
+    stats = {"outcome": outcome, "errors": ["ReadTimeout"] if outcome != "ok" else [], **stats}
+    async with scratch_scope() as session:
+        scan = ScrapeRun(started_at=at, status="ok")
+        session.add(scan)
+        await session.flush()
+        session.add(ScrapeSourceRun(
+            run_id=scan.id, binding_id=item.binding_id, company_slug=item.company_slug,
+            provider_key=item.provider_key, scan_mode="reconcile",
+            outcome=outcome, started_at=at, finished_at=at, stats=stats,
+        ))
+        await scheduler.record_work_result(session, item, stats, at, get_settings())
+
+
+async def _full_read_with(scratch_scope, outcome: str, **stats):
+    """A finished full read at NOW in which one company's read ended in
+    `outcome` and every other company read cleanly. Returns that company's work."""
+    from tracker.workflows import scheduler
+
+    await _everyone_read(scratch_scope, NOW - timedelta(days=2))
+    full = await scheduler.plan_tick(NOW)
+    assert full.plan_kind == FULL and len(full.work) > 2
+    async with scratch_scope() as session:
+        run_id = await plan.start_run(session, kind=FULL, now=NOW, companies=len(full.work), roster=full.roster)
+    unlucky, *rest = full.work
+    await _recorded_reads(scratch_scope, NOW + timedelta(minutes=10), rest)
+    await _read_ended(scratch_scope, NOW + timedelta(minutes=10), unlucky, outcome, **stats)
+    async with scratch_scope() as session:
+        await plan.finish_run(session, run_id, now=NOW + timedelta(minutes=40), outcome="ok")
+    return unlucky
+
+
+@pytest.mark.asyncio
+async def test_a_company_whose_read_failed_is_read_again_the_same_day_with_growing_gaps(scratch_scope):
+    """A site that fails once during the full read costs that company a short
+    wait, not a day: it is asked again while the full read is current, each
+    gap twice the last, and once its read gets through it waits like the rest."""
+    from tracker.workflows import scheduler
+
+    unlucky = await _full_read_with(scratch_scope, "failed")
+
+    early = await scheduler.plan_tick(NOW + timedelta(minutes=55))
+    assert early.work == [], "not before its first gap has passed"
+
+    first = await scheduler.plan_tick(NOW + timedelta(minutes=71))
+    assert [item.company_slug for item in first.work] == [unlucky.company_slug]
+    assert first.retries == frozenset({unlucky.company_slug})
+    await _read_ended(scratch_scope, NOW + timedelta(minutes=75), unlucky, "failed")
+
+    assert (await scheduler.plan_tick(NOW + timedelta(minutes=120))).work == [], "the second gap is twice the first"
+    second = await scheduler.plan_tick(NOW + timedelta(minutes=136))
+    assert [item.company_slug for item in second.work] == [unlucky.company_slug]
+    await _read_ended(scratch_scope, NOW + timedelta(minutes=140), unlucky, "ok", list_complete=True)
+
+    assert (await scheduler.plan_tick(NOW + timedelta(hours=5))).work == [], "read: nothing left to retry"
+
+
+@pytest.mark.asyncio
+async def test_a_tick_hands_its_retries_to_the_run_that_reads_them(scratch_scope, monkeypatch):
+    """The run is what keeps a repeated failure out of the feed, so the tick
+    must tell it which of its companies are retries."""
+    from tracker.workflows import scheduler
+
+    unlucky = await _full_read_with(scratch_scope, "failed")
+    at = NOW + timedelta(minutes=71)
+
+    class Frozen(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return at
+
+    handed: dict = {}
+
+    async def pipeline(**kwargs):
+        handed.update(kwargs)
+        return {"status": "ok"}
+
+    monkeypatch.setattr(scheduler, "datetime", Frozen)
+    monkeypatch.setattr(scheduler, "run_pipeline", pipeline)
+
+    result = await scheduler.run_once()
+
+    assert result["ran"] and handed["companies"] == [unlucky.company_slug]
+    assert set(handed["retries"]) == {unlucky.company_slug}
+
+
+@pytest.mark.asyncio
+async def test_a_retry_holds_no_plan_clock(scratch_scope):
+    """A retry of one company is not a scan of the roster: it records no plan
+    run, so the quick check still comes a repeat after the full read began."""
+    from tracker.workflows import scheduler
+
+    unlucky = await _full_read_with(scratch_scope, "degraded", scanned=12)
+
+    retry = await scheduler.plan_tick(NOW + timedelta(minutes=71))
+    assert retry.work and retry.plan_kind is None
+    await _read_ended(scratch_scope, NOW + timedelta(minutes=75), unlucky, "ok", list_complete=True)
+    quick = await scheduler.plan_tick(NOW + REPEAT + timedelta(minutes=1))
+    assert quick.plan_kind == QUICK
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("outcome", "stats"), [
+    ("failed", {"board_missing": True}),
+    ("blocked", {}),
+    ("truncated", {}),
+    ("lossy", {}),
+    ("unattempted", {"policy_reason": "waits for its user's agreement"}),
+])
+async def test_an_answer_a_retry_would_not_change_waits_for_the_next_full_read(scratch_scope, outcome, stats):
+    """A board gone from its address, a site refusing us, a page ceiling, a
+    few unreadable rows, a policy: each answers the same an hour later, so
+    asking again only costs the site and the person nothing is learned."""
+    from tracker.db.models import ProviderPressureState
+    from tracker.workflows import scheduler
+
+    await _full_read_with(scratch_scope, outcome, **stats)
+    # The outcome alone decides: no cooldown or later deadline holds the company back.
+    async with scratch_scope() as session:
+        await session.execute(update(SyncScheduleState).values(next_reconcile_at=NOW))
+        await session.execute(update(ProviderPressureState).values(state="ready", cooldown_until=None))
+
+    for hours in (1.5, 4, 10):
+        assert (await scheduler.plan_tick(NOW + timedelta(hours=hours))).retries == frozenset()
+
+
 @pytest.mark.asyncio
 async def test_a_company_never_read_leads_the_full_read(scratch_scope):
     """A company whose reads never got through has no last read: it is the

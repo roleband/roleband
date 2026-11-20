@@ -600,7 +600,8 @@ class TickPlan:
 
     `plan_kind` is `full`/`quick` for a planned run, `continue` for the
     companies the current full read has not read yet, `manual` for a drain of
-    user-queued or never-scanned companies, None for a shard of pinned work.
+    user-queued or never-scanned companies, None for a shard of pinned work
+    or for retries alone.
     `roster` is the automatic roster a planned or manual run is measured
     against, so a Scan now of everyone moves the plan's clock and a scan of
     three companies does not."""
@@ -610,6 +611,9 @@ class TickPlan:
     roster: int = 0
     #: The user asked planned scans to wait for mains power.
     wait_for_mains: bool = False
+    #: Companies asked again after a failed read in the current full read
+    #: (`schedule_plan.left_to_read`); the run says nothing of them failing again.
+    retries: frozenset[str] = frozenset()
 
 
 def _pinned(row: SyncScheduleState, mode: ScanMode) -> bool:
@@ -629,9 +633,9 @@ async def plan_tick(now: datetime | None = None, *, dry_run: bool = False) -> Ti
 
     In order: a drain of user-queued and never-scanned companies;
     then, with the schedule plan on, the companies the current full read has
-    not read yet, a planned full read or quick check of the whole automatic
-    roster when the plan says so, else a shard of pinned deadlines only; with
-    it off, a shard of whatever is due.
+    not read yet or whose failed read is due another try, a planned full read
+    or quick check of the whole automatic roster when the plan says so, else a
+    shard of pinned deadlines only; with it off, a shard of whatever is due.
 
     A dry run plans from the same seeding and then rolls it back: it writes
     nothing, so a rehearsal from a branch leaves the database it reaches as it
@@ -720,10 +724,15 @@ async def _plan(session, now: datetime, settings: Settings, *, seed: bool) -> Ti
     rules, _usual = schedule_plan.context_rules(context, now=now, choices=choices, settings=settings)
     began = schedule_plan.continuation_start(context.runs, now=now, rules=rules)
     if began is not None and roster:
-        read = await schedule_plan.read_since(session, began)
-        rest = [item for item in roster if item.binding_id not in read]
+        left = await schedule_plan.left_to_read(session, began, now=now)
+        rest = [item for item in roster if item.binding_id not in left.waiting]
         if rest:
-            return TickPlan(rest, schedule_plan.CONTINUE, len(roster), choices.mains_only)
+            retries = frozenset(item.company_slug for item in rest if item.binding_id in left.retries)
+            # Retries alone are no read of the roster: no plan run, so the
+            # plan's clock (the next quick check, the next full read) stays
+            # where the full read put it.
+            kind = None if len(retries) == len(rest) else schedule_plan.CONTINUE
+            return TickPlan(rest, kind, len(roster), choices.mains_only, retries)
     kind = schedule_plan.decide(context, now=now, choices=choices, settings=settings)
     if kind == schedule_plan.FULL and roster:
         return TickPlan(roster, kind, len(roster), choices.mains_only)
@@ -1270,6 +1279,7 @@ async def run_once(*, dry_run: bool = False) -> dict:
             scan_mode=mode,
             on_source_recorded=record,
             join_requests=True,
+            retries=tick.retries,
         )
     except Exception:
         await _record_dispatch_failure(

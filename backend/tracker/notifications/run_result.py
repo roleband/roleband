@@ -110,6 +110,9 @@ class _RunSources:
     run left undone for a reason that was ours (`_Unfinished`).
 
     `told`: sources a run says nothing about, however their reads ended.
+    `retry`: a quiet retry of a read that failed earlier in the same full read
+    (`schedule_plan.left_to_read`), which failing again repeats what that
+    full read already said.
     `lossy`: the board was read in full but for under 1% of its rows, which is
     a successful refresh everywhere else in RoleBand (health-inert, a full scan
     for Coverage, rechecked at the cadence) and the same loss the next run,
@@ -181,6 +184,11 @@ def _read_sources(run: ScrapeRun) -> _RunSources:
         outcome = outcomes[source] = classify_source_outcome(stats)
         if stats.get("errors"):
             errors[source] = [str(error) for error in stats.get("errors") or []]
+        if stats.get("retry") and outcome not in CLEAN:
+            # The full read this retry belongs to already told this failure;
+            # the same one again is not news, and the next try is the scheduler's.
+            told.add(source)
+            continue
         if outcome is SourceOutcome.LOSSY or board_missing(stats):
             told.add(source)
         if stats.get("suspended"):
