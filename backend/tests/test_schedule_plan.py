@@ -1019,6 +1019,41 @@ async def test_a_retry_whose_run_crashed_waits_for_the_crash_retry_delay(scratch
 
 
 @pytest.mark.asyncio
+async def test_a_retry_whose_process_died_waits_for_the_crash_retry_delay(scratch_scope, monkeypatch):
+    """A process killed mid-retry (a quit, an update) records nothing, and a
+    retry leaves no plan run to close as interrupted. The deadline the tick
+    moved on before reading is what keeps the next tick from starting the
+    same retry at once."""
+    from tracker.config import get_settings
+    from tracker.workflows import scheduler
+
+    unlucky = await _full_read_with(scratch_scope, "failed")
+    at = NOW + timedelta(minutes=71)
+
+    class Frozen(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return at
+
+    async def killed(**_kwargs):
+        raise SystemExit("the process was killed")
+
+    async def nothing_left_open(_now):
+        return None
+
+    monkeypatch.setattr(scheduler, "datetime", Frozen)
+    monkeypatch.setattr(scheduler, "run_pipeline", killed)
+    monkeypatch.setattr(scheduler, "close_runs_left_open", nothing_left_open)
+    with pytest.raises(SystemExit):
+        await scheduler.run_once()
+
+    delay = timedelta(seconds=get_settings().sync_provider_backoff_seconds)
+    assert (await scheduler.plan_tick(at + timedelta(minutes=10))).work == []
+    again = await scheduler.plan_tick(at + delay)
+    assert [item.company_slug for item in again.work] == [unlucky.company_slug]
+
+
+@pytest.mark.asyncio
 async def test_a_tick_hands_its_retries_to_the_run_that_reads_them(scratch_scope, monkeypatch):
     """The run is what keeps a repeated failure out of the feed, so the tick
     must tell it which of its companies are retries."""

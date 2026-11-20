@@ -31,7 +31,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 
 from tracker.company_store import (
     ScanTarget,
@@ -991,6 +991,21 @@ async def _mark_started(work: list[DueWork], now: datetime) -> None:
                 row.last_started_at = now
 
 
+async def _hold_retries(work: list[DueWork], now: datetime, settings) -> None:
+    """Move each retry's next deadline on by the crash retry delay before it
+    reads. Its recorded read sets the deadline as usual; a process that dies
+    first records nothing, and a retry leaves no plan run to close as
+    interrupted, so this deadline is what `left_to_read` waits for."""
+    if not work:
+        return
+    async with session_scope() as session:
+        await session.execute(
+            update(SyncScheduleState)
+            .where(SyncScheduleState.binding_id.in_([item.binding_id for item in work]))
+            .values(next_reconcile_at=now + timedelta(seconds=settings.sync_provider_backoff_seconds))
+        )
+
+
 async def _record_result(
     work: list[DueWork], summary: dict, finished_at: datetime, settings
 ) -> None:
@@ -1259,6 +1274,7 @@ async def run_once(*, dry_run: bool = False) -> dict:
 
     mode = work[0].mode
     await _mark_started(work, now)
+    await _hold_retries([item for item in work if item.company_slug in tick.retries], now, settings)
     plan_run_id = await _start_plan_run(tick, now)
     by_company = {item.company_slug: item for item in work}
     recorded: set[str] = set()
