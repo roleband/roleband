@@ -262,6 +262,46 @@ async def test_text_another_writer_stored_meanwhile_stays(api_client, db_session
 
 
 @pytest.mark.asyncio
+async def test_a_failed_read_answers_with_text_a_scan_stored_meanwhile(api_client, db_session, lever):
+    """The source failed this open, but a scan gave the posting its text
+    while it waited: the person is shown that text, not a failure."""
+    lever.status = 503
+    job_id = await _seed(db_session)
+    factory = async_sessionmaker(db_session.bind, expire_on_commit=False)
+
+    async def a_scan_commits():
+        async with factory() as other:
+            await other.execute(update(Job).where(Job.id == job_id).values(description_text="The scan's text."))
+            await other.commit()
+
+    lever.during = a_scan_commits
+    result = await _open(api_client, job_id)
+
+    assert (result["outcome"], result["description_text"]) == ("already_read", "The scan's text.")
+
+
+@pytest.mark.asyncio
+async def test_the_fill_holds_the_row_until_it_commits(db_session, lever):
+    """A scan that writes the text after the fill checked the row waits for the
+    fill's commit, then writes over it; it never lands in between to be lost."""
+    from sqlalchemy.exc import DBAPIError
+
+    from tracker.db.repo import fill_blank_description
+
+    job_id = await _seed(db_session)
+    row = await db_session.get(Job, job_id)
+    assert await fill_blank_description(db_session, job_id, posting_text.stored_posting(row), "Read on open.")
+
+    factory = async_sessionmaker(db_session.bind, expire_on_commit=False)
+    async with factory() as scan:
+        await scan.execute(text("SET LOCAL lock_timeout = '200ms'"))
+        with pytest.raises(DBAPIError, match="lock"):
+            await scan.execute(update(Job).where(Job.id == job_id).values(description_text="The scan's text."))
+        await scan.rollback()
+    await db_session.commit()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("company", [
     {"enabled": False},  # followed once, switched off: no scan reads it either
     {"status": "pending"},

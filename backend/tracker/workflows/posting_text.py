@@ -273,6 +273,14 @@ class OpenTextReads:
                 return "failed", job
             text = await self._read(target, raw)
             if text is None:
+                # Read again: a scan may have stored the text while the
+                # source failed us, and then the posting has its text.
+                job = await session.get(Job, job_id, populate_existing=True)
+                await session.commit()
+                if job is None:
+                    return None
+                if job.description_text is not None:
+                    return "already_read", job
                 self._remember_none(job_id)
                 return "failed", job
             self._found_none.pop(job_id, None)

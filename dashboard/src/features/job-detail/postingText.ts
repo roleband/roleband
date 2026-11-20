@@ -24,7 +24,8 @@ export type TextRead = { phase: TextReadPhase; retry: () => void };
  * Returns what the section shows instead of text, or null. A readable
  * posting counts as reading from its first frame, so "No description" never
  * flashes before the read begins. An answer for a posting no longer on
- * screen, or one a retry superseded, is dropped. Nothing is retired on
+ * screen, or one a retry superseded, is dropped; a posting whose answer was
+ * dropped is asked again when it is shown again. Nothing is retired on
  * unmount: StrictMode's practice unmount keeps refs, and a retired first
  * read would never be asked again.
  */
@@ -46,6 +47,14 @@ export function usePostingText(
     (jobId: number, retry: boolean) => {
       const mine = ++attempt.current;
       const current = () => attempt.current === mine && shown.current === jobId;
+      /** An answer that came while another posting was on screen is dropped,
+       *  and frees this posting to be asked again when it comes back: kept as
+       *  asked, a posting whose read failed while away would show a line that
+       *  never ends. */
+      const landed = () => {
+        if (shown.current !== jobId && asked.current === jobId) asked.current = null;
+        return current();
+      };
       // Over whatever an earlier read of this posting left: a retry leaves
       // its failure, and a new open of the posting starts over.
       setState({ id: jobId, phase: "reading" });
@@ -55,7 +64,7 @@ export function usePostingText(
       api
         .readPostingText(jobId, retry)
         .then((result) => {
-          if (!current()) return;
+          if (!landed()) return;
           if (result.outcome === "failed") {
             setState({ id: jobId, phase: "failed" });
             return;
@@ -66,7 +75,7 @@ export function usePostingText(
           if (result.outcome === "read") reread();
         })
         .catch(() => {
-          if (current()) setState({ id: jobId, phase: "failed" });
+          if (landed()) setState({ id: jobId, phase: "failed" });
         })
         .finally(() => window.clearTimeout(slow));
     },

@@ -123,6 +123,27 @@ describe("usePostingText", () => {
     expect(read).toHaveBeenLastCalledWith(8, false);
   });
 
+  it("asks again on return for a posting whose read failed while another was shown", async () => {
+    // A's read fails while B, which has nothing to read, is on screen. Back on
+    // A, a posting still with no text must be asked again, not left reading.
+    const first = pending();
+    const read = vi.spyOn(api, "readPostingText").mockReturnValueOnce(first.promise);
+    const { result, rerender } = hook(blank(7));
+
+    rerender({ posting: blank(8, false) });
+    await act(async () => first.settle(answer("failed")));
+
+    const again = pending();
+    read.mockReturnValueOnce(again.promise);
+    rerender({ posting: blank(7) });
+    expect(read).toHaveBeenLastCalledWith(7, false);
+    expect(read).toHaveBeenCalledTimes(2);
+
+    await act(async () => again.settle(answer("read")));
+    expect(show).toHaveBeenCalledWith(7, answer("read"));
+    expect(result.current.read?.phase).toBe("reading"); // until the screen writes the text in
+  });
+
   it("under StrictMode reads once and still lands the answer", async () => {
     // StrictMode unmounts and mounts again before the answer comes: a read
     // retired by that practice unmount would leave the line running forever.
