@@ -16813,6 +16813,10 @@
       ],
       "title": "Description Html"
      },
+     "description_readable": {
+      "title": "Description Readable",
+      "type": "boolean"
+     },
      "description_sections": {
       "items": {
        "$ref": "#/components/schemas/DescriptionSection"
@@ -17291,6 +17295,7 @@
      "posting_reality",
      "application_form",
      "application_form_readable",
+     "description_readable",
      "pay_floor_check",
      "role_since",
      "role_days",
@@ -28361,6 +28366,48 @@
      "content"
     ],
     "title": "PostingSection",
+    "type": "object"
+   },
+   "PostingTextResponse": {
+    "additionalProperties": false,
+    "description": "`POST /api/jobs/{job_id}/description`: read the posting's text because\nsomeone opened it and its row has none. `read` stored it now;\n`already_read` answers from storage with no request; `not_available` is a\nposting nothing may read on open; `failed` stored nothing. The text is the\nrow's afterwards, as Job detail shows it.",
+    "properties": {
+     "description_sections": {
+      "items": {
+       "$ref": "#/components/schemas/DescriptionSection"
+      },
+      "title": "Description Sections",
+      "type": "array"
+     },
+     "description_text": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Description Text",
+      "x-text": "content"
+     },
+     "outcome": {
+      "enum": [
+       "read",
+       "already_read",
+       "not_available",
+       "failed"
+      ],
+      "title": "Outcome",
+      "type": "string"
+     }
+    },
+    "required": [
+     "outcome",
+     "description_text",
+     "description_sections"
+    ],
+    "title": "PostingTextResponse",
     "type": "object"
    },
    "PostingVerdict": {
@@ -45538,6 +45585,56 @@
      }
     },
     "summary": "Get Job"
+   }
+  },
+  "/api/jobs/{job_id}/description": {
+   "post": {
+    "description": "Read the posting's text because someone opened it and its row has none.\n\nCalled by Job detail AFTER it renders, never inside the detail read, so an\nopen never waits on the source; the detail's `description_readable` says\nwhen to call. One paced request at most per posting at a time, within a\ndeadline; a repeat answers from storage, and a read that found no text is\nnot repeated by another open for a while unless `retry` asks again.\n`OpenTextReads.read_one` owns the transactions: none is held across the\nrequest.",
+    "operationId": "read_posting_text_on_open_api_jobs__job_id__description_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "job_id",
+      "required": true,
+      "schema": {
+       "title": "Job Id",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "retry",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Retry",
+       "type": "boolean"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PostingTextResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Read Posting Text On Open"
    }
   },
   "/api/jobs/{job_id}/favorite": {

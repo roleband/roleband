@@ -58,7 +58,7 @@ export type {
   Facets, Filters, ImportanceBand, Job, JobCompPackage, JobCompPolicy, JobCompReconciliation,
   JobDescriptionSection, JobDetail, JobDetailRow, JobList, JobQualification, JobRequirements,
   JobSkill, JobSkillEvidence, JobSort, JobViewResult, LifecycleEvent, ListingEvent, ListingHistory, ParsedQuery,
-  RelevanceReview, RequirementModality, SimilarJob, SimilarJobs, SortOrder,
+  PostingTextResult, RelevanceReview, RequirementModality, SimilarJob, SimilarJobs, SortOrder,
 } from "./jobs";
 export type {
   ScheduleBinding, SchedulePlan, SchedulePlanUpdate, ScheduleProvider, ScheduleTimeUpdate, ScheduleUpcomingRun,

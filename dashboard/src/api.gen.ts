@@ -1987,6 +1987,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/jobs/{job_id}/description": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read Posting Text On Open
+         * @description Read the posting's text because someone opened it and its row has none.
+         *
+         *     Called by Job detail AFTER it renders, never inside the detail read, so an
+         *     open never waits on the source; the detail's `description_readable` says
+         *     when to call. One paced request at most per posting at a time, within a
+         *     deadline; a repeat answers from storage, and a read that found no text is
+         *     not repeated by another open for a while unless `retry` asks again.
+         *     `OpenTextReads.read_one` owns the transactions: none is held across the
+         *     request.
+         */
+        post: operations["read_posting_text_on_open_api_jobs__job_id__description_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/jobs/{job_id}/favorite": {
         parameters: {
             query?: never;
@@ -9194,6 +9222,8 @@ export interface components {
             department: string | null;
             /** Description Html */
             description_html: string | null;
+            /** Description Readable */
+            description_readable: boolean;
             /** Description Sections */
             description_sections: components["schemas"]["DescriptionSection"][];
             /** Description Text */
@@ -12736,6 +12766,25 @@ export interface components {
             key: string;
             /** Title */
             title: string;
+        };
+        /**
+         * PostingTextResponse
+         * @description `POST /api/jobs/{job_id}/description`: read the posting's text because
+         *     someone opened it and its row has none. `read` stored it now;
+         *     `already_read` answers from storage with no request; `not_available` is a
+         *     posting nothing may read on open; `failed` stored nothing. The text is the
+         *     row's afterwards, as Job detail shows it.
+         */
+        PostingTextResponse: {
+            /** Description Sections */
+            description_sections: components["schemas"]["DescriptionSection"][];
+            /** Description Text */
+            description_text: string | null;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "read" | "already_read" | "not_available" | "failed";
         };
         /** PostingVerdict */
         PostingVerdict: {
@@ -19643,6 +19692,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_posting_text_on_open_api_jobs__job_id__description_post: {
+        parameters: {
+            query?: {
+                retry?: boolean;
+            };
+            header?: never;
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PostingTextResponse"];
                 };
             };
             /** @description Validation Error */

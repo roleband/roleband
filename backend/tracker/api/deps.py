@@ -1,5 +1,5 @@
 """Shared FastAPI dependencies: session-per-request, the off-Board company list,
-and the process's posting-page reads.
+and the process's posting-page and posting-text reads.
 
 A route that waits on the outside (a careers site, a model server, a cloud
 provider) ends its read first with `end_read`, so no pooled connection idles
@@ -23,6 +23,7 @@ from tracker.db.queries.insights import InsightsScope, Side, resolve_insights_sc
 from tracker.db.session import get_session_factory
 from tracker.platform.util import MAX_WINDOW_DAYS
 from tracker.workflows.posting_pages import OpenPageReads
+from tracker.workflows.posting_text import OpenTextReads
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:
@@ -75,6 +76,18 @@ def get_page_reads(request: Request) -> OpenPageReads:
 
 
 PageReadsDep = Annotated[OpenPageReads, Depends(get_page_reads)]
+
+
+def get_text_reads(request: Request) -> OpenTextReads:
+    """The app's one `OpenTextReads`, held and built as `get_page_reads`
+    holds and builds the page reads, for the same reasons."""
+    reads = getattr(request.app.state, "text_reads", None)
+    if reads is None:
+        reads = request.app.state.text_reads = OpenTextReads()
+    return reads
+
+
+TextReadsDep = Annotated[OpenTextReads, Depends(get_text_reads)]
 
 
 # --- Request bounds --------------------------------------------- #

@@ -618,6 +618,61 @@
   font-size: var(--app-type-body);
 }
 
+/* The text's place while it is read from the employer's site: a running line
+   under the heading, what is happening in the quiet voice of `.jd-empty`,
+   then the way on. Drawn after 200 ms, the app's moment for any loading
+   state, still under reduced motion; it keeps its room meanwhile, so nothing
+   below moves when it appears. */
+.jd-read {
+  display: grid;
+  gap: var(--app-space-3);
+  max-width: 60ch;
+  animation: loading-appears 1ms 200ms both;
+}
+
+.jd-read-line {
+  margin: 0;
+  color: var(--app-text-muted);
+  font-size: var(--app-type-body);
+}
+
+.jd-read-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--app-space-3);
+}
+
+.jd-read-posting {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--app-space-1);
+  color: var(--app-action-text);
+  font-size: var(--app-type-body);
+  text-decoration: underline;
+  text-decoration-color: var(--app-action-line);
+  text-underline-offset: 3px;
+}
+
+.jd-read-posting:hover {
+  text-decoration-color: currentColor;
+}
+
+/* Text that landed while the posting was open comes in, rather than standing
+   there as if it always had. */
+@media (prefers-reduced-motion: no-preference) {
+  .jd-arrived {
+    animation: jd-text-arrives var(--app-duration-slow) var(--app-ease) both;
+  }
+
+  @keyframes jd-text-arrives {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+  }
+}
+
 /* ---- the end of the read --------------------------------------------------
    The text ends on the way on: the suggestion to apply, which saves the
    role and opens the pipeline in a new tab, under a rule across the column. The whole block is the control; its

@@ -7,7 +7,7 @@ import { useSyncEpoch } from "../../context/SyncState";
 import { useAsyncResource, useRefetchOn } from "../../hooks/useAsyncResource";
 import { useSaveCommand } from "../../context/useSaveCommand";
 import { useToast } from "../../ui/Toast";
-import { Job, PursuitStage, SimilarJob, api, isNotFound } from "../../api";
+import { Job, PostingTextResult, PursuitStage, SimilarJob, api, isNotFound } from "../../api";
 import { statusName } from "../../copy/vocab";
 import { BAND_LABEL, companyName } from "../../format";
 import { payPoint } from "../../payShown";
@@ -16,6 +16,7 @@ import JobCompPanel, { JobCompDock } from "./JobCompPanel";
 import { useReadingChrome } from "./readingChrome";
 import { useHeld, useShownPosting } from "./postingTurn";
 import { JobDescription } from "./JobDescription";
+import { usePostingText } from "./postingText";
 import { JobRequirementsPanel } from "./JobRequirementsPanel";
 import { LineageStack } from "./LineageStack";
 import { ListingAge } from "./ListingAge";
@@ -333,6 +334,24 @@ export function JobDetail({
     };
   }, [formReadable, jobIdLoaded, setJobData, refreshJob]);
 
+  // A posting that opened with no text: its text is read from the employer's
+  // site after the page is shown, and lands in the posting on screen.
+  const showText = useCallback(
+    (id: number, result: PostingTextResult) =>
+      setJobData((prev) =>
+        prev && prev.id === id
+          ? {
+              ...prev,
+              description_text: result.description_text,
+              description_sections: result.description_sections,
+              description_readable: false,
+            }
+          : prev,
+      ),
+    [setJobData],
+  );
+  const { read: textRead, arrived: textArrived } = usePostingText(job, showText, rereadPosting);
+
   // The elements that answer the scroll: the heading and the bar's copy of
   // it, the main column (for its pay panel) and the panel's small copy.
   const [titleEl, setTitleEl] = useState<HTMLElement | null>(null);
@@ -567,6 +586,10 @@ export function JobDetail({
                 <JobDescription
                   sections={job.description_sections}
                   fallback={job.description_text}
+                  read={textRead}
+                  arrived={textArrived}
+                  company={companyName(job.company)}
+                  postingUrl={job.url}
                 />
 
                 {/* The read ends on the way on: applying, which starts in

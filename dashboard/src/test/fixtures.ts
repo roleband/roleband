@@ -142,6 +142,8 @@ export function jobDetailFixture(overrides: Partial<JobDetail> = {}): JobDetail 
     // Null until the posting's own page has been read.
     application_form: null,
     application_form_readable: false,
+    // It has its text, so there is nothing to read on open.
+    description_readable: false,
     // A posting with no earlier posting of its role that counts.
     role_since: null,
     role_days: null,

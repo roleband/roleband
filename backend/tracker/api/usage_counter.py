@@ -118,6 +118,9 @@ NOT_COUNTED: Mapping[tuple[str, str], str] = {
     ("POST", "/api/companies/{company}/recipe-rebind/{binding_id}/rollback"): "source rollback is recorded in the local audit",
     ("POST", "/api/companies/{company}/recipe-rebind/{binding_id}/activate"): "reviewed source activation stays in the local audit",
     ("PUT", "/api/usage/consent"): "usage sharing's own control: the consent is recorded, not counted",
+    ("POST", "/api/jobs/{job_id}/description"): (
+        "a read Job detail sends by itself for a posting with no text: the open is counted as "
+        "job_opened, and a new action would widen the catalogue and re-ask every sharer"),
     ("PUT", "/api/plugins/{plugin_id}/robots"): (
         "a consent the user gives a plugin past its sites' robots rules: recorded on its install, "
         "not counted"),

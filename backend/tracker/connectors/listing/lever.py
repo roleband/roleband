@@ -11,7 +11,15 @@ Why not the company's own careers site: `lifeatspotify.com/robots.txt` disallows
 no cards server-side — the board is fetched client-side from the one path
 robots.txt forbids. Lever is the compliant surface, and it is also the richer
 one: every posting inlines its full description, so `fetch()` yields complete
-postings and `hydrate()` stays a no-op.
+postings and a scan's `hydrate()` sends nothing.
+
+A posting stored without its text (one admitted from the posting inventory,
+which keeps no text) is read alone, from the same API:
+
+    GET https://api.lever.co/v0/postings/{site}/{posting_id}?mode=json
+
+It answers the listing's own posting object, or 404 once the posting is gone.
+Only the description backfill and a person opening the posting ask it.
 
 Pagination has no declared total, so a **short page is the termination signal**:
 Lever answers `limit` exactly until the board runs out. That is a natural stop,
@@ -28,6 +36,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime
+from urllib.parse import quote
 
 from tracker.connectors.listing.base import BaseAdapter, BoardProbe, TenantMap
 from tracker.platform.util import clean_location, parse_datetime
@@ -96,6 +105,8 @@ _COMMITMENT = {
 class LeverAdapter(BaseAdapter):
     name = "lever"
     posted_date = "created"  # `createdAt`, the only date Lever serves
+    detail = "per_posting"
+    text_from_posting = True  # from its req_id alone (`hydrate`)
     #: `limit=1` keeps the verification payload to one posting on the same route
     #: the adapter pages. No `identity_url`: the response is a BARE ARRAY of
     #: postings — no envelope to carry a tenant name.
@@ -185,6 +196,33 @@ class LeverAdapter(BaseAdapter):
                 self.drift.board_empty("first page served an empty array", site=site)
             else:
                 self.drift.invalidate_listing("parsed zero postings (schema drift?)", site=site)
+
+    async def hydrate(self, job: RawJob) -> None:
+        """Read one posting by its id when its row carries no text.
+
+        A listing row is the whole posting (`description_complete`), so a scan
+        sends nothing here. A posting rebuilt from storage is incomplete, and
+        is read from the single-posting route, which answers the same object a
+        listing page holds. A failed or foreign answer leaves the posting as
+        it was, with a note.
+        """
+        if job.description_complete:
+            return
+        site = self._site()
+        resp = await self.get(
+            f"https://{self._host()}{_POSTINGS_PATH}/{site}/{quote(job.req_id, safe='')}",
+            params=[("mode", "json")],
+        )
+        if resp.status_code != 200:
+            self.drift.note("non-200 posting", status=resp.status_code, site=site, req=job.req_id)
+            return
+        item = resp.json()
+        if not isinstance(item, dict) or str(item.get("id") or "") != job.req_id:
+            self.drift.note("posting payload is not the posting asked for", site=site, req=job.req_id)
+            return
+        job.description_html = item.get("description")
+        job.detail_payload = item
+        job.description_complete = True
 
     def _to_rawjob(self, item: dict) -> RawJob | None:
         req_id = str(item.get("id") or "")
