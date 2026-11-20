@@ -51,6 +51,7 @@ launcher-step-welcome = Bienvenida
 launcher-step-login = Al iniciar sesión
 # kind=label
 launcher-step-done = Listo
+launcher-step-progress = Paso { $current } de { $total }: { $name }
 # kind=error
 launcher-login-error = No se pudo cambiar el ajuste de inicio. Inténtalo de nuevo.
 

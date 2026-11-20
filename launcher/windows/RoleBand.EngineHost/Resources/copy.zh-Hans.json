@@ -53,6 +53,7 @@
   "step-welcome": "欢迎",
   "step-login": "登录时",
   "step-done": "就绪",
+  "step-progress": "第 {current} 步，共 {total} 步：{name}",
   "login-error": "无法更改登录设置。请重试。",
   "installer-title": "安装 RoleBand",
   "installer-open": "打开安装后的应用以开始设置。",

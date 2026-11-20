@@ -53,6 +53,7 @@
   "step-welcome": "Welcome",
   "step-login": "At login",
   "step-done": "Ready",
+  "step-progress": "Step {current} of {total}: {name}",
   "login-error": "Couldn't change the login setting. Try again.",
   "installer-title": "Install RoleBand",
   "installer-open": "Open the installed copy to begin setup.",

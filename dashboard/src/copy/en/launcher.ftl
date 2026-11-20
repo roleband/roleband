@@ -59,6 +59,8 @@ launcher-step-welcome = Welcome
 launcher-step-login = At login
 # kind=label
 launcher-step-done = Ready
+# kind=aria note="The setup step bar as a screen reader hears it: Step 2 of 4: Get ready"
+launcher-step-progress = Step { $current } of { $total }: { $name }
 # kind=error
 launcher-login-error = Couldn't change the login setting. Try again.
 
