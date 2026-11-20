@@ -1,17 +1,23 @@
 import base64
+import contextlib
 import json
+import os
 import plistlib
+import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
 from cryptography import x509
+from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec, ed25519
 from cryptography.hazmat.primitives.serialization import pkcs12
-from cryptography.x509.oid import ExtendedKeyUsageOID
+from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
 try:
     import signing
@@ -39,6 +45,52 @@ def protected(keys, name='RoleBand'):
     """A release identity as the maintainer makes it: the spare apart, every key behind a password."""
     signing.generate(keys, name, spare_directory=keys.with_name(keys.name + '-spare'),
                      passphrase=PASSPHRASE, certificate_password=CERTIFICATE_PASSWORD)
+
+
+IMPORT_STEPS = ['create-keychain', 'set-keychain-settings', 'unlock-keychain', 'import', 'import',
+                'set-key-partition-list']
+
+
+def exported_identity(folder, key=None, authorities=1):
+    """A signing.p12 as another tool exports one: an EC key by default, the signing certificate,
+    and one certificate per authority in the chain, the first listed twice."""
+    def certificate(name, signer, *, authority):
+        now = datetime.now(UTC)
+        subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, name)])
+        builder = (x509.CertificateBuilder().subject_name(subject).issuer_name(subject).public_key(signer.public_key())
+            .serial_number(x509.random_serial_number()).not_valid_before(now - timedelta(minutes=5))
+            .not_valid_after(now + timedelta(days=30))
+            .add_extension(x509.BasicConstraints(ca=authority, path_length=None), critical=True)
+            .add_extension(x509.KeyUsage(digital_signature=not authority, content_commitment=False,
+                key_encipherment=False, data_encipherment=False, key_agreement=False, key_cert_sign=authority,
+                crl_sign=authority, encipher_only=None, decipher_only=None), critical=True)
+            .add_extension(x509.SubjectKeyIdentifier.from_public_key(signer.public_key()), critical=False))
+        if not authority:
+            builder = builder.add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.CODE_SIGNING]), critical=True)
+        return builder.sign(signer, None if isinstance(signer, ed25519.Ed25519PrivateKey) else hashes.SHA256())
+    key = key or ec.generate_private_key(ec.SECP256R1())
+    chain = [certificate(f'RoleBand Trial Authority {number}', ec.generate_private_key(ec.SECP256R1()), authority=True)
+             for number in range(authorities)]
+    folder.mkdir(mode=0o700)
+    signing.write_private(folder / 'signing.p12', pkcs12.serialize_key_and_certificates(
+        b'RoleBand Trial Signer', key, certificate('RoleBand Trial Signer', key, authority=False),
+        [*chain, chain[0]], serialization.BestAvailableEncryption(CERTIFICATE_PASSWORD)))
+
+
+def received(keywords):
+    """What a step's stdin holds as the step starts: every byte, or None when a writer is still open
+    or the bytes are only written once it runs."""
+    stdin = keywords.get('stdin')
+    if 'input' in keywords or not isinstance(stdin, int):
+        return None
+    os.set_blocking(stdin, False)
+    chunks = []
+    try:
+        while chunk := os.read(stdin, 65536):
+            chunks.append(chunk)
+    except BlockingIOError:
+        return None
+    return b''.join(chunks)
 
 
 class SigningTests(unittest.TestCase):
@@ -257,22 +309,165 @@ class SigningTests(unittest.TestCase):
             self.assertIsNone(json.loads(identity.read_text())['release_public_key'])
             signing.record(keys, root)
 
-    def test_failed_key_import_removes_only_its_scratch_keychain_and_hides_command_arguments(self):
+    def _import(self, keys, keychain, typed=None, fail=None):
+        """Run the import with `security` replaced: every call as (argv, stdin, keywords), and what it raised."""
+        calls = []
+        def run(command, **kwargs):
+            calls.append((command, received(kwargs), kwargs))
+            if fail is not None:
+                fail(len(calls) - 1, command)
+            return subprocess.CompletedProcess(command, 0)
+        raised = None
+        before = os.listdir('/dev/fd')
+        with patch.object(signing.subprocess, 'run', side_effect=run):
+            try:
+                signing.import_keychain(keys, keychain, typed)
+            except BaseException as error:  # noqa: BLE001 - the test inspects whatever it was
+                raised = error
+        self.assertEqual(len(os.listdir('/dev/fd')), len(before), 'every pipe is closed')
+        return calls, raised
+
+    def test_key_import_puts_no_password_or_key_on_any_command_line(self):
         self.assertIsNotNone(signing)
         with tempfile.TemporaryDirectory() as directory:
-            target = Path(directory) / 'keys'
-            signing.generate(target, 'RoleBand CI Trial')
-            keychain = Path(directory) / 'trial.keychain-db'
-            calls = []
-            def fail(command, **kwargs):
-                calls.append(command)
-                if command[1] == 'import':
-                    raise subprocess.CalledProcessError(1, command)
-            with patch.object(signing.subprocess, 'run', side_effect=fail):
-                with self.assertRaises(RuntimeError) as error:
-                    signing.import_keychain(target, keychain)
-            self.assertEqual(calls[-1], ['security', 'delete-keychain', str(keychain)])
-            self.assertNotIn((target / 'p12-password').read_text(), str(error.exception))
+            folder = Path(directory)
+            signing.generate(folder / 'throwaway', 'RoleBand CI Trial')
+            protected(folder / 'production')
+            exported_identity(folder / 'elliptic')
+            cases = {'throwaway identity': (folder / 'throwaway', None, (folder / 'throwaway/p12-password').read_bytes()),
+                     'production identity': (folder / 'production', CERTIFICATE_PASSWORD, CERTIFICATE_PASSWORD),
+                     'EC key with a chain': (folder / 'elliptic', CERTIFICATE_PASSWORD, CERTIFICATE_PASSWORD)}
+            for name, (keys, typed, certificate_password) in cases.items():
+                with self.subTest(name):
+                    calls, raised = self._import(keys, folder / f'{keys.name}.keychain-db', typed)
+                    self.assertIsNone(raised)
+                    arguments = [str(argument) for command, _, _ in calls for argument in command]
+                    def assert_hidden(label, secret, arguments=arguments):
+                        self.assertFalse(any(secret in argument for argument in arguments),
+                                         f'the {label} is on a command line')
+                    assert_hidden('certificate password', certificate_password.decode())
+                    if (keys / 'keychain-password').exists():
+                        assert_hidden('stored keychain password', (keys / 'keychain-password').read_text())
+                    assert_hidden('private key', 'PRIVATE KEY')
+                    self.assertEqual([command[1] for command, _, _ in calls], IMPORT_STEPS)
+                    for command, data, _ in calls:
+                        self.assertIsNotNone(data, f'security {command[1]} could start before its input is all there')
+                    first, second, rest = calls[0][1].decode().split('\n')
+                    self.assertTrue(first and first == second and rest == '', 'the new keychain gets one password, twice')
+                    assert_hidden('keychain password', first)
+                    if (keys / 'keychain-password').exists():
+                        self.assertEqual(first, (keys / 'keychain-password').read_text())
+                    for command, data, keywords in calls:
+                        if (first + '\n').encode() in data:
+                            self.assertTrue(keywords.get('start_new_session'),
+                                            f'security {command[1]} would prompt on the terminal instead of reading stdin')
+                    key, certificate, chain = pkcs12.load_key_and_certificates(
+                        (keys / 'signing.p12').read_bytes(), certificate_password)
+                    piped = {command[command.index('-t') + 1]: data for command, data, _ in calls if command[1] == 'import'}
+                    self.assertEqual(serialization.load_pem_private_key(piped['priv'], None).private_numbers(),
+                                     key.private_numbers())
+                    expected = list({item.fingerprint(hashes.SHA256()): item for item in [certificate, *chain]}.values())
+                    self.assertEqual(x509.load_pem_x509_certificates(piped['cert']), expected,
+                                     'the certificate and its chain, each once')
+
+    def test_a_failure_or_interruption_after_the_keychain_exists_deletes_only_that_keychain(self):
+        self.assertIsNotNone(signing)
+        with tempfile.TemporaryDirectory() as directory:
+            keys, keychain = Path(directory) / 'keys', Path(directory) / 'trial.keychain-db'
+            signing.generate(keys, 'RoleBand CI Trial')
+            password = (keys / 'p12-password').read_text()
+            failures = {'a refusal': subprocess.CalledProcessError(1, ['security']),
+                        'a stalled prompt': subprocess.TimeoutExpired(['security'], 120),
+                        'a missing tool': FileNotFoundError('security'),
+                        'an interruption': KeyboardInterrupt()}
+            for step, name in enumerate(IMPORT_STEPS):
+                for label, failure in failures.items():
+                    def fail(index, command, step=step, failure=failure):
+                        if index == step:
+                            raise failure
+                    with self.subTest(step=name, failure=label):
+                        calls, raised = self._import(keys, keychain, fail=fail)
+                        argv = [command for command, _, _ in calls]
+                        if step == 0:
+                            self.assertEqual(len(argv), 1, 'nothing to delete before the keychain exists')
+                        else:
+                            self.assertEqual(argv[-1], ['security', 'delete-keychain', str(keychain)])
+                            self.assertEqual(len(argv), step + 2)
+                        if isinstance(failure, KeyboardInterrupt):
+                            self.assertIs(raised, failure)
+                        else:
+                            self.assertIsInstance(raised, RuntimeError)
+                            self.assertIn(f'security {name} failed', str(raised))
+                            self.assertNotIn(password, str(raised))
+                            self.assertIsNone(raised.__cause__)
+
+    def test_a_p12_that_cannot_sign_fails_before_any_keychain_is_made(self):
+        self.assertIsNotNone(signing)
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            protected(folder / 'keys')
+            exported_identity(folder / 'ed25519', ed25519.Ed25519PrivateKey.generate())
+            exported_identity(folder / 'long-chain', authorities=200)
+            failed = 'Could not import the signing identity into the scratch build keychain'
+            cases = {'a mistyped password': (folder / 'keys', b'mistyped password', RuntimeError, failed, None),
+                     'an encryption this library cannot read': (folder / 'keys', CERTIFICATE_PASSWORD, RuntimeError,
+                                                               failed, UnsupportedAlgorithm('unsupported cipher')),
+                     'a key codesign cannot use': (folder / 'ed25519', CERTIFICATE_PASSWORD, ValueError,
+                                                   'codesign signs only with an RSA or EC key', None),
+                     'a chain larger than a pipe holds': (folder / 'long-chain', CERTIFICATE_PASSWORD, ValueError,
+                                                          'The signing identity is larger than a pipe to security holds',
+                                                          None)}
+            for name, (keys, typed, expected, message, unreadable) in cases.items():
+                reading = (patch.object(signing.pkcs12, 'load_key_and_certificates', side_effect=unreadable)
+                           if unreadable else contextlib.nullcontext())
+                with self.subTest(name), patch.object(signing.subprocess, 'run') as command, reading:
+                    before = os.listdir('/dev/fd')
+                    with self.assertRaises(expected) as error:
+                        signing.import_keychain(keys, folder / 'build.keychain-db', typed)
+                    self.assertEqual(len(os.listdir('/dev/fd')), len(before), 'every pipe is closed')
+                    command.assert_not_called()
+                    self.assertEqual(str(error.exception), message)
+                    self.assertNotIn(typed.decode(), str(error.exception))
+                    self.assertFalse((folder / 'build.keychain-db').exists())
+
+    @unittest.skipUnless(sys.platform == 'darwin' and shutil.which('security') and shutil.which('codesign'),
+                         'needs the macOS keychain and codesign')
+    def test_on_a_mac_the_imported_identity_signs_and_its_keychain_opens_only_with_its_password(self):
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            signing.generate(folder / 'throwaway', 'RoleBand Keychain Trial')
+            exported_identity(folder / 'elliptic')
+            def security(*arguments, data=b''):
+                return subprocess.run(['security', *arguments], input=data, capture_output=True, text=False,
+                                      start_new_session=True, timeout=60, check=False)
+            for keys, typed in ((folder / 'throwaway', None), (folder / 'elliptic', CERTIFICATE_PASSWORD)):
+                keychain = folder / f'{keys.name}.keychain-db'
+                with self.subTest(keys.name):
+                    try:
+                        signing.import_keychain(keys, keychain, typed)
+                        certificate = signing.load_certificate(keys) if typed is None else pkcs12.load_key_and_certificates(
+                            (keys / 'signing.p12').read_bytes(), typed)[1]
+                        identity = certificate.fingerprint(hashes.SHA1()).hex().upper()
+                        self.assertIn(identity, security('find-identity', '-p', 'codesigning', str(keychain)).stdout.decode())
+                        tool = folder / f'{keys.name}-tool'
+                        shutil.copy('/usr/bin/true', tool)
+                        subprocess.run(['codesign', '--remove-signature', str(tool)], check=True, timeout=60)
+                        subprocess.run(['codesign', '--force', '--sign', identity, '--keychain', str(keychain), str(tool)],
+                                       check=True, capture_output=True, stdin=subprocess.DEVNULL, timeout=60)
+                        subprocess.run(['codesign', '--verify', str(tool)], check=True, timeout=60)
+                        held = security('find-certificate', '-a', '-Z', str(keychain)).stdout.decode()
+                        self.assertEqual(held.count('SHA-1 hash:'), 1 if typed is None else 2, 'each certificate once')
+                        if typed is None:
+                            password = (keys / 'keychain-password').read_text()
+                            self.assertEqual(security('lock-keychain', str(keychain)).returncode, 0)
+                            self.assertNotEqual(security('unlock-keychain', str(keychain),
+                                                         data=(password[:-1] + '\n').encode()).returncode, 0)
+                            self.assertEqual(security('unlock-keychain', str(keychain),
+                                                      data=(password + '\n').encode()).returncode, 0)
+                    finally:
+                        if keychain.exists():
+                            security('delete-keychain', str(keychain))
+                    self.assertFalse(keychain.exists())
 
     def test_throwaway_keys_have_code_signing_identity_private_permissions_and_cannot_be_overwritten(self):
         self.assertIsNotNone(signing, 'the signing-material generator is missing')
