@@ -1670,7 +1670,11 @@ export interface paths {
         get?: never;
         /**
          * Put Ai Egress Ep
-         * @description Allow (or stop) job text leaving this Mac.
+         * @description Allow (or stop) this computer contacting a cloud AI provider.
+         *
+         *     What it admits is the connection test, and search query parsing where that
+         *     is configured; no product task sends job text to a cloud model
+         *     (`tests/test_ai_egress_reach.py`).
          *
          *     Its own endpoint rather than a field on the Apple FM toggle: this is the one
          *     consent that changes what the shipped privacy copy can truthfully say, so it

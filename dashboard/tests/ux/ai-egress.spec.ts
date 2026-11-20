@@ -22,7 +22,7 @@ for (const theme of ["light", "dark"] as const) {
     });
     await page.goto("/settings/intelligence");
     await expect(page.getByLabel(msg("ai-capabilities-card-use", { name: cloudModelProfileFixture.name }))).toBeVisible();
-    const gate = page.getByLabel(msg("ai-capabilities-card-send-postings-to-online-services"));
+    const gate = page.getByRole("checkbox", { name: msg("ai-capabilities-card-send-postings-to-online-services"), exact: true });
     await gate.click();
     const dialog = page.getByRole("dialog", { name: msg("ai-egress-title") });
     expect(await dialog.evaluate((el) => getComputedStyle(el).backgroundColor)).toMatch(/^rgb\(/);
@@ -52,7 +52,7 @@ for (const theme of ["light", "dark"] as const) {
 
 test("Escape leaves the standing permission off before a service is connected", async ({ page }) => {
   await page.goto("/settings/intelligence");
-  const gate = page.getByLabel(msg("ai-capabilities-card-send-postings-to-online-services"));
+  const gate = page.getByRole("checkbox", { name: msg("ai-capabilities-card-send-postings-to-online-services"), exact: true });
   await expect(gate).toBeEnabled();
   await gate.click();
   const dialog = page.getByRole("dialog", { name: msg("ai-egress-title") });
@@ -73,7 +73,7 @@ test("turning posting text permission off takes one click", async ({ page }) => 
     return route.fulfill({ json: { ...intelligence, routing: { egress_enabled: false, tiers: [] } } });
   });
   await page.goto("/settings/intelligence");
-  const gate = page.getByLabel(msg("ai-capabilities-card-send-postings-to-online-services"));
+  const gate = page.getByRole("checkbox", { name: msg("ai-capabilities-card-send-postings-to-online-services"), exact: true });
   await expect(gate).toBeChecked();
   await gate.click();
   await expect(gate).not.toBeChecked();

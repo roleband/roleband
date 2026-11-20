@@ -736,7 +736,7 @@ test("a saved online service brings the egress switch and its own row", async ({
 
   await expect(capabilities.getByLabel(msg("ai-capabilities-card-send-postings-to-online-services"))).not.toBeChecked();
   // The gate exists but is off, and the row says what that means: nothing leaves.
-  await expect(capabilities.getByText(/off · nothing is sent/)).toBeVisible();
+  await expect(capabilities.getByText(msg("ai-capabilities-card-off-nothing-is-sent", { choice: "no" }))).toBeVisible();
   await expect(capabilities.getByLabel("Use OpenAI production")).toBeChecked();
 
   // The service's own switch is on, the permission above it is not, and the

@@ -44537,7 +44537,7 @@
   },
   "/api/intelligence/egress": {
    "put": {
-    "description": "Allow (or stop) job text leaving this Mac.\n\nIts own endpoint rather than a field on the Apple FM toggle: this is the one\nconsent that changes what the shipped privacy copy can truthfully say, so it\nmust be impossible to flip as a side effect of saving something else.",
+    "description": "Allow (or stop) this computer contacting a cloud AI provider.\n\nWhat it admits is the connection test, and search query parsing where that\nis configured; no product task sends job text to a cloud model\n(`tests/test_ai_egress_reach.py`).\n\nIts own endpoint rather than a field on the Apple FM toggle: this is the one\nconsent that changes what the shipped privacy copy can truthfully say, so it\nmust be impossible to flip as a side effect of saving something else.",
     "operationId": "put_ai_egress_ep_api_intelligence_egress_put",
     "requestBody": {
      "content": {

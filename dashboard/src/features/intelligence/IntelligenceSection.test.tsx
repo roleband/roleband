@@ -1232,7 +1232,7 @@ describe("capabilities card", () => {
   const oneService = (enabled: boolean) => ({ profiles: [{ ...cloudModelProfileFixture, enabled }] });
   const withEgress = (on: boolean) => ({ ...status, routing: { egress_enabled: on, tiers: [] } });
 
-  it("requires confirmation naming every saved destination before allowing posting text out", async () => {
+  it("requires confirmation naming every saved destination before allowing AI providers to be contacted", async () => {
     mocked.cloudLLMProfiles.mockResolvedValue({ profiles: [
       { ...cloudModelProfileFixture, enabled: true },
       { ...cloudModelProfileFixture, id: "c2", name: "Research service", base_url: "https://models.example.org/api" },

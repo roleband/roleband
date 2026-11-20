@@ -52,7 +52,7 @@ ai-capabilities-card-ready = 就绪
 ai-capabilities-card-online-model-services = AI 提供商
 ai-capabilities-card-none-connected = 未添加 ·
 ai-capabilities-card-add = 添加
-ai-capabilities-card-send-postings-to-online-services = 发送{ -posting(num: "other") }
+ai-capabilities-card-send-postings-to-online-services = 允许使用 AI 提供商
 ai-capabilities-card-the-example-says = 示例为
 ai-capabilities-card-it-found = 它找到
 ai-capabilities-card-found-pay = { $band } · { $basis ->
@@ -92,11 +92,11 @@ ai-capabilities-card-test = { $choice ->
 }
 ai-capabilities-card-nothing-is-sent = { $choice ->
     [yes] 添加提供商后允许发送
-   *[no] 不发送任何内容
+   *[no] 不会有任何内容离开这台电脑
 }
 ai-capabilities-card-off-nothing-is-sent = { $choice ->
-    [yes] 开启 · 你开启的提供商会收到{ -posting(num: "other") }
-   *[no] 关闭 · 不发送任何内容
+    [yes] 开启 · 只使用你开启的提供商
+   *[no] 关闭 · 不会有任何内容离开这台电脑
 }
 ai-capabilities-card-no-pay-range-found = { $choice ->
     [v1] 测试失败
@@ -108,12 +108,12 @@ ai-capabilities-card-no-pay-range-found = { $choice ->
 ai-capabilities-card-on-device = 在这台电脑上
 ai-capabilities-card-allow-sending-postings-to-online = { $choice ->
     [yes] 开启 { $name } 后即可使用
-   *[no] 请先开启“发送{ -posting(num: "other") }”
+   *[no] 请先允许使用 AI 提供商
 }
 ai-capabilities-card-blocked-online-services-are-switched = { $choice ->
-    [v1] 使用中
+    [v1] 已允许
     [v2] 关闭
-   *[v3] 已阻止 · 发送已关闭
+   *[v3] 已阻止 · AI 提供商已关闭
 }
 ai-capabilities-card-connection-ready-ms = 连接就绪 · { $latency_ms } ms
 ai-capabilities-card-use = 使用 { $name }
@@ -125,7 +125,7 @@ ai-capabilities-card-test-2 = 测试 { $name }
 ai-capabilities-card-configure = 配置 { $name }
 
 ## features/intelligence/CloudDialog.tsx
-ai-cloud-dialog-a-direct-api-connection-billed = 使用你自己的 API 密钥，与任何 ChatGPT 或 Claude 订阅分开计费。只有在 { $b } 开启时才会发送{ -posting(num: "other") }。
+ai-cloud-dialog-a-direct-api-connection-billed = 使用你自己的 API 密钥，与任何 ChatGPT 或 Claude 订阅分开计费。仅在 { $b } 开启期间使用。
 ai-cloud-dialog-name = 名称
 ai-cloud-dialog-provider = 提供商
 ai-cloud-dialog-server-address-https = 服务器地址（HTTPS）
@@ -349,7 +349,7 @@ ai-availability-device-ineligible = 这台电脑不支持 Apple Intelligence。
 ai-availability-model-not-ready = 尚未就绪，可能仍在下载。
 ai-availability-not-configured = 尚未配置任何模型。请在 设置 › AI 中添加一个。
 ai-availability-server-unreachable = 本地 AI 服务器没有响应。请启动它，然后再次测试。
-ai-availability-egress-not-permitted = 向 AI 提供商发送{ -posting(num: "other") }的功能已关闭。请在 设置 › AI 中开启。
+ai-availability-egress-not-permitted = AI 提供商已关闭。请在 设置 › AI 中开启。
 ai-origin-none = 未运行任何模型
 ai-origin-on-device = 在这台电脑上：Apple Intelligence
 ai-origin-this-mac = 在这台电脑上：你自己的模型
@@ -369,10 +369,9 @@ ai-capabilities-card-running = 运行中
 ## 读取失败时的说明。
 ai-intelligence-section-matches-load-failed = 无法加载最契合你的职位
 ai-intelligence-section-band-load-failed = 无法加载此等级的职位
-ai-egress-title = 允许发送到 AI 提供商？
-ai-egress-detail = { -posting(num: "other") }中的文本只会发送到你开启的 AI 提供商，包括你以后添加或开启的提供商。
+ai-egress-title = 允许使用 AI 提供商？
 ai-egress-destinations = 已保存的提供商
-ai-egress-empty = 尚未添加 AI 提供商。添加并开启一个提供商后才会发送内容。
+ai-egress-empty = 尚未添加 AI 提供商。添加并开启一个提供商之前，不会有任何内容离开这台电脑。
 ai-egress-allow = 允许
 
 ai-capabilities-card-apple-off = 关闭
