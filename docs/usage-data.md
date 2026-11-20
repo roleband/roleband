@@ -70,7 +70,7 @@ From the backend, once a day:
 | `install_method` | `source`, `package`, `container` |
 | `db_mode` | `embedded`, `external` |
 | `followed_bucket` | how many companies you follow: `0`, `1-5`, `6-20`, `21-50`, `51-100`, `101+` |
-| `ai_egress` | whether this computer may contact a cloud AI provider you configured (its connection test); no job text is sent |
+| `ai_egress` | whether this computer may contact a cloud AI provider: the connection test of one you added, and search query parsing where that is set up; no job text is sent |
 | `ui_locale` | the dashboard's language, e.g. `en` |
 | `country` | the two-letter region of your OS settings (never your IP) |
 | `target_craft` | the kind of role you look for, as one of RoleBand's role families (`software_engineering`, `product_management`, ...), or `several`, or `any`; never your own words |
