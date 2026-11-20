@@ -1456,6 +1456,189 @@ def test_a_windows_release_a_publication_starts_is_reported():
     assert windows_release_gaps(titled) == []
 
 
+#: The .NET types a script may hand a secret to: none of them starts a program.
+_IN_PROCESS_TYPE = re.compile(
+    r"\[(?:System\.)?(?:Convert|Environment|IO\.File|Text\.Encoding|Security\.Cryptography\.[\w.]+)\]::",
+    re.IGNORECASE)
+_TYPE_MEMBER = re.compile(r"\[[\w.]+\]::")
+_CALL = re.compile(rf"^(?:\$[\w:]+\s*=\s*)?{_TYPE_MEMBER.pattern}\w+(?:\.\w+)*\(")
+#: What would still start a program from inside such a call: a command call, a pipeline or a
+#: second statement, or a command in parentheses (a subexpression is one) other than a path cmdlet.
+_RUNS_MORE = re.compile(r"[;&|]|(?<!\w)\(\s*(?!(?:Join|Split|Resolve)-Path\b)[A-Za-z._\\/~]", re.IGNORECASE)
+_QUOTED = re.compile(r"'[^']*'|\"(?:[^\"\\`]|[\\`].)*\"")
+
+
+def _masked(line: str, *, double: bool = True) -> str:
+    """`line` with the text inside its quotes blanked and every position kept. Double-quoted text
+    stays when `double` is false: it still expands `$(...)`."""
+    def blank(match: re.Match[str]) -> str:
+        text = match.group()
+        return text if text[0] == '"' and not double else text[0] + " " * (len(text) - 2) + text[-1]
+    return _QUOTED.sub(blank, line)
+
+
+def _uncommented(line: str) -> str:
+    comment = re.search(r"(?:^|\s)#", _masked(line))
+    return line[:comment.start()] if comment else line
+
+
+def _logical_lines(script: str) -> list[str]:
+    """A script's lines without comments, continuations joined: a trailing backtick or backslash,
+    or a parenthesis left open outside quotes."""
+    lines: list[str] = []
+    pending = ""
+    for raw in script.splitlines():
+        text = _uncommented(raw).strip()
+        pending = f"{pending} {text}" if pending else text
+        if pending.endswith(("`", "\\")):
+            pending = pending[:-1]
+        elif (masked := _masked(pending)).count("(") <= masked.count(")"):
+            lines += [pending] if pending else []
+            pending = ""
+    return [*lines, pending] if pending else lines
+
+
+def _secret_reference(names: set[str]) -> str:
+    """A `${{ }}` expression that reads a secret, the run's token, or one of `names` from `env`."""
+    alternatives = "|".join(sorted(map(re.escape, names))) or "(?!)"
+    return (r"\$\{\{(?:(?!\}\}).)*?(?:\bsecrets\b|\bgithub\s*(?:\.\s*token\b|\[\s*['\"]token['\"])"
+            rf"|\benv\s*(?:\.\s*(?:{alternatives})\b|\[\s*['\"](?:{alternatives})['\"]))")
+
+
+def _secret_names(*envs: object) -> set[str]:
+    """The variables a step sees holding a secret or the run's token, from the outermost `env` in:
+    a step's own value replaces its job's, and a job's the workflow's. A value may name an outer
+    variable as `env.NAME`."""
+    names: set[str] = set()
+    for env in envs:
+        if isinstance(env, dict):
+            outer = re.compile(_secret_reference(names), re.IGNORECASE)
+            for name, value in env.items():
+                if outer.search(str(value)):
+                    names.add(name)
+                else:
+                    names.discard(name)
+    return names
+
+
+def _secret_reads(names: set[str]) -> re.Pattern[str]:
+    """A script's read of one of `names`: `$X` or `${X}`, PowerShell's `env:` drive, .NET's
+    GetEnvironmentVariable, or printenv."""
+    alternatives = "|".join(sorted(map(re.escape, names))) or "(?!)"
+    return re.compile(rf"\$\{{?(?:{alternatives})\b|\benv:[\\/]?(?:{alternatives})\b"
+                      rf"|GetEnvironmentVariable\(\s*['\"](?:{alternatives})['\"]|\bprintenv\s+(?:{alternatives})\b",
+                      re.IGNORECASE)
+
+
+def _in_process(line: str) -> bool:
+    """Whether the whole of `line` is one call on a .NET type that starts no program, with no
+    other type's member and nothing that starts a program among its arguments."""
+    call = _CALL.match(line)
+    if call is None or _RUNS_MORE.search(_masked(line, double=False)) or any(
+            not _IN_PROCESS_TYPE.match(member.group()) for member in _TYPE_MEMBER.finditer(line)):
+        return False
+    masked, depth = _masked(line), 0
+    for index in range(call.end() - 1, len(masked)):
+        depth += {"(": 1, ")": -1}.get(masked[index], 0)
+        if depth == 0:
+            return index == len(line) - 1
+    return False
+
+
+def secret_argument_gaps(data: dict) -> list[str]:
+    """Where a step's script could hand a secret's value to another program as an argument.
+
+    A process's arguments are readable by other processes on the machine and can reach logs
+    that masking misses. So a script reads a secret only inside one call on a .NET type that
+    starts no program, and a program that needs a secret is given the variable's name to read
+    from its own environment. Any other line that reads a secret is reported, since a command
+    line cannot be told apart from a harmless line by its shape, and so is a secret written into
+    the script text with `${{ }}`. The check reads bash and PowerShell, and it follows a
+    secret's own value, not a value a script derives from it."""
+    gaps = []
+    for job_name, job in (data.get("jobs") or {}).items():
+        for step in job.get("steps") or []:
+            names = _secret_names(data.get("env"), job.get("env"), step.get("env"))
+            written, read = re.compile(_secret_reference(names), re.IGNORECASE), _secret_reads(names)
+            where, script = f"{job_name}/{step.get('name', '?')}", str(step.get("run", ""))
+            gaps += [f"{where} writes a secret into its script: {line.strip()}"
+                     for line in script.splitlines() if written.search(line)]
+            gaps += [f"{where} reads a secret outside a .NET call: {line}"
+                     for line in _logical_lines(script) if read.search(line) and not _in_process(line)]
+    return gaps
+
+
+@pytest.mark.parametrize("name", sorted(wf.name for wf in WORKFLOWS.glob("*.yml")))
+def test_no_workflow_hands_a_secret_to_a_program_as_an_argument(name):
+    assert secret_argument_gaps(yaml.safe_load((WORKFLOWS / name).read_text())) == []
+
+
+def test_a_secret_on_a_command_line_is_reported():
+    """The control for the test above: each way a value reaches an argument is reported once, and
+    the in-process forms the release uses are not."""
+    leaks = [
+        "& (Join-Path $kits 'signtool.exe') sign /f $file /p $env:PASSPHRASE $package",
+        "python tool.py check `\n  --passphrase ${env:PASSPHRASE}",
+        "security create-keychain -p \"$PASSPHRASE\" build.keychain",
+        "openssl pkcs12 -in signing.p12 -passin pass:$PASSPHRASE",
+        "cd tools && python sign.py $PASSPHRASE",
+        "$typed = $env:passphrase",
+        "& signtool sign (\n  [Convert]::ToString($env:PASSPHRASE))",
+        "& tool @(\n  '-p', $env:PASSPHRASE\n)",
+        "[Diagnostics.Process]::Start('signtool', \"/p $env:PASSPHRASE\")",
+        "& tool ([Environment]::GetEnvironmentVariable('PASSPHRASE'))",
+        "gh api --token $env:TOKEN repos/x",
+        "gh secret set KEY --body ${{ secrets.OTHER }}",
+        "python sign.py \"${{ secrets['OTHER'] }}\"",
+        "gh api --token ${{ github['token'] }} repos/x",
+        "python sign.py --passphrase '${{ env.PASSPHRASE }}'",
+        "[IO.File]::WriteAllText('key.pem', $env:PFX); & tool $env:PASSPHRASE",
+        "$bytes = [Convert]::FromBase64String($env:PFX) && python sign.py $env:PASSPHRASE",
+        "[IO.File]::WriteAllText('note.txt', '(')\npython sign.py $env:PASSPHRASE",
+        "[IO.File]::WriteAllText('key.txt', (signtool sign /p $env:PASSPHRASE))",
+        "[IO.File]::WriteAllText('key.txt', [string](signtool sign /p $env:PASSPHRASE))",
+        "[IO.File]::WriteAllText('key.txt', (.\\signtool.exe sign /p $env:PASSPHRASE))",
+        "[IO.File]::WriteAllText('key.txt', (Start-Process signtool -ArgumentList $env:PASSPHRASE))",
+        "[IO.File]::WriteAllText('key.txt', [Diagnostics.Process]::Start('signtool', \"/p $env:PASSPHRASE\"))",
+        "[IO.File]::WriteAllText('key.txt', \"$(tool $env:PASSPHRASE)\")",
+        "[Environment]::GetEnvironmentVariable('PASSPHRASE').ForEach({ signtool sign /p $_ })",
+        "[Convert]::FromBase64String($env:PFX) | python decode.py",
+        "echo ok; python sign.py $PASSPHRASE | tee log",
+        "printf '%s' \"$(python sign.py \"$PASSPHRASE\")\" | cat",
+        "python sign.py <<< \"\" --passphrase \"$PASSPHRASE\"",
+        "python sign.py $(printenv PASSPHRASE)",
+        "Get-Item Env:PASSPHRASE | ForEach-Object { tool $_.Value }",
+    ]
+    safe = [
+        "$bytes = [Convert]::FromBase64String($env:PFX)",
+        "$certificate = [Security.Cryptography.X509Certificates.X509Certificate2]::new(\n"
+        "  [Convert]::FromBase64String($env:PFX), $env:PASSPHRASE, $flags)",
+        "[IO.File]::WriteAllText((Join-Path $folder 'key.pem'), $env:PFX)",
+        "[IO.File]::WriteAllText('notes (a;b).txt', $env:PFX)",
+        "$text = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:PFX))",
+        "$bytes = [Convert]::FromBase64String($env:PFX)  # the archive (base64\nWrite-Host done",
+        "# signtool finds $env:PASSPHRASE in its own environment",
+        "python tool.py check --passphrase-env PASSPHRASE",
+        "& signtool.exe sign /sha1 $certificate.Thumbprint $package",
+    ]
+    env = {"PASSPHRASE": "${{ secrets.PASSPHRASE }}", "PFX": "${{secrets['PFX']}}", "TOKEN": "${{ github.token }}"}
+    def gaps(run: str, **levels: dict) -> list[str]:
+        workflow = {"env": levels.get("workflow"), "jobs": {"sign": {
+            "env": levels.get("job"), "steps": [{"name": "sign", "env": levels.get("step"), "run": run}]}}}
+        return secret_argument_gaps(workflow)
+    for line in leaks:
+        assert len(gaps(line, step=env)) == 1, line
+    for line in safe:
+        assert gaps(line, step=env) == [], line
+    command = "python sign.py $env:PASSPHRASE"
+    for level in ("workflow", "job"):
+        assert len(gaps(command, **{level: env})) == 1, level
+    assert gaps(command, step={"PASSPHRASE": "not a secret"}) == []
+    assert gaps(command, workflow=env, step={"PASSPHRASE": "public"}) == [], "a step's own value wins"
+    for copied in ("${{ env.PASSPHRASE }}", "${{ env['PASSPHRASE'] }}", "${{ toJSON(secrets) }}"):
+        assert len(gaps("python sign.py $COPY", workflow=env, step={"COPY": copied})) == 1, copied
+
+
 def provenance_gaps(job: dict) -> list[str]:
     """Checks in the provenance job that an earlier check's failure would skip. Each one is a
     separate notice, so a broken pin in one must not hide what the others would report."""
