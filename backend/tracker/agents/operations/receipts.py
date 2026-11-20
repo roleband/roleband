@@ -2,8 +2,8 @@
 
 A receipt is looked up by the write's operation and idempotency key, in this
 workspace and for the principal the engine names: no input chooses another
-workspace or principal. It returns the result the write answered when it
-committed, however the record has moved since.
+workspace or principal. It returns the committed outcome under current
+visibility, however the record has moved since.
 
 A miss is not proof that the write failed: a request still running has not
 committed its receipt yet. The way forward is to send the same write again
@@ -56,7 +56,7 @@ class Receipt(Shape):
     #: The contract version the write's input and result belong to.
     contract_version: str = Field(json_schema_extra=_CODE)
     recorded_at: datetime
-    #: The write's result as it answered then, in that operation's result shape.
+    #: The visible part of the committed result, in the write's result shape.
     result: dict[str, Any]
 
 
@@ -90,9 +90,8 @@ async def receipt_of(
     named is one this engine runs under a key; only those keep receipts.
 
     `withheld` is the named write's categories the person does not share, in
-    the order it declares them. A receipt answers its result as it was
-    stored, so it cannot leave a part out: it is refused, before the lookup,
-    when any of them is withheld.
+    the order it declares them. The lookup is refused when any of them is
+    withheld, so it does not reveal whether a write committed under the key.
     """
     if withheld:
         raise category_disabled(withheld[0])

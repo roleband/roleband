@@ -203,6 +203,7 @@ class OperationContext:
         *,
         on_revision_conflict: list[NextAction] | None = None,
         shown: Callable[[Any], BaseModel] | None = None,
+        on_replay: Callable[[Any], Awaitable[BaseModel]] | None = None,
         described: activity.WriteActivity | None = None,
     ) -> Envelope[Any]:
         """Run one keyed write, or replay its receipt, and commit.
@@ -214,6 +215,7 @@ class OperationContext:
         the receipt commit together, and any failure rolls all three back.
         The receipt keeps the result whole; `shown`, when given, makes the
         answer, fresh or replayed, from it under this call's categories.
+        `on_replay` rechecks visibility when it depends on current records.
 
         A new execution also lists its change on the Activity screen, in the
         same transaction: `described` says what changed (the fields before
@@ -279,6 +281,8 @@ class OperationContext:
             raise
         self.heard.written = True
         result = descriptor.result.model_validate(executed.result)
+        if executed.replayed and on_replay is not None:
+            result = await on_replay(result)
         return success(
             descriptor.id,
             result if shown is None else shown(result),

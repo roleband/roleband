@@ -347,13 +347,18 @@ async def receipt_get(
             details={"operation": params.operation},
             next_actions=[NextAction(operation=CAPABILITIES.id, arguments={})],
         )
-    return op.ok(
-        await receipts.receipt_of(
-            session, params, workspace_id=op.workspace_id, principal_id=op.principal_id,
-            keyed=descriptor.idempotency == "required_key",
-            withheld=[category for category in descriptor.data_classes if not op.shares(category)],
-        )
+    receipt = await receipts.receipt_of(
+        session, params, workspace_id=op.workspace_id, principal_id=op.principal_id,
+        keyed=descriptor.idempotency == "required_key",
+        withheld=[category for category in descriptor.data_classes if not op.shares(category)],
     )
+    if descriptor.id == duplicates.DUPLICATES_DECIDE.id:
+        result = await duplicates.visible_verdicts(
+            session, duplicates.DuplicateVerdictsResult.model_validate(receipt.result),
+            pursuits=op.shares("private_pursuit"),
+        )
+        receipt.result = result.model_dump(mode="json")
+    return op.ok(receipt)
 
 
 @router.get(
@@ -692,6 +697,9 @@ async def duplicate_decide(
     decided = withheld(duplicates.DUPLICATES_DECIDE, op.switches)
     return await op.write(
         lambda: duplicates.decide(op.session, params, withheld=decided),
+        on_replay=lambda result: duplicates.visible_verdicts(
+            op.session, result, pursuits=op.shares("private_pursuit"),
+        ),
         described=duplicates.DuplicateVerdictsActivity(),
     )
 
