@@ -71,7 +71,9 @@ export function usePostingText(
       const slow = window.setTimeout(() => {
         if (attempts.current.get(jobId) !== mine) return;
         slowFor.current.add(jobId);
-        if (current()) setState({ id: jobId, phase: "slow" });
+        // Also while another posting is shown, when nothing has replaced this
+        // posting's state: shown again, it says slow at once.
+        setState((was) => (was?.id === jobId && was.phase === "reading" ? { id: jobId, phase: "slow" } : was));
       }, SLOW_AFTER_MS);
       api
         .readPostingText(jobId, retry)
