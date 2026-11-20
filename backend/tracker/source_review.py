@@ -351,7 +351,9 @@ SOURCE_REVIEWS: dict[str, SourceReview] = {
             "GET https://api.lever.co/v0/postings/{site}?mode=json&limit=50&skip=N"
             " (EU tenants: api.eu.lever.co, same path)"
         ),
-        detail_surface=None,
+        # Only for a stored posting with no text: the listing inlines every
+        # posting's text, so a scan never sends it.
+        detail_surface="GET https://api.lever.co/v0/postings/{site}/{posting_id}?mode=json",
         robots=_robots(
             RobotsStatus.ALLOWED,
             "https://api.lever.co/robots.txt",

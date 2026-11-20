@@ -13,3 +13,25 @@
   border-radius: inherit;
   background: var(--app-text-muted);
 }
+
+/* A wait with no measure: a segment in the action colour runs along the
+   track, as the posting's wait line does (`.jd-waiting`). */
+.ui-progress-indeterminate > i {
+  width: 30%;
+  background: linear-gradient(to right, transparent, var(--app-action), transparent);
+  animation: ui-progress-run 1.2s var(--app-ease) infinite;
+}
+
+@keyframes ui-progress-run {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(340%); }
+}
+
+/* Asked for less motion: the line stands still, the whole track tinted. */
+@media (prefers-reduced-motion: reduce) {
+  .ui-progress-indeterminate > i {
+    width: 100%;
+    background: var(--app-action-line);
+    animation: none;
+  }
+}

@@ -20,7 +20,14 @@ from sqlalchemy.orm import selectinload
 from tracker.agents.pursuits import ensure_favorite, lock_role_writes, public_pursuit
 from tracker.analytics.pay_floor import floor_check
 from tracker.api.comp_packages import baselines_for, role_package, shown_source
-from tracker.api.deps import MAX_WINDOW_DAYS, OffBoardDep, Offset, PageReadsDep, SessionDep
+from tracker.api.deps import (
+    MAX_WINDOW_DAYS,
+    OffBoardDep,
+    Offset,
+    PageReadsDep,
+    SessionDep,
+    TextReadsDep,
+)
 from tracker.api.errors import ErrorCode, api_error
 from tracker.api.schemas.jobs import (
     DismissResponse,
@@ -31,6 +38,7 @@ from tracker.api.schemas.jobs import (
     JobViewResponse,
     ListingHistoryResponse,
     PostingPageResponse,
+    PostingTextResponse,
     SimilarJobsResponse,
     UndismissResponse,
 )
@@ -96,6 +104,7 @@ from tracker.taxonomy.role_catalog import UNCLASSIFIED_KEY
 from tracker.taxonomy.roles import ROLE_GROUPS
 from tracker.taxonomy.tracks import TRACKS
 from tracker.workflows.posting_pages import readable_on_open
+from tracker.workflows.posting_text import readable_text_on_open
 
 router = APIRouter()
 
@@ -472,6 +481,7 @@ async def get_job(job_id: int, session: SessionDep) -> dict:
     data.setdefault("posting_reality", None)
     data["application_form"] = application_form_view(job.source_facts)
     data["application_form_readable"] = await readable_on_open(session, job)
+    data["description_readable"] = await readable_text_on_open(session, job)
     # Compared on the served block, whose period is already checked.
     data["pay_floor_check"] = floor_check(await get_pay_floor(session), data.get("disclosed_comp"))
     return data
@@ -503,6 +513,34 @@ async def read_posting_page_on_open(job_id: int, session: SessionDep, reads: Pag
         raise api_error(404, ErrorCode.JOB_NOT_FOUND, "job not found")
     outcome, source_facts = result
     return {"outcome": outcome, "application_form": application_form_view(source_facts)}
+
+
+@router.post("/api/jobs/{job_id}/description", response_model=PostingTextResponse)
+async def read_posting_text_on_open(
+    job_id: int,
+    session: SessionDep,
+    reads: TextReadsDep,
+    retry: Annotated[bool, Query()] = False,
+) -> dict:
+    """Read the posting's text because someone opened it and its row has none.
+
+    Called by Job detail AFTER it renders, never inside the detail read, so an
+    open never waits on the source; the detail's `description_readable` says
+    when to call. One paced request at most per posting at a time, within a
+    deadline; a repeat answers from storage, and a read that found no text is
+    not repeated by another open for a while unless `retry` asks again.
+    `OpenTextReads.read_one` owns the transactions: none is held across the
+    request.
+    """
+    result = await reads.read_one(session, job_id, retry=retry)
+    if result is None:
+        raise api_error(404, ErrorCode.JOB_NOT_FOUND, "job not found")
+    outcome, job = result
+    return {
+        "outcome": outcome,
+        "description_text": job.description_text,
+        "description_sections": job.description_sections or [],
+    }
 
 
 @router.post("/api/jobs/{job_id}/view", response_model=JobViewResponse)

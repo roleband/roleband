@@ -477,7 +477,7 @@ writing a screen-local version.
 | Floating surface | `Overlay` and its shells `Popover`, `Dialog`, `Sheet` |
 | Escape handling outside an overlay | `useEscapeLayer` (`ui/escapeLayer.ts`) |
 | Status label or count | `Badge` (tone, variant, size); a job row's read-only label is `shape="tag"` |
-| Fetch states | `AsyncBoundary`, `ResourceLoadState` (shows only after 200 ms, so a short load never flashes), `Spinner`, `ProgressBar` |
+| Fetch states | `AsyncBoundary`, `ResourceLoadState` (shows only after 200 ms, so a short load never flashes), `Spinner`, `ProgressBar` (with no value, a running line for a wait nothing can measure) |
 | Empty result | `EmptyState` (`narrowedBy` explains which filters emptied it) |
 | On/off setting | `Switch` |
 | Pick one of a few modes | `Segmented` |
@@ -1104,6 +1104,21 @@ its primary is View & apply, an anchor wearing the primary classes.
   the same. A role already saved opens the list with no second write, and a
   role already applied ends on nothing. The pager and `j` / `k` still move
   to the next row.
+- **A posting that opened with no text reads it** from the employer's site
+  once the page is shown (`postingText.ts`), when the detail says it can
+  (`description_readable`); the open never waits on the site. Under the
+  Description heading, from 200 ms, a running line (`ProgressBar` with no
+  value) and *Getting the description from Spotify…*; from 6 s the line keeps
+  running, the site is said to be slow and the posting on it is offered in a
+  new tab; a read that found nothing stops the line and offers Try again
+  beside the posting. One live region says each change and stays when the
+  text comes: it then says the text came, never the text itself. The text
+  comes in where the line stood, and the posting is read again behind it,
+  since its text also moves what the pay panel says. A new open of a posting
+  whose read failed asks again, which the server answers from its memory of
+  the failure for ten minutes without asking the site; Try again asks the
+  site at once. A posting nothing can read says *No description for this
+  role.*
 
 Job detail steps up on a wider window, by the width of its own scroll box
 (a container query, `posting`, so no window breakpoint is added) and never by
@@ -1314,6 +1329,7 @@ Unit gates (`npm run test:unit`) are under `dashboard/src/`; UX specs
 | Visible primaries counted | `job-detail.spec.ts`, `profile.spec.ts` |
 | The posting's side column stays in view with no scroll of its own and keeps its first rows, folds More like this, and follows the description in one column; the pay panel's small copy grows with the scroll; a section's heading sticks; the bar carries the role; the pager steps through the list; the posting ends on applying, which saves the role and opens the pipeline list in a new tab; the next posting turns in place, in one cover, with no loading line | `job-detail.spec.ts` |
 | A posting steps by its box's width alone: frame, columns and type together, the text across its column, the bar, menus and pop-ups at their size, nothing zoomed | `job-detail-steps.spec.ts` |
+| A posting that opened with no text reads it once and says so under a running line, offers the posting when the site is slow and Try again when the read failed, and asks nothing when nothing can read it | `job-detail.spec.ts`, `features/job-detail/postingText.test.tsx` |
 | First-run setup | `routing/setupMode.test.tsx`, `features/scope/walk/Walk.test.tsx`, `features/companies/SetupCompanies.test.tsx`, `welcome.spec.ts` |
 | First-run setup magnification: the factor, window units, placed pop-ups, the planet's pointer | `features/scope/setupZoom.test.ts`, `features/scope/welcome/globeDrag.test.ts`, `setup-magnification.spec.ts`, `setup-magnification-webkit.spec.ts`, `setup-magnification-unhinted.spec.ts` |
 | The board during and after the first scan | `board-first-scan.spec.ts` |

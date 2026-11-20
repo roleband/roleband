@@ -67,6 +67,7 @@ export type Facets = Schemas["FacetsResponse"];
 
 export type JobViewResult = Schemas["JobViewResponse"];
 export type PostingPageResult = Schemas["PostingPageResponse"];
+export type PostingTextResult = Schemas["PostingTextResponse"];
 
 /** `GET /api/jobs/{id}/history`: the headline age with its basis,
  *  role age when earlier postings of the same role count, every dated event,
@@ -195,6 +196,11 @@ export const jobsApi = {
   /** Read the posting's own page because it was opened; called
    *  after Job detail renders, never as part of loading it. */
   readPostingPage: (id: number) => postJSON<PostingPageResult>(`/api/jobs/${id}/posting-page`),
+  /** Read the posting's text because it was opened with none; called after
+   *  Job detail renders. `retry` asks again at once after a failed read, which
+   *  another open would answer from memory for a while. */
+  readPostingText: (id: number, retry = false) =>
+    postJSON<PostingTextResult>(`/api/jobs/${id}/description${retry ? "?retry=true" : ""}`),
   jobHistory: (id: number, signal?: AbortSignal) => getJSON<ListingHistory>(`/api/jobs/${id}/history`, signal),
   facets: (signal?: AbortSignal) => getJSON<Facets>("/api/facets", signal),
   similar: (id: number, scope: "within" | "cross" | "all" = "cross", limit = 8, signal?: AbortSignal) =>

@@ -1478,6 +1478,94 @@ test("opening an unread posting reads what applying asks, once", async ({ page }
   expect(reads).toEqual(["POST"]);
 });
 
+/* A posting that opened with no text reads it from the employer's site after
+   the page is shown. Meanwhile the Description section says so under a
+   running line, never "No description"; the text lands where the line stood. */
+const NO_TEXT = { ...jobFixture, description_text: null, description_sections: [], description_readable: true };
+const READ_TEXT = {
+  description_text: "Shape the API platform with the teams that build on it.",
+  description_sections: [{ key: "summary", title: "About the role", content: "Shape the API platform with the teams that build on it." }],
+};
+
+test("a posting that opened with no text reads it once, says so meanwhile, then shows it", async ({ page }) => {
+  let release!: () => void;
+  const answered = new Promise<void>((resolve) => { release = resolve; });
+  let stored = false;
+  const textReads = watchReads(page, "POST", "/api/jobs/101/description");
+  await mockApi(page, "POST", "/api/jobs/101/description", async (route) => {
+    await answered;
+    stored = true;
+    return route.fulfill({ json: { outcome: "read", ...READ_TEXT } });
+  });
+  await mockGet(page, "/api/jobs/101", (route) => route.fulfill({ json: stored
+    ? { ...jobFixture, ...READ_TEXT, description_readable: false }
+    : NO_TEXT }));
+  await page.goto("/company/openai/job/101");
+
+  const panel = detail(page);
+  const reading = panel.getByRole("status").filter({ hasText: msg("role-job-description-reading", { company: "OpenAI" }) });
+  await expect(reading).toBeVisible();
+  await expect(reading.getByRole("progressbar", { name: msg("role-job-description-reading-progress") })).toBeVisible();
+  await expect(panel.getByText(msg("role-job-description-no-description-captured"))).toHaveCount(0);
+
+  release();
+  await expect(panel.getByRole("heading", { name: "About the role" })).toBeVisible();
+  await expect(panel.getByText(READ_TEXT.description_text)).toBeVisible();
+  await expect(reading).toHaveCount(0);
+  // The region that said "reading" says the text came, out of sight.
+  await expect(panel.getByRole("status").filter({ hasText: msg("role-job-description-arrived", { company: "OpenAI" }) })).toHaveCount(1);
+  expect(textReads.started).toBe(1);
+});
+
+test("a slow site is said with the posting; a failed read offers Try again, which asks again", async ({ page }) => {
+  await page.clock.install();
+  const asked: string[] = [];
+  let answer: "hold" | "failed" | "read" = "hold";
+  await mockApi(page, "POST", "/api/jobs/101/description**", async (route) => {
+    asked.push(new URL(route.request().url()).search);
+    while (answer === "hold") await new Promise((resolve) => setTimeout(resolve, 50));
+    return route.fulfill({ json: answer === "read" ? { outcome: "read", ...READ_TEXT } : { outcome: "failed", description_text: null, description_sections: [] } });
+  });
+  await mockGet(page, "/api/jobs/101", (route) => route.fulfill({ json: answer === "read"
+    ? { ...jobFixture, ...READ_TEXT, description_readable: false }
+    : NO_TEXT }));
+  await page.goto("/company/openai/job/101");
+
+  const panel = detail(page);
+  const slow = panel.getByRole("status").filter({ hasText: msg("role-job-description-reading-slow", { company: "OpenAI" }) });
+  const failed = panel.getByRole("status").filter({ hasText: msg("role-job-description-read-failed", { company: "OpenAI" }) });
+  const posting = panel.getByRole("link", { name: msg("role-job-description-open-posting", { company: "OpenAI" }) });
+  await expect(panel.getByRole("status").filter({ hasText: msg("role-job-description-reading", { company: "OpenAI" }) })).toBeVisible();
+  await expect(posting).toHaveCount(0);
+
+  await page.clock.runFor(7_000);
+  await expect(slow).toBeVisible();
+  await expect(posting).toHaveAttribute("href", jobFixture.url);
+  await expect(posting).toHaveAttribute("target", "_blank");
+
+  answer = "failed";
+  await expect(failed).toBeVisible();
+  await expect(failed.getByRole("progressbar")).toHaveCount(0);
+  await expect(posting).toBeVisible();
+
+  answer = "read";
+  await panel.getByRole("button", { name: msg("common-try-again") }).click();
+  await expect(panel.getByText(READ_TEXT.description_text)).toBeVisible();
+  expect(asked).toEqual(["", "?retry=true"]);
+});
+
+test("a posting nothing can read says it has no description and asks for none", async ({ page }) => {
+  const textReads = watchReads(page, "POST", "/api/jobs/101/description");
+  await mockGet(page, "/api/jobs/101", (route) => route.fulfill({ json: { ...NO_TEXT, description_readable: false } }));
+  await page.goto("/company/openai/job/101");
+
+  const panel = detail(page);
+  await expect(panel.getByText(msg("role-job-description-no-description-captured"))).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  await expect(panel.getByRole("progressbar")).toHaveCount(0);
+  expect(textReads.started).toBe(0);
+});
+
 /* One age in Details, with where it counts from, in place of separate Posted,
    First seen and Listed for; the history opens on demand, is read once, and
    marks the start. */

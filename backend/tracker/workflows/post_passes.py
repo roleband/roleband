@@ -33,10 +33,8 @@ from tracker.config import Settings
 from tracker.connectors import (
     RateLimiterPool,
     build_adapter,
-    structure_job_detail,
     text_from_posting,
 )
-from tracker.connectors.detail.base import sections_to_text
 from tracker.content import fingerprint_content
 from tracker.db.ids import among
 from tracker.db.inventory_store import reclassify_inventory_if_changed
@@ -63,7 +61,7 @@ from tracker.intelligence_runtime.disclosed_comp import (
 from tracker.lineage.detect import detect_lineage, rebuild_lineage_projection
 from tracker.lineage.place_sets import PlaceSetReads, rebuild_place_sets
 from tracker.lineage.twins import detect_twins
-from tracker.platform.util import describe_exception, html_to_text
+from tracker.platform.util import describe_exception
 from tracker.plugins import reestimate as reestimate_module
 from tracker.plugins.reestimate import reestimate
 from tracker.profiles.prices import PRICES_PASS, run_refresh
@@ -80,6 +78,7 @@ from tracker.source_policy import collection_access, scanned_automatically
 from tracker.taxonomy.locations import normalize_cities
 from tracker.workflows.collection_types import ScanMode, SourceStats
 from tracker.workflows.posting_pages import page_band, read_posting_pages
+from tracker.workflows.posting_text import read_text, stored_posting
 from tracker.workflows.profile_inference_pass import run_profile_inference
 from tracker.workflows.relevance_pass import run_relevance_review
 from tracker.workflows.relevel import relevel_jobs
@@ -232,24 +231,7 @@ async def backfill_missing_descriptions(
     ).all()
     if not rows:
         return []
-    postings = [
-        (
-            job.id,
-            job.company,
-            RawJob(
-                company=job.company,
-                req_id=job.req_id,
-                title=job.title,
-                url=job.url,
-                locations=list(job.locations or []),
-                # The row has no text, so neither has the posting rebuilt from
-                # it. `RawJob` defaults to complete, and some adapters skip a
-                # posting whose text is complete.
-                description_complete=False,
-            ),
-        )
-        for job in rows
-    ]
+    postings = [(job.id, job.company, stored_posting(job)) for job in rows]
     await session.commit()
 
     # One pacer per host for the whole drain, shared across processes like the
@@ -272,22 +254,13 @@ async def backfill_missing_descriptions(
                 consent=cfg.get("consent"),
             )
             async with adapter:
-                # What the listing row carried, where `hydrate` needs it and
-                # the posting can rebuild it.
-                raw.detail_payload = adapter.payload_from_posting(raw)
-                await adapter.hydrate(raw)
-                structure_job_detail(
-                    raw, adapter.drift, payload=raw.detail_payload, source=cfg["adapter"]
-                )
+                text = await read_text(adapter, raw, cfg["adapter"])
         except Exception as exc:  # noqa: BLE001 - a backlog drain is best effort
             logger.warning(
                 "description backfill failed for job %s: %s",
                 job_id, describe_exception(exc), exc_info=True,
             )
             continue
-        text = sections_to_text(raw.description_sections) or html_to_text(
-            raw.description_html
-        )
         if not text:
             # The source served no text for it. Not an error and not a fill:
             # counting it as either would either hide a real gap or invent one.

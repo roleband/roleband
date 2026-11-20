@@ -740,9 +740,11 @@ async def set_job_domains(session: AsyncSession, changes: list[dict]) -> None:
 
 async def fill_blank_description(session: AsyncSession, job_id: int, raw: RawJob, text: str) -> bool:
     """Give an open job with no text the text a posting read gave it. Reads the
-    row again first: another writer may have filled it since the queue was
-    read, and its text stays. Whether it wrote. Commits nothing."""
-    job = await session.get(Job, job_id, populate_existing=True)
+    row again first, under a row lock held until the caller commits: another
+    writer may have filled it since the queue was read, and its text stays,
+    and a scan that writes it after this check waits and then writes over it,
+    as a complete read does. Whether it wrote. Commits nothing."""
+    job = await session.get(Job, job_id, with_for_update=True, populate_existing=True)
     if job is None or job.status != "open" or job.description_text is not None:
         return False
     job.description_html = raw.description_html

@@ -36,7 +36,7 @@ from pydantic.json_schema import SkipJsonSchema
 from tracker.api.schemas.base import Built, Stored
 from tracker.api.schemas.companies import SectionSource
 from tracker.api.schemas.text_class import text
-from tracker.schema import PostingPageOutcome
+from tracker.schema import PostingPageOutcome, PostingTextOutcome
 
 # --- vocabularies --------------------------------------------------------- #
 # Each is held to the constants or the CHECK constraint it mirrors by a test.
@@ -511,6 +511,18 @@ class PostingPageResponse(Built):
     application_form: ApplicationForm | None
 
 
+class PostingTextResponse(Built):
+    """`POST /api/jobs/{job_id}/description`: read the posting's text because
+    someone opened it and its row has none. `read` stored it now;
+    `already_read` answers from storage with no request; `not_available` is a
+    posting nothing may read on open; `failed` stored nothing. The text is the
+    row's afterwards, as Job detail shows it."""
+
+    outcome: PostingTextOutcome
+    description_text: str | None = Field(json_schema_extra=text("content"))
+    description_sections: list[DescriptionSection]
+
+
 class JobDetailResponse(JobDetailRow):
     """`GET /api/jobs/{job_id}`: the row plus everything the detail route shows.
     `posting_reality` is null for a closed posting."""
@@ -533,6 +545,9 @@ class JobDetailResponse(JobDetailRow):
     #: True when opening this posting should ask for its page:
     #: the client then calls `POST /api/jobs/{id}/posting-page` once.
     application_form_readable: bool
+    #: True when the posting has no text and opening it should read it: the
+    #: client then calls `POST /api/jobs/{id}/description` once.
+    description_readable: bool
     #: Null when there is no floor or the band cannot be compared with it.
     pay_floor_check: PayFloorCheck | None
     #: Role age: from the earliest listing start among the postings

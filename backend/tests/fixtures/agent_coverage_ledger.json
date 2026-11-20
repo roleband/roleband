@@ -649,6 +649,12 @@
   },
   {
    "method": "POST",
+   "path": "/api/jobs/{job_id}/description",
+   "excluded": "internal",
+   "reason": "Reads a posting's text because the person opened it in the dashboard with none."
+  },
+  {
+   "method": "POST",
    "path": "/api/jobs/{job_id}/place-set/review",
    "operation": "duplicates.decide"
   },
