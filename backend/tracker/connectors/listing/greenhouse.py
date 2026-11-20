@@ -4,6 +4,17 @@
 
 Returns {"jobs": [...]} where each job carries HTML `content`, a `location.name`
 free-text string, `departments`/`offices`, and `updated_at`/`first_published`.
+Every posting inlines its text, so a scan's `hydrate()` sends nothing.
+
+A posting stored without its text (one admitted from the posting inventory,
+which keeps no text) is read alone, from the same API:
+
+    GET https://boards-api.greenhouse.io/v1/boards/{token}/jobs/{id}
+
+It answers the posting with the same `content` the listing carries, or 404
+once the posting is gone. Only the description backfill and a person opening
+the posting ask it for text; the posting page asks the same route for its form
+and pay (`read_posting_page`).
 """
 
 from __future__ import annotations
@@ -11,6 +22,7 @@ from __future__ import annotations
 import re
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
+from urllib.parse import quote
 
 from tracker.connectors.extract.payload import text_of
 from tracker.connectors.listing.base import BaseAdapter, BoardProbe, TenantMap
@@ -41,6 +53,12 @@ _TENANTS = TenantMap(BOARD_TOKENS)
 #: answers `{"name": ...}`, an identity claim the other public board families
 #: do not make, so a 200 from the wrong tenant is detectable here.
 _BOARD_ROOT = "https://boards-api.greenhouse.io/v1/boards/{token}"
+
+
+def _posting_url(token: str, posting_id: str) -> str:
+    """One posting on its board, the route both the posting page and a stored
+    posting's text read."""
+    return f"{_BOARD_ROOT.format(token=token)}/jobs/{quote(posting_id, safe='')}"
 
 
 #: A Greenhouse `location.name` that states a work arrangement, not a place
@@ -215,6 +233,8 @@ def pay_tiers(ranges: object, observed_at: datetime) -> CompensationFacts:
 class GreenhouseAdapter(BaseAdapter):
     name = "greenhouse"
     posted_date = "published"  # `first_published`; never `updated_at`
+    detail = "per_posting"
+    text_from_posting = True  # from its req_id alone (`hydrate`)
     board_probe = BoardProbe(
         jobs_url=f"{_BOARD_ROOT}/jobs",
         tenants=_TENANTS,
@@ -231,9 +251,8 @@ class GreenhouseAdapter(BaseAdapter):
 
     async def read_posting_page(self, posting_id: str) -> PostingPage | None:
         """One paced request for the posting's form and structured pay."""
-        token = self._board_token()
         resp = await self.context.fetch(FetchRequest(
-            url=f"https://boards-api.greenhouse.io/v1/boards/{token}/jobs/{posting_id}",
+            url=_posting_url(self._board_token(), posting_id),
             query={"questions": "true", "pay_transparency": "true"},
             source_key=self.company,
         ))
@@ -254,6 +273,33 @@ class GreenhouseAdapter(BaseAdapter):
             application_form=application_form(data.get("questions"), now),
             compensation=pay_tiers(data.get("pay_input_ranges"), now),
         )
+
+    async def hydrate(self, job: RawJob) -> None:
+        """Read one posting by its id when its row carries no text.
+
+        A listing row is the whole posting (`description_complete`), so a scan
+        sends nothing here. A posting rebuilt from storage is incomplete, and
+        is read from the single-posting route, asked for nothing more than its
+        text. A failed or foreign answer leaves the posting as it was, with a
+        note.
+        """
+        if job.description_complete:
+            return
+        token = self._board_token()
+        resp = await self.context.fetch(
+            FetchRequest(url=_posting_url(token, job.req_id), source_key=self.company)
+        )
+        if resp.status != 200:
+            self.drift.note("non-200 posting", status=resp.status, token=token, req=job.req_id)
+            return
+        item = resp.json()
+        # The id is a JSON number; `req_id` holds it as text (`fetch`).
+        if not isinstance(item, dict) or str(item.get("id") or "") != job.req_id:
+            self.drift.note("posting payload is not the posting asked for", token=token, req=job.req_id)
+            return
+        job.description_html = item.get("content")
+        job.detail_payload = item
+        job.description_complete = True
 
     async def fetch(self) -> AsyncIterator[RawJob]:
         # This connector reaches its source through the ConnectorContext instead

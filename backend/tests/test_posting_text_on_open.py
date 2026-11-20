@@ -357,7 +357,7 @@ async def test_the_fill_holds_the_row_until_it_commits(db_session, lever):
 @pytest.mark.parametrize("company", [
     {"enabled": False},  # followed once, switched off: no scan reads it either
     {"status": "pending"},
-    {"adapter": "greenhouse"},  # a source whose listing carries the text: nothing reads one posting
+    {"adapter": "ashby"},  # a source whose listing carries the text: nothing reads one posting
 ])
 async def test_a_company_we_do_not_collect_is_never_asked(api_client, db_session, lever, company):
     await _company(db_session, **company)

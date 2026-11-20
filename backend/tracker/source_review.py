@@ -307,12 +307,15 @@ SOURCE_REVIEWS: dict[str, SourceReview] = {
         access_class=AccessClass.PUBLIC_API,
         review=ReviewResult.UNREVIEWED,
         listing_surface="GET https://boards-api.greenhouse.io/v1/boards/{token}/jobs?content=true",
-        # Read for the application form (counts only) and structured
-        # pay, only for radar postings whose text states no pay. Robots: the
-        # same file's only rule is `Disallow: /embed/`, which this route misses.
+        # One route, two reads. With its two flags, the application form
+        # (counts only) and structured pay, only for radar postings whose text
+        # states no pay. Bare, the text of a stored posting that has none: the
+        # listing inlines every posting's text, so a scan never sends it.
+        # Robots: the same file's only rule is `Disallow: /embed/`, which this
+        # route misses.
         detail_surface=(
             "GET https://boards-api.greenhouse.io/v1/boards/{token}/jobs/{id}"
-            "?questions=true&pay_transparency=true"
+            " (?questions=true&pay_transparency=true for the posting page)"
         ),
         robots=_robots(
             RobotsStatus.ALLOWED,
@@ -332,6 +335,9 @@ SOURCE_REVIEWS: dict[str, SourceReview] = {
         access_class=AccessClass.PUBLIC_API,
         review=ReviewResult.UNREVIEWED,
         listing_surface="GET https://api.ashbyhq.com/posting-api/job-board/{name}",
+        # The listing inlines every posting's text. The public API documents no
+        # route for one posting (`jobPosting.info` needs the tenant's key), so a
+        # stored posting with no text waits for the board's next listing.
         detail_surface=None,
         robots=_robots(
             RobotsStatus.NOT_SERVED,
@@ -555,8 +561,9 @@ SOURCE_REVIEWS: dict[str, SourceReview] = {
         listing_surface=(
             "GET https://apply.workable.com/api/v1/widget/accounts/{token}?details=true"
         ),
-        # The listing carries every description inline, so there is no second
-        # route: `hydrate()` is a no-op and no per-posting request is issued.
+        # The listing carries every description inline, and one job alone is
+        # served only to a keyed API (`/spi/v3/jobs/{shortcode}`): `hydrate()` is
+        # a no-op and no per-posting request is issued.
         detail_surface=None,
         robots=_robots(
             RobotsStatus.ALLOWED,

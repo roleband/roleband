@@ -342,7 +342,7 @@ class Planted(BaseAdapter):
 from tracker.connectors import ADAPTER_REGISTRY
 
 
-class Planted(ADAPTER_REGISTRY["greenhouse"]):
+class Planted(ADAPTER_REGISTRY["ashby"]):
     detail = "per_posting"
 """)
     assert detail_violations(cls) == ["declares detail='per_posting' but inherits the no-op hydrate"]
@@ -401,7 +401,7 @@ class Planted(BaseAdapter):
 from tracker.connectors import ADAPTER_REGISTRY
 
 
-class Planted(ADAPTER_REGISTRY["greenhouse"]):
+class Planted(ADAPTER_REGISTRY["ashby"]):
     text_from_posting = True
 """)
     assert text_violations(cls, tree_of) == [
@@ -445,7 +445,7 @@ def test_the_capability_table_has_one_row_per_registered_adapter():
             declares_total=True, board_probe=False, posting_page=False, transport=None,
         ),
         AdapterCapabilities(
-            name="greenhouse", listing_scope="board", detail="inline", text_from_posting=False,
+            name="greenhouse", listing_scope="board", detail="per_posting", text_from_posting=True,
             declares_total=False, board_probe=True, posting_page=True, transport=(),
         ),
         AdapterCapabilities(
