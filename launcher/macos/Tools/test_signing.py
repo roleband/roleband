@@ -415,6 +415,30 @@ class SigningTests(unittest.TestCase):
                             self.assertNotIn(password, str(raised))
                             self.assertIsNone(raised.__cause__)
 
+    def test_a_create_step_that_stops_after_writing_the_keychain_still_deletes_it(self):
+        self.assertIsNotNone(signing)
+        with tempfile.TemporaryDirectory() as directory:
+            keys, keychain = Path(directory) / 'keys', Path(directory) / 'trial.keychain-db'
+            signing.generate(keys, 'RoleBand CI Trial')
+            failures = {'a stalled prompt': subprocess.TimeoutExpired(['security'], 120),
+                        'an interruption': KeyboardInterrupt()}
+            for label, failure in failures.items():
+                def fail(index, command, failure=failure):
+                    if index == 0:
+                        keychain.write_bytes(b'')
+                        raise failure
+                with self.subTest(label):
+                    calls, raised = self._import(keys, keychain, fail=fail)
+                    self.assertEqual([command for command, _, _ in calls],
+                                     [['security', 'create-keychain', str(keychain)],
+                                      ['security', 'delete-keychain', str(keychain)]])
+                    if isinstance(failure, KeyboardInterrupt):
+                        self.assertIs(raised, failure)
+                    else:
+                        self.assertIsInstance(raised, RuntimeError)
+                        self.assertIn('security create-keychain failed', str(raised))
+                    keychain.unlink()
+
     def test_a_p12_that_cannot_sign_fails_before_any_keychain_is_made(self):
         self.assertIsNotNone(signing)
         with tempfile.TemporaryDirectory() as directory:
