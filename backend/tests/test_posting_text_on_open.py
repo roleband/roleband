@@ -239,25 +239,29 @@ async def test_two_opens_at_once_send_one_request(api_client, db_session, lever)
 async def test_the_wait_behind_another_reader_counts_against_the_deadline(
     api_client, db_session, lever, monkeypatch
 ):
-    """Try again, sent while the first read still runs, has only what is left
-    of its own deadline once that read lets go. Spent waiting, it asks the
-    source nothing: the page never waits two deadlines end to end."""
+    """Try again sent while the first read still holds the posting answers
+    once its own deadline passes, while that read still runs, and asks the
+    source nothing: the page never waits on another open's read."""
     job_id = await _seed(db_session)
     lever.status = 404  # one request, not retried, then no text
-    in_flight = asyncio.Event()
+    in_flight, let_go = asyncio.Event(), asyncio.Event()
 
-    async def slow_source():
+    async def held_source():
         in_flight.set()
-        await asyncio.sleep(1.0)
+        await let_go.wait()
 
-    lever.during = slow_source
+    lever.during = held_source
     first = asyncio.create_task(_open(api_client, job_id))
     await in_flight.wait()
-    # The retry's deadline ends while the first read holds the posting.
-    monkeypatch.setattr(posting_text, "ON_OPEN_DEADLINE_SECONDS", 0.3)
-    again = await _open(api_client, job_id, retry=True)
+    # The retry's deadline has passed by the time it waits for the posting.
+    monkeypatch.setattr(posting_text, "ON_OPEN_DEADLINE_SECONDS", 0)
+    # Only bounds a regression that waits for the first read: it would hang.
+    again = await asyncio.wait_for(_open(api_client, job_id, retry=True), timeout=10)
 
     assert again == {"outcome": "failed", **NOTHING}
+    assert not first.done()
+    assert len(lever.requests) == 1
+    let_go.set()
     assert await first == {"outcome": "failed", **NOTHING}
     assert len(lever.requests) == 1
 

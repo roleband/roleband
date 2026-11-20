@@ -210,12 +210,23 @@ class OpenTextReads:
         self._found_none[job_id] = now
 
     @asynccontextmanager
-    async def _one_reader(self, job_id: int) -> AsyncIterator[None]:
+    async def _one_reader(self, job_id: int, deadline: float) -> AsyncIterator[bool]:
+        """The posting's one reader turn: True once held, False when
+        `deadline` (the event loop's clock) passes while another reader
+        holds it."""
         lock = self._locks.setdefault(job_id, asyncio.Lock())
         self._holders[job_id] += 1
         try:
-            async with lock:
-                yield
+            try:
+                async with asyncio.timeout_at(deadline):
+                    await lock.acquire()
+            except TimeoutError:
+                yield False
+                return
+            try:
+                yield True
+            finally:
+                lock.release()
         finally:
             self._holders[job_id] -= 1
             if not self._holders[job_id]:
@@ -254,12 +265,19 @@ class OpenTextReads:
         `not_available` is a posting nothing may read on open; `failed` stored
         nothing, and another open answers it from memory until the cool-down
         ends, unless it asks again on purpose (`retry`). A concurrent open of
-        the same posting waits for this one and answers from storage, and
-        its wait counts against its own deadline.
+        the same posting waits for this one and answers from storage; its
+        wait counts against its own deadline, and once that passes it
+        answers from the row as it stands, with no request.
         """
         loop = asyncio.get_running_loop()
         deadline = loop.time() + ON_OPEN_DEADLINE_SECONDS
-        async with self._one_reader(job_id):
+        async with self._one_reader(job_id, deadline) as turn:
+            if not turn:
+                job = await session.get(Job, job_id, populate_existing=True)
+                await session.commit()
+                if job is None:
+                    return None
+                return ("already_read" if job.description_text is not None else "failed"), job
             job = await session.get(Job, job_id, populate_existing=True)
             if job is None:
                 return None
@@ -277,7 +295,7 @@ class OpenTextReads:
                 return "failed", job
             budget = deadline - loop.time()
             if budget <= 0:
-                # The wait behind another reader spent the deadline: no
+                # The wait for the turn and the row spent the deadline: no
                 # request starts, and nothing is learned to cool down on.
                 return "failed", job
             text = await self._read(target, raw, budget)
