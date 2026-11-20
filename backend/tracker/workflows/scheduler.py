@@ -724,7 +724,9 @@ async def _plan(session, now: datetime, settings: Settings, *, seed: bool) -> Ti
     rules, _usual = schedule_plan.context_rules(context, now=now, choices=choices, settings=settings)
     began = schedule_plan.continuation_start(context.runs, now=now, rules=rules)
     if began is not None and roster:
-        left = await schedule_plan.left_to_read(session, began, now=now)
+        left = await schedule_plan.left_to_read(
+            session, began, now=now, not_before={row.binding_id: row.next_reconcile_at for row in rows},
+        )
         rest = [item for item in roster if item.binding_id not in left.waiting]
         if rest:
             retries = frozenset(item.company_slug for item in rest if item.binding_id in left.retries)

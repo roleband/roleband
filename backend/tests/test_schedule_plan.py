@@ -998,6 +998,27 @@ async def test_a_company_whose_read_failed_is_read_again_the_same_day_with_growi
 
 
 @pytest.mark.asyncio
+async def test_a_retry_whose_run_crashed_waits_for_the_crash_retry_delay(scratch_scope):
+    """A retry alone records no plan run, so no failed plan run slows the next
+    try. The crash's own delay on the company's next deadline must: a run that
+    keeps crashing is not started again on every tick."""
+    from tracker.config import get_settings
+    from tracker.workflows import scheduler
+
+    unlucky = await _full_read_with(scratch_scope, "failed")
+    at = NOW + timedelta(minutes=71)
+    retry = await scheduler.plan_tick(at)
+    assert [item.company_slug for item in retry.work] == [unlucky.company_slug]
+
+    await scheduler._record_dispatch_failure(retry.work, at, get_settings())
+
+    delay = timedelta(seconds=get_settings().sync_provider_backoff_seconds)
+    assert (await scheduler.plan_tick(at + delay - timedelta(minutes=1))).work == []
+    again = await scheduler.plan_tick(at + delay)
+    assert [item.company_slug for item in again.work] == [unlucky.company_slug]
+
+
+@pytest.mark.asyncio
 async def test_a_tick_hands_its_retries_to_the_run_that_reads_them(scratch_scope, monkeypatch):
     """The run is what keeps a repeated failure out of the feed, so the tick
     must tell it which of its companies are retries."""

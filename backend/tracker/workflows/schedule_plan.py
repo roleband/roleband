@@ -32,7 +32,7 @@ This module imports neither the dispatcher nor the router: `scheduler.py` and
 from __future__ import annotations
 
 import math
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, timedelta
 from statistics import median
@@ -721,7 +721,9 @@ class LeftToRead:
     retries: frozenset[int]
 
 
-async def left_to_read(session: AsyncSession, since: datetime, *, now: datetime) -> LeftToRead:
+async def left_to_read(
+    session: AsyncSession, since: datetime, *, now: datetime, not_before: Mapping[int, datetime]
+) -> LeftToRead:
     """Sort the companies read since `since` into done for now and due again.
 
     A read whose site failed is asked again while the full read is current,
@@ -729,8 +731,11 @@ async def left_to_read(session: AsyncSession, since: datetime, *, now: datetime)
     The first try comes `FAILED_RETRY` after the failed read ended and each
     further gap is twice the last, so a site that stays down is asked a
     handful of times a day, never on every tick; a provider in cooldown is
-    kept out of the roster meanwhile (`planned_roster`). A board gone from its
-    address answers 404 again (`board_missing`)."""
+    kept out of the roster meanwhile (`planned_roster`). Never before the
+    company's own next deadline (`not_before`): a retry records no plan run,
+    so when its run crashes that deadline, which the crash moves on, is what
+    keeps the next tick from starting it again. A board gone from its address
+    answers 404 again (`board_missing`)."""
     rows = (
         await session.execute(
             select(
@@ -756,7 +761,8 @@ async def left_to_read(session: AsyncSession, since: datetime, *, now: datetime)
     retries: set[int] = set()
     for binding_id, (outcome, finished_at, gone) in latest.items():
         if outcome in RETRY_OUTCOMES and not gone:
-            if now >= finished_at + FAILED_RETRY * 2 ** (tries[binding_id] - 1):
+            due = finished_at + FAILED_RETRY * 2 ** (tries[binding_id] - 1)
+            if now >= max(due, not_before.get(binding_id, due)):
                 retries.add(binding_id)
                 continue
         waiting.add(binding_id)

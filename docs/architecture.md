@@ -1063,7 +1063,8 @@ tick. A `continue` run that finished or failed is tried again only after
 tick. A company whose read failed in a way another try may change
 (`schedule_plan.RETRY_OUTCOMES`: `RETRYABLE` without `unattempted`) is read again
 in the same full read, `FAILED_RETRY` after its failed read and then at doubling
-gaps, while its provider is out of cooldown. A board gone from its address, a
+gaps, while its provider is out of cooldown and never before its own next
+deadline, which a crashed run moves on. A board gone from its address, a
 refusal, a page ceiling or a lossy read answers the same later and waits for the
 next full read. A tick of retries alone records no plan run, so it moves neither
 the next quick check nor the next full read. Each retry's record is marked
