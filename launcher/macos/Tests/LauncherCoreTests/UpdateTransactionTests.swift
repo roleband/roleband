@@ -111,20 +111,26 @@ func aFailureAtEachJournalBoundaryRestoresAnUsableOriginal(phase: InstallPhase) 
     #expect(try f.text(HomeLayout(f.home).database.appendingPathComponent("base/history")) == "original observation history")
 }
 
-@Test(arguments: ["source", "foreign", "running", "symlink", "downgrade", "invalid-candidate"])
+@Test(arguments: ["source", "foreign", "running", "stale-lock", "symlink", "downgrade", "invalid-candidate"])
 func unsafeInstallationsAreRefusedWithoutRewritingTheirDatabase(problem: String) async throws {
     let f = try InstallFixture(failure: problem); defer { f.remove() }
+    var server: Process?
+    defer { server?.stopAndReap() }
     switch problem {
     case "source": try f.put("source install", at: HomeLayout(f.home).registration)
     case "foreign": try FileManager.default.removeItem(at: HomeLayout(f.home).data.appendingPathComponent("db.owner.json"))
-    case "running": try f.put("123\n", at: HomeLayout(f.home).database.appendingPathComponent("postmaster.pid"))
+    case "running":
+        server = try fakePostgres(in: f.root)
+        try f.put("\(server!.processIdentifier)\n", at: HomeLayout(f.home).database.appendingPathComponent("postmaster.pid"))
+    case "stale-lock": try f.put("\(try exitedPid())\n", at: HomeLayout(f.home).database.appendingPathComponent("postmaster.pid"))
     case "symlink":
         let link = HomeLayout(f.home).database.appendingPathComponent("external")
         try FileManager.default.createSymbolicLink(at: link, withDestinationURL: f.root)
     default: break
     }
     let tx = UpdateTransaction(paths: f.paths, operations: f.operations)
-    if problem == "symlink" {
+    if problem == "symlink" || problem == "stale-lock" {
+        // A stale lock refuses the backup, and the journal still finishes, so the next open starts normally.
         #expect(try await tx.install(candidate: f.candidate, from: "0.1.0", to: "0.1.1") == .rolledBack)
     } else if problem == "running" {
         // A refused backup leaves the original installed app and data available.
@@ -137,6 +143,9 @@ func unsafeInstallationsAreRefusedWithoutRewritingTheirDatabase(problem: String)
     #expect(try f.text(f.paths.installed.appendingPathComponent("version")) == "0.1.0")
     #expect(try f.text(HomeLayout(f.home).database.appendingPathComponent("base/history")) == "original observation history")
     #expect(!f.allEvents.contains("launch-0.1.1"))
+    if problem == "stale-lock", case .recover = UpdateStartup.decide(installed: f.paths.installed, home: f.home, version: "0.1.0") {
+        Issue.record("the next open is held by an unfinished update")
+    }
 }
 
 @Test(arguments: [InstallPhase.oldAppMoved, .checking])
@@ -152,6 +161,103 @@ func aNewTransactionInstanceRecoversAnInterruptedReplacementFromItsJournal(phase
     #expect(try await recovered.recover() == .rolledBack)
     #expect(try f.text(f.paths.installed.appendingPathComponent("version")) == "0.1.0")
     #expect(try f.text(HomeLayout(f.home).database.appendingPathComponent("base/history")) == "original observation history")
+}
+
+/// A live program whose executable is named `postgres`, as `OwnedProcess.isPostgres` reads it. Built
+/// rather than copied: macOS kills a system binary run from another folder.
+private func fakePostgres(in root: URL) throws -> Process {
+    let folder = root.appendingPathComponent("bin")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let source = folder.appendingPathComponent("postgres.c")
+    try Data("#include <unistd.h>\nint main(void) { sleep(120); return 0; }\n".utf8).write(to: source)
+    let compile = Process()
+    compile.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
+    compile.arguments = ["clang", "-o", folder.appendingPathComponent("postgres").path, source.path]
+    try compile.runWithoutTestSockets()
+    compile.reap()
+    try #require(compile.terminationStatus == 0)
+    let process = Process()
+    process.executableURL = folder.appendingPathComponent("postgres")
+    try process.runWithoutTestSockets()
+    try #require(process.isRunning, "the fake server did not stay up")
+    return process
+}
+
+private func exitedPid() throws -> pid_t {
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/true")
+    try process.runWithoutTestSockets()
+    process.reap()
+    return process.processIdentifier
+}
+
+/// Leaves a Unix socket file at `path`, as a killed Postgres leaves its own in the database folder.
+/// Bound in a short folder and moved, since a socket path is capped near 104 bytes.
+private func leftoverSocket(at path: URL) throws {
+    let short = URL(fileURLWithPath: "/tmp/rb-\(getpid())-\(UUID().uuidString.prefix(8))")
+    try FileManager.default.createDirectory(at: short, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: short) }
+    let bound = short.appendingPathComponent("s")
+    try testSocketLock.withLock {
+        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
+        try #require(fd >= 0)
+        defer { close(fd) }
+        var address = sockaddr_un()
+        address.sun_family = sa_family_t(AF_UNIX)
+        withUnsafeMutableBytes(of: &address.sun_path) { buffer in
+            buffer.copyBytes(from: bound.path.utf8.prefix(buffer.count - 1))
+        }
+        let result = withUnsafePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) }
+        }
+        try #require(result == 0)
+    }
+    try FileManager.default.moveItem(at: bound, to: path)
+}
+
+/// Power lost while the new version migrated: the helper, the engine and Postgres all died at once,
+/// and Postgres's lock file and socket stay in the migrated database. The next open must still put the
+/// old version back, unless that lock names a Postgres that is actually running. A standalone backend
+/// writes its pid negated.
+@Test(arguments: ["exited", "recycled", "running", "standalone-exited", "standalone-running"])
+func recoveryAfterPowerLossRestoresPastTheLeftoversOfAKilledPostgres(lock: String) async throws {
+    // The new version migrates and never reports healthy; the cut lands before anything is put back.
+    let f = try InstallFixture(failure: "health"); defer { f.remove() }
+    let interrupted = UpdateTransaction(paths: f.paths, operations: f.operations, checkpoint: {
+        if $0 == .restoring { throw FixtureFailure.injected }
+    })
+    await #expect(throws: FixtureFailure.self) {
+        _ = try await interrupted.install(candidate: f.candidate, from: "0.1.0", to: "0.1.1")
+    }
+    let database = HomeLayout(f.home).database
+    #expect(try f.text(database.appendingPathComponent("base/history")) == "migrated database")
+    var server: Process?
+    defer { server?.stopAndReap() }
+    let pid: pid_t
+    switch lock {
+    case "exited", "standalone-exited": pid = try exitedPid()
+    case "recycled": pid = getpid()
+    default: server = try fakePostgres(in: f.root); pid = server!.processIdentifier
+    }
+    let recorded = lock.hasPrefix("standalone") ? -pid : pid
+    try f.put("\(recorded)\n\(database.path)\n\(Int(Date().timeIntervalSince1970))\n", at: database.appendingPathComponent("postmaster.pid"))
+    try leftoverSocket(at: database.appendingPathComponent(".s.PGSQL.5432"))
+
+    let recovered = UpdateTransaction(paths: f.paths, operations: f.operations)
+    if lock.hasSuffix("running") {
+        await #expect(throws: InstallProblem.engineRunning) { _ = try await recovered.recover() }
+        #expect(try f.text(database.appendingPathComponent("base/history")) == "migrated database")
+        #expect(try f.text(f.paths.installed.appendingPathComponent("version")) == "0.1.1")
+        #expect(!f.allEvents.contains("launch-0.1.0"))
+    } else {
+        #expect(try await recovered.recover() == .rolledBack)
+        #expect(try f.text(f.paths.installed.appendingPathComponent("version")) == "0.1.0")
+        #expect(try f.text(database.appendingPathComponent("base/history")) == "original observation history")
+        #expect(!FileManager.default.fileExists(atPath: database.appendingPathComponent("postmaster.pid").path))
+        #expect(try f.text(f.paths.failedDatabase.appendingPathComponent("base/history")) == "migrated database")
+        #expect(FileManager.default.fileExists(atPath: f.paths.failedDatabase.appendingPathComponent(".s.PGSQL.5432").path))
+        #expect(f.allEvents.last == "launch-0.1.0")
+    }
 }
 
 @Test func aDamagedBackupCannotReplaceTheCurrentDatabaseOrReopenThePreviousApp() async throws {

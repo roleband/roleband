@@ -209,7 +209,10 @@ public actor UpdateTransaction {
         try await operations.stop()
         var lease = try acquireEngineLease()
         defer { release(&lease) }
-        try assertOwnedAndStopped()
+        // A lost power supply leaves Postgres's lock file behind with nothing running. Restoring moves
+        // that database aside, so only a live server may stop it; refusing a stale lock would refuse
+        // every later attempt too.
+        try assertOwnedAndStopped(staleLockAllowed: true)
         let replaced = exists(paths.previous)
         if replaced {
             try await operations.validate(paths.previous, record.from)
@@ -222,7 +225,9 @@ public actor UpdateTransaction {
             let database = HomeLayout(paths.home).database
             if record.hadDatabase {
                 guard let digest = record.databaseDigest else { throw InstallProblem.damagedBackup }
-                let needsRestore = exists(database) ? try treeDigest(database) != digest : true
+                // A killed server leaves its socket in the database folder, which no digest reads. A database
+                // that cannot be read is not the backup, so it is moved aside like any other.
+                let needsRestore = exists(database) ? (try? treeDigest(database)) != digest : true
                 if needsRestore {
                     if exists(database) {
                         guard !exists(paths.failedDatabase) else { throw InstallProblem.recoveryRequired }
@@ -269,7 +274,7 @@ public actor UpdateTransaction {
         }
     }
 
-    private func assertOwnedAndStopped(requireStopped: Bool = true) throws {
+    private func assertOwnedAndStopped(requireStopped: Bool = true, staleLockAllowed: Bool = false) throws {
         let layout = HomeLayout(paths.home)
         guard !exists(layout.registration), !exists(layout.launchAgent) else {
             throw InstallProblem.foreignDatabase
@@ -290,9 +295,23 @@ public actor UpdateTransaction {
             guard info[.type] as? FileAttributeType == .typeDirectory,
                   (info[.ownerAccountID] as? NSNumber)?.uint32Value == getuid() else { throw InstallProblem.foreignDatabase }
         }
-        if requireStopped, exists(layout.database.appendingPathComponent("postmaster.pid")) {
+        if requireStopped, exists(layout.database.appendingPathComponent("postmaster.pid")),
+           !staleLockAllowed || Self.serverHoldsLock(layout.database) {
             throw InstallProblem.engineRunning
         }
+    }
+
+    /// The lock counts while its pid is a live Postgres of this user, whether a server or a standalone
+    /// backend, which records its pid negated. Any other pid was recycled after the server died, or no
+    /// longer exists.
+    static func serverHoldsLock(_ database: URL) -> Bool {
+        guard let handle = try? FileHandle(forReadingFrom: database.appendingPathComponent("postmaster.pid")) else { return false }
+        defer { try? handle.close() }
+        guard let data = try? handle.read(upToCount: 4096),
+              let first = String(data: data, encoding: .utf8)?.split(separator: "\n").first,
+              let recorded = pid_t(first.trimmingCharacters(in: .whitespaces)), recorded != 0, recorded != .min,
+              let process = OwnedProcess.read(abs(recorded)) else { return false }
+        return process.isPostgres
     }
 
     private func privateDirectory(_ path: URL) throws {
