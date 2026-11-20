@@ -132,15 +132,16 @@ async def test_a_patch_answers_reads_and_enforces_the_same_groups(
     answer = response.json()
     if not groups:
         assert _shown(answer) == _shown(before)
-    else:
-        # The named group says what the person picked; no other group opens.
-        assert answer["enabled"] is enabled
-        if enabled:
-            assert answer["groups"]["tuning_radar"] == groups["tuning_radar"]
-        # Stored as picked, also while access is off and the answer cannot show it.
-        workspace.expire_all()
-        assert (await get_agent_access(workspace)).groups["tuning_radar"] == groups["tuning_radar"]
-        assert {g for g in GROUPS if answer["groups"][g] == "on"} <= (
-            {g for g in GROUPS if before["groups"][g] == "on"} | {g for g, v in groups.items() if v == "on"}
-        )
+    # Turning a group on from a read-only connection grants that group alone;
+    # any other PATCH keeps both switches and every group it does not name.
+    grant = enabled and not allow_writes and "on" in groups.values()
+    base = dict.fromkeys(GROUPS, "off") if grant else {g: STORED.get(g, "on") for g in GROUPS}
+    stored = {**base, **groups}
+    writes = allow_writes or grant
+    assert (answer["enabled"], answer["allow_writes"]) == (enabled, writes)
+    read_only = enabled and not writes
+    assert answer["groups"] == (dict.fromkeys(GROUPS, "off") if read_only else stored)
+    # Stored as the map says, also while the answer cannot show it.
+    workspace.expire_all()
+    assert {g: (await get_agent_access(workspace)).groups.get(g, "on") for g in GROUPS} == stored
     await _agree(api_client, workspace, answer)
