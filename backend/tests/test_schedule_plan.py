@@ -1019,12 +1019,12 @@ async def test_a_retry_whose_run_crashed_waits_for_the_crash_retry_delay(scratch
 
 
 @pytest.mark.asyncio
-async def test_a_retry_whose_process_died_waits_for_the_crash_retry_delay(scratch_scope, monkeypatch):
-    """A process killed mid-retry (a quit, an update) records nothing, and a
-    retry leaves no plan run to close as interrupted. The deadline the tick
-    moved on before reading is what keeps the next tick from starting the
-    same retry at once."""
-    from tracker.config import get_settings
+async def test_a_retry_whose_process_died_waits_for_the_next_full_read(scratch_scope, monkeypatch):
+    """A process killed mid-retry (a quit, an update, a stuck-scan stop)
+    records nothing, and a retry leaves no plan run to close as interrupted,
+    however long it had been reading. The deadline the tick moved on before
+    reading holds the company until the next full read, so a retry that keeps
+    dying is never started again and again; the next full read reads it."""
     from tracker.workflows import scheduler
 
     unlucky = await _full_read_with(scratch_scope, "failed")
@@ -1047,10 +1047,14 @@ async def test_a_retry_whose_process_died_waits_for_the_crash_retry_delay(scratc
     with pytest.raises(SystemExit):
         await scheduler.run_once()
 
-    delay = timedelta(seconds=get_settings().sync_provider_backoff_seconds)
-    assert (await scheduler.plan_tick(at + timedelta(minutes=10))).work == []
-    again = await scheduler.plan_tick(at + delay)
-    assert [item.company_slug for item in again.work] == [unlucky.company_slug]
+    for later in (timedelta(minutes=10), timedelta(hours=2), timedelta(hours=8)):
+        tick = await scheduler.plan_tick(at + later)
+        assert tick.retries == frozenset(), later
+        assert unlucky.binding_id not in {
+            item.binding_id for item in tick.work if item.mode is ScanMode.RECONCILE
+        }, later
+    full = await scheduler.plan_tick(NOW + FULL_AFTER + timedelta(minutes=1))
+    assert full.plan_kind == FULL and unlucky.company_slug in {item.company_slug for item in full.work}
 
 
 @pytest.mark.asyncio

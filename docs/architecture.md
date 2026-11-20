@@ -1064,8 +1064,10 @@ tick. A company whose read failed in a way another try may change
 (`schedule_plan.RETRY_OUTCOMES`: `RETRYABLE` without `unattempted`) is read again
 in the same full read, `FAILED_RETRY` after its failed read and then at doubling
 gaps, while its provider is out of cooldown and never before its own next
-deadline, which the tick moves on before the retry reads, so a crash or a killed
-process does not restart it on the next tick. A board gone from its address, a
+deadline. Before a retry reads, the tick holds that deadline one reconcile cadence
+on; the retry's recorded read sets it as usual, so a process killed mid-retry
+leaves the company for the next full read instead of restarting the retry on
+every tick. A board gone from its address, a
 refusal, a page ceiling or a lossy read answers the same later and waits for the
 next full read. A tick of retries alone records no plan run, so it moves neither
 the next quick check nor the next full read. Each retry's record is marked

@@ -733,9 +733,9 @@ async def left_to_read(
     handful of times a day, never on every tick; a provider in cooldown is
     kept out of the roster meanwhile (`planned_roster`). Never before the
     company's own next deadline (`not_before`): a retry records no plan run,
-    so when its run crashes or its process dies, that deadline, which the
-    tick moves on before the retry reads (`scheduler._hold_retries`), is what
-    keeps the next tick from starting it again. A board gone from its address
+    so when its run crashes or its process dies, that deadline is what keeps
+    the next tick from starting it again (`scheduler._hold_retries`, and
+    `_record_dispatch_failure` for a crash). A board gone from its address
     answers 404 again (`board_missing`)."""
     rows = (
         await session.execute(
