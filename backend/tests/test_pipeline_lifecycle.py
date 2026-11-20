@@ -66,6 +66,11 @@ def posting(company: str, req_id: str) -> RawJob:
 #: truly never arrives still fails the test, only later.
 PLANTED_POINT_WAIT = 60.0
 
+#: How long to wait for a whole drain to end. A run here takes a few seconds
+#: alone, but under xdist on a loaded runner its sessions and commits queue
+#: behind every other worker's; the same reasoning as `PLANTED_POINT_WAIT`.
+DRAIN_END_WAIT = 120.0
+
 
 class Board:
     """This run's listings, and what the run did with the things it opened."""
@@ -369,15 +374,23 @@ async def test_a_recorded_source_keeps_its_audit_shape(
 # --------------------------------------------------------------------------- #
 
 
-async def _poll(db_session, query, *, until, timeout: float = 10.0):
+async def _poll(db_session, query, *, until, timeout: float = PLANTED_POINT_WAIT, must_hold: bool = True):
     """Read through a fresh session until `until(result)` holds: what another
-    reader (the Board) would see, committed or not at all."""
+    reader (the Board) would see, committed or not at all.
+
+    A condition that never holds fails the test here, at the wait, not at a
+    later assertion that would blame what the test goes on to do. A negative
+    check (`must_hold=False`) instead returns what it read once `timeout` ends."""
     factory = async_sessionmaker(db_session.bind, expire_on_commit=False)
     deadline = asyncio.get_running_loop().time() + timeout
     while True:
         async with factory() as reader:
             result = (await reader.scalars(query)).all()
-        if until(result) or asyncio.get_running_loop().time() > deadline:
+        if until(result):
+            return result
+        if asyncio.get_running_loop().time() > deadline:
+            if must_hold:
+                pytest.fail(f"no read within {timeout} s satisfied the condition; the last read: {result!r}")
             return result
         await asyncio.sleep(0.05)
 
@@ -394,7 +407,7 @@ async def test_a_posting_is_committed_while_its_board_is_still_being_read(db_ses
         )
         assert sorted(job.req_id for job in jobs) == ["one", "two"], "rows wait for the run to end"
         assert all(job.status == "open" for job in jobs)
-        recorded = await _poll(db_session, select(ScrapeSourceRun), until=lambda rows: bool(rows), timeout=0.5)
+        recorded = await _poll(db_session, select(ScrapeSourceRun), until=lambda rows: bool(rows), timeout=0.5, must_hold=False)
         assert recorded == [], "a company still being read has no outcome yet"
     finally:
         run_task.cancel()
@@ -437,7 +450,7 @@ async def test_a_writer_failure_stops_the_collection_and_fails_the_run(db_sessio
     monkeypatch.setattr(pipeline, "persist_rows", broken)
     with pytest.raises(RuntimeError, match="jobs table unwritable"):
         await asyncio.wait_for(
-            pipeline.run_pipeline(companies=["apple"], hydrate=False), timeout=20
+            pipeline.run_pipeline(companies=["apple"], hydrate=False), timeout=DRAIN_END_WAIT
         )
 
     assert board.opened == board.closed == ["apple"], "the collection outlived its writer"
@@ -462,7 +475,7 @@ async def test_a_company_queued_behind_a_hung_one_is_read_in_the_same_run(
     board.plans["amazon"] = (["a1"], "complete")
 
     await asyncio.wait_for(
-        pipeline.run_pipeline(companies=["apple", "amazon"], hydrate=False), timeout=30
+        pipeline.run_pipeline(companies=["apple", "amazon"], hydrate=False), timeout=DRAIN_END_WAIT
     )
 
     run = (await db_session.scalars(select(ScrapeRun).order_by(ScrapeRun.id.desc()))).first()
@@ -484,7 +497,7 @@ async def test_a_lane_longer_than_any_one_company_bound_is_read_to_its_end(
     board.plans["amazon"] = (["a1"], "slow")
 
     await asyncio.wait_for(
-        pipeline.run_pipeline(companies=["apple", "amazon"], hydrate=False), timeout=30
+        pipeline.run_pipeline(companies=["apple", "amazon"], hydrate=False), timeout=DRAIN_END_WAIT
     )
 
     run = (await db_session.scalars(select(ScrapeRun).order_by(ScrapeRun.id.desc()))).first()
@@ -543,12 +556,12 @@ async def test_a_company_asked_for_during_a_run_is_read_next(db_session, board, 
         await asyncio.wait_for(board.waiting.wait(), timeout=PLANTED_POINT_WAIT)
         async with pipeline.session_scope() as session:
             assert await scheduler.queue_manual_reconciliation(session, [asked]) == [asked]
-        deadline = asyncio.get_running_loop().time() + 10
+        deadline = asyncio.get_running_loop().time() + PLANTED_POINT_WAIT
         while "collect:greenhouse" not in {task.get_name() for task in asyncio.all_tasks()}:
             assert asyncio.get_running_loop().time() < deadline, "the run never took the request"
             await asyncio.sleep(0.02)
         board.gate.set()
-        await asyncio.wait_for(run_task, timeout=30)
+        await asyncio.wait_for(run_task, timeout=DRAIN_END_WAIT)
     finally:
         board.gate.set()
         if not run_task.done():
@@ -582,11 +595,9 @@ async def test_a_stopped_manual_sync_keeps_the_schedule_of_every_company_it_fini
             .join(SourceBinding, SourceBinding.id == SyncScheduleState.binding_id)
             .where(SourceBinding.company_slug == "amazon")
         )
-        # Amazon's commit runs beside Apple's hanging read and, on a loaded Windows
-        # runner, finishes well after the default poll; the poll returns once it holds.
-        rows = await _poll(
-            db_session, query, until=lambda rs: rs and rs[0].last_outcome == "ok", timeout=30.0
-        )
+        # Amazon's commit runs beside Apple's hanging read, so on a loaded runner it
+        # lands seconds later; the poll returns once it holds.
+        rows = await _poll(db_session, query, until=lambda rs: rs and rs[0].last_outcome == "ok")
         assert rows[0].last_outcome == "ok" and rows[0].manual_requested_at is None
     finally:
         task.cancel()
@@ -790,7 +801,7 @@ async def test_a_scope_saved_during_a_scan_is_the_scope_its_rows_are_stored_unde
             await asyncio.wait_for(board.hanging.wait(), timeout=PLANTED_POINT_WAIT)
             await _poll(db_session, select(Job).where(Job.company == "apple"), until=lambda rows: len(rows) == 2)
         else:
-            await asyncio.wait_for(run_task, timeout=60)
+            await asyncio.wait_for(run_task, timeout=DRAIN_END_WAIT)
         assert await _in_scope(db_session) == {"held": False, "new": False}
     finally:
         if not run_task.done():
@@ -815,7 +826,7 @@ async def test_a_company_whose_rows_were_reprojected_before_it_finished_still_fi
         await asyncio.wait_for(board.waiting.wait(), timeout=PLANTED_POINT_WAIT)
         await _scope_bands(db_session, ["principal"])
         board.gate.set()
-        await asyncio.wait_for(run_task, timeout=60)
+        await asyncio.wait_for(run_task, timeout=DRAIN_END_WAIT)
     finally:
         if not run_task.done():
             run_task.cancel()
@@ -947,7 +958,7 @@ async def test_a_scope_widened_during_the_scan_admits_the_moved_posting(db_sessi
     await asyncio.wait_for(board.waiting.wait(), timeout=PLANTED_POINT_WAIT)
     await _scope(db_session, locations=["uk"])
     board.gate.set()
-    await asyncio.wait_for(run_task, timeout=60)
+    await asyncio.wait_for(run_task, timeout=DRAIN_END_WAIT)
     held = await _held(db_session)
     assert (held.in_scope, held.locations) == (True, ["London, United Kingdom"])
 
