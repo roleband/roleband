@@ -20,7 +20,6 @@ from __future__ import annotations
 import gc
 import itertools
 import json
-import statistics
 import time
 from datetime import UTC, datetime, timedelta
 
@@ -40,6 +39,8 @@ from tracker.db.models import (
 from tracker.enrich.enricher import annotate
 from tracker.enrich.inventory import inventory_row
 from tracker.schema import RawJob
+from tracker.scope import catalog as scope_catalog
+from tracker.scope import inventory_joint
 from tracker.scope.catalog import build_scope_catalog
 from tracker.scope.catalog_store import catalog_rows
 from tracker.scope.inventory_joint import inventory_counts
@@ -362,18 +363,67 @@ async def _seed_live_rows(db_session, companies: list[str], per_company: int) ->
 
 
 async def _cpu_to_build(db_session) -> tuple[float, dict]:
-    """The median of three warm builds, in this process's CPU seconds. The
-    first read after fresh inserts pays for a cold table; the screen reads a
-    warm one. Each build starts from a collected heap, so a garbage
-    collection the inserts left due is not billed to it."""
-    await build_scope_catalog(db_session, [])
-    spent = []
-    for _ in range(3):
-        gc.collect()
+    """One build's CPU, in this process's seconds, with the cyclic garbage
+    collector paused.
+
+    A full collection walks every object the process holds, in a suite every
+    object the earlier tests left, and it runs once the objects allocated
+    since the last one reach a share of that heap. So the smaller build can
+    run none and the larger one or more, each billed the whole heap: the ratio
+    would measure the suite, not the build."""
+    gc.collect()
+    gc.disable()
+    try:
         started = time.process_time()
         catalog = await build_scope_catalog(db_session, [])
-        spent.append(time.process_time() - started)
-    return statistics.median(spent), catalog
+        return time.process_time() - started, catalog
+    finally:
+        gc.enable()
+
+
+async def _cpu_at_a_quarter_and_full(
+    db_session, monkeypatch, per_company: int,
+) -> tuple[float, float, dict]:
+    """The least CPU of five builds over 25 companies and of five over 100,
+    with the same rows per company, and the full catalog.
+
+    Both read one table of the 100 companies' rows. The quarter's build is
+    given only its 25 tracked companies, as a person following those 25
+    would be, so a pass over the tracked companies shrinks with it. The two
+    sizes alternate, so a load that comes and goes on a shared machine
+    reaches both alike. That load only ever adds time, so the least of the
+    repeats is the build's own cost. The first read after fresh inserts pays
+    for a cold table; the screen reads a warm one."""
+    companies = [f"co{i:03d}" for i in range(100)]
+    await _seed_live_rows(db_session, companies, per_company=per_company)
+    sizes = {"small": set(companies[:25]), "full": set(companies)}
+    tracked_now: set[str] = set()
+    read_tracked = scope_catalog.get_tracked_companies
+
+    async def tracked_at_this_size(session):
+        return [row for row in await read_tracked(session) if row.slug in tracked_now]
+
+    monkeypatch.setattr(scope_catalog, "get_tracked_companies", tracked_at_this_size)
+    spent: dict[str, list[float]] = {size: [] for size in sizes}
+    built: dict[str, dict] = {}
+    for repeat in range(6):
+        for size, slugs in sizes.items():
+            tracked_now.clear()
+            tracked_now.update(slugs)
+            cpu, built[size] = await _cpu_to_build(db_session)
+            if repeat:
+                spent[size].append(cpu)
+    counted = {size: len(catalog["scope_cells"]["companies"]) for size, catalog in built.items()}
+    assert counted == {"small": 25, "full": 100}
+    return min(spent["small"]), min(spent["full"]), built["full"]
+
+
+#: Four times the rows and companies costs about four times the CPU. A pass
+#: that re-scans every row per company, or any other quadratic pass, costs
+#: about sixteen. The ratio is the budget because CPU time per row differs
+#: several times between a laptop and a shared CI runner, while both sizes run
+#: on the same machine.
+_GROWTH_BUDGET = 8
 
 
 @pytest.mark.asyncio
@@ -381,21 +431,44 @@ async def test_the_answer_stays_inside_its_budget_at_a_projected_size(db_session
     """J7: 50,000 live rows across 100 companies (the projected full coverage),
     against a quarter of that with the same rows per company."""
     monkeypatch.setattr(get_settings(), "scope_counts_source", "inventory")
-    companies = [f"co{i:03d}" for i in range(100)]
-    await _seed_live_rows(db_session, companies[:25], per_company=500)
-    small, _ = await _cpu_to_build(db_session)
-    await _seed_live_rows(db_session, companies[25:], per_company=500)
-    full, catalog = await _cpu_to_build(db_session)
+    small, full, catalog = await _cpu_at_a_quarter_and_full(db_session, monkeypatch, per_company=500)
 
     size = len(json.dumps(catalog["scope_cells"], default=str))
     assert size < 250 * 1024, f"joint is {size} B"
     assert sum(cell[-1] for cell in catalog["scope_cells"]["cells"]) > 0
-    # Four times the rows and companies costs about four times the CPU. A pass
-    # that re-scans every row per company, or any other quadratic pass, costs
-    # about sixteen. The ratio is the budget because CPU time per row
-    # differs several times between a laptop and a shared CI runner, while
-    # both sizes run on the same machine.
-    assert full < 8 * small, f"4x the listing took {full / small:.1f}x the CPU ({small:.2f} s, {full:.2f} s)"
+    assert full < _GROWTH_BUDGET * small, (
+        f"4x the listing took {full / small:.1f}x the CPU ({small:.2f} s, {full:.2f} s)"
+    )
     # A constant slowdown, such as a query per row, keeps the ratio; this
     # ceiling, far above any machine's normal cost, still stops it.
     assert full < 20.0, f"built in {full:.2f} s of CPU"
+
+
+@pytest.mark.asyncio
+async def test_a_pass_that_rereads_every_company_per_row_breaks_the_budget(db_session, monkeypatch):
+    """J7's negative control: the same measurement comes out over the budget
+    when every row re-reads every tracked company the build was given. Twenty
+    rows per company keep it short; at the smaller size that pass already
+    costs more than the rest of the build, as a quadratic pass worth catching
+    would."""
+    monkeypatch.setattr(get_settings(), "scope_counts_source", "inventory")
+    counts, tally = scope_catalog.inventory_counts, inventory_joint.add_to_catalog
+    given: list[str] = []
+
+    async def counts_over_what_it_was_given(session, tracked, hidden, **options):
+        given[:] = [row.slug for row in tracked]
+        return await counts(session, tracked, hidden, **options)
+
+    def tally_after_rereading_every_company(tallies, raw, stored):
+        for company in given:
+            for _ in range(8):
+                RawJob(company=company, req_id="", title=raw.title, url="")
+        return tally(tallies, raw, stored)
+
+    monkeypatch.setattr(scope_catalog, "inventory_counts", counts_over_what_it_was_given)
+    monkeypatch.setattr(inventory_joint, "add_to_catalog", tally_after_rereading_every_company)
+    small, full, _ = await _cpu_at_a_quarter_and_full(db_session, monkeypatch, per_company=20)
+
+    assert full >= _GROWTH_BUDGET * small, (
+        f"a quadratic pass took only {full / small:.1f}x the CPU ({small:.2f} s, {full:.2f} s)"
+    )
