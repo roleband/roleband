@@ -22,10 +22,6 @@ import {
   shellStatReposted,
   shellStatRepostedAria,
   shellStatRepostedTitle,
-  shellStatSaved,
-  shellStatSavedAria,
-  shellStatSavedAriaUnknown,
-  shellStatSavedTitle,
   shellStatUnknown,
   shellStatsAria,
   shellTopbarAria,
@@ -116,7 +112,7 @@ const RoutedScreens = memo(function RoutedScreens({ location }: { location: Loca
       <Route path="/settings/integrations" element={<Navigate to="/settings/plugins" replace />} />
       {/* Saved's old address: every starred role is a card on the pipeline's
           Board, where the List holds only those still in Considering. */}
-      <Route path="/favorites" element={<Navigate to="/pipeline/board" replace />} />
+      <Route path="/favorites" element={<Navigate to="/pipeline/list" replace />} />
       {/* One plugin's settings: the Settings shell on the Plugins tab,
           which reads `:pluginId` (any other tab sends it back). */}
       <Route path="/settings/:tab/:pluginId" element={<SettingsItemRoute />} />
@@ -269,7 +265,8 @@ function Shell() {
   // share a key too: keyed on the whole path, every tab switch would remount
   // the section, refetch its data and draw its header without the line that
   // data fills, then drop the page when it lands. A slug that is not a tab
-  // (`/pipeline/202`, one application) stays a screen of its own.
+  // (`/pipeline/202`, which forwards to that role's posting) is a screen of
+  // its own.
   // Anything deeper (a position under a company: a third segment) is another
   // screen, keyed by the position whichever URL names it (`positionKey`).
   const [, , second, third] = routedLocation.pathname.split("/");
@@ -453,16 +450,6 @@ function Shell() {
                 title={shellStatRepostedTitle()}
               />
             )}
-            {/* It counts every starred role, so it opens the Board, which
-                shows them all; the List holds only those in Considering. */}
-            <StatChip
-              kind="link"
-              to="/pipeline/board"
-              n={stats?.saved_total ?? "—"}
-              label={shellStatSaved()}
-              ariaLabel={stats ? shellStatSavedAria({ count: stats.saved_total }) : shellStatSavedAriaUnknown()}
-              title={shellStatSavedTitle()}
-            />
             <CompareChip />
             <ModelSwitchChip />
             <CompareSaveAlert />

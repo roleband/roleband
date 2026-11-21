@@ -119,7 +119,7 @@ export function daysToSay(card: ApplicationCard, now: Date): number | null {
 
 /** Days since anything happened to the card: a move, a comment, an interview
  *  or an edit. */
-export function daysQuiet(card: ApplicationCard, now: Date): number | null {
+function daysQuiet(card: ApplicationCard, now: Date): number | null {
   const last = card.last_activity_at ?? card.stage_since;
   if (!last) return null;
   return Math.floor((now.getTime() - new Date(last).getTime()) / DAY);
@@ -162,22 +162,26 @@ export function byStage(cards: readonly ApplicationCard[], now: Date): Map<Stage
   return groups;
 }
 
-export interface BoardCounts {
-  /** In one of the six moving stages. */
-  moving: number;
-  decided: number;
-  closed: number;
-  /** Past Considering and still moving, with neither a next step nor an
-   *  interview booked: the cards that need the person to say what comes next. */
-  needNextStep: number;
-}
-
 const movingStage = (stage: StageSlug): boolean =>
   (MOVING_STAGES as readonly StageSlug[]).includes(boardStage(stage));
 
 /** Still moving: in one of the moving stages, not ended. */
 export function isMoving(card: ApplicationCard): boolean {
   return movingStage(card.stage);
+}
+
+/** The endings a role can reach from where it is. The company can close a
+ *  role at any point; a rejection or a withdrawal needs an application; an
+ *  offer is accepted or declined only once there is one. An ended role is
+ *  judged by the stage it ended from, so a wrong ending can be corrected to
+ *  another that was possible then. The ending a role is in is always listed. */
+export function reachableEndings(current: StageSlug, endedAt: StageSlug | null): Set<StageSlug> {
+  const from = boardStage(movingStage(current) ? current : endedAt ?? current);
+  const step = (MOVING_STAGES as readonly StageSlug[]).indexOf(from);
+  const reachable = new Set<StageSlug>(["role_closed", current]);
+  if (step >= MOVING_STAGES.indexOf("applied")) reachable.add("rejected").add("withdrawn");
+  if (from === "offer") reachable.add("accepted").add("declined");
+  return reachable;
 }
 
 /** The card a stage move paints before the server answers, by the server's
@@ -195,40 +199,7 @@ export function needsNextStep(card: ApplicationCard): boolean {
   return isMoving(card) && card.stage !== "saved" && !card.next_action && !card.next_interview;
 }
 
-export function boardCounts(cards: readonly ApplicationCard[]): BoardCounts {
-  const of = (stages: readonly string[]) => cards.filter((card) => stages.includes(card.stage));
-  return {
-    moving: cards.filter(isMoving).length,
-    decided: of(DECIDED_STAGES).length,
-    closed: of(CLOSED_STAGES).length,
-    needNextStep: cards.filter(needsNextStep).length,
-  };
-}
-
-/** The application's own page. */
-export const applicationPath = (jobId: number): string => `/pipeline/${jobId}`;
-
 export function columnOf(stage: StageSlug): ColumnDef {
   return COLUMNS.find((column) => column.stages.includes(stage)) ?? COLUMNS[0];
 }
 
-/** Where an application stands among the cards of its column, in the order
- *  the board shows them (section by section), with its neighbours. Null when
- *  the board does not hold it. */
-export function placeInColumn(
-  cards: readonly ApplicationCard[],
-  jobId: number,
-  now: Date,
-): { index: number; total: number; previous: ApplicationCard | null; next: ApplicationCard | null } | null {
-  const card = cards.find((other) => other.job_id === jobId);
-  if (!card) return null;
-  const groups = byStage(cards, now);
-  const order = columnOf(boardStage(card.stage)).stages.flatMap((stage) => groups.get(stage) ?? []);
-  const index = order.findIndex((other) => other.job_id === jobId);
-  return {
-    index,
-    total: order.length,
-    previous: order[index - 1] ?? null,
-    next: order[index + 1] ?? null,
-  };
-}

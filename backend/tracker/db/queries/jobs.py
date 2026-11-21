@@ -30,6 +30,7 @@ from tracker.db.models import (
     JobLifecycleEvent,
     JobLineage,
     JobPlaceSetMember,
+    Pursuit,
     TrackedCompany,
 )
 from tracker.db.queries.companies import is_followed
@@ -781,6 +782,9 @@ class RowContext(TypedDict):
     shows. Its keys are the keyword arguments `serialize_job` takes."""
 
     favorite_ids: set[int]
+    #: The stage each row's role is at in the pipeline, for a role the
+    #: pipeline shows: starred, or moved past Considering.
+    pipeline_stages: dict[int, str]
     dismissed_ids: set[int]
     lineage_meta: dict[int, JobLineage]
     twin_counts: dict[int, int]
@@ -817,9 +821,24 @@ async def row_context(
     `JobRow` elsewhere does not carry the sign, so its two reads are skipped.
     """
     ids = [job.id for job in jobs]
-    fav_ids = set(
-        (await session.scalars(select(Favorite.job_id).where(Favorite.job_id.in_(ids)))).all()
-    ) if ids else set()
+    # Stars and pursuits in one read: a row can have either without the other.
+    starred_or_pursued = (
+        await session.execute(
+            select(Favorite.job_id, Pursuit.job_id, Pursuit.stage)
+            .select_from(Favorite)
+            .join(Pursuit, Pursuit.job_id == Favorite.job_id, full=True)
+            .where(or_(Favorite.job_id.in_(ids), Pursuit.job_id.in_(ids)))
+        )
+    ).tuples().all() if ids else []
+    fav_ids = {starred for starred, _, _ in starred_or_pursued if starred is not None}
+    # The board's own rule: a star with no pursuit is at Considering, and a
+    # pursuit still at Considering whose star was taken away is off it.
+    pipeline_stages: dict[int, str] = {}
+    for starred, pursued, stage in starred_or_pursued:
+        if pursued is not None and (starred is not None or stage != "saved"):
+            pipeline_stages[pursued] = stage
+        elif starred is not None:
+            pipeline_stages[starred] = "saved"
     dis_ids = set(
         (await session.scalars(select(JobFeedback.job_id).where(JobFeedback.job_id.in_(ids)))).all()
     ) if ids else set()
@@ -827,6 +846,7 @@ async def row_context(
     twin_counts, place_counts = await relation_counts_for(session, jobs)
     return {
         "favorite_ids": fav_ids,
+        "pipeline_stages": pipeline_stages,
         "dismissed_ids": dis_ids,
         "lineage_meta": lineage_meta,
         "twin_counts": twin_counts,

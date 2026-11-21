@@ -83,8 +83,8 @@ for (const theme of ["light", "dark"] as const) {
       first ??= chosen;
       expect(chosen, `${c.family}: this screen resolves the chosen tokens differently`).toEqual(first);
     }
-    // Gold is not ink: the chosen set is the action colour, never the text colour.
-    expect(first!.ink).toBe(theme === "dark" ? "rgb(232, 220, 172)" : "rgb(119, 84, 13)");
+    // The chosen set is not ink: it is the action colour, never the text colour.
+    expect(first!.ink).toBe(theme === "dark" ? "rgb(232, 220, 172)" : "rgb(7, 87, 184)");
   });
 
   test(`a thing that is on is ink, the switch and the row it governs alike (${theme})`, async ({ page }) => {

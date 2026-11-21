@@ -262,7 +262,7 @@ test("a role with no twins never asks for them", async ({ page }) => {
   const twins = watchReads(page, "GET", "/api/jobs/101/twins");
   const placeSet = watchReads(page, "GET", "/api/jobs/101/place-set");
   await page.goto("/job/101");
-  await expect(page.getByText("View & apply")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Apply" })).toBeVisible();
   // Its sibling section asks as the page opens, so by its answer the deck would have asked too.
   await expect.poll(() => placeSet.answered).toBeGreaterThan(0);
   expect(twins.started).toBe(0);
@@ -288,7 +288,7 @@ test("a confirmed twin opens as a paper stack and compares full descriptions", a
   await expect(page.getByText(/Head of Product, Global AI Learning Platform/)).toBeVisible();
   await expect(page.getByText(/not directly related/)).toBeVisible();
 
-  /* One primary per surface. Job detail's is "View & apply" — the
+  /* One primary per surface. Job detail's is "Apply" — the
      one thing that page exists for — so opening this disclosure must not put a
      second filled button beside it. A rank rule of "primary = commits state"
      cannot express this: neither of these two commits anything. */
@@ -296,7 +296,7 @@ test("a confirmed twin opens as a paper stack and compares full descriptions", a
   expect(
     primaries.map((t) => t.trim()),
     "more than one primary is visible on Job detail",
-  ).toEqual(["View & apply"]);
+  ).toEqual(["Apply"]);
 
   await page.getByRole("button", { name: "Compare with related roles" }).click();
   await expect(page).toHaveURL(/\/compare$/);
@@ -489,10 +489,8 @@ test("an applied role names its stage in the bar, and its days and what is due i
   await expect(bar.getByRole("button", { name: "Applied", exact: true })).toBeVisible();
   await expect(bar.getByText(/\d+d\b|days/), "the bar holds the stage, never its age").toHaveCount(0);
   const due = msg("applications-posting-due-day", { offset: 1, date: "" });
-  await expect(bar.getByRole("link", { name: VIEW_APPLY })).toHaveCount(0);
-  const view = bar.getByRole("link", { name: msg("role-job-detail-view-posting") });
-  await expect(view).toHaveAttribute("href", jobFixture.url);
-  await expect(view).not.toHaveClass(/ui-btn-primary/);
+  // Applied, the employer's page is no longer the action: the bar offers no link.
+  await expect(bar.getByRole("link")).toHaveCount(0);
   const facts = panel.locator("dl.jd-pipeline-facts");
   const value = (term: string) => facts.locator("dt", { hasText: new RegExp(`^${term}$`) }).locator("xpath=following-sibling::dd[1]");
   // The stage is read here, in the row's own ink, and changed in the bar.
@@ -512,24 +510,23 @@ test("an applied role names its stage in the bar, and its days and what is due i
   // The bar holds controls only: the date is read once, in the section.
   await expect(bar.getByText(due)).toHaveCount(0);
 
-  // Every row is one line high, the one with the history's clock included:
-  // a control taller than the text must not push its row apart from the rest.
+  // Every row is one line high, the ones with the priority's button and the
+  // history's clock included: a control taller than the text must not push
+  // its row apart from the rest.
   const heights = await facts.locator("dd").evaluateAll((rows) => rows.map((row) => Math.round(row.getBoundingClientRect().height)));
-  expect(heights.length).toBe(4);
+  expect(heights.length).toBe(5);
   expect(new Set(heights).size, `row heights ${heights.join(", ")}`).toBe(1);
+  // The priority's word stands at the other values' edge.
+  const word = await value(msg("applications-fact-priority")).evaluate((dd) => {
+    const range = document.createRange();
+    range.selectNodeContents(dd.querySelector("button")!);
+    return range.getBoundingClientRect().left - dd.getBoundingClientRect().left;
+  });
+  expect(word, "the mark and the word start at the row's edge").toBeLessThanOrEqual(1);
 
-  // The way to the application stands on the section's heading line, at its
-  // far end, and nowhere in the rows.
-  const open = panel.locator(".jd-aside").getByRole("link", { name: msg("applications-posting-open") });
-  await expect(open).toHaveAttribute("href", "/pipeline/101");
-  const heading = (await panel.locator(".jd-aside .section-title", { hasText: msg("applications-posting-row") }).boundingBox())!;
-  const link = (await open.boundingBox())!;
-  const column = (await panel.locator(".jd-aside").boundingBox())!;
-  expect(link.y, "on the heading's line").toBeLessThan(heading.y + heading.height);
-  expect(link.y + link.height, "on the heading's line").toBeGreaterThan(heading.y);
-  expect(link.x, "after the heading").toBeGreaterThanOrEqual(heading.x + heading.width);
-  expect(Math.abs(link.x + link.width - (column.x + column.width)), "at the line's far end").toBeLessThanOrEqual(1);
-  expect((await facts.locator("dt").first().boundingBox())!.y, "above the rows").toBeGreaterThan(link.y + link.height - 1);
+  // The section leads nowhere: the Workspace is a tab of this same screen.
+  await expect(panel.locator(".jd-aside").getByRole("link")).toHaveCount(0);
+  await expect(panel.getByRole("tab", { name: msg("role-job-detail-tab-workspace") })).toBeVisible();
 
   // The clock stands right after the days it explains, and says which history it opens.
   const clock = facts.getByRole("button", { name: msg("applications-posting-history-title") });
@@ -660,12 +657,18 @@ const longPosting = {
       `Paragraph ${i + 1}. You will set the direction for a platform that many teams build on, and explain what it leaves out to the people who depend on it.`).join("\n\n") },
   ],
 };
-async function openLongPosting(page: Page, size: { width: number; height: number }) {
+/** The long posting, of a role in the pipeline unless `inPipeline` is false:
+ *  then it reads as any posting on the Radar, with no tabs. */
+async function openLongPosting(page: Page, size: { width: number; height: number }, { inPipeline = true } = {}) {
   await page.setViewportSize(size);
-  await mockGet(page, "/api/jobs/303", (route) => route.fulfill({ json: longPosting }));
-  await mockGet(page, "/api/applications/303", (route) => route.fulfill({ json: applicationDetailFixture({
-    application: applicationCardFixture({ job_id: 303, pursuit_id: 10, stage: "applied", company: "apple", stage_since: new Date(Date.now() - 3 * DAY).toISOString() }),
-  }) }));
+  await mockGet(page, "/api/jobs/303", (route) => route.fulfill({
+    json: inPipeline ? longPosting : { ...longPosting, is_favorite: false, pursuit: null },
+  }));
+  if (inPipeline) {
+    await mockGet(page, "/api/applications/303", (route) => route.fulfill({ json: applicationDetailFixture({
+      application: applicationCardFixture({ job_id: 303, pursuit_id: 10, stage: "applied", company: "apple", stage_since: new Date(Date.now() - 3 * DAY).toISOString() }),
+    }) }));
+  }
   await mockGet(page, "/api/jobs/303/similar**", (route) => route.fulfill({ json: {
     scope: "cross", items: [1, 2, 3].map((n) => ({ ...jobFixture, id: 900 + n, title: `Principal Product Manager, Platform ${n}`, score: 0.9 })),
   } }));
@@ -674,14 +677,18 @@ async function openLongPosting(page: Page, size: { width: number; height: number
   const panel = detail(page);
   await expect(panel.getByRole("heading", { name: "Responsibilities" })).toBeVisible();
   await expect(panel.locator(".similar-row")).toHaveCount(6);
+  const tabs = panel.locator(".jd-tabs");
+  await expect(tabs).toHaveCount(inPipeline ? 1 : 0);
   return {
     column: panel.locator(".jd-aside"),
     scroll: panel.locator(".cover-scroll"),
     pipeline: panel.locator(".jd-aside .section-title").first(),
     lastRow: panel.locator(".similar-row").last(),
+    /** How tall the tabs held under the bar are; what else is held stops under them. */
+    held: inPipeline ? (await tabs.boundingBox())!.height : 0,
   };
 }
-/** How far under the bar the column stops: the page's own top inset. */
+/** How far under the bar, or the tabs, the column stops: the page's own top inset. */
 const STUCK = 40;
 /** Scrolls the posting and waits for what follows its scroll (the pay copy,
  *  the role in the bar): drawn on the scroll event, fired with the next frame.
@@ -694,7 +701,7 @@ const scrollPosting = (scroll: Locator, top: number) => scroll.evaluate(async (b
 }, top);
 
 test("the side column stays in view while a long description scrolls", async ({ page }) => {
-  const { column, scroll, pipeline, lastRow } = await openLongPosting(page, { width: 1440, height: 1000 });
+  const { column, scroll, pipeline, lastRow, held } = await openLongPosting(page, { width: 1440, height: 1000 });
   const card = (await detail(page).locator(".comp-panel").boundingBox())!;
   const atRest = (await column.boundingBox())!;
   expect(atRest.y, "at the top it stands beside the pay panel").toBeCloseTo(card.y, 0);
@@ -702,7 +709,7 @@ test("the side column stays in view while a long description scrolls", async ({ 
   await scrollPosting(scroll, 1500);
   const box = (await scroll.boundingBox())!;
   const stuck = (await column.boundingBox())!;
-  expect(stuck.y - box.y, "stopped under the bar").toBeCloseTo(STUCK, 0);
+  expect(stuck.y - box.y, "stopped under the tabs").toBeCloseTo(held + STUCK, 0);
   await expect(pipeline).toBeInViewport({ ratio: 1 });
   // Its More like this rows have folded away while the posting is read.
   await expect(lastRow).toBeHidden();
@@ -712,10 +719,10 @@ test("the side column stays in view while a long description scrolls", async ({ 
 });
 
 test("a side column taller than the window keeps its first rows in view, and its last rows come at the end of the page", async ({ page }) => {
-  const { column, scroll, pipeline, lastRow } = await openLongPosting(page, { width: 1440, height: 560 });
+  const { column, scroll, pipeline, lastRow, held } = await openLongPosting(page, { width: 1440, height: 560 });
   const atRest = (await column.boundingBox())!;
   const box = (await scroll.boundingBox())!;
-  expect(atRest.height, "taller than its room").toBeGreaterThan(box.height - 2 * STUCK);
+  expect(atRest.height, "taller than its room").toBeGreaterThan(box.height - held - 2 * STUCK);
   // Fail-first: a column with a scroll of its own is clipped to its room.
   expect(await column.evaluate((el) => [getComputedStyle(el).overflowY, el.scrollHeight - el.clientHeight])).toEqual(["visible", 0]);
 
@@ -724,7 +731,7 @@ test("a side column taller than the window keeps its first rows in view, and its
   await column.getByRole("button", { name: msg("role-job-detail-more-like-this") }).click();
   await expect(lastRow).toBeVisible();
   const stuck = (await column.boundingBox())!;
-  expect(stuck.y - box.y, "stopped under the bar").toBeCloseTo(STUCK, 0);
+  expect(stuck.y - box.y, "stopped under the tabs").toBeCloseTo(held + STUCK, 0);
   expect(stuck.height, "whole").toBeGreaterThanOrEqual(atRest.height);
   await expect(pipeline).toBeInViewport({ ratio: 1 });
   await expect(lastRow).not.toBeInViewport();
@@ -768,7 +775,7 @@ test("section headings outrank the text by a step, and sections are parted by ro
    and the bar carries the role once the posting's own heading has left, at
    the heading's left edge. */
 test("a section's heading stays at the top of the column, and the role rises into the bar", async ({ page }) => {
-  const { scroll } = await openLongPosting(page, { width: 1440, height: 1000 });
+  const { scroll, held } = await openLongPosting(page, { width: 1440, height: 1000 });
   const panel = detail(page);
   const role = panel.locator(".jd-bar-role");
   const heading = panel.getByRole("heading", { name: "Responsibilities" });
@@ -778,7 +785,7 @@ test("a section's heading stays at the top of the column, and the role rises int
 
   await scrollPosting(scroll, 1500);
   const box = (await scroll.boundingBox())!;
-  expect((await heading.boundingBox())!.y, "stuck at the top of the scroll box").toBeCloseTo(box.y, 0);
+  expect((await heading.boundingBox())!.y, "stuck under the tabs at the top of the scroll box").toBeCloseTo(box.y + held, 0);
   await expect(panel.getByText("Paragraph 12.")).toBeInViewport();
   // Stuck, it stands on the canvas, solid: nothing passing beneath shows
   // through it, blurred or not.
@@ -823,7 +830,7 @@ test("a section's heading stays at the top of the column, and the role rises int
    at the top of the side column, with the scroll and back with it; it says
    what the panel says. */
 test("the pay panel's small copy grows above Pipeline as the panel leaves, and goes when it returns", async ({ page }) => {
-  const { column, scroll, pipeline } = await openLongPosting(page, { width: 1440, height: 1000 });
+  const { column, scroll, pipeline, held } = await openLongPosting(page, { width: 1440, height: 1000 });
   const panel = detail(page);
   const dock = column.locator(".jd-dock");
   const height = async () => (await dock.boundingBox())!.height;
@@ -845,7 +852,7 @@ test("the pay panel's small copy grows above Pipeline as the panel leaves, and g
   expect(await gap(), "Pipeline moved down by the copy").toBeCloseTo(before + full, 0);
   await expect(dock.locator(".pkg-mini .big")).toHaveText(await panel.locator(".pkg-panel .big").innerText());
   await expect(dock.locator(".pkg-mini-eyebrow")).toHaveText(await panel.locator(".pkg-panel .pkg-eyebrow").innerText());
-  expect((await dock.boundingBox())!.y - (await scroll.boundingBox())!.y, "in view, under the bar").toBeCloseTo(STUCK, 0);
+  expect((await dock.boundingBox())!.y - (await scroll.boundingBox())!.y, "in view, under the tabs").toBeCloseTo(held + STUCK, 0);
 
   await scrollPosting(scroll, 0);
   expect(await height()).toBe(0);
@@ -883,7 +890,8 @@ test("a posting with no pay figure docks nothing above Pipeline", async ({ page 
   expect((await column.locator(".jd-dock").boundingBox())!.height).toBe(0);
   await expect(column.locator(".pkg-mini")).toHaveCount(0);
   await expect(column.locator(".section-title").first(), "Pipeline leads the column").toHaveText(msg("applications-posting-row"));
-  expect((await column.boundingBox())!.y - (await scroll.boundingBox())!.y, "under the bar").toBeCloseTo(STUCK, 0);
+  const held = (await panel.locator(".jd-tabs").boundingBox())!.height;
+  expect((await column.boundingBox())!.y - (await scroll.boundingBox())!.y, "under the tabs").toBeCloseTo(held + STUCK, 0);
 });
 
 /* Stuck, a section's heading stands level with the first line of the side
@@ -901,6 +909,123 @@ test("a stuck section heading is level with the side column's first line", async
   const heading = await middle(detail(page).getByRole("heading", { name: "Responsibilities" }));
   const kicker = await middle(column.locator(".pkg-mini-eyebrow"));
   expect(Math.abs(heading - kicker), "the heading's words and the column's first kicker").toBeLessThanOrEqual(1.5);
+});
+
+/* A role outside the pipeline reads as any posting on the Radar: one view,
+   the hero's foot line, and what is held stops under the bar. */
+test("a role outside the pipeline has no tabs, and its headings and side column stop under the bar", async ({ page }) => {
+  const { column, scroll } = await openLongPosting(page, { width: 1440, height: 1000 }, { inPipeline: false });
+  const panel = detail(page);
+  await expect(panel.getByRole("tablist")).toHaveCount(0);
+  expect(await panel.locator(".jd-hero").evaluate((el) => getComputedStyle(el).borderBottomWidth), "the hero's line").toBe("1px");
+  // Reached by its link, Back goes to the Radar and says so.
+  await expect(panel.getByRole("button", { name: msg("role-job-detail-back-to", { view: msg("shell-nav-radar") }) }))
+    .toHaveText(msg("shell-nav-radar"));
+  await scrollPosting(scroll, 1500);
+  const box = (await scroll.boundingBox())!;
+  expect((await panel.getByRole("heading", { name: "Responsibilities" }).boundingBox())!.y, "at the box's top edge").toBeCloseTo(box.y, 0);
+  expect((await column.boundingBox())!.y - box.y).toBeCloseTo(STUCK, 0);
+});
+
+/* A role in the pipeline reads in two tabs under its title. They take the
+   hero's foot line without moving the title, and once scrolled to they are
+   held under the bar with room above their words. */
+test("a role in the pipeline holds its tabs under the bar, with room above them, and its title does not move", async ({ page }) => {
+  const outside = await openLongPosting(page, { width: 1440, height: 1000 }, { inPipeline: false });
+  const titleOutside = (await detail(page).locator(".jd-hero h1").boundingBox())!.y;
+  const heroEndOutside = await detail(page).locator(".jd-hero").evaluate((el) => el.getBoundingClientRect().bottom);
+  expect(outside.held).toBe(0);
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+  await installBoardRoutes(page);
+
+  const { scroll, held } = await openLongPosting(page, { width: 1440, height: 1000 });
+  const panel = detail(page);
+  const tabs = panel.locator(".jd-tabs");
+  expect((await panel.locator(".jd-hero h1").boundingBox())!.y, "the title stands where it did").toBeCloseTo(titleOutside, 0);
+  expect((await tabs.boundingBox())!.y + 8, "the tabs' words start where the hero's line was, less their room").toBeCloseTo(heroEndOutside, 0);
+  await expect(panel.getByRole("tab", { name: msg("role-job-detail-tab-posting") }), "opened by its link: the posting")
+    .toHaveAttribute("aria-selected", "true");
+  expect(await tabs.evaluate((el) => getComputedStyle(el).backgroundColor), "in their place, no ground over the hero's")
+    .toBe("rgba(0, 0, 0, 0)");
+
+  await scrollPosting(scroll, 1500);
+  const box = (await scroll.boundingBox())!;
+  const at = (await tabs.boundingBox())!;
+  expect(at.y, "held at the top of the box, under the bar").toBeCloseTo(box.y, 0);
+  expect(at.height).toBe(held);
+  const words = (await panel.getByRole("tablist").boundingBox())!;
+  expect(words.y - box.y, "room between the bar's edge and the tabs").toBeCloseTo(8, 0);
+  await expect.poll(() => tabs.evaluate((el) => getComputedStyle(el).backgroundColor), "solid, so the text passes under it")
+    .not.toBe("rgba(0, 0, 0, 0)");
+});
+
+test("switching tabs while they are held opens the other one from its start, with the tabs still held", async ({ page }) => {
+  await mockGet(page, "/api/applications/303/activity", (route) => route.fulfill({ json: { items: [] } }));
+  const { scroll } = await openLongPosting(page, { width: 1440, height: 1000 });
+  const panel = detail(page);
+  const tabs = panel.locator(".jd-tabs");
+  const box = (await scroll.boundingBox())!;
+  // Where the tabs stand unheld: the scroll at which they reach the box's top.
+  const natural = (await tabs.boundingBox())!.y - box.y;
+
+  // Above that line, a switch leaves the page where it is.
+  await panel.getByRole("tab", { name: msg("role-job-detail-tab-workspace") }).click();
+  await expect(page).toHaveURL(/\?tab=workspace$/);
+  expect(await scroll.evaluate((el) => el.scrollTop)).toBe(0);
+  await panel.getByRole("tab", { name: msg("role-job-detail-tab-posting") }).click();
+  await expect(page).toHaveURL(/\?tab=posting$/);
+
+  await scrollPosting(scroll, 1500);
+  await panel.getByRole("tab", { name: msg("role-job-detail-tab-workspace") }).click();
+  await expect(panel.locator(".app-ws")).toBeVisible();
+  await expect.poll(() => scroll.evaluate((el) => el.scrollTop), "the Workspace from its start").toBeCloseTo(natural, 0);
+  expect((await tabs.boundingBox())!.y, "still held").toBeCloseTo(box.y, 0);
+
+  await scrollPosting(scroll, 1500);
+  await panel.getByRole("tab", { name: msg("role-job-detail-tab-posting") }).click();
+  await expect.poll(() => scroll.evaluate((el) => el.scrollTop), "the posting from its start").toBeCloseTo(natural, 0);
+  expect((await tabs.boundingBox())!.y).toBeCloseTo(box.y, 0);
+  await expect(panel.locator(".pkg-panel")).toBeInViewport();
+});
+
+test("on the Workspace the pay copy stands whole, and the next step is said once, in the main column", async ({ page }) => {
+  await mockGet(page, "/api/applications/303/activity", (route) => route.fulfill({ json: { items: [] } }));
+  await openLongPosting(page, { width: 1440, height: 1000 });
+  await mockGet(page, "/api/applications/303", (route) => route.fulfill({ json: applicationDetailFixture({
+    application: applicationCardFixture({
+      job_id: 303, pursuit_id: 10, stage: "applied", company: "apple", stage_since: new Date(Date.now() - 3 * DAY).toISOString(),
+      next_action: "Email the recruiter", next_action_due: tomorrowNoon(),
+    }),
+  }) }));
+  await page.goto("/company/apple/job/303?tab=workspace");
+  const panel = detail(page);
+  await expect(panel.locator(".app-ws")).toBeVisible();
+  const column = panel.locator(".jd-aside");
+  await expect.poll(async () => (await column.locator(".jd-dock").boundingBox())!.height, "whole from the start").toBeGreaterThan(40);
+  await expect(panel.locator(".pkg-panel"), "the panel is the posting's").toHaveCount(0);
+  await expect(panel.locator(".jd-main").getByText("Email the recruiter")).toBeVisible();
+  const terms = await column.locator("dl.jd-pipeline-facts dt").allTextContents();
+  expect(terms).not.toContain(msg("applications-posting-next-step"));
+  expect(terms).not.toContain(msg("applications-posting-due"));
+  expect(terms).toContain(msg("applications-fact-priority"));
+});
+
+test("a role in the pipeline opened from the Radar reads on its posting tab, and Back names the Radar", async ({ page }) => {
+  await mockGet(page, "/api/jobs/101", (route) => route.fulfill({ json: { ...jobFixture, is_favorite: true, pursuit: appliedPursuit } }));
+  await mockGet(page, "/api/applications/101", (route) => route.fulfill({ json: applicationDetailFixture({
+    application: applicationCardFixture({ pursuit_id: 10, stage: "applied", stage_since: new Date(Date.now() - 2 * DAY).toISOString() }),
+  }) }));
+  await page.goto("/");
+  await page.getByText("Staff Product Manager, API").click();
+  const panel = detail(page);
+  await expect(panel.getByRole("tab", { name: msg("role-job-detail-tab-posting") })).toHaveAttribute("aria-selected", "true");
+  await expect(page).not.toHaveURL(/tab=/);
+  await expect(panel.locator(".jd-pager"), "the Radar keeps its place in the list").toBeVisible();
+  const back = panel.getByRole("button", { name: msg("role-job-detail-back-to", { view: msg("shell-nav-radar") }) });
+  await expect(back).toHaveText(msg("shell-nav-radar"));
+  await back.click();
+  await expect(panel).toHaveCount(0);
+  await expect(page).toHaveURL(/\/$/);
 });
 
 /* Opened from a list, a posting knows its place there: the bar steps to the
@@ -1603,7 +1728,7 @@ test("a posting with two standing signs names them, and one without says nothing
 /* Opened from a list, the detail covers a page that stays MOUNTED underneath.
    As a bare <section> (no dialog role, no aria-modal, no focus capture, no
    trap, no restore, no scroll lock) a keyboard user lands on the covered row,
-   tabs through every control of a page they cannot see to reach "View & apply", and gets
+   tabs through every control of a page they cannot see to reach "Apply", and gets
    nothing back on close. Reached by a direct link
    there is nothing underneath, and it must NOT claim to be a dialog. */
 test("opened over a list, the detail is a modal dialog that owns focus", async ({ page }) => {
@@ -1620,7 +1745,7 @@ test("opened over a list, the detail is a modal dialog that owns focus", async (
   await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
 
   // Focus moved INTO the cover, and stays there however long you tab.
-  await expect(dialog).toContainText("View & apply");
+  await expect(dialog.getByRole("link", { name: "Apply" })).toBeVisible();
   for (let i = 0; i < 40; i += 1) {
     await page.keyboard.press("Tab");
     // WebKit's Tab skips buttons and can step out; the overlay brings focus

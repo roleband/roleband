@@ -46,7 +46,7 @@ test("the collapsed rail shows the star alone, and a resting pointer drops the v
   await expect.poll(() => top(page)).toBe(resting);
 });
 
-test("a press on the star keeps the views open until one is picked, which opens it titled by its name", async ({ page }) => {
+test("a press on the star keeps the views open until one is picked, which opens it with its tab chosen", async ({ page }) => {
   await page.goto("/");
   await pipelineStar(page).click();
   await page.mouse.move(700, 450);
@@ -54,7 +54,7 @@ test("a press on the star keeps the views open until one is picked, which opens 
 
   await view(page, BOARD).click();
   await expect(page).toHaveURL(/\/pipeline\/board$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(BOARD);
+  await expect(page.getByRole("tab", { name: BOARD })).toHaveAttribute("aria-selected", "true");
   await page.mouse.move(700, 450);
   await expect(view(page, BOARD)).toBeHidden();
   await expect(pipelineStar(page)).toHaveAttribute("aria-expanded", "false");

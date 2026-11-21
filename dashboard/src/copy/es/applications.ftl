@@ -1,11 +1,3 @@
-applications-board-summary = En curso: { $moving } · Decididos: { $decided } · Rechazados o cerrados: { $closed } · { $needNext }
-
-applications-board-need-next = { $count ->
-        [one] { $count } necesita
-        [many] { $count } necesitan
-       *[other] { $count } necesitan
-    } un siguiente paso
-
 applications-board-load-failed = No se pudo cargar tu seguimiento
 
 applications-board-scroll-back = Mostrar columnas anteriores
@@ -60,7 +52,7 @@ applications-quick-needs-next = Necesita un siguiente paso
 
 applications-quick-quiet = Sin noticias
 
-applications-quick-high-priority = Prioridad 4+
+applications-quick-high-priority = Prioridad alta
 
 applications-filter-while = Al filtrar
 
@@ -104,33 +96,33 @@ applications-card-overdue = { $days ->
        *[other] { $days } días de retraso
     }
 
+applications-card-applied = Enviada { $ago }
+
+applications-card-gone-quiet = Sin novedades
+
+applications-card-day-time = { $day }, { $time }
+
+applications-card-round-past = { $label }, { $day }
+
+applications-card-ask-outcome = ¿Cómo te fue?
+
 applications-card-posting-closed = Oferta cerrada
 
-applications-card-comments = { $count ->
-        [one] { $count } comentario
-        [many] { $count } de comentarios
-       *[other] { $count } comentarios
-    }
+applications-card-priority = Prioridad: { $level }
 
-applications-card-priority = Prioridad { $priority } de 5
+applications-priority-none = Sin prioridad
 
-applications-card-days-short = { $days } d
+applications-priority-urgent = Urgente
 
-applications-card-days-in-stage = { $days ->
-        [one] { $days } día en esta etapa
-        [many] { $days } de días en esta etapa
-       *[other] { $days } días en esta etapa
-    }
+applications-priority-high = Alta
 
-applications-card-quiet = { $days ->
-        [one] { $days } día en esta etapa
-        [many] { $days } de días en esta etapa
-       *[other] { $days } días en esta etapa
-    }, sin noticias desde hace { $quiet ->
-        [one] { $quiet } día
-        [many] { $quiet } de días
-       *[other] { $quiet } días
-    }
+applications-priority-medium = Media
+
+applications-priority-low = Baja
+
+applications-priority-menu = Prioridad de { $title }
+
+
 
 applications-card-ended = { $ending } en la etapa { $stage }
 
@@ -242,6 +234,8 @@ applications-interview-delete-failed = No se pudo eliminar la entrevista. Intén
 
 applications-interview-delete-confirm = ¿Eliminar esta entrevista?
 
+applications-tabs-label = Vistas del seguimiento
+
 applications-list-head-next = Siguiente paso
 
 applications-list-head-actions = Acciones
@@ -274,6 +268,20 @@ applications-upnext-step-when = Antes del final del día
 
 applications-upnext-empty = No hay nada pendiente. Fija un siguiente paso o añade una entrevista a una candidatura y aparecerá aquí.
 
+applications-upnext-all-day = Todo el día
+
+applications-upnext-done-label = Marcar como hecho: { $step }
+
+applications-upnext-done = Hecho · { $step }
+
+applications-upnext-outcome = ¿Cómo te fue?
+
+applications-upnext-outcome-label = Resultado de { $label }
+
+applications-upnext-outcome-set = { $label }: { $outcome }
+
+applications-upnext-undo-failed = No se pudo deshacer ese cambio en { $title }. Inténtalo de nuevo.
+
 applications-month-label = Calendario
 
 applications-month-prev = Mes anterior
@@ -304,33 +312,19 @@ applications-month-day-empty = No hay nada este día.
 
 applications-month-failed = No se pudo cargar el calendario
 
-applications-page-bar = Candidatura
 
-applications-page-back = Seguimiento / { $view }
 
-applications-page-back-board = Abrir el Tablero
 
-applications-page-load-failed = No se pudo cargar esta candidatura
 
-applications-page-place = { $index } de { $total }
 
-applications-page-previous = Anterior en esta columna: { $title }
 
-applications-page-next = Siguiente en esta columna: { $title }
 
-applications-page-more = Más acciones
 
-applications-page-more-label = Más acciones para esta candidatura
 
-applications-page-copy-link = Copiar enlace
 
-applications-page-withdraw = Retirar candidatura
 
-applications-link-copied = Enlace copiado
 
-applications-link-copy-failed = No se pudo copiar el enlace. Cópialo desde la barra de direcciones.
 
-applications-stage-button = { $stage } · { $days }
 
 applications-stage-menu-label = Cambiar la etapa de { $title }
 
@@ -359,7 +353,6 @@ applications-crossing-pay = { $days ->
 
 applications-crossing-dismiss = Descartar
 
-applications-next-title = Lo siguiente
 
 applications-next-interview-none = No tienes ninguna entrevista programada.
 
@@ -373,55 +366,31 @@ applications-next-interview-join = Unirse
 
 applications-next-interview-join-label = Unirse a { $label }
 
-applications-next-interview-edit = Editar entrevista
 
-applications-next-empty = Aún no hay un siguiente paso.
 
-applications-next-set = Fijar siguiente paso
 
-applications-next-edit = Editar paso
 
-applications-next-done = Marcar como hecho
 
-applications-next-prompt = ¿Cuál es el siguiente paso?
 
-applications-next-due = Fecha límite (opcional)
 
-applications-next-required = Escribe el siguiente paso o pulsa Cancelar.
 
 applications-next-save = Guardar paso
 
 applications-notes-title = Notas
 
-applications-notes-add = Añadir notas
 
-applications-notes-edit = Editar notas
 
-applications-notes-empty = Aún no hay notas.
 
 applications-notes-label = Notas
 
-applications-notes-more = Mostrar todo
 
-applications-notes-less = Mostrar menos
 
-applications-notes-save = Guardar notas
 
-applications-feed-title = Actividad
 
-applications-feed-mode-label = Mostrar
 
-applications-feed-mode-comments = Comentarios
 
-applications-feed-mode-all = Toda la actividad
 
-applications-feed-empty = Aún no hay comentarios ni cambios.
 
-applications-feed-fold = { $count ->
-    [one] { $count } actualización: { $changes }
-    [many] { $count } de actualizaciones: { $changes }
-   *[other] { $count } actualizaciones: { $changes }
-}
 
 applications-feed-added = Añadido a tu seguimiento
 
@@ -437,13 +406,10 @@ applications-feed-next-step = Siguiente paso cambiado
 
 applications-feed-updated = Actualizado
 
-applications-feed-by-agent = por una app de asistente
 
 applications-comment-label = Comentario
 
-applications-comment-placeholder = Escribe lo que pasó
 
-applications-comment-submit = Comentar
 
 applications-comment-author-you = Tú
 
@@ -465,7 +431,6 @@ applications-comment-failed = No se pudo guardar tu comentario. Inténtalo de nu
 
 applications-comment-delete-failed = No se pudo eliminar ese comentario. Inténtalo de nuevo.
 
-applications-facts-application = Candidatura
 
 applications-facts-posting = Oferta
 
@@ -481,39 +446,27 @@ applications-fact-days-value = { $days ->
    *[other] { $days } días
 }
 
-applications-fact-applied = Enviada
 
-applications-fact-applied-not = Aún no
 
 applications-fact-starred = Guardado
 
-applications-fact-starred-yes = Sí
 
-applications-fact-starred-no = No
 
 applications-fact-last-activity = Última actividad
 
-applications-fact-status = Estado
 
-applications-fact-status-open = Abierta
 
-applications-fact-status-closed = Cerrada
 
 applications-fact-pay = Rango publicado
 
 applications-fact-pay-none = No publicado
 
-applications-fact-pay-changed = Cambiado
 
 applications-fact-level = Nivel
 
-applications-fact-location = Ubicación
 
-applications-fact-location-more = y { $count } más
 
-applications-fact-first-seen = Visto por primera vez
 
-applications-fact-listed-for = Publicado durante
 
 applications-read-posting = Ver la oferta
 
@@ -533,7 +486,6 @@ applications-posting-interview = Entrevista
 
 applications-posting-next-step = Siguiente paso
 
-applications-posting-open = Abrir la candidatura
 
 applications-posting-due = Vence
 
@@ -554,3 +506,33 @@ applications-posting-history-now = { $days ->
     [many] { $stage }, { $days } de días
    *[other] { $stage }, { $days } días
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+applications-ws-next = Siguiente paso
+
+applications-ws-history = Historial
+
+applications-ws-sections = Secciones
+
+applications-ws-sections-label = Secciones visibles en esta etapa
+
+applications-ws-next-add = Añadir un siguiente paso
+
+applications-ws-next-edit = Editar el siguiente paso: { $step }
+
+applications-ws-next-due = Día límite
+
+applications-ws-notes-hint = Escribe lo que sabes, lo que falta averiguar y a quién conociste.
+
+applications-ws-ask-outcome = ¿Cómo te fue?

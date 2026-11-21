@@ -3,7 +3,6 @@ import type { ActivityItem } from "../../api";
 import { msg } from "../../test/msg";
 import { applicationCardFixture as card } from "../../test/fixtures";
 import { eventChanges, feedEntries, runChanges, runOpened, type ActivityEvent } from "./activity";
-import { placeInColumn } from "./board";
 import { latestCrossing, payChangedSinceApplied } from "./crossings";
 import { upNext } from "./dueByDay";
 
@@ -97,7 +96,7 @@ describe("a crossing", () => {
 });
 
 describe("Up next", () => {
-  const interview = (at: string) => ({ id: 1, label: "Screen", scheduled_at: at, all_day: false, format: null });
+  const interview = (at: string) => ({ id: 1, label: "Screen", scheduled_at: at, all_day: false, format: null, link: null });
 
   it("leads with steps past their date, then each day from today, soonest first within a day", () => {
     const groups = upNext([
@@ -133,20 +132,5 @@ describe("Up next", () => {
     const groups = upNext([...ended, accepted, offer], NOW);
 
     expect(groups.map((day) => [day.key, day.items.map((item) => item.card.job_id)])).toEqual([[0, [20, 21, 21]]]);
-  });
-});
-
-describe("stepping through a column", () => {
-  it("follows the board's order, section by section, across a split column", () => {
-    const cards = [
-      card({ job_id: 1, stage: "withdrawn", last_activity_at: days(-1) }),
-      card({ job_id: 2, stage: "accepted", last_activity_at: days(-5) }),
-      card({ job_id: 3, stage: "declined", last_activity_at: days(-3) }),
-      card({ job_id: 4, stage: "applied" }),
-    ];
-    const place = placeInColumn(cards, 3, NOW)!;
-    expect(place).toMatchObject({ index: 1, total: 3 });
-    expect([place.previous?.job_id, place.next?.job_id]).toEqual([2, 1]);
-    expect(placeInColumn(cards, 99, NOW)).toBeNull();
   });
 });

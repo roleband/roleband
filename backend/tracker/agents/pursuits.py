@@ -8,7 +8,7 @@ from typing import Literal
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, exists, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.agents.receipts import RevisionConflict
@@ -194,6 +194,14 @@ async def upsert_pursuit(
             replaced[field] = getattr(pursuit, field)
             setattr(pursuit, field, value)
             changed[field] = value
+    # A priority is chosen once the log records one. The first choice is
+    # recorded even when it equals the default the row was written with, so a
+    # chosen Medium reads apart from one never set.
+    if "priority" in values and "priority" not in changed and (
+        created or not await _priority_recorded(session, pursuit.id)
+    ):
+        replaced["priority"] = pursuit.priority
+        changed["priority"] = pursuit.priority
 
     # Pursuing a job implies it is saved.
     await ensure_favorite(session, job_id)
@@ -220,6 +228,19 @@ async def upsert_pursuit(
         )
     await session.flush()
     return pursuit
+
+
+async def _priority_recorded(session: AsyncSession, pursuit_id: int) -> bool:
+    return bool(
+        await session.scalar(
+            select(
+                exists().where(
+                    PursuitEvent.pursuit_id == pursuit_id,
+                    PursuitEvent.detail["changed"].contains(["priority"]),
+                )
+            )
+        )
+    )
 
 
 async def ensure_pursuit(
@@ -434,8 +455,9 @@ async def list_pursuits(
     after: PursuitListKey | None = None,
     with_revision: bool = False,
 ) -> list[dict]:
-    """Pursuits by priority, the most recently changed first within one, then
-    by id, so two rows changed in one transaction still have one order and a
+    """Pursuits by priority, the most urgent first and the most recently
+    changed first within one, then by id, so two rows changed in one
+    transaction still have one order and a
     page that ends between them resumes at the second (`after`).
 
     `with_revision` adds each pursuit's `revision`, read with its fields, for a
@@ -446,7 +468,7 @@ async def list_pursuits(
     if after is not None:
         stmt = stmt.where(
             or_(
-                Pursuit.priority > after.priority,
+                Pursuit.priority < after.priority,
                 and_(Pursuit.priority == after.priority, Pursuit.updated_at < after.updated_at),
                 and_(
                     Pursuit.priority == after.priority,
@@ -457,7 +479,7 @@ async def list_pursuits(
         )
     rows = (
         await session.execute(
-            stmt.order_by(Pursuit.priority.asc(), Pursuit.updated_at.desc(), Pursuit.id.asc()).limit(limit)
+            stmt.order_by(Pursuit.priority.desc(), Pursuit.updated_at.desc(), Pursuit.id.asc()).limit(limit)
         )
     ).all()
     return [

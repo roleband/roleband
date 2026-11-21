@@ -11,6 +11,11 @@ import { useEffect, useRef, type RefObject } from "react";
  *   down from the panel's size. The copy follows the scroll, forward and
  *   back, so its state is the scroll position's and nothing else's.
  *
+ * A posting with its Posting and Workspace tabs held under the bar names them
+ * (`under`): the panel has left once it passes beneath them. On the Workspace
+ * the text is not the posting, so the copy stands whole from the start
+ * (`whole`).
+ *
  * Both are written straight to the elements: a scroll frame renders nothing.
  * The one thing told to the screen is the moment the copy has grown whole and
  * the moment it starts to go (`onDocked`): the person is reading, or back at
@@ -22,7 +27,14 @@ const HANDOVER = 170;
 
 export function useReadingChrome(
   scrollRef: RefObject<HTMLElement | null>,
-  { title, main, dock, role }: { title: HTMLElement | null; main: HTMLElement | null; dock: HTMLElement | null; role: HTMLElement | null },
+  { title, main, dock, role, under = null, whole = false }: {
+    title: HTMLElement | null;
+    main: HTMLElement | null;
+    dock: HTMLElement | null;
+    role: HTMLElement | null;
+    under?: HTMLElement | null;
+    whole?: boolean;
+  },
   onDocked?: (docked: boolean) => void,
 ): void {
   const told = useRef(onDocked);
@@ -38,6 +50,7 @@ export function useReadingChrome(
 
     const read = () => {
       const top = scroller.getBoundingClientRect().top;
+      const below = Math.max(top, under?.getBoundingClientRect().bottom ?? -Infinity);
 
       if (role) {
         const heading = title.getBoundingClientRect();
@@ -51,8 +64,9 @@ export function useReadingChrome(
         const panel = main?.querySelector(".pkg-panel") ?? null;
         let progress = 0;
         // No panel, or a side column that follows the text in one column: nothing docks.
-        if (panel && dock.offsetParent !== null) {
-          progress = Math.min(1, Math.max(0, (top + HANDOVER - panel.getBoundingClientRect().bottom) / HANDOVER));
+        if (dock.offsetParent !== null) {
+          if (whole) progress = 1;
+          else if (panel) progress = Math.min(1, Math.max(0, (below + HANDOVER - panel.getBoundingClientRect().bottom) / HANDOVER));
         }
         if (calm) progress = progress >= 1 ? 1 : 0;
         // Only on a change: the handover is a few dozen frames of a scroll
@@ -92,5 +106,5 @@ export function useReadingChrome(
       seen?.disconnect();
       if (docked) told.current?.(false);
     };
-  }, [scrollRef, title, main, dock, role]);
+  }, [scrollRef, title, main, dock, role, under, whole]);
 }

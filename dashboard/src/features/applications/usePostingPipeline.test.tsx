@@ -9,14 +9,15 @@ import { ToastProvider } from "../../ui/Toast";
 import { applicationCardFixture, applicationDetailFixture, jobDetailFixture } from "../../test/fixtures";
 import { msg } from "../../test/msg";
 import { interviewWhen } from "./ApplicationPanels";
-import { usePostingPipeline } from "./usePostingPipeline";
+import { usePostingPipeline, type PostingTab } from "./usePostingPipeline";
 
 /* The pipeline's part of a posting. Off the board it is the star and nothing
- * else; on it, the star's place holds the pipeline's own stage button, menu and
- * moves, the side column gains a Pipeline section (the stage, its days with
- * the application's history, and what waits), and the posting knows whether
- * the person has applied. The API is a small store, so a re-read after a write
- * shows the write. */
+ * else, and the posting has no tabs; on it, the star's place holds the
+ * pipeline's own stage button, menu and moves, the side column gains a
+ * Pipeline section (the stage, the priority, its days with the application's
+ * history, and what waits), the posting reads in two tabs, the posting and the
+ * Workspace, and it knows whether the person has applied. The API is a small
+ * store, so a re-read after a write shows the write. */
 
 vi.mock("../../api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../api")>()),
@@ -26,6 +27,7 @@ vi.mock("../../api", async (importOriginal) => ({
     setFavorite: vi.fn(),
     addInterview: vi.fn(),
     deleteInterview: vi.fn(),
+    activity: vi.fn(),
   },
 }));
 
@@ -57,8 +59,9 @@ function pursuit(stage: PursuitStage) {
 
 /** The posting's bar, its side column and whether it reads as applied, as the
  *  posting screen draws them, around the posting's own state. */
-function Posting({ initial }: { initial: Job }) {
+function Posting({ initial, asked = null }: { initial: Job; asked?: PostingTab | null }) {
   const [job, setJob] = useState<Job | null>(initial);
+  const [tab, setTab] = useState<PostingTab | null>(asked);
   const [column, setColumn] = useState<HTMLElement | null>(null);
   const showSaved = useCallback((on: boolean) => setJob((prev) => prev && { ...prev, is_favorite: on }), []);
   const paintPosting = useCallback(
@@ -73,23 +76,29 @@ function Posting({ initial }: { initial: Job }) {
   // The server's copy of the posting is the one the screen opened on: these
   // specs' failed writes change nothing there.
   const rereadPosting = useCallback(() => setJob(initial), [initial]);
-  const { control, section, applied } = usePostingPipeline(job, {
-    showSaved, paintPosting, rereadPosting, onSave, now: new Date(), column,
+  const paintNotes = useCallback(
+    (notes: string | null) => setJob((prev) => (prev?.pursuit ? { ...prev, pursuit: { ...prev.pursuit, notes } } : prev)),
+    [],
+  );
+  const pipeline = usePostingPipeline(job, {
+    showSaved, paintPosting, paintNotes, rereadPosting, onSave, now: new Date(), column, tab, onTab: setTab,
   });
   return (
     <>
-      <nav aria-label="Posting bar">{control}</nav>
-      <aside aria-label="Side column" ref={setColumn}>{section}</aside>
-      <p>{applied ? "View posting" : "View & apply"}</p>
+      <nav aria-label="Posting bar">{pipeline.control}</nav>
+      <p data-testid="tab">{pipeline.tab ?? "no tabs"}</p>
+      <main aria-label="Main column">{pipeline.tab === "workspace" ? pipeline.workspace : "The posting"}</main>
+      <aside aria-label="Side column" ref={setColumn}>{pipeline.section}</aside>
+      <p>{pipeline.applied ? "View posting" : "View & apply"}</p>
     </>
   );
 }
 
-function renderPosting(job: JobDetail, entry: string | { pathname: string; state: unknown } = "/company/openai/job/101") {
+function renderPosting(job: JobDetail, asked: PostingTab | null = null) {
   return render(
     <ToastProvider>
-      <MemoryRouter initialEntries={[entry]}>
-        <Posting initial={job} />
+      <MemoryRouter initialEntries={["/company/openai/job/101"]}>
+        <Posting initial={job} asked={asked} />
       </MemoryRouter>
     </ToastProvider>,
   );
@@ -97,6 +106,7 @@ function renderPosting(job: JobDetail, entry: string | { pathname: string; state
 
 const bar = () => screen.getByRole("navigation", { name: "Posting bar" });
 const column = () => screen.getByRole("complementary", { name: "Side column" });
+const main = () => screen.getByRole("main", { name: "Main column" });
 const stageNamed = (stage: string) => new RegExp(`^${stage}$`);
 const menuOf = () => screen.findByRole("dialog", { name: msg("applications-stage-menu-label", { title: TITLE }) });
 
@@ -121,6 +131,7 @@ beforeEach(() => {
     if (detail) detail = { ...detail, application: { ...detail.application, ...update } as ApplicationDetail["application"] };
     return { pursuit: { ...pursuit("saved"), ...update } } as Awaited<ReturnType<typeof api.setPursuit>>;
   });
+  vi.mocked(api.activity).mockResolvedValue({ items: [] } as Awaited<ReturnType<typeof api.activity>>);
   vi.mocked(api.setFavorite).mockImplementation(async (_jobId, on) => {
     if (detail) detail = on ? { ...detail, application: { ...detail.application, starred: true } } : null;
     return { job_id: 101, is_favorite: on };
@@ -134,11 +145,13 @@ describe("a posting off the board", () => {
     expect(within(column()).queryByText(msg("applications-posting-row"))).toBeNull();
     expect(screen.queryByRole("link")).toBeNull();
     expect(screen.getByText("View & apply")).toBeInTheDocument();
+    expect(screen.getByTestId("tab"), "a role outside the pipeline reads as one posting").toHaveTextContent("no tabs");
     expect(api.application, "a role off the board asks the pipeline nothing").not.toHaveBeenCalled();
   });
 
   it("treats a role pursued in Considering without its star as off the board, as the board does", async () => {
-    renderPosting(posting({ pursuit: pursuit("saved") }));
+    renderPosting(posting({ pursuit: pursuit("saved") }), "workspace");
+    expect(screen.getByTestId("tab"), "an address naming the Workspace gives a role off the board no tabs").toHaveTextContent("no tabs");
     expect(within(bar()).getByRole("button", { name: msg("jobs-save"), pressed: false })).toBeInTheDocument();
     expect(within(column()).queryByText(msg("applications-posting-row"))).toBeNull();
     expect(api.application).not.toHaveBeenCalled();
@@ -192,17 +205,16 @@ describe("a posting on the board", () => {
     expect(due.textContent).toBe(tomorrow);
     expect(due, "a date still to come is plain").not.toHaveClass("jd-pipeline-late");
     expect(column().querySelector(".ui-badge"), "no pill in the section").toBeNull();
-    // The stage is read here and changed in the bar: the rows hold one
-    // control, the history, and the one way to the application stands on the
-    // heading line, outside them.
+    // The stage is read here and changed in the bar: the rows hold two
+    // controls, the priority and the history, and lead nowhere else: the
+    // Workspace is a tab of this same screen.
     expect(row(msg("applications-posting-stage"))!.textContent).toBe(msg("taxonomy-stage-applied"));
-    const links = within(column()).getAllByRole("link");
-    expect(links.map((link) => link.textContent)).toEqual([msg("applications-posting-open")]);
-    expect(links[0]).toHaveAttribute("href", "/pipeline/101");
-    expect(links[0].closest("dl"), "not in a row").toBeNull();
-    expect(links[0].parentElement, "beside the section's heading").toContainElement(within(column()).getByText(msg("applications-posting-row")));
-    expect(within(column()).getAllByRole("button").map((button) => button.getAttribute("aria-label")))
-      .toEqual([msg("applications-posting-history-title")]);
+    expect(within(column()).queryAllByRole("link"), "no way out to another page").toEqual([]);
+    expect(within(column()).getAllByRole("button").map((button) => button.getAttribute("aria-label") ?? button.textContent))
+      .toEqual([
+        msg("applications-card-priority", { level: msg("applications-priority-none") }),
+        msg("applications-posting-history-title"),
+      ]);
     expect(row(msg("applications-posting-interview")), "no interview booked, no Interview row").toBeUndefined();
     expect(within(bar()).queryByText(tomorrow), "due tomorrow: the section says it, the bar does not").toBeNull();
     unmount();
@@ -235,7 +247,7 @@ describe("a posting on the board", () => {
 
     // A booked interview gets its own row beside the step: when it is, and
     // nothing else. The round is the application page's to say.
-    const interview = { id: 1, label: "Hiring manager", scheduled_at: tomorrowNoon(), all_day: false, format: "video" as const };
+    const interview = { id: 1, label: "Hiring manager", scheduled_at: tomorrowNoon(), all_day: false, format: "video" as const, link: null };
     detail = applicationDetailFixture({
       application: applicationCardFixture({
         pursuit_id: 10, stage: "interviewing", stage_since: daysAgo(3),
@@ -366,10 +378,10 @@ describe("a posting on the board", () => {
 
   it("has no Remove past Considering: there the way out is Withdrawn", async () => {
     detail = applicationDetailFixture({
-      application: applicationCardFixture({ pursuit_id: 10, stage: "researching", stage_since: daysAgo(5) }),
+      application: applicationCardFixture({ pursuit_id: 10, stage: "applied", stage_since: daysAgo(5) }),
     });
-    renderPosting(posting({ is_favorite: true, pursuit: pursuit("researching") }));
-    await userEvent.click(await within(bar()).findByRole("button", { name: stageNamed("Researching") }));
+    renderPosting(posting({ is_favorite: true, pursuit: pursuit("applied") }));
+    await userEvent.click(await within(bar()).findByRole("button", { name: stageNamed("Applied") }));
     const menu = await menuOf();
     expect(within(menu).queryByRole("button", { name: msg("applications-menu-remove") })).toBeNull();
     expect(within(menu).getByRole("button", { name: /Withdrawn/ })).toBeInTheDocument();
@@ -401,15 +413,87 @@ describe("a posting on the board", () => {
     expect(screen.getByText("View posting")).toBeInTheDocument();
   });
 
-  it("leaves the section out when the posting is open over its own application page", async () => {
+  it("sets the priority from its row, painting it before the server answers", async () => {
     detail = applicationDetailFixture({
-      application: applicationCardFixture({ pursuit_id: 10, stage: "applied", stage_since: daysAgo(2) }),
+      application: applicationCardFixture({ pursuit_id: 10, stage: "applied", stage_since: daysAgo(2), priority: 3, priority_set: false }),
     });
-    renderPosting(posting({ is_favorite: true, pursuit: pursuit("applied") }), {
-      pathname: "/company/openai/job/101",
-      state: { backgroundLocation: { pathname: "/pipeline/101", search: "", hash: "", state: null, key: "a" } },
+    renderPosting(posting({ is_favorite: true, pursuit: pursuit("applied") }));
+    const priority = await findRow(msg("applications-fact-priority"));
+    // Named with its row, as a card's mark is: "High" alone says nothing.
+    await userEvent.click(within(priority).getByRole("button", {
+      name: msg("applications-card-priority", { level: msg("applications-priority-none") }),
+    }));
+    const menu = await screen.findByRole("dialog", { name: msg("applications-priority-menu", { title: TITLE }) });
+    vi.mocked(api.setPursuit).mockImplementationOnce(() => new Promise(() => {}));
+    await userEvent.click(within(menu).getByRole("button", { name: new RegExp(msg("applications-priority-high")) }));
+    expect(api.setPursuit).toHaveBeenCalledWith(101, { priority: 4 });
+    expect(within(row(msg("applications-fact-priority"))!).getByRole("button"), "painted at once")
+      .toHaveTextContent(msg("applications-priority-high"));
+  });
+
+  it("has no priority once the application has ended: nothing waits to be ranked", async () => {
+    detail = applicationDetailFixture({
+      application: applicationCardFixture({ pursuit_id: 10, stage: "rejected", ended_at_stage: "applied", stage_since: daysAgo(2) }),
     });
-    expect(await within(bar()).findByRole("button", { name: stageNamed("Applied") })).toBeInTheDocument();
-    expect(within(column()).queryByText(msg("applications-posting-row")), "the page under says it all").toBeNull();
+    renderPosting(posting({ is_favorite: true, pursuit: pursuit("rejected") }));
+    await findRow(msg("applications-posting-stage"));
+    expect(row(msg("applications-fact-priority"))).toBeUndefined();
+  });
+});
+
+describe("a role's two tabs", () => {
+  const applied = () => applicationDetailFixture({
+    application: applicationCardFixture({
+      pursuit_id: 10, stage: "applied", stage_since: daysAgo(3),
+      next_action: "Email the recruiter", next_action_due: tomorrowNoon(),
+    }),
+  });
+
+  it("opens on the posting unless the address names the Workspace, and reads the feed only there", async () => {
+    detail = applied();
+    const first = renderPosting(posting({ is_favorite: true, pursuit: pursuit("applied") }));
+    await findRow(msg("applications-posting-next-step"));
+    expect(screen.getByTestId("tab")).toHaveTextContent("posting");
+    expect(main()).toHaveTextContent("The posting");
+    expect(api.activity, "the feed is the Workspace's").not.toHaveBeenCalled();
+    first.unmount();
+
+    renderPosting(posting({ is_favorite: true, pursuit: pursuit("applied") }), "workspace");
+    expect(screen.getByTestId("tab")).toHaveTextContent("workspace");
+    expect(await within(main()).findByText(msg("applications-ws-next"))).toBeInTheDocument();
+    await waitFor(() => expect(api.activity).toHaveBeenCalledWith(101, expect.anything()));
+  });
+
+  it("leaves the next step and its day to the Workspace while it is on screen, and keeps the rest", async () => {
+    detail = applied();
+    renderPosting(posting({ is_favorite: true, pursuit: pursuit("applied") }), "workspace");
+    await within(main()).findByText(msg("applications-ws-next"));
+    expect(row(msg("applications-posting-stage"))).toBeDefined();
+    expect(row(msg("applications-fact-priority"))).toBeDefined();
+    expect(row(msg("applications-fact-days"))).toBeDefined();
+    expect(row(msg("applications-posting-next-step")), "said once, in the main column").toBeUndefined();
+    expect(row(msg("applications-posting-due"))).toBeUndefined();
+    expect(within(main()).getByText("Email the recruiter")).toBeInTheDocument();
+  });
+
+  it("opens the stage menu on M and the interview form on I, but not while typing", async () => {
+    detail = applied();
+    renderPosting(posting({ is_favorite: true, pursuit: pursuit("applied") }));
+    await findRow(msg("applications-posting-stage"));
+    await userEvent.keyboard("m");
+    expect(await menuOf()).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: msg("applications-stage-menu-label", { title: TITLE }) })).toBeNull());
+    await userEvent.keyboard("i");
+    const form = await screen.findByRole("dialog", { name: msg("applications-interview-add-title") });
+    await userEvent.type(within(form).getAllByRole("textbox")[0], "mi");
+    expect(screen.queryByRole("dialog", { name: msg("applications-stage-menu-label", { title: TITLE }) }), "a key typed into a field is the field's")
+      .toBeNull();
+  });
+
+  it("answers no key for a role outside the pipeline", async () => {
+    renderPosting(posting());
+    await userEvent.keyboard("mi");
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

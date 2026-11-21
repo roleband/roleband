@@ -156,8 +156,8 @@ div.privacy-consent-choice {
 
 /* ---- The welcome's scene (`look="scene"`): the welcome's type, no table.
    Four steps of weight, top to bottom: the title; the reason, muted; the
-   kinds, each a name in full ink over a muted sentence under its own gold
-   icon (a box in the icon's place once someone chooses), and below a rule the
+   kinds, each a name in full ink over a muted sentence under its own
+   action-coloured icon (a box in the icon's place once someone chooses), and below a rule the
    never-sent promise in the same shape, its mark muted because it is not a
    kind to share; then "Change it" and "Let me choose" in quiet type. The two
    answers close it, larger, still equal. */

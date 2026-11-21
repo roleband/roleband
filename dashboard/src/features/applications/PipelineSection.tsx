@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import type { ApplicationCard, ApplicationDetail } from "../../api";
 import { date as formatDate } from "../../copy/format";
 import { STAGE_LABEL, type StageSlug } from "../../copy/vocabulary";
@@ -17,13 +16,17 @@ import {
   applicationsPostingHistoryToday,
   applicationsPostingInterview,
   applicationsPostingNextStep,
-  applicationsPostingOpen,
   applicationsPostingRow,
   applicationsPostingSinceToday,
   applicationsPostingStage,
+  applicationsCardPriority,
+  applicationsFactPriority,
+  applicationsPriorityMenu,
 } from "../../copy/gen/applications";
 import { interviewWhen } from "./ApplicationPanels";
-import { CLOSED_STAGES, applicationPath, dayOffset, daysInStage, daysOverdue, daysToSay, dueState, isMoving, stepDue, type Due } from "./board";
+import { CLOSED_STAGES, dayOffset, daysInStage, daysOverdue, daysToSay, dueState, isMoving, stepDue, type Due } from "./board";
+import { PRIORITY_LABEL, PRIORITY_STORED, priorityOf } from "./priority";
+import { PriorityMark, PriorityMenu } from "./PriorityMark";
 import { stageName } from "./StageLabel";
 
 type History = Pick<ApplicationDetail, "stages_reached" | "interviews">;
@@ -128,41 +131,83 @@ function dueDay(due: Due, now: Date): string {
   return applicationsPostingDueDay({ offset: dayOffset(due.on, now), date: formatDate(due.on, "weekday") });
 }
 
+/** The priority, set in place from its menu. */
+function PriorityPick({ card, onPick }: { card: ApplicationCard; onPick: (stored: number) => void }) {
+  const [open, setOpen] = useState(false);
+  const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null);
+  const level = priorityOf(card);
+  return (
+    <>
+      <Button
+        ref={setAnchor}
+        variant="ghost"
+        size="sm"
+        className="jd-pipeline-pick"
+        aria-label={applicationsCardPriority({ level: PRIORITY_LABEL[level]() })}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => setOpen((was) => !was)}
+      >
+        <PriorityMark level={level} />
+        {PRIORITY_LABEL[level]()}
+      </Button>
+      <PriorityMenu
+        current={level}
+        label={applicationsPriorityMenu({ title: card.title })}
+        anchor={anchor}
+        isOpen={open}
+        onClose={() => setOpen(false)}
+        onPick={(picked) => {
+          setOpen(false);
+          onPick(PRIORITY_STORED[picked]);
+        }}
+      />
+    </>
+  );
+}
+
 /**
  * Where the posting's role stands in the pipeline, always in view above its
- * Details: the stage; how long it has stood there, with the application's
- * history on demand; and what waits: when the next interview is, the next
- * step, and the day that step is due. Every row is a label and plain words:
- * the section is read, and the bar's stage button is where the stage is
- * changed. A row shows only when it has something to say. The section is a
- * summary of the application, so the way to the application itself stands on
- * its heading line, outside the rows. An ended application says how and when
- * it ended, and nothing waits.
+ * Details: the stage and its priority; how long it has stood there, with the
+ * application's history on demand; and what waits: when the next interview
+ * is, the next step, and the day that step is due. The rows are read, apart
+ * from the priority, which is set here: the bar's stage button is where the
+ * stage is changed. A row shows only when it has something to say. On the
+ * Workspace the next step and its day are the main column's, so they are not
+ * repeated here. An ended application says how and when it ended, and
+ * nothing waits.
  */
-export function PipelineSection({ card, history, now, column }: {
+export function PipelineSection({ card, history, now, column, workspace = false, onPriority }: {
   card: ApplicationCard;
   history: History;
   now: Date;
   /** The side column the history opens across. */
   column: HTMLElement | null;
+  /** The Workspace is on screen beside the section. */
+  workspace?: boolean;
+  /** Sets the priority, as stored. */
+  onPriority: (priority: number) => void;
 }) {
   const moving = isMoving(card);
   const stage = stageName(card);
   const days = daysInStage(card, now);
   const interview = moving ? card.next_interview : null;
-  const step = moving && card.next_action ? card.next_action : null;
+  const step = moving && !workspace && card.next_action ? card.next_action : null;
   const due = step ? stepDue(card) : null;
   const historyButton = <HistoryButton card={card} history={history} now={now} column={column} />;
 
   return (
     <>
-      <div className="jd-section-head">
-        <div className="section-title">{applicationsPostingRow()}</div>
-        <Link className="ui-btn ui-btn-link ui-btn-quiet" to={applicationPath(card.job_id)}>{applicationsPostingOpen()}</Link>
-      </div>
+      <div className="section-title">{applicationsPostingRow()}</div>
       <dl className="kv jd-pipeline-facts">
         <dt>{applicationsPostingStage()}</dt>
         <dd>{stage}</dd>
+        {moving && (
+          <>
+            <dt>{applicationsFactPriority()}</dt>
+            <dd><PriorityPick card={card} onPick={onPriority} /></dd>
+          </>
+        )}
         {moving && days != null && (
           <>
             <dt>{applicationsFactDays()}</dt>

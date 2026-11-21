@@ -428,7 +428,7 @@
   cursor: default;
 }
 
-/* The current verdict is CHOSEN: gold wash and edge, its name in
+/* The current verdict is CHOSEN: the chosen wash and edge, its name in
    the chosen ink, its radio as the chosen mark. Keyed on `aria-pressed`. */
 .review-decision-option[aria-pressed="true"] {
   border-color: var(--app-chosen-line);

@@ -298,10 +298,10 @@ textarea {
   --tb-border: rgba(24, 26, 32, 0.11);
   --tb-border-strong: rgba(24, 26, 32, 0.22);
   --tb-hover: rgba(22, 24, 30, 0.06);
-  --tb-accent: #8a610f;
-  --tb-accent-soft: rgba(138, 97, 15, 0.1);
-  --tb-accent-line: rgba(138, 97, 15, 0.34);
-  --tb-accent-text: #77540d;
+  --tb-accent: #0969da;
+  --tb-accent-soft: rgba(9, 105, 218, 0.1);
+  --tb-accent-line: rgba(9, 105, 218, 0.34);
+  --tb-accent-text: #0757b8;
   --tb-good: #087c4f;
   --tb-good-soft: rgba(8, 124, 79, 0.09);
   /* 4.84:1 on the composited glass, above AA; the chrome palette is inside
@@ -379,9 +379,11 @@ textarea {
   border-radius: 10px;
   display: grid;
   place-items: center;
-  background: var(--app-action);
-  color: var(--app-action-ink);
-  box-shadow: 0 0 0 1px var(--app-action-line), 0 8px 26px var(--app-action-soft);
+  background: var(--app-brand);
+  color: var(--app-brand-ink);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--app-brand) 34%, transparent),
+    0 8px 26px color-mix(in srgb, var(--app-brand) 12%, transparent);
 }
 
 .brand-mark svg {
@@ -545,7 +547,7 @@ textarea {
    announces (`aria-pressed` on a lens, `aria-current` on a link). The chosen
    set, not the strip's frozen `--tb-accent*` copy of it: the values are the
    same, and a state is painted from one place, so the good chip's figure takes
-   the chosen gold like every other chip. */
+   the chosen colour like every other chip. */
 .stat-chip.clickable:is([aria-pressed="true"], [aria-current="page"]) {
   background: var(--app-chosen-wash);
 }
@@ -883,14 +885,9 @@ html[data-ground="plain"] body {
   --rail-accent-soft: rgba(219, 203, 144, 0.12);
   --rail-accent-line: rgba(219, 203, 144, 0.18);
   --rail-accent-glow: rgba(219, 203, 144, 0.6);
-  /* The Pipeline's star tile and the well its views drop into: the tile a
-     step brighter than the well, so the parent outweighs what it holds. */
-  --rail-tile: rgba(255, 255, 255, 0.04);
-  --rail-tile-hover: rgba(255, 255, 255, 0.07);
-  --rail-tile-line-hover: rgba(230, 233, 240, 0.24);
+  /* The well the Pipeline's views drop into. */
   --rail-well: rgba(255, 255, 255, 0.03);
   --rail-well-line: rgba(230, 233, 240, 0.13);
-  --rail-accent-edge: rgba(219, 203, 144, 0.32);
   position: relative;
   z-index: 25;
   min-width: 0;
@@ -1002,21 +999,6 @@ html[data-ground="plain"] body {
   display: inline;
 }
 
-.rail-section-label {
-  display: none;
-  padding: 0 var(--app-space-3);
-  margin: 0 0 var(--app-space-2);
-  color: var(--rail-faint);
-  font-family: var(--app-font-mono);
-  font-size: var(--app-type-whisper);
-  font-weight: var(--app-type-whisper-weight);
-  letter-spacing: var(--app-type-whisper-track);
-  text-transform: uppercase;
-}
-
-.app.nav-expanded .rail-section-label {
-  display: block;
-}
 
 .rail-group {
   display: flex;
@@ -1072,7 +1054,8 @@ html[data-ground="plain"] body {
   border-color: var(--rail-accent-line);
 }
 
-.rail-item[aria-current="page"]::before {
+.rail-item[aria-current="page"]::before,
+.rail-item[aria-current="true"]::before {
   content: "";
   position: absolute;
   left: -14px;
@@ -1084,7 +1067,8 @@ html[data-ground="plain"] body {
   box-shadow: 0 0 14px var(--rail-accent-glow);
 }
 
-.app.nav-expanded .rail-item[aria-current="page"]::before {
+.app.nav-expanded .rail-item[aria-current="page"]::before,
+.app.nav-expanded .rail-item[aria-current="true"]::before {
   left: -15px;
 }
 
@@ -1132,9 +1116,10 @@ html[data-ground="plain"] body {
 
 /* ---- the Pipeline and its views (shell/PipelineRailGroup.tsx) ------------- */
 
-/* The star is the parent and outweighs what it holds: a full rail entry with
-   a tile of its own, the views smaller and dimmer inside a narrower well that
-   hangs from under the tile. Everything stays on the rail's centre line. */
+/* The star is the parent and outweighs what it holds: a full rail entry in
+   gold, the views smaller and dimmer inside a narrower well that hangs from
+   it. At rest it is drawn as any other entry. Everything stays on the rail's
+   centre line. */
 .rail-family {
   display: flex;
   flex-direction: column;
@@ -1142,69 +1127,59 @@ html[data-ground="plain"] body {
 }
 
 /* The star the person presses on a role, gold wherever it stands for the
-   Pipeline. */
+   Pipeline. Its tile is opaque and above the well, so the well's top passes
+   under it: whatever state tints the tile is laid on the rail's own canvas. */
 .rail-family-star svg {
   color: var(--rail-accent);
   fill: currentColor;
 }
 
-.rail-family-star {
+.rail-family .rail-family-star {
   z-index: 1;
-  border-color: var(--rail-line-strong);
-  border-radius: 11px;
-  background: var(--rail-tile);
-  /* A ring of the rail's own ground, so the tile sits over the well's top
-     edge instead of crossing it. */
-  box-shadow: 0 0 0 3px var(--rail-canvas);
+  background-color: var(--rail-canvas);
 }
 
-.rail-family-star:hover,
-.rail-family.open .rail-family-star {
-  background: var(--rail-tile-hover);
-  border-color: var(--rail-tile-line-hover);
+.rail-family .rail-family-star:hover,
+.rail-family:not(.is-within).open .rail-family-star {
+  background-image: linear-gradient(var(--rail-hover), var(--rail-hover));
 }
 
-/* In the Pipeline the star carries the place's mark, so it says where the
-   person is while the well is closed. */
-.rail-family.is-within .rail-family-star {
+/* In the Pipeline the star is chosen as any rail entry is, and the view on
+   screen is chosen inside the well, so both levels say where the person is. */
+.rail-family .rail-item[aria-current="true"] {
   color: var(--rail-accent-text);
-  background: var(--rail-accent-soft);
-  border-color: var(--rail-accent-edge);
+  background-image: linear-gradient(var(--rail-accent-soft), var(--rail-accent-soft));
+  border-color: var(--rail-accent-line);
 }
 
-.rail-family.is-within .rail-family-star::before {
-  content: "";
-  position: absolute;
-  left: -14px;
-  top: 9px;
-  bottom: 9px;
-  width: 2px;
-  border-radius: 2px;
-  background: var(--rail-accent);
-  box-shadow: 0 0 14px var(--rail-accent-glow);
+/* A ring of the rail's canvas around the star while its views show: the
+   well's sides end at the ring and read as passing behind the star. */
+.rail-family.open .rail-family-star {
+  box-shadow: 0 0 0 3px var(--rail-canvas);
 }
 
 .rail-well {
   display: none;
 }
 
+/* The well is a U open toward the star: its top is tucked under the star's
+   tile, so only its sides and rounded foot show, and the views read as held
+   by the star rather than as a box of their own. */
 .rail-family.open .rail-well {
+  position: relative;
   width: 36px;
   box-sizing: border-box;
-  margin-top: -9px;
-  padding: 14px 2px 2px;
+  margin-top: -12px;
+  padding: 18px 2px 2px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 1px;
   border: 1px solid var(--rail-well-line);
-  border-radius: 11px;
+  border-top: 0;
+  border-radius: 0 0 11px 11px;
   background: var(--rail-well);
   animation: rail-well-in var(--app-duration-medium) ease-out;
-}
-
-.rail-family.open.is-within .rail-well {
-  border-color: var(--rail-accent-edge);
 }
 
 @keyframes rail-well-in {
@@ -1228,10 +1203,6 @@ html[data-ground="plain"] body {
 /* Expanded: the views drop in named, on a line set in from the star. */
 .app.nav-expanded .rail-family {
   align-items: stretch;
-}
-
-.app.nav-expanded .rail-family.is-within .rail-family-star::before {
-  left: -15px;
 }
 
 .app.nav-expanded .rail-family.open .rail-well {
@@ -1395,7 +1366,7 @@ html[data-ground="plain"] body {
 }
 
 /* The option Enter acts on: the keyboard's place in the list, not a choice.
-   It wears the app's one ring, inside, over the hover fill. Not the gold wash
+   It wears the app's one ring, inside, over the hover fill. Not the chosen wash
    alone: that is about 1.1:1 against the list (WCAG 1.4.11 asks 3:1 of a
    focus indicator) and the chosen look besides, which means "picked", not
    "here". */
@@ -1535,12 +1506,10 @@ html[data-ground="plain"] body {
   }
 
   .rail-brand,
-  .rail-section-label,
   .rail-toggle {
     display: none;
   }
 
-  .app.nav-expanded .rail-section-label,
   .app.nav-expanded .rail-toggle {
     display: none;
   }

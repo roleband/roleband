@@ -3,9 +3,6 @@ import { Link } from "react-router-dom";
 import { api, type ApplicationCalendarItem, type ApplicationCard } from "../../api";
 import { date as formatDate, list, time as formatTime, timestamp, weekday } from "../../copy/format";
 import {
-  applicationsInterviewOutcomeCancelled,
-  applicationsInterviewOutcomeNotPassed,
-  applicationsInterviewOutcomePassed,
   applicationsMonthDay,
   applicationsMonthDayEmpty,
   applicationsMonthFailed,
@@ -26,18 +23,12 @@ import { companyName } from "../../format";
 import { useAsyncResource, useRefetchOn } from "../../hooks/useAsyncResource";
 import { commonTryAgain } from "../../copy/gen/common";
 import { Badge, Button, CompanyIcon, Content, Icon } from "../../ui";
-import { useOriginState } from "./pageOrigin";
-import { applicationPath } from "./board";
+import { useRoleLink } from "./roleLink";
+import { OUTCOME_LABEL } from "./interviewWords";
 import { dayKey, fromDayKey, itemsByDay, monthOf, monthSpan, monthWeeks, shiftDay, shiftMonth } from "./monthGrid";
 
-const OUTCOME = {
-  passed: applicationsInterviewOutcomePassed,
-  not_passed: applicationsInterviewOutcomeNotPassed,
-  cancelled: applicationsInterviewOutcomeCancelled,
-} as const;
-
 function DayItem({ item, card, match }: { item: ApplicationCalendarItem; card: ApplicationCard; match?: boolean }) {
-  const origin = useOriginState();
+  const role = useRoleLink();
   const company = companyName(card.company);
   const at = new Date(item.at);
   const when = item.kind === "interview"
@@ -52,14 +43,14 @@ function DayItem({ item, card, match }: { item: ApplicationCalendarItem; card: A
             ? applicationsUpnextInterview({ label: item.label })
             : applicationsUpnextStep({ step: item.step })}
         </span>
-        <Link to={applicationPath(card.job_id)} state={origin} className="app-tile-open app-upnext-role">
+        <Link {...role(card, "workspace")} className="app-tile-open app-upnext-role">
           <CompanyIcon slug={card.company} display={company} size={16} />
           <span>{company}</span>
           <span className="app-upnext-title"><Content text={card.title} /></span>
         </Link>
       </div>
       {item.kind === "interview" && item.outcome && (
-        <Badge tone={item.outcome === "passed" ? "success" : "neutral"} size="sm">{OUTCOME[item.outcome]()}</Badge>
+        <Badge tone={item.outcome === "passed" ? "success" : "neutral"} size="sm">{OUTCOME_LABEL[item.outcome]()}</Badge>
       )}
     </li>
   );

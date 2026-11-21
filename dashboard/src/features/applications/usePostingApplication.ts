@@ -30,6 +30,9 @@ function provisionalCard(job: Job): ApplicationCard {
     pursuit_id: pursuit?.id ?? null,
     stage: pursuit?.stage ?? "saved",
     priority: pursuit?.priority ?? 3,
+    // The posting's read does not say whether one was chosen; the board's
+    // read, which replaces this card, does.
+    priority_set: false,
     starred: job.is_favorite,
     company: job.company,
     title: job.title,
@@ -38,6 +41,7 @@ function provisionalCard(job: Job): ApplicationCard {
     next_action: pursuit?.next_action ?? null,
     next_action_due: pursuit?.next_action_due ?? null,
     next_interview: null,
+    awaiting_outcome: null,
     comment_count: 0,
     stage_since: null,
     last_activity_at: null,
@@ -59,6 +63,14 @@ export interface PostingApplication {
   move: ReturnType<typeof useStageMove>;
   /** Takes a role in Considering out of the pipeline, with Undo. */
   remove: () => void;
+  /** The application as read, once it has loaded; null before and off the board. */
+  detail: ApplicationDetail | null;
+  /** Paints the application read here, ahead of the write that changes it. */
+  paintDetail: (change: (current: ApplicationDetail) => ApplicationDetail) => void;
+  /** Reads the application again. */
+  reread: () => Promise<unknown>;
+  /** The pursuit write, through the save command. */
+  write: PursuitWrite;
 }
 
 /**
@@ -175,5 +187,21 @@ export function usePostingApplication(
     [loaded],
   );
 
-  return { onBoard, card: onBoard ? card : null, reached, history, move, remove };
+  const paintDetail = useCallback(
+    (change: (current: ApplicationDetail) => ApplicationDetail) => mutate((current) => current && change(current)),
+    [mutate],
+  );
+
+  return {
+    onBoard,
+    card: onBoard ? card : null,
+    reached,
+    history,
+    move,
+    remove,
+    detail: onBoard ? loaded : null,
+    paintDetail,
+    reread,
+    write,
+  };
 }

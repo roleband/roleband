@@ -47,7 +47,7 @@ async def seed_profile(session: AsyncSession) -> SeededProfile:
     j = {key: row.id for key, row in jobs.items()}
 
     pursuits = {
-        "applied": Pursuit(job_id=j["applied"], stage="applied", priority=1, notes="Referred by a former colleague.",
+        "applied": Pursuit(job_id=j["applied"], stage="applied", priority=5, notes="Referred by a former colleague.",
                            next_action="Prepare the product sense interview", next_action_due=NOW + timedelta(days=3),
                            created_at=NOW - timedelta(days=6), updated_at=NOW - timedelta(days=1)),
         "interviewing": Pursuit(job_id=j["interviewing"], stage="interviewing", priority=2,

@@ -43,6 +43,7 @@ import {
   Columns2,
   Compass,
   Copy,
+  GitCompareArrows,
   Laptop,
   ExternalLink,
   Eye,
@@ -110,6 +111,8 @@ const ICONS = {
   clock: Clock,
   close: X,
   columns: Columns2,
+  // Roles side by side. Not `columns`, which is a table's column picker.
+  compare: GitCompareArrows,
   undo: Undo2,
   compass: Compass,
   copy: Copy,

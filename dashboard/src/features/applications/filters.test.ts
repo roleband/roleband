@@ -103,7 +103,7 @@ describe("each view's own filters", () => {
     applicationCardFixture({ stage, stage_since: day(-90), last_activity_at: day(-90) }),
     applicationCardFixture({ stage, next_action: "Chase", next_action_due: day(-2) }),
     applicationCardFixture({ stage, next_action: "Chase", next_action_due: day(3), stage_since: day(-90), last_activity_at: day(-90) }),
-    applicationCardFixture({ stage, next_interview: { id: 1, label: "Screen", scheduled_at: day(2), all_day: false, format: "video" } }),
+    applicationCardFixture({ stage, next_interview: { id: 1, label: "Screen", scheduled_at: day(2), all_day: false, format: "video", link: null } }),
     applicationCardFixture({ stage, priority: 5, next_action: "Chase", next_action_due: day(1) }),
     applicationCardFixture({ stage, posting_status: "closed", next_action: "Chase", next_action_due: day(1) }),
   ];

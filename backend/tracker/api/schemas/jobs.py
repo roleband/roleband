@@ -85,6 +85,9 @@ class JobRow(Built):
 
     id: int
     is_favorite: bool
+    #: The role's stage in the pipeline, for a role it shows: starred, or
+    #: moved past Considering. Null otherwise.
+    pipeline_stage: PursuitStage | None
     is_dismissed: bool
     #: The posting's company is tracked and not followed: nothing
     #: checks it any more. Only Saved, Compare and reads by id can show one.

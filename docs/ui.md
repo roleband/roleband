@@ -296,7 +296,8 @@ as `unset`.
 | Grounds | `canvas`, `surface`, `surface-raised` / `-subtle` / `-sunken` / `-glass` / `-hover`, `selected` |
 | Lines and text | `border`, `border-strong`; `text`, `text-muted`, `text-faint` (all AA) |
 | Decor | `decor`: glyph strokes, dots, hairline chrome. Never text |
-| Action | `action` (the gold) and `action-ink` / `-soft` / `-line` / `-text` / `-ring` / `-glow` |
+| Action | `action` (gold in dark, blue in light) and `action-ink` / `-soft` / `-line` / `-text` / `-ring` / `-glow` |
+| Brand | `brand`, `brand-ink`: the logo's tile, the brand's gold in both themes. Nothing else wears it |
 | States | `chosen-*`, `on-*` (see [Two states](#two-states)) |
 | Status and data | `positive*`, `warning*`, `danger*`, `information`; `data-1` .. `data-4` for charts |
 | Other | `bar`, `mark`, `ambient-*`, `shadow`, `shadow-pop`, plus the type, geometry and motion scales below |
@@ -496,9 +497,9 @@ lowers one lowers the baseline too.
 | `click-target` | `onClick` on a `div`, `span`, `li` and similar | A real button or link |
 
 The raw buttons that remain are known shapes (whole-row targets, palette
-options, the dial's drag handle, the sync button, and the rail's theme toggle
-and Pipeline star, which wear the class of the rail entries beside them on the
-rail's fixed-dark palette). A new exception is paid for
+options, the dial's drag handle, the sync button, and the rail's theme toggle,
+which wears the class of the rail entries beside it on the rail's fixed-dark
+palette). A new exception is paid for
 by converting an existing one, never by raising the number.
 
 ## Controls
@@ -575,8 +576,8 @@ Every on, selected or current look is one of two, each from one token set.
 
 | State | Means | Paint |
 |---|---|---|
-| Chosen | One option among others, or the current item of a set (tab, chip, segment, option card, nav item, a row picked for Compare) | Gold: `--app-chosen-wash` behind, `-line` around, name in `-text`, mark in `-mark` |
-| On | A thing's own on/off state, set by a switch | Ink: `--app-on-fill`, `--app-on-wash`. Never gold |
+| Chosen | One option among others, or the current item of a set (tab, chip, segment, option card, nav item, a row picked for Compare) | The action colour: `--app-chosen-wash` behind, `-line` around, name in `-text`, mark in `-mark` |
+| On | A thing's own on/off state, set by a switch | Ink: `--app-on-fill`, `--app-on-wash`. Never the action colour |
 
 - Paint keys on the element's own state: `aria-pressed`, `aria-selected`,
   `aria-checked`, `aria-current`, `:checked`, or a parent's
@@ -591,7 +592,7 @@ Every on, selected or current look is one of two, each from one token set.
   marks the field and paints nothing; the words that say why sit beside it.
 - The name changes colour; the description under it stays muted. Never change
   weight to show state (it reflows the row).
-- A list option marks its choice with a tick and the gold name, no wash. A
+- A list option marks its choice with a tick and the chosen name, no wash. A
   flush row with no edge shows chosen as an inset bar in `--app-chosen-mark`.
 - Three named exceptions change only the hue: a pressed `danger` button, the
   nav rail (its own dark gold), and the "not interested" list (danger hue).
@@ -650,14 +651,24 @@ The nav rail is `--app-nav-width` (72px), or `--app-nav-width-expanded`
 (204px) when expanded. Below 860px it becomes a bottom dock that scrolls
 horizontally. Each rail tab renders `patterns/PageHeader` with its rail label
 as the `h1` (`patterns/page-header.test.ts`, `tests/ux/page-header.spec.ts`).
-The Pipeline's views (Considering, Board, Up next) are rail entries under its
-star rather than a tab row, so a view's page is titled by the view. The views
-stay folded away until the pointer rests on the star or the star is pressed;
-then they drop in under it and push the rest of the rail down, in a narrow well
-when the rail is collapsed and named when it is expanded. The star wears the
-place's mark while a view is on screen, and the dock lists the views in its
-row (`shell/PipelineRailGroup.tsx`). Each view keeps its own filters and finds
-them again on arrival through the rail (`routing/useRememberedParams`).
+The Pipeline's views (Considering, Board, Up next) are both its tab row and
+rail entries under its star. The star is the Pipeline's rail entry: it opens
+Considering, and in the Pipeline it and the view on screen are both chosen,
+the views on show under it. Anywhere else the views stay folded away until the
+pointer rests on the star; then they drop in under it and push the rest of the
+rail down, in a well open toward the star when the rail is collapsed and named
+on a line when it is expanded. The dock lists the views in its row
+(`shell/PipelineRailGroup.tsx`). Either way a view opens at a bare address and
+finds its own filters again (`routing/useRememberedParams`).
+
+A list screen scrolls as one page: the title and tabs scroll away and the
+toolbar docks at the top (`.app-toolbar`, `design/surfaces.css`). Each
+Pipeline view's panel is at least the window's height, so a short list docks
+the same way. The Board and Considering keep that order around a frame of
+their own: the page scrolls until the toolbar docks, a scroll down over the
+frame moves the page first (`usePageScrollsFirst`), and the frame then fills
+the window under the toolbar and scrolls both ways, its column heads at its
+top. Up next's month sticks under the docked toolbar.
 Under the header, a list screen's count and its Reset all live in
 `patterns/ResultsSummary`; Reset all clears every filter and lens, never the
 search query.
@@ -831,7 +842,7 @@ to Profile's steps changes setup with it.
 While it runs, setup has the window to itself: the rail and the top bar are not
 drawn (`App.tsx`, while setup mode is not off), and the palette and global keys
 do not open. The walk draws its own header, an eyebrow with the step ("Setup,
-step 2 of 7") over "Set up your radar", with a gold line under the steps for how
+step 2 of 7") over "Set up your radar", with a line in the action colour under the steps for how
 far along it is, and stands as one centred column, at most 1320px, a little
 below the top (`walk.css`, `.walk--setup`). Setup's way out is a quiet link in
 that header, and its one primary is the last step's Start. Setup asks for the
@@ -1282,7 +1293,7 @@ Unit gates (`npm run test:unit`) are under `dashboard/src/`; UX specs
 | A selector lives in one sheet; keyframes defined once and reachable | `design/one-definition.test.ts` |
 | Filter register type grammar | `design/filter-grammar.test.ts` |
 | Every tab wears `PageHeader` | `patterns/page-header.test.ts`, `page-header.spec.ts` |
-| The Pipeline's views drop out of its star and push the rail down | `shell/NavRail.test.tsx`, `pipeline-rail.spec.ts` |
+| The Pipeline's star opens Considering and is chosen with the view on screen; elsewhere its views drop out of it on a resting pointer and push the rail down | `shell/NavRail.test.tsx`, `pipeline-rail.spec.ts` |
 | Rail boundary named once | `patterns/rail-shell.test.ts` |
 | Sticky offsets derived, container queries kept | `features/companies/register.test.ts`, `features/opportunities/board-shell.test.ts` |
 | Register screens match the rest | `material-parity.spec.ts` |

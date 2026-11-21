@@ -102,13 +102,59 @@
   }
 }
 
-
 /* ---- hero ---------------------------------------------------------------- */
 
 .jd-hero {
   padding-bottom: var(--app-space-5);
   margin-bottom: var(--app-space-5);
   border-bottom: 1px solid var(--app-border);
+}
+
+/* ---- tabs -----------------------------------------------------------------
+   A role in the pipeline reads in two tabs, its posting and the person's own
+   work on it. They stand in the hero's foot line, and once scrolled to they
+   are held under the bar: the room above them keeps their words off the
+   bar's edge, and the hero gives up as much of its own room, so nothing at
+   the top moves. What else is held (the description's headings, the side
+   column) stops under them instead of under the bar. */
+.jd-container {
+  --jd-tabs-h: calc(var(--app-control-lg) + 2 * var(--app-space-2));
+}
+
+.jd-container[data-tabbed] > .jd-hero {
+  padding-bottom: calc(var(--app-space-5) - var(--app-space-2));
+  margin-bottom: 0;
+  border-bottom: 0;
+}
+
+.jd-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  box-sizing: border-box;
+  height: var(--jd-tabs-h);
+  margin-bottom: var(--app-space-5);
+  padding-block: var(--app-space-2);
+  box-shadow: inset 0 -1px 0 var(--app-border);
+}
+
+/* Held, they hide what passes beneath as a held heading does; in their place
+   the hero's ground shows through. */
+.jd-tabs[data-stuck] {
+  background-color: var(--app-canvas);
+}
+
+.jd-container[data-tabbed] .jd-section h2 {
+  top: var(--jd-tabs-h);
+}
+
+.jd-container[data-tabbed] .jd-aside {
+  top: calc(var(--jd-tabs-h) + var(--app-space-6));
+}
+
+/* The Workspace's room while its chunk or its application is on the way. */
+.jd-workspace-wait {
+  min-height: 240px;
 }
 
 /* The screen's own h1, at the screen's own rank: `page`, at every width.
@@ -714,7 +760,7 @@
   flex: 0 0 auto;
 }
 
-/* The saved star keeps the radar row's gold through every stage: an ended
+/* The saved star keeps the radar row's colour through every stage: an ended
    application quiets its words, never the star, so the star means saved
    wherever the role is seen. */
 .jd-stage-star {
@@ -733,6 +779,15 @@
 .jd-pipeline-facts dd {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+/* The priority is set in place: its button keeps the row's line, its word
+   at the other values' edge. */
+.jd-pipeline-facts .jd-pipeline-pick {
+  gap: var(--app-space-2);
+  margin-block: calc(var(--app-space-1) * -1);
+  margin-inline-start: calc(var(--app-control-sm-pad) * -1);
+  white-space: nowrap;
 }
 
 /* The one exception: a step past its date, the state that asks the person to
@@ -2030,7 +2085,7 @@
 /* ---- place set ------------------------------------------------ */
 /* One role the employer lists once per place. A quiet ledger, not a deck: the
    other places are links to their postings, and the split is a link too, so
-   the screen keeps its one primary ("View & apply"). */
+   the screen keeps its one primary ("Apply"). */
 .place-set {
   margin: var(--app-space-3) 0 var(--app-space-2);
   max-width: 760px;

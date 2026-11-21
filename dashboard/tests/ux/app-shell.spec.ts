@@ -82,7 +82,7 @@ test("trying again after a dead route chunk recovers the screen", async ({ page 
   const { alert, letThrough } = await openPipelineWithADeadChunk(page);
   letThrough();
   await alert.getByRole("button", { name: "Try again" }).click();
-  await expect(page.getByRole("heading", { name: msg("shell-tab-pipeline-list"), level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: msg("shell-nav-pipeline"), level: 1 })).toBeVisible();
 });
 
 test("a dead chunk does not poison the routes either side of it", async ({ page }) => {

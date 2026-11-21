@@ -542,9 +542,14 @@ def _with_revision(pursuit: dict | None, revisions: dict[int, int]) -> dict | No
     return None if pursuit is None else {**pursuit, "revision": revisions[pursuit["job_id"]]}
 
 
+#: The marks a pursuit read names and the tool does not: the seed books no
+#: rounds, and chooses every pursuit's priority.
+NO_ROUNDS = {"next_interview": None, "awaiting_outcome": None, "priority_set": True}
+
+
 def _items(tool: dict, revisions: dict[int, int]) -> list[dict]:
     return [
-        PursuitItem.model_validate(_with_revision(item, revisions)).model_dump(mode="json")
+        PursuitItem.model_validate({**(_with_revision(item, revisions) or {}), **NO_ROUNDS}).model_dump(mode="json")
         for item in tool["items"]
     ]
 
@@ -604,8 +609,8 @@ async def test_a_cursor_reads_the_list_as_it_stands_and_the_first_page_reads_it_
     cursor = first["meta"]["next_cursor"]
     rest_before = _data((await _get(api_client, "/pursuits", limit=100, cursor=cursor))[1])["items"]
     moved = rest_before[-1]["job_id"]
-    lowest = min(item["priority"] for item in _data(first)["items"])
-    await workspace.execute(update(Pursuit).where(Pursuit.job_id == moved).values(priority=lowest - 1))
+    highest = max(item["priority"] for item in _data(first)["items"])
+    await workspace.execute(update(Pursuit).where(Pursuit.job_id == moved).values(priority=highest + 1))
     await workspace.commit()
 
     rest_after = _data((await _get(api_client, "/pursuits", limit=100, cursor=cursor))[1])["items"]

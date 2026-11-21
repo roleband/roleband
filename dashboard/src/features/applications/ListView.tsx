@@ -1,9 +1,9 @@
 import { useCallback, useLayoutEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
-import { useMeasuredCssSize } from "../../hooks/useMeasuredCssSize";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import type { ApplicationCard } from "../../api";
 import { useJobActions, useJobWorkspace } from "../../context/JobWorkspace";
 import type { StageSlug } from "../../copy/vocabulary";
+import { daysAgo } from "../../copy/format";
 import { BAND_LABEL, companyName, relDays } from "../../format";
 import { usePayCoverage } from "../../payCoverage";
 import { baseShown } from "../../payShown";
@@ -12,7 +12,6 @@ import { StarButton } from "../../patterns/jobs/JobControls";
 import { primaryLocation } from "../../patterns/jobs/location";
 import { SortButton } from "../../patterns/jobs/SortButton";
 import { AsyncBoundary, Badge, Button, CompanyIcon, Content, EmptyState, Icon, Menu, MenuGroup, MenuItem } from "../../ui";
-import { Abbr } from "../../ui/Abbr";
 import {
   jobsCompare,
   jobsCompareFull,
@@ -26,17 +25,14 @@ import {
   applicationsFactPayNone,
   applicationsBoardLoadFailed,
   applicationsCardActions,
-  applicationsCardDaysInStage,
-  applicationsCardDaysShort,
   applicationsCardPostingClosed,
-  applicationsCardPriority,
   applicationsColumnHide,
   applicationsColumnMenu,
-  applicationsFactDays,
   applicationsFactLastActivity,
   applicationsFactLevel,
   applicationsFactPriority,
   applicationsFactsPosting,
+  applicationsFactStarred,
   applicationsListColumnLeft,
   applicationsListClear,
   applicationsListClearBoard,
@@ -44,12 +40,13 @@ import {
   applicationsListHeadActions,
   applicationsListHeadNext,
   applicationsMenuLabel,
-  applicationsMenuRemove,
 } from "../../copy/gen/applications";
 import { beside, useFocusAfter } from "./focusAfter";
+import { PRIORITY_LABEL, priorityOf } from "./priority";
+import { PriorityMark } from "./PriorityMark";
 import { NoMatches, PipelineEmpty } from "./PipelineEmpty";
-import { useOriginState } from "./pageOrigin";
-import { applicationPath, daysToSay, dueOf } from "./board";
+import { useRoleLink } from "./roleLink";
+import { dueOf } from "./board";
 import { DueBadge } from "./DueBadge";
 import { VIEW_FILTERS, isFiltering, matches, quickCounts } from "./filters";
 import {
@@ -72,11 +69,11 @@ import {
 import { PipelineToolbar } from "./PipelineToolbar";
 import { StageMenu } from "./StageMenu";
 import type { useBoardController } from "./useBoardController";
+import { usePageScrollsFirst } from "./usePageScrollsFirst";
 import { usePostings } from "./usePostings";
 import { useStageAsk } from "./useStageAsk";
 import { useViewFilter } from "./useViewFilter";
 
-const PRIORITY_STEPS = [1, 2, 3, 4, 5] as const;
 
 /** Each column's header, and the sort it chooses. A city is not a rank, so
  *  Location sorts nothing. */
@@ -87,8 +84,8 @@ const HEAD: Record<ListColumn, { name: () => string; sort?: ListSort; num?: bool
   level: { name: applicationsFactLevel, sort: "level" },
   next: { name: applicationsListHeadNext, sort: "next" },
   posting: { name: applicationsFactsPosting, sort: "posting" },
+  saved: { name: applicationsFactStarred, sort: "saved" },
   priority: { name: applicationsFactPriority, sort: "priority" },
-  in_stage: { name: applicationsFactDays, sort: "in_stage", num: true },
   activity: { name: applicationsFactLastActivity, sort: "activity" },
 };
 
@@ -176,6 +173,7 @@ function ColumnMenu({ name, first, last, canHide, onStep, onHide }: {
 
 interface RowActions {
   onMove: (card: ApplicationCard, stage: StageSlug) => void;
+  /** The star: the role leaves the pipeline. */
   onRemove: (card: ApplicationCard) => void;
   onNotForMe: (card: ApplicationCard) => void;
 }
@@ -193,7 +191,7 @@ function Row({ row, now, columns, actions, match }: {
   const cover = usePayCoverage();
   const [menuButton, setMenuButton] = useState<HTMLButtonElement | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const origin = useOriginState();
+  const role = useRoleLink();
   const company = companyName(card.company);
   const unread = job != null && job.viewed_at == null && !viewedIds.has(card.job_id);
   const compareOn = compareIds.has(card.job_id);
@@ -203,7 +201,10 @@ function Row({ row, now, columns, actions, match }: {
   const base = job ? baseShown(job, cover) : null;
   const where = job ? primaryLocation(job.locations) : null;
   const band = placedBand(job);
-  const days = daysToSay(card, now);
+  // In Considering the stage began when the role was saved.
+  const savedFor = card.stage_since
+    ? Math.max(0, Math.floor((now.getTime() - new Date(card.stage_since).getTime()) / 86_400_000))
+    : null;
   const quietFor = card.last_activity_at
     ? Math.floor((now.getTime() - new Date(card.last_activity_at).getTime()) / 86_400_000)
     : null;
@@ -215,7 +216,7 @@ function Row({ row, now, columns, actions, match }: {
           <CompanyIcon slug={card.company} display={company} size={16} />
           <span data-selection="content"><Content text={company} /></span>
         </span>
-        <Link to={applicationPath(card.job_id)} state={origin} className="app-list-title" data-selection="content">
+        <Link {...role(card)} className="app-list-title" data-selection="content">
           <Content text={card.title} />
         </Link>
       </th>
@@ -240,15 +241,14 @@ function Row({ row, now, columns, actions, match }: {
       ? <Badge tone="warning" variant="tint" size="sm">{applicationsCardPostingClosed()}</Badge>
       : job && <span className="app-list-age">{relDays(job.listed_days)}</span>,
     priority: () => (
-      <span className="app-tile-priority" role="img" aria-label={applicationsCardPriority({ priority: card.priority })}>
-        {PRIORITY_STEPS.map((step) => (
-          <span key={step} className="app-tile-dot" data-filled={step <= card.priority || undefined} aria-hidden="true" />
-        ))}
-      </span>
+      priorityOf(card) !== "none" && (
+        <span className="app-list-priority">
+          <PriorityMark level={priorityOf(card)} />
+          {PRIORITY_LABEL[priorityOf(card)]()}
+        </span>
+      )
     ),
-    in_stage: () => days != null && (
-      <Abbr short={applicationsCardDaysShort({ days })} full={applicationsCardDaysInStage({ days })} />
-    ),
+    saved: () => savedFor != null && <span className="app-list-age">{daysAgo(savedFor)}</span>,
     activity: () => quietFor != null && relDays(quietFor),
   };
 
@@ -262,18 +262,11 @@ function Row({ row, now, columns, actions, match }: {
       {columns.map((column) => column === "role"
         ? cells.role()
         : <td key={column} className={HEAD[column].num ? "num" : undefined} data-col={column}>{cells[column]()}</td>)}
-      {/* Radar's row actions, in Radar's order: Not for me, Compare, the star. */}
+      {/* Compare and the star stay in reach; every move, Not for me among
+          them, is in the menu. The star takes the role out of the pipeline,
+          so the menu does not offer that again. */}
       <td className="app-list-actions">
         <span className="app-list-actions-set">
-          <Button
-            variant="icon"
-            size="sm"
-            aria-label={sharedNotForMe()}
-            title={sharedNotForMe()}
-            onClick={() => actions.onNotForMe(card)}
-          >
-            <Icon name="eyeOff" size={14} />
-          </Button>
           {/* Full: still focusable, with the reason as its description. */}
           <Button
             variant="icon"
@@ -287,7 +280,7 @@ function Row({ row, now, columns, actions, match }: {
               if (!full) toggleCompare(card.job_id);
             }}
           >
-            <Icon name={compareOn ? "check" : "columns"} size={14} />
+            <Icon name={compareOn ? "check" : "compare"} size={14} />
           </Button>
           {full && <span id={fullReasonId} className="sr-only">{fullReason}</span>}
           <StarButton on={card.starred} size={16} onToggle={() => actions.onRemove(card)} />
@@ -314,16 +307,14 @@ function Row({ row, now, columns, actions, match }: {
               actions.onMove(card, next);
             }}
           >
-            {card.starred && (
-              <MenuItem
-                onSelect={() => {
-                  setMenuOpen(false);
-                  actions.onRemove(card);
-                }}
-              >
-                {applicationsMenuRemove()}
-              </MenuItem>
-            )}
+            <MenuItem
+              onSelect={() => {
+                setMenuOpen(false);
+                actions.onNotForMe(card);
+              }}
+            >
+              {sharedNotForMe()}
+            </MenuItem>
           </StageMenu>
         </span>
       </td>
@@ -368,8 +359,8 @@ interface Drop {
  * table with its posting's facts beside it. A role leaves it the moment work
  * on it starts, for the Board. It owns its filter, its sort and its columns;
  * the page lends it only the applications. A row's title opens the
- * application, and its last cell holds Radar's row actions and a menu with
- * the same moves a card's menu holds. A header sorts, drags to a new place,
+ * application, and its last cell holds Compare, the star and a menu with
+ * the moves a role in Considering can make. A header sorts, drags to a new place,
  * and its menu moves or hides it. */
 export function ListView({ board, now }: {
   board: ReturnType<typeof useBoardController>;
@@ -383,9 +374,6 @@ export function ListView({ board, now }: {
   const [layout, setLayout] = useListLayout();
   const postings = usePostings(cards);
   const host = useRef<HTMLDivElement>(null);
-  // The column heads pin under the toolbar, which pins at the page's top.
-  const toolbar = useRef<HTMLDivElement>(null);
-  useMeasuredCssSize({ rootRef: host, elementRef: toolbar, property: "--app-list-toolbar-h" });
   // A row that leaves the List hands focus to the role beside it, or to the
   // search when it was the last; a hidden column to the column beside it.
   const focusAfter = useFocusAfter();
@@ -423,6 +411,7 @@ export function ListView({ board, now }: {
   const highlight = filtering && filter.mode === "highlight";
   const shown = layout.order.filter((column) => !layout.hidden.includes(column));
   const overflowing = useOverflowing(frame, shown.join());
+  usePageScrollsFirst(frame);
   const asFirst = layout.order.join() === DEFAULT_LAYOUT.order.join()
     && [...layout.hidden].sort().join() === [...DEFAULT_LAYOUT.hidden].sort().join();
 
@@ -510,7 +499,6 @@ export function ListView({ board, now }: {
   return (
     <>
       <PipelineToolbar
-        toolbarRef={toolbar}
         filter={filter}
         onFilter={setFilter}
         quickCounts={quickCounts(cards, now, VIEW_FILTERS.list)}

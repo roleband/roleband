@@ -1,5 +1,5 @@
-import { useEffect, useId, useRef, useState, type FocusEvent, type PointerEvent } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { useEffect, useRef, useState, type PointerEvent } from "react";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import type { NavTabDef } from "../navigation";
 import { Icon, type IconName } from "../ui/Icon";
 
@@ -14,109 +14,89 @@ const CLOSE_AFTER_MS = 240;
 
 /* The Pipeline in the rail: its star, and under it the pipeline's views.
  *
- * The views stay folded away until the pointer rests on the star or the star
- * is pressed; then they drop out of it into a well that pushes the rest of
- * the rail down. Collapsed, the well is a narrower tile under the star;
- * expanded, the views are named on a line set in from it. A press keeps them
- * open until a view is picked, the star is pressed again, Escape, or a press
- * elsewhere. The star carries the mark of the place on screen, so a closed
- * well still says the Pipeline is open. */
+ * The star is the Pipeline's entry: a press opens it at its first view,
+ * Considering. In the Pipeline the star is marked as the place, and the views
+ * stay on show under it with the one on screen marked too, so the rail says
+ * where the person is at both levels. Its `aria-current` is "true", not
+ * "page": the page is the view. Anywhere else they
+ * are folded away, and a pointer resting on the star drops them in under it,
+ * pushing the rest of the rail down, so a view can be opened directly; they
+ * fold again once the pointer leaves. Collapsed, the views sit in a narrower
+ * tile under the star; expanded, they are named on a line set in from it.
+ *
+ * The rail must not move under a press: a fold landing between a button
+ * going down and coming up shifts the entries, and the click lands on the one
+ * that slid under the pointer. So a fold timed for the pointer leaving waits
+ * for a press in progress to end. */
 export function PipelineRailGroup({ tab, expanded }: { tab: NavTabDef; expanded: boolean }) {
   const { pathname } = useLocation();
   const within = pathname === tab.path || pathname.startsWith(`${tab.path}/`);
-  const wellId = useId();
-  const family = useRef<HTMLDivElement>(null);
-  const star = useRef<HTMLButtonElement>(null);
+  const views = tab.tabs ?? [];
 
+  // Outside the Pipeline, whether a resting pointer has the views open.
   const [shown, setShown] = useState(false);
-  const [pinned, setPinned] = useState(false);
+  const open = within || shown;
   const timer = useRef<number | undefined>(undefined);
+  const pressing = useRef(false);
 
-  const close = () => {
-    window.clearTimeout(timer.current);
-    setShown(false);
-    setPinned(false);
-  };
   const after = (ms: number, then: () => void) => {
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(then, ms);
   };
+  const foldWhenStill = () => {
+    if (pressing.current) after(CLOSE_AFTER_MS, foldWhenStill);
+    else setShown(false);
+  };
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
-  // Picking a view, going anywhere else, or resizing the rail folds the well away.
+  // Going anywhere, or resizing the rail, starts afresh.
   useEffect(() => {
     window.clearTimeout(timer.current);
     setShown(false);
-    setPinned(false);
   }, [pathname, expanded]);
 
-  // A press elsewhere closes a well the star's press opened.
+  // Whether a button is down anywhere, read when a timed fold comes due. Up is
+  // marked after the click it ends has gone where it was aimed.
   useEffect(() => {
-    if (!pinned) return;
-    const away = (event: globalThis.PointerEvent) => {
-      if (!family.current?.contains(event.target as Node)) close();
+    const down = () => {
+      pressing.current = true;
     };
-    document.addEventListener("pointerdown", away);
-    return () => document.removeEventListener("pointerdown", away);
-  }, [pinned]);
-
-  // Escape folds the views while focus is among them, and hands the star its
-  // focus back. Focus elsewhere keeps Escape for whatever holds it.
-  useEffect(() => {
-    if (!shown) return;
-    const onEscape = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== "Escape" || !family.current?.contains(document.activeElement)) return;
-      close();
-      star.current?.focus();
+    const up = () => window.setTimeout(() => (pressing.current = false), 0);
+    document.addEventListener("pointerdown", down, true);
+    document.addEventListener("pointerup", up, true);
+    document.addEventListener("pointercancel", up, true);
+    return () => {
+      document.removeEventListener("pointerdown", down, true);
+      document.removeEventListener("pointerup", up, true);
+      document.removeEventListener("pointercancel", up, true);
     };
-    document.addEventListener("keydown", onEscape);
-    return () => document.removeEventListener("keydown", onEscape);
-  }, [shown]);
+  }, []);
 
   const onPointerEnter = (event: PointerEvent) => {
-    if (event.pointerType === "mouse") after(OPEN_AFTER_MS, () => setShown(true));
+    if (event.pointerType === "mouse" && !within) after(OPEN_AFTER_MS, () => setShown(true));
   };
   const onPointerLeave = (event: PointerEvent) => {
-    if (event.pointerType !== "mouse") return;
-    if (pinned) window.clearTimeout(timer.current);
-    else after(CLOSE_AFTER_MS, () => setShown(false));
-  };
-  const onStar = () => {
-    window.clearTimeout(timer.current);
-    if (shown && pinned) close();
-    else {
-      setShown(true);
-      setPinned(true);
-    }
-  };
-  const onBlur = (event: FocusEvent) => {
-    if (pinned && !family.current?.contains(event.relatedTarget as Node | null)) close();
+    if (event.pointerType === "mouse" && !within) after(CLOSE_AFTER_MS, foldWhenStill);
   };
 
-  const views = tab.tabs ?? [];
   return (
     <div
-      ref={family}
-      className={`rail-family${shown ? " open" : ""}${within ? " is-within" : ""}`}
+      className={`rail-family${open ? " open" : ""}${within ? " is-within" : ""}`}
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
-      onBlur={onBlur}
     >
-      <button
-        ref={star}
-        type="button"
+      <Link
+        to={`${tab.path}/${views[0]?.slug ?? ""}`}
         className="rail-item rail-family-star"
-        aria-expanded={shown}
-        aria-controls={wellId}
+        aria-current={within ? "true" : undefined}
         aria-label={tab.label}
         data-tip={tab.label}
         title={tab.label}
-        onClick={onStar}
       >
         <Icon name={tab.icon} size={18} />
         {expanded && <span className="rail-label">{tab.label}</span>}
-      </button>
-      <div className="rail-well" id={wellId}>
+      </Link>
+      <div className="rail-well">
         {views.map((view) => (
           <NavLink
             key={view.slug}

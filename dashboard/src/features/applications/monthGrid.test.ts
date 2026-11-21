@@ -88,7 +88,7 @@ describe("monthSpan", () => {
 describe("itemsByDay", () => {
   const item = (at: Date, label: string): ApplicationCalendarItem => ({
     kind: "interview", job_id: 1, at: at.toISOString(), interview_id: 1, label, all_day: false,
-    format: null, outcome: null,
+    format: null, link: null, outcome: null,
   });
 
   it("files an item under the reader's own day, late evening included", () => {

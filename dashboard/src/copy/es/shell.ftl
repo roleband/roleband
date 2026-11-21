@@ -56,14 +56,6 @@ shell-stat-new-title = Mostrar los puestos publicados en los últimos 2 días
 shell-stat-reposted = republicados
 shell-stat-reposted-aria = { $count } republicados hoy
 shell-stat-reposted-title = Mostrar los puestos republicados hoy
-shell-stat-saved = guardados
-shell-stat-saved-aria = { $count ->
-    [one] { $count } puesto guardado
-    [many] { $count } de puestos guardados
-   *[other] { $count } puestos guardados
-}
-shell-stat-saved-aria-unknown = Puestos guardados, aún sin contar
-shell-stat-saved-title = Puestos guardados
 shell-loading-page = Cargando esta página…
 shell-load-page-failed = No se pudo cargar esta página
 shell-loading-role = Cargando este puesto…
@@ -77,7 +69,6 @@ shell-rail-collapse-aria = Contraer la navegación
 shell-rail-expand-aria = Expandir la navegación
 shell-rail-collapse = Contraer
 shell-rail-expand = Expandir
-shell-rail-workspace = Espacio de trabajo
 shell-theme-aria = Cambiar el tema
 shell-theme-title = Tema
 shell-theme-light = Modo claro

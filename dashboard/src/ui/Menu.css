@@ -133,6 +133,14 @@
   font-weight: var(--app-weight-body);
 }
 
+/* The tick on the current row follows its detail, so in a group that ticks a
+   row the other rows keep the tick's room after theirs: the details stand in
+   one column whichever row is current. */
+.ui-menu-group:has(> .ui-menu-item[aria-current="true"] > .ui-menu-detail)
+  > .ui-menu-item:not([aria-current="true"]) > .ui-menu-detail {
+  margin-right: calc(14px + var(--app-space-2));
+}
+
 /* A count is a fact: mono and tabular, as the filter rail's are. */
 .ui-menu-count {
   font-family: var(--app-font-mono);

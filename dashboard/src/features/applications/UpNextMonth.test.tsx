@@ -29,7 +29,7 @@ const cards: ApplicationCard[] = [openai, stripe];
 
 const interview = (jobId: number, at: Date, label: string, outcome: "passed" | null = null): ApplicationCalendarItem => ({
   kind: "interview", job_id: jobId, at: at.toISOString(), interview_id: at.getTime() % 100000, label,
-  all_day: false, format: "video", outcome,
+  all_day: false, format: "video", link: null, outcome,
 });
 const step = (jobId: number, at: Date, text: string): ApplicationCalendarItem => ({
   kind: "step", job_id: jobId, at: at.toISOString(), step: text,
@@ -100,7 +100,7 @@ describe("UpNextMonth", () => {
     const list = within(picked());
     expect(list.getByText(msg("applications-upnext-interview", { label: "Recruiter screen" }))).toBeInTheDocument();
     expect(list.getByText(msg("applications-interview-outcome-passed"))).toBeInTheDocument();
-    expect(list.getByRole("link", { name: /Principal Engineering Manager/ })).toHaveAttribute("href", "/pipeline/2");
+    expect(list.getByRole("link", { name: /Principal Engineering Manager/ })).toHaveAttribute("href", "/company/stripe/job/2?tab=workspace");
     expect(onPickDay).toHaveBeenCalledWith(new Date(2026, 10, 2), { scroll: true });
   });
 

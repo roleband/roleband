@@ -352,7 +352,7 @@
 }
 
 /* The company on screen = the register index's current sector
-   (`.ledger-index button[aria-current]`): CHOSEN, gold wash and gold name,
+   (`.ledger-index button[aria-current]`): CHOSEN, the chosen wash and name,
    never a weight. */
 .prof-nav button[aria-current="true"] {
   background: var(--app-chosen-wash);

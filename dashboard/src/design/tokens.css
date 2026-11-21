@@ -14,54 +14,63 @@
      appearance, so a dark page on a light Mac opens a light menu. */
   color-scheme: light;
 
-  /* The chromatic axis is WARM: text, line and status tokens carry a warm ink
-     rather than a cool grey, at the lightness the contrast gate holds. On the
-     near-neutral surfaces the hue shift is imperceptible at text sizes. */
-  /* Light reads by SEPARATION, not glow: a cool grey page under near-white
+  /* The ink is COOL and near neutral: text, lines, hovers and shadows share
+     the top bar's axis (shell.css `--tb-*`), so nothing on the page casts a
+     colour against the grey it lies on. Colour is kept for meaning: the blue
+     action and the status hues. */
+  /* Light reads by SEPARATION, not glow: a near-white neutral page under white
      panels, a hairline every boundary can be seen by, and a soft shadow
-     (--app-shadow) under each panel laid on the page. The canvas is as dark
-     as text-faint, information and decor allow on it (tokens.test.ts). */
-  --app-canvas: #ecedef;
+     (--app-shadow) under each panel laid on the page. The page is the pale
+     neutral grey common to light app shells (Tailwind's gray-100): a darker
+     grey field beside white panels reads as a tint on a display that warms
+     its greys (True Tone, Night Shift), so the lift and the hairline carry
+     the separation instead of the page's depth (tokens.test.ts). */
+  --app-canvas: #f3f4f6;
   --app-surface: rgba(255, 255, 255, 0.92);
   --app-surface-raised: #ffffff;
-  --app-surface-subtle: #f5f6f7;
-  --app-surface-sunken: #e7e8eb;
-  --app-surface-glass: rgba(249, 249, 250, 0.82);
+  --app-surface-subtle: #f9fafb;
+  --app-surface-sunken: #e5e7eb;
+  --app-surface-glass: rgba(249, 250, 251, 0.82);
   /* As dark as every text step allows on a hovered row (tokens.test.ts):
      past that, a hovered row's quiet text drops under AA. */
-  --app-surface-hover: rgba(27, 26, 22, 0.06);
+  --app-surface-hover: rgba(24, 26, 32, 0.06);
   /* Row-selection tint, one step quieter than hover. */
-  --app-selected: rgba(27, 26, 22, 0.045);
-  --app-border: rgba(27, 26, 22, 0.19);
-  --app-border-strong: rgba(27, 26, 22, 0.34);
-  --app-text: #1b1a16;
-  --app-text-muted: #5f5b52;
+  --app-selected: rgba(24, 26, 32, 0.045);
+  --app-border: rgba(24, 26, 32, 0.19);
+  --app-border-strong: rgba(24, 26, 32, 0.34);
+  --app-text: #191a1c;
+  --app-text-muted: #5a5d63;
   /* THIRD TEXT STEP, and it is a text step: a token named `text-faint` invites
      quiet TEXT, so decoration lives in --app-decor, and tokens.test.ts holds
      faint to AA like any other text step. */
-  --app-text-faint: #67625a;
+  --app-text-faint: #5f6268;
   /* Not text, and never text: glyph strokes, dots, hairline chrome and the
      instrument's own scale markings. Only 1.4.11's 3:1 for graphical objects
      applies here, and the gate enforces exactly that. */
-  --app-decor: #868177;
+  --app-decor: #7e8187;
   /* The edge that identifies a control whose outline is all it has (a
      select, a filter): 1.4.11's 3:1 on every ground, gated in tokens.test.ts.
      A divider between content keeps --app-border. */
-  --app-border-control: #868177;
-  /* A saturated gold, so an action reads as one on a pale page; the dark
-     theme's pale gold at this lightness would be khaki. Held apart from
+  --app-border-control: #7e8187;
+  /* A saturated blue, the accent light interfaces share, so an action reads
+     as one on a pale page. A gold there washes every chosen tab and card in
+     a tan that reads as a warm cast over the whole screen. Held apart from
      --app-warning's orange by hue (tokens.test.ts). */
-  --app-action: #8a610f;
+  --app-action: #0969da;
   --app-action-ink: #ffffff;
-  --app-action-soft: rgba(138, 97, 15, 0.1);
-  --app-action-line: rgba(138, 97, 15, 0.34);
+  --app-action-soft: rgba(9, 105, 218, 0.1);
+  --app-action-line: rgba(9, 105, 218, 0.34);
   /* The edge of a chosen control: 3:1 on every ground (WCAG 1.4.11), so a
      chosen chip is never less bounded than its unchosen neighbour. */
-  --app-action-edge: rgba(138, 97, 15, 0.78);
+  --app-action-edge: rgba(9, 105, 218, 0.78);
   /* Focus halo around an action-coloured control. */
-  --app-action-ring: rgba(138, 97, 15, 0.16);
-  --app-action-text: #77540d;
-  --app-action-glow: rgba(138, 97, 15, 0.16);
+  --app-action-ring: rgba(9, 105, 218, 0.16);
+  --app-action-text: #0757b8;
+  --app-action-glow: rgba(9, 105, 218, 0.16);
+  /* The logo's own tile: the brand's gold in either theme, whatever the
+     interface's accent is. */
+  --app-brand: #8a610f;
+  --app-brand-ink: #ffffff;
   /* THE TWO STATES (docs/ui.md "Two states"). Every
      on/selected/current paint in the app reads one of these two sets and
      nothing else; `state-grammar.test.ts` fails a state rule that paints
@@ -69,8 +78,8 @@
      .selected, .active) instead of the element's real state.
        CHOSEN: one option picked among others, or the current item of a set
        (a tab, chip, segment, option card, index entry, sort head, nav item,
-       a row picked for Compare). Gold: the action colour, because choosing
-       is an act. Wash behind it, line around it if it has an edge, its NAME
+       a row picked for Compare). The action colour, because choosing is an
+       act. Wash behind it, line around it if it has an edge, its NAME
        in chosen-text, a mark (bar, dot, stroke) in chosen-mark.
        ON: a thing's own on/off state, set by a switch (the switch track and
        the row it governs). Ink, never gold: a state, not an action.
@@ -118,7 +127,7 @@
   --app-danger-ink: #ffffff;
   --app-information: #0c6a87;
   /* Scan-progress fill and the text-highlight mark. */
-  --app-bar: rgba(27, 26, 22, 0.72);
+  --app-bar: rgba(24, 26, 32, 0.72);
   --app-mark: #fbe7a1;
   /* DATA is the categorical ramp for instruments — chart series, sparklines,
      matrix cells. Graphical-object hues,
@@ -131,8 +140,8 @@
   --app-data-4: #c64040;
   /* The lift of a panel laid on the page. Dark has none: on a near-black
      page a shadow is invisible and the panel's hairline does the work. */
-  --app-shadow: 0 1px 2px rgba(27, 26, 22, 0.06), 0 6px 16px -6px rgba(27, 26, 22, 0.1);
-  --app-shadow-pop: 0 1px 2px rgba(27, 26, 22, 0.08), 0 24px 64px -12px rgba(27, 26, 22, 0.28);
+  --app-shadow: 0 1px 2px rgba(24, 26, 32, 0.06), 0 6px 16px -6px rgba(24, 26, 32, 0.1);
+  --app-shadow-pop: 0 1px 2px rgba(24, 26, 32, 0.08), 0 24px 64px -12px rgba(24, 26, 32, 0.28);
   /* --- Geometry -----------------------------------------------------------
    * A tokenised type ramp needs tokenised positions: when the boxes grow with
    * the type and the distances between them are literals, the screen congests
@@ -326,6 +335,8 @@
   --app-action-ring: rgba(219, 203, 144, 0.18);
   --app-action-text: #e8dcac;
   --app-action-glow: rgba(219, 203, 144, 0.24);
+  --app-brand: #dbcb90;
+  --app-brand-ink: #1a1705;
   --app-ambient-warm: rgba(219, 203, 144, 0.24);
   --app-ambient-cool: rgba(126, 240, 178, 0.09);
   --app-positive: #79dfa8;
@@ -374,6 +385,8 @@
     --app-action-ring: rgba(219, 203, 144, 0.18);
     --app-action-text: #e8dcac;
     --app-action-glow: rgba(219, 203, 144, 0.24);
+    --app-brand: #dbcb90;
+    --app-brand-ink: #1a1705;
   --app-ambient-warm: rgba(219, 203, 144, 0.24);
   --app-ambient-cool: rgba(126, 240, 178, 0.09);
     --app-positive: #79dfa8;

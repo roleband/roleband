@@ -1,9 +1,20 @@
 import { useCallback, useEffect } from "react";
 import { Navigate, useLocation, useNavigate, useNavigationType, useParams } from "react-router-dom";
-import { JobDetail } from "../features/job-detail/JobDetail";
+import { JobDetail, type PostingTab } from "../features/job-detail/JobDetail";
 import { usePostingPipeline } from "../features/applications/usePostingPipeline";
 import { useJobActions, useJobWorkspace, type PostingNeighbour } from "../context/JobWorkspace";
 import { positionPath } from "../routing/paths";
+import { shellNavRadar, shellTabPipelineBoard, shellTabPipelineList, shellTabPipelineUpNext } from "../copy/gen/shell";
+
+/** The views Back names when the posting covers one of them. */
+const VIEW_NAME: Record<string, () => string> = {
+  "/": shellNavRadar,
+  "/pipeline/board": shellTabPipelineBoard,
+  "/pipeline/list": shellTabPipelineList,
+  "/pipeline/up-next": shellTabPipelineUpNext,
+};
+
+const isTab = (value: string | null): value is PostingTab => value === "posting" || value === "workspace";
 
 /* Routed full-screen detail. Canonical URL nests under the company
    (/company/:slug/job/:id); /job/:id is the short form. Works both as an
@@ -26,7 +37,8 @@ export function JobRoute({ asOverlay = false }: { asOverlay?: boolean }) {
     if (Number.isInteger(jobId) && jobId > 0) markJobViewed(jobId);
   }, [jobId, markJobViewed]);
 
-  const hasBackground = Boolean((location.state as { backgroundLocation?: unknown } | null)?.backgroundLocation);
+  const background = (location.state as { backgroundLocation?: { pathname?: unknown } } | null)?.backgroundLocation;
+  const hasBackground = Boolean(background);
   // Reached from a link on a posting that was the page: that posting is one
   // entry back.
   const steppedFrom = Boolean((location.state as { steppedFrom?: unknown } | null)?.steppedFrom);
@@ -40,6 +52,27 @@ export function JobRoute({ asOverlay = false }: { asOverlay?: boolean }) {
     else navigate("/");
   }, [hasBackground, steppedFrom, navigate]);
 
+  // Back names where it goes: the view under the cover, the Radar for a
+  // posting that is the page, and nothing more for a step back to the
+  // posting this one was opened from.
+  const under = typeof background?.pathname === "string" ? background.pathname : null;
+  const backTo = hasBackground
+    ? (under != null && Object.prototype.hasOwnProperty.call(VIEW_NAME, under) ? VIEW_NAME[under]() : null)
+    : steppedFrom ? null : shellNavRadar();
+
+  // The tab of a role in the pipeline is part of the address, so a link names
+  // it; switching replaces the entry and keeps the way back.
+  const named = new URLSearchParams(location.search).get("tab");
+  const tab = isTab(named) ? named : null;
+  const onTab = useCallback(
+    (next: PostingTab) => {
+      const search = new URLSearchParams(location.search);
+      search.set("tab", next);
+      navigate({ pathname: location.pathname, search: `?${search}` }, { replace: true, state: location.state });
+    },
+    [navigate, location.pathname, location.search, location.state],
+  );
+
   // Canonicalize the URL to the company-scoped form once the job's company is
   // known: a short /job/:id (no slug) or a hand-typed wrong slug is replaced
   // with /company/:slug/job/:id, preserving any overlay background so shared
@@ -47,10 +80,10 @@ export function JobRoute({ asOverlay = false }: { asOverlay?: boolean }) {
   const onCompanyResolved = useCallback(
     (companySlug: string) => {
       if (companySlug && slug !== companySlug) {
-        navigate(positionPath(companySlug, jobId), { replace: true, state: location.state });
+        navigate({ pathname: positionPath(companySlug, jobId), search: location.search }, { replace: true, state: location.state });
       }
     },
-    [slug, jobId, navigate, location.state],
+    [slug, jobId, navigate, location.search, location.state],
   );
 
   // The list the posting was opened from, when it was opened from one and is
@@ -96,6 +129,9 @@ export function JobRoute({ asOverlay = false }: { asOverlay?: boolean }) {
       usePipeline={usePostingPipeline}
       pager={pager}
       returning={returning}
+      tab={tab}
+      onTab={onTab}
+      backTo={backTo}
     />
   );
 }

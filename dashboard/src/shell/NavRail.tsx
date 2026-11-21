@@ -9,7 +9,6 @@ import {
   shellRailExpandAria,
   shellRailItemCount,
   shellRailPending,
-  shellRailWorkspace,
   shellThemeAria,
   shellThemeDark,
   shellThemeLight,
@@ -68,7 +67,6 @@ export function NavRail({ expanded, onToggleExpanded, theme, onToggleTheme }: Pr
           <Icon name={expanded ? "panelCollapse" : "panelExpand"} size={17} />
           <span className="rail-toggle-label">{expanded ? shellRailCollapse() : shellRailExpand()}</span>
         </button>
-        <div className="rail-section-label">{shellRailWorkspace()}</div>
         <div className="rail-group">
           {primary.map((t) => {
             if (t.path === "/pipeline") return <PipelineRailGroup key={t.path} tab={t} expanded={expanded} />;

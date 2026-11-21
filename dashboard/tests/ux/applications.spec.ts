@@ -8,12 +8,13 @@ import { mainRail, openPipelineView, pipelineStar } from "./pipelineRail";
 
 /* The application pipeline in a browser: every move reachable from the
  * keyboard (the path the spec requires; dragging is only ever the fast one),
- * a whole card that opens its application's page, a drag that moves a card
- * and scrolls the board under it, Interviewing's question,
+ * a whole card that opens its role's posting over the view, a drag that
+ * moves a card and scrolls the board under it, Interviewing's question,
  * hidden columns a browser remembers, filters kept in the address, the
- * page's own stage button and Mark done, Up next and its month, and the
- * List: the backlog of roles still in Considering, its sort and columns. The API is a small store, so a re-read
- * after a write shows the write. */
+ * posting's stage keys and the Workspace's next step, Up next and its month,
+ * and the List: the backlog of roles still in Considering, its sort and
+ * columns. The API is a small store, so a re-read after a write shows the
+ * write. */
 
 const cards: ApplicationCard[] = [
   applicationCardFixture({ job_id: 101, title: "Staff Product Manager, API", company: "openai" }),
@@ -40,6 +41,21 @@ async function installPipeline(page: Page, start: ApplicationCard[] = cards) {
       : route.fulfill({ status: 404, json: { detail: { code: "application-not-found" } } });
   });
   await mockGet(page, "/api/applications/*/activity", (route) => route.fulfill({ json: { items: [] } }));
+  // A role's posting, as the server reads it: its star and its pursuit are
+  // the stored card's.
+  await mockGet(page, /\/api\/jobs\/\d+$/, (route, request) => {
+    const jobId = Number(new URL(request.url()).pathname.split("/")[3]);
+    const card = stored.find((one) => one.job_id === jobId);
+    if (!card) return route.fallback();
+    return route.fulfill({ json: jobDetailFixture({
+      id: jobId, company: card.company, title: card.title, is_favorite: card.starred,
+      pursuit: card.pursuit_id == null ? null : {
+        id: card.pursuit_id, job_id: jobId, stage: card.stage, priority: card.priority, notes: null,
+        next_action: card.next_action, next_action_due: card.next_action_due,
+        created_at: "2026-10-20T09:00:00Z", updated_at: "2026-11-04T12:00:00Z",
+      },
+    }) });
+  });
   // The month's read: each card's next round and dated step in the span.
   await mockGet(page, "/api/applications/calendar**", (route, request) => {
     const url = new URL(request.url());
@@ -101,11 +117,11 @@ test.beforeEach(async ({ page }) => {
   await installJobDetailRoutes(page);
 });
 
-test("the rail place opens on the List, titled by the view, and the old Saved address opens the Board, where every starred role is", async ({ page }) => {
+test("the rail place opens on the List, titled by its rail label, and the old Saved address opens the Board, where every starred role is", async ({ page }) => {
   await installPipeline(page);
   await page.goto("/pipeline");
   await expect(page).toHaveURL(/\/pipeline\/list$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(msg("shell-tab-pipeline-list"));
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(msg("shell-nav-pipeline"));
   await expect(page.getByRole("table").getByRole("link", { name: "Staff Product Manager, API" })).toBeVisible();
   // The Pipeline's star, or on a phone's dock its views in a row.
   const rail = mainRail(page);
@@ -116,7 +132,7 @@ test("the rail place opens on the List, titled by the view, and the old Saved ad
   // Considering, so the old address and the count both open the Board.
   await page.goto("/favorites");
   await expect(page).toHaveURL(/\/pipeline\/board$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(msg("shell-tab-pipeline-board"));
+  await expect(page.getByRole("tab", { name: msg("shell-tab-pipeline-board") })).toHaveAttribute("aria-selected", "true");
   await expect(column(page, "Considering").getByText("Staff Product Manager, API")).toBeVisible();
   await expect(column(page, "Applied").getByText("Principal Engineering Manager")).toBeVisible();
   await expect(page.getByText(msg("applications-board-summary", {
@@ -147,7 +163,9 @@ test("a card moves from its menu with the keyboard alone, and Undo moves it back
   await expect.poll(() => stageWrites.at(-1)).toEqual({ jobId: 101, stage: "saved" });
 });
 
-test("a click anywhere on a card opens its application, and the menu button stays its own control", async ({ page }) => {
+const posting = (page: Page) => page.locator(".cover.job-detail");
+
+test("a click anywhere on a card opens its posting over the board, and Back names the Board and returns to it", async ({ page }) => {
   await installPipeline(page);
   await page.goto("/pipeline/board");
 
@@ -160,8 +178,18 @@ test("a click anywhere on a card opens its application, and the menu button stay
 
   const box = (await card.boundingBox())!;
   await page.mouse.click(box.x + 12, box.y + box.height - 8);
-  await expect(page).toHaveURL(/\/pipeline\/101$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Staff Product Manager, API");
+  // A role in Considering opens on its posting.
+  await expect(page).toHaveURL(/\/company\/openai\/job\/101\?tab=posting$/);
+  const cover = posting(page);
+  await expect(cover.getByRole("heading", { level: 1 })).toHaveText("Staff Product Manager, API");
+  await expect(cover.getByRole("tab", { name: msg("role-job-detail-tab-posting") })).toHaveAttribute("aria-selected", "true");
+  await expect(cover.getByRole("group", { name: msg("role-job-detail-pager") }), "no place in a list").toHaveCount(0);
+  const back = cover.getByRole("button", { name: msg("role-job-detail-back-to", { view: msg("shell-tab-pipeline-board") }) });
+  await expect(back).toHaveText(msg("shell-tab-pipeline-board"));
+  await back.click();
+  await expect(page).toHaveURL(/\/pipeline\/board$/);
+  await expect(posting(page)).toHaveCount(0);
+  await expect(page.locator('.app-tile[data-job-id="101"]')).toBeVisible();
 });
 
 /** Press a card in the middle and carry it to (x, y) in small steps, as a hand does. */
@@ -225,11 +253,11 @@ test("a drag held at the board's edge scrolls it, and a drop on Interviewing ask
   expect(stageWrites).toEqual([]);
 });
 
-test("the application page moves its stage from the keyboard: M opens the menu, a number picks the stage", async ({ page }) => {
+test("a role's posting moves its stage from the keyboard: M opens the menu, a number picks the stage", async ({ page }) => {
   const { stageWrites } = await installPipeline(page);
-  await page.goto("/pipeline/202");
-  // Named by what it shows: the stage, then from the day after the move the days in it.
-  const stage = (name: string) => page.getByRole("button", { name: new RegExp(`^${name}( · \\d+ days? in this stage)?$`) });
+  await page.goto("/company/stripe/job/202?tab=workspace");
+  const bar = posting(page).locator(".cover-bar");
+  const stage = (name: string) => bar.getByRole("button", { name, exact: true });
   await expect(stage("Applied")).toBeVisible();
 
   await page.keyboard.press("m");
@@ -241,65 +269,33 @@ test("the application page moves its stage from the keyboard: M opens the menu, 
   await expect.poll(() => stageWrites).toEqual([{ jobId: 202, stage: "offer" }]);
 });
 
-test("on a phone the application page gives its title the full width, and a wrapped line never starts with a dot", async ({ page }) => {
-  const long = applicationCardFixture({
-    job_id: 404, pursuit_id: 40, stage: "applied", title: "Senior Staff Technical Program Manager, Infrastructure Management",
-    company: "stripe",
-  });
-  await installPipeline(page, [...cards, long]);
-  await mockGet(page, "/api/jobs/404", (route) => route.fulfill({ json: jobDetailFixture({
-    id: 404, title: long.title, company: "stripe", locations: ["South San Francisco, California, United States"],
-  }) }));
-  // Where each dot after the first part is drawn, and whether its part starts a line.
-  const dots = () => page.evaluate(() => {
-    const meta = document.querySelector(".app-page-meta")!;
-    const box = meta.getBoundingClientRect();
-    return [...meta.children].slice(1).map((part) => {
-      const at = part.getBoundingClientRect();
-      const dot = getComputedStyle(part, "::before");
-      const end = at.right - parseFloat(dot.right);
-      return { startsLine: Math.abs(at.left - box.left) < 1, start: end - parseFloat(dot.width), end, edge: box.left,
-        clipped: ["clip", "hidden"].includes(getComputedStyle(meta).overflowX) };
-    });
-  });
-  const title = page.getByRole("heading", { level: 1, name: long.title });
-  const stage = page.getByRole("button", { name: /^Applied( · \d+ days? in this stage)?$/ });
-
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/pipeline/404");
-  await expect(page.locator(".app-page-meta")).toContainText("South San Francisco");
-  const wide = await dots();
-  expect(wide.map((dot) => dot.startsLine), "on a laptop the city follows the company on one line").toEqual([false]);
-  expect(wide[0]!.start, "and the dot between them is drawn in full").toBeGreaterThanOrEqual(wide[0]!.edge);
-
-  await page.setViewportSize({ width: 375, height: 812 });
-  await expect.poll(async () => (await dots()).map((dot) => dot.startsLine), "the city wraps to a line of its own").toEqual([true]);
-  const narrow = (await dots())[0]!;
-  expect(narrow.end <= narrow.edge + 0.5 && narrow.clipped, "its dot falls past the line's start and is clipped").toBe(true);
-  const [titleBox, stageBox, nameBox] = await Promise.all([
-    title.boundingBox(), stage.boundingBox(), page.locator(".app-page-name").boundingBox(),
-  ]);
-  expect(stageBox!.y, "the stage button wraps under the title").toBeGreaterThanOrEqual(titleBox!.y + titleBox!.height - 1);
-  expect(nameBox!.width, "the title keeps the row beside the company mark").toBeGreaterThan(375 - 32 - 32 - 14 - 20);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth), "the page never widens").toBeLessThanOrEqual(375);
+test("an old address of a role's page opens its posting on the tab it named", async ({ page }) => {
+  await installPipeline(page);
+  await page.goto("/pipeline/202?tab=workspace");
+  await expect(page).toHaveURL(/\/company\/stripe\/job\/202\?tab=workspace$/);
+  await expect(posting(page).getByRole("tab", { name: msg("role-job-detail-tab-workspace") })).toHaveAttribute("aria-selected", "true");
 });
 
-test("Mark done on the application page asks at once for the next step, and saves it", async ({ page }) => {
+test("the Workspace's next step is typed in place, done with its tick, and Undo puts it back", async ({ page }) => {
   const { pursuitWrites } = await installPipeline(page);
-  await page.goto("/pipeline/101");
-  await page.getByRole("button", { name: msg("applications-next-set") }).click();
-  await page.getByLabel(msg("applications-next-prompt")).fill("Email the recruiter");
-  await page.getByRole("button", { name: msg("applications-next-save") }).click();
-  await expect(page.getByText("Email the recruiter")).toBeVisible();
+  await page.goto("/company/stripe/job/202?tab=workspace");
+  const cover = posting(page);
+  const add = cover.getByRole("textbox", { name: msg("applications-ws-next-add") });
+  await add.fill("Email the recruiter");
+  await cover.getByRole("button", { name: msg("applications-next-save") }).click();
+  const done = cover.getByRole("button", { name: msg("applications-upnext-done-label", { step: "Email the recruiter" }) });
+  await expect(done).toBeVisible();
+  // Said once: the main column holds it, so the side column's rows leave it out.
+  await expect(cover.locator("dl.jd-pipeline-facts dt", { hasText: msg("applications-posting-next-step") })).toHaveCount(0);
 
-  await page.getByRole("button", { name: msg("applications-next-done") }).click();
-  await expect(page.getByLabel(msg("applications-next-prompt"))).toBeFocused();
-  await page.getByRole("button", { name: msg("applications-interview-cancel") }).click();
-  await expect(page.getByText(msg("applications-next-empty"))).toBeVisible();
-  await expect(page.getByRole("button", { name: msg("applications-next-set") })).toBeFocused();
+  await done.click();
+  await expect(cover.getByRole("textbox", { name: msg("applications-ws-next-add") })).toBeVisible();
+  await page.getByRole("button", { name: msg("applications-move-undo") }).click();
+  await expect(cover.getByText("Email the recruiter")).toBeVisible();
   await expect.poll(() => pursuitWrites).toEqual([
     { next_action: "Email the recruiter", next_action_due: null },
     { next_action: null, next_action_due: null },
+    { next_action: "Email the recruiter", next_action_due: null },
   ]);
 });
 
@@ -314,7 +310,7 @@ test("Up next lists what is due by day, overdue first, and a row opens its appli
     cards[2],
   ]);
   await page.goto("/pipeline/board");
-  await openPipelineView(page, msg("shell-tab-pipeline-up-next"));
+  await page.getByRole("tab", { name: msg("shell-tab-pipeline-up-next") }).click();
   await expect(page).toHaveURL(/\/pipeline\/up-next$/);
 
   const days = page.getByRole("region");
@@ -337,8 +333,11 @@ test("Up next lists what is due by day, overdue first, and a row opens its appli
   expect(look.role, "the role's name in the text's ink").toBe(look.step);
 
   await days.nth(1).getByRole("link").click();
-  await expect(page).toHaveURL(/\/pipeline\/202$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Principal Engineering Manager");
+  // From Up next a role opens on its Workspace, over Up next, and Back says so.
+  await expect(page).toHaveURL(/\/company\/stripe\/job\/202\?tab=workspace$/);
+  await expect(posting(page).getByRole("heading", { level: 1 })).toHaveText("Principal Engineering Manager");
+  await expect(posting(page).getByRole("button", { name: msg("role-job-detail-back-to", { view: msg("shell-tab-pipeline-up-next") }) }))
+    .toBeVisible();
 });
 
 test("Up next stands beside its month: a day says what is on it, and picking one brings it into view in Up next, marked", async ({ page }) => {
@@ -716,8 +715,8 @@ test("a filter lives in the address: it survives opening a card and coming back,
 
 test("switching between List, Board and Up next keeps the header still and reads the pipeline once", async ({ page }) => {
   await installPipeline(page);
-  // A slow read: a view switch that rebuilt the screen would wait on it with
-  // the header missing until it landed.
+  // A slow read: a tab switch that rebuilt the screen would wait on it with
+  // the counts line missing, and the tabs would sit higher until it landed.
   const reads = watchReads(page, "GET", "/api/applications");
   await mockGet(page, "/api/applications", async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 400));
@@ -725,8 +724,8 @@ test("switching between List, Board and Up next keeps the header still and reads
   });
   await page.goto("/pipeline/list");
   await expect(page.getByRole("link", { name: "Staff Product Manager, API" })).toBeVisible();
-  const title = page.getByRole("heading", { level: 1 });
-  const resting = (await title.boundingBox())!.y;
+  const tabs = page.getByRole("tablist", { name: msg("applications-tabs-label") });
+  const resting = (await tabs.boundingBox())!.y;
   const started = reads.started;
 
   for (const name of [msg("shell-tab-pipeline-board"), msg("shell-tab-pipeline-up-next"), msg("shell-tab-pipeline-list")]) {
@@ -734,25 +733,25 @@ test("switching between List, Board and Up next keeps the header still and reads
       const w = window as unknown as { tops: number[]; sampler: number };
       w.tops = [];
       w.sampler = window.setInterval(() => {
-        const head = document.querySelector("h1");
-        w.tops.push(head ? head.getBoundingClientRect().top : -1);
+        const list = document.querySelector('[role="tablist"]');
+        w.tops.push(list ? list.getBoundingClientRect().top : -1);
       }, 4);
     });
-    await openPipelineView(page, name);
-    await expect(title).toHaveText(name);
+    await page.getByRole("tab", { name }).click();
+    await expect(page.getByRole("tab", { name })).toHaveAttribute("aria-selected", "true");
     await frames(page, 36);
     const tops = await page.evaluate(() => {
       const w = window as unknown as { tops: number[]; sampler: number };
       window.clearInterval(w.sampler);
       return [...new Set(w.tops.map(Math.round))];
     });
-    expect(tops, `the title moved or vanished while ${name} opened`).toEqual([Math.round(resting)]);
+    expect(tops, `the tabs moved while ${name} opened`).toEqual([Math.round(resting)]);
   }
-  expect(reads.started, "a view switch reads the pipeline again").toBe(started);
+  expect(reads.started, "a tab switch reads the pipeline again").toBe(started);
   expect(reads.answered).toBe(1);
 });
 
-test("each view keeps its own filter: the board's stays off Up next, and both come back through the rail as they were left", async ({ page }) => {
+test("each tab keeps its own filter: the board's stays off Up next, and both come back as they were left", async ({ page }) => {
   await installPipeline(page, [
     { ...cards[0], next_action: "Ask for an intro", next_action_due: new Date(Date.now() - 2 * 86_400_000).toISOString() },
     cards[1],
@@ -762,7 +761,7 @@ test("each view keeps its own filter: the board's stays off Up next, and both co
   await expect(page.getByText("Staff Product Manager, API")).toHaveCount(0);
   const search = page.getByRole("searchbox", { name: msg("applications-search-label") });
 
-  await openPipelineView(page, msg("shell-tab-pipeline-up-next"));
+  await page.getByRole("tab", { name: msg("shell-tab-pipeline-up-next") }).click();
   await expect(page).toHaveURL(/\/pipeline\/up-next$/);
   await expect(search).toHaveValue("");
   await expect(page.getByRole("button", { name: msg("applications-filter-reset") })).toHaveCount(0);
@@ -770,22 +769,22 @@ test("each view keeps its own filter: the board's stays off Up next, and both co
   await search.fill("zzz");
   await expect(page.getByText(msg("applications-no-matches"))).toBeVisible();
 
-  await openPipelineView(page, msg("shell-tab-pipeline-board"));
+  await page.getByRole("tab", { name: msg("shell-tab-pipeline-board") }).click();
   await expect(page).toHaveURL(/\/pipeline\/board\?only=needs_next$/);
   await expect(page.getByText("Staff Product Manager, API")).toHaveCount(0);
 
-  await openPipelineView(page, msg("shell-tab-pipeline-up-next"));
+  await page.getByRole("tab", { name: msg("shell-tab-pipeline-up-next") }).click();
   await expect(page).toHaveURL(/\/pipeline\/up-next\?q=zzz$/);
   await expect(search).toHaveValue("zzz");
 
-  // Back walks the views as they were, each with its own filter.
+  // Back walks the tabs as they were, each with its own filter.
   await page.goBack();
   await expect(page).toHaveURL(/\/pipeline\/board\?only=needs_next$/);
   await expect(page.getByText("Staff Product Manager, API")).toHaveCount(0);
 });
 
 /** The postings behind the List's rows, as the jobs list answers them. */
-test("the board scrolls in a frame that fills the window: an edge with more fades and steps one column, and each head stays over its cards", async ({ page }, testInfo) => {
+test("a scroll over the board docks its toolbar first, then the frame fills the window: an edge with more fades and steps one column, and each head stays over its cards", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "The step buttons are for a pointer; a phone swipes the board.");
   const many = Array.from({ length: 9 }, (_, index) =>
     applicationCardFixture({ job_id: 900 + index, pursuit_id: 90 + index, title: `Considered role ${index + 1}`, company: "openai" }));
@@ -798,9 +797,34 @@ test("the board scrolls in a frame that fills the window: an edge with more fade
   const back = page.getByRole("button", { name: msg("applications-board-scroll-back") });
   const on = page.getByRole("button", { name: msg("applications-board-scroll-on") });
 
-  // The page stays still: the board's frame ends inside the window.
-  expect(await page.locator("main").evaluate((main) => main.scrollHeight - main.clientHeight)).toBeLessThanOrEqual(1);
-  expect((await scroller.boundingBox())!.y + (await scroller.boundingBox())!.height).toBeLessThanOrEqual(640);
+  // A wheel over the board scrolls the page first, as the Radar's list does:
+  // the title and tabs leave, the toolbar docks at the page's top, and only
+  // then does the frame scroll, filling the window under the toolbar.
+  const main = page.locator("main");
+  const toolbar = page.locator(".app-pipeline-toolbar");
+  const top = (await main.boundingBox())!.y;
+  // By position: a hover would scroll the frame into view, docking the toolbar itself.
+  const resting = (await scroller.boundingBox())!;
+  expect(await main.evaluate((node) => node.scrollTop)).toBe(0);
+  await page.mouse.move(resting.x + resting.width / 2, resting.y + 120);
+  // Small steps until the page goes no further: the step that crosses the
+  // docking point is the page's alone, so the columns have not moved yet.
+  const left = () => main.evaluate((node) => node.scrollHeight - node.clientHeight - node.scrollTop);
+  for (let step = 0; step < 12 && (await left()) >= 1; step++) {
+    await page.mouse.wheel(0, 60);
+    await page.waitForTimeout(50);
+  }
+  expect(await left(), "the page stopped before its toolbar docked").toBeLessThan(1);
+  expect(await scroller.evaluate((element) => element.scrollTop), "the columns scrolled while the title was on screen").toBe(0);
+  await expect(page.getByRole("heading", { level: 1 })).not.toBeInViewport();
+  await expect(page.getByRole("tablist", { name: msg("applications-tabs-label") })).not.toBeInViewport();
+  expect(Math.round((await toolbar.boundingBox())!.y), "the toolbar docks where the Radar's does").toBe(Math.round(top));
+  const docked = (await toolbar.boundingBox())!;
+  const framed = (await frame.boundingBox())!;
+  expect(framed.y, "the frame starts under the toolbar").toBeGreaterThanOrEqual(docked.y + docked.height - 1);
+  expect(Math.round(framed.y + framed.height), "the frame reaches the window's foot").toBe(640);
+  await page.mouse.wheel(0, 100);
+  await expect.poll(() => scroller.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
   await expect(frame).toHaveAttribute("data-more-on", "true");
   await expect(frame).not.toHaveAttribute("data-more-back");
   await expect(back).toHaveCount(0);
@@ -897,7 +921,7 @@ test("the List holds only roles in Considering, and starting one from its menu, 
 
   await expect(listRow(page, "Principal Engineering Manager")).toHaveCount(0);
   await expect.poll(() => stageWrites).toContainEqual({ jobId: 202, stage: "researching" });
-  await openPipelineView(page, msg("shell-tab-pipeline-board"));
+  await page.getByRole("tab", { name: msg("shell-tab-pipeline-board") }).click();
   await expect(column(page, "Researching").getByText("Principal Engineering Manager")).toBeVisible();
 });
 
@@ -1150,20 +1174,26 @@ test("the Pipeline and Radar each keep their own comparison, through a visit to 
   await expect(compareOf(radarRow("Staff Product Manager, API"))).toHaveAttribute("aria-pressed", "false");
 });
 
-test("on a phone the dock holds the pipeline's views, and Up next takes the tap", async ({ page }) => {
+test("on a phone the tabs keep their row when the summary wraps, and Up next takes the tap", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 664 });
   await installPipeline(page);
   await page.goto("/pipeline/board");
-  await expect(pipelineStar(page), "the dock lists the views, not the star that opens them").toBeHidden();
-  const upNext = mainRail(page).getByRole("link", { name: msg("shell-tab-pipeline-up-next"), exact: true });
-  await upNext.scrollIntoViewIfNeeded();
-  const hit = await upNext.evaluate((link) => {
-    const box = link.getBoundingClientRect();
-    const at = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
-    return Boolean(at && link.contains(at));
+  const upNext = page.getByRole("tab", { name: msg("shell-tab-pipeline-up-next") });
+  await expect(page.locator(".page-hero .app-summary")).toContainText(msg("applications-column-closed").toLowerCase());
+  const look = await upNext.evaluate((tab) => {
+    const row = tab.parentElement!.getBoundingClientRect();
+    const box = tab.getBoundingClientRect();
+    const lines = document.createRange();
+    lines.selectNodeContents(document.querySelector(".page-hero .app-summary")!);
+    return {
+      wraps: new Set([...lines.getClientRects()].map((r) => Math.round(r.top))).size > 1,
+      row: row.height, tab: box.height,
+      hit: document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2) === tab,
+    };
   });
-  expect(hit, "nothing lies over Up next").toBe(true);
+  expect(look.wraps, "the summary runs to a second line at this width").toBe(true);
+  expect(look.row, "the tab row is as tall as its tabs").toBeGreaterThanOrEqual(look.tab);
+  expect(look.hit, "nothing lies over Up next").toBe(true);
   await upNext.click();
   await expect(page).toHaveURL(/\/pipeline\/up-next$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(msg("shell-tab-pipeline-up-next"));
 });

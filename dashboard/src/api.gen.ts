@@ -3645,6 +3645,7 @@ export interface components {
          * @description One application as the board shows it.
          */
         ApplicationCard: {
+            awaiting_outcome: components["schemas"]["ApplicationCardInterview"] | null;
             /** Comment Count */
             comment_count: number;
             /** Company */
@@ -3661,11 +3662,13 @@ export interface components {
             next_action: string | null;
             /** Next Action Due */
             next_action_due: string | null;
-            next_interview: components["schemas"]["ApplicationNextInterview"] | null;
+            next_interview: components["schemas"]["ApplicationCardInterview"] | null;
             /** Posting Status */
             posting_status: string;
             /** Priority */
             priority: number;
+            /** Priority Set */
+            priority_set: boolean;
             /** Pursuit Id */
             pursuit_id: number | null;
             /**
@@ -3679,6 +3682,27 @@ export interface components {
             starred: boolean;
             /** Title */
             title: string;
+        };
+        /**
+         * ApplicationCardInterview
+         * @description A round as the card names it.
+         */
+        ApplicationCardInterview: {
+            /** All Day */
+            all_day: boolean;
+            /** Format */
+            format: ("video" | "phone" | "onsite") | null;
+            /** Id */
+            id: number;
+            /** Label */
+            label: string;
+            /** Link */
+            link: string | null;
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
         };
         /** ApplicationComment */
         ApplicationComment: {
@@ -3815,22 +3839,6 @@ export interface components {
         /** ApplicationInterviewResponse */
         ApplicationInterviewResponse: {
             interview: components["schemas"]["ApplicationInterview"];
-        };
-        /** ApplicationNextInterview */
-        ApplicationNextInterview: {
-            /** All Day */
-            all_day: boolean;
-            /** Format */
-            format: ("video" | "phone" | "onsite") | null;
-            /** Id */
-            id: number;
-            /** Label */
-            label: string;
-            /**
-             * Scheduled At
-             * Format: date-time
-             */
-            scheduled_at: string;
         };
         /** AvailabilityShape */
         AvailabilityShape: {
@@ -4012,6 +4020,8 @@ export interface components {
             kind: "interview";
             /** Label */
             label: string;
+            /** Link */
+            link: string | null;
             /** Outcome */
             outcome: ("passed" | "not_passed" | "cancelled") | null;
         };
@@ -6577,6 +6587,8 @@ export interface components {
             new_listing: boolean;
             pay_floor_check: components["schemas"]["PayFloorCheck"] | null;
             pay_source: components["schemas"]["SectionSource"];
+            /** Pipeline Stage */
+            pipeline_stage: ("saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed") | null;
             /** Place Count */
             place_count: number | null;
             /** Place Set Size */
@@ -6716,6 +6728,8 @@ export interface components {
             locations: string[];
             /** New Listing */
             new_listing: boolean;
+            /** Pipeline Stage */
+            pipeline_stage: ("saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed") | null;
             /** Place Count */
             place_count: number | null;
             /** Place Set Size */
@@ -6863,6 +6877,8 @@ export interface components {
             matched_via?: string[];
             /** New Listing */
             new_listing: boolean;
+            /** Pipeline Stage */
+            pipeline_stage: ("saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed") | null;
             /** Place Count */
             place_count: number | null;
             /** Place Set Size */
@@ -7122,6 +7138,8 @@ export interface components {
             locations: string[];
             /** New Listing */
             new_listing: boolean;
+            /** Pipeline Stage */
+            pipeline_stage: ("saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed") | null;
             /** Place Count */
             place_count: number | null;
             /** Place Set Size */
@@ -10065,6 +10083,7 @@ export interface components {
         };
         /** PursuitItem */
         PursuitItem: {
+            awaiting_outcome: components["schemas"]["PursuitRound"] | null;
             /**
              * Created At
              * Format: date-time
@@ -10078,11 +10097,14 @@ export interface components {
             next_action: string | null;
             /** Next Action Due */
             next_action_due: string | null;
+            next_interview: components["schemas"]["PursuitRound"] | null;
             /** Notes */
             notes: string | null;
             opportunity: components["schemas"]["PursuedOpportunity"];
             /** Priority */
             priority: number;
+            /** Priority Set */
+            priority_set: boolean;
             /** Revision */
             revision: number;
             /**
@@ -10155,6 +10177,27 @@ export interface components {
             title: string;
             /** Url */
             url: string;
+        };
+        /**
+         * PursuitRound
+         * @description An interview round, as the pipeline's card names it.
+         */
+        PursuitRound: {
+            /** All Day */
+            all_day: boolean;
+            /** Format */
+            format: ("video" | "phone" | "onsite") | null;
+            /** Id */
+            id: number;
+            /** Label */
+            label: string;
+            /** Link */
+            link: string | null;
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
         };
         /**
          * PursuitState
@@ -11807,6 +11850,8 @@ export interface components {
             locations: string[];
             /** New Listing */
             new_listing: boolean;
+            /** Pipeline Stage */
+            pipeline_stage: ("saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed") | null;
             /** Place Count */
             place_count: number | null;
             /** Place Set Size */
@@ -13147,7 +13192,7 @@ export interface operations {
                     if_revision?: number;
                     /**
                      * Priority
-                     * @description 1 to 5. A new pursuit starts at 3; an existing one keeps its own unless this is given.
+                     * @description 5 Urgent, 4 High, 3 Medium, 2 Low, 1 No priority. A new pursuit has no priority chosen; an existing one keeps its own unless this is given.
                      */
                     priority?: number;
                 };
@@ -13202,7 +13247,7 @@ export interface operations {
                     notes?: string | null;
                     /**
                      * Priority
-                     * @description 1 to 5. Cannot be null.
+                     * @description 5 Urgent, 4 High, 3 Medium, 2 Low, 1 No priority. Cannot be null.
                      */
                     priority?: number;
                     /**

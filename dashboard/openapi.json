@@ -437,6 +437,16 @@
     "additionalProperties": false,
     "description": "One application as the board shows it.",
     "properties": {
+     "awaiting_outcome": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ApplicationCardInterview"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "comment_count": {
       "title": "Comment Count",
       "type": "integer"
@@ -525,7 +535,7 @@
      "next_interview": {
       "anyOf": [
        {
-        "$ref": "#/components/schemas/ApplicationNextInterview"
+        "$ref": "#/components/schemas/ApplicationCardInterview"
        },
        {
         "type": "null"
@@ -540,6 +550,10 @@
      "priority": {
       "title": "Priority",
       "type": "integer"
+     },
+     "priority_set": {
+      "title": "Priority Set",
+      "type": "boolean"
      },
      "pursuit_id": {
       "anyOf": [
@@ -596,6 +610,7 @@
      "pursuit_id",
      "stage",
      "priority",
+     "priority_set",
      "starred",
      "company",
      "title",
@@ -604,12 +619,75 @@
      "next_action",
      "next_action_due",
      "next_interview",
+     "awaiting_outcome",
      "comment_count",
      "stage_since",
      "last_activity_at",
      "ended_at_stage"
     ],
     "title": "ApplicationCard",
+    "type": "object"
+   },
+   "ApplicationCardInterview": {
+    "additionalProperties": false,
+    "description": "A round as the card names it.",
+    "properties": {
+     "all_day": {
+      "title": "All Day",
+      "type": "boolean"
+     },
+     "format": {
+      "anyOf": [
+       {
+        "enum": [
+         "video",
+         "phone",
+         "onsite"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Format"
+     },
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string",
+      "x-text": "content"
+     },
+     "link": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Link",
+      "x-text": "identifier"
+     },
+     "scheduled_at": {
+      "format": "date-time",
+      "title": "Scheduled At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "label",
+     "scheduled_at",
+     "all_day",
+     "format",
+     "link"
+    ],
+    "title": "ApplicationCardInterview",
     "type": "object"
    },
    "ApplicationComment": {
@@ -989,54 +1067,6 @@
      "interview"
     ],
     "title": "ApplicationInterviewResponse",
-    "type": "object"
-   },
-   "ApplicationNextInterview": {
-    "additionalProperties": false,
-    "properties": {
-     "all_day": {
-      "title": "All Day",
-      "type": "boolean"
-     },
-     "format": {
-      "anyOf": [
-       {
-        "enum": [
-         "video",
-         "phone",
-         "onsite"
-        ],
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Format"
-     },
-     "id": {
-      "title": "Id",
-      "type": "integer"
-     },
-     "label": {
-      "title": "Label",
-      "type": "string",
-      "x-text": "content"
-     },
-     "scheduled_at": {
-      "format": "date-time",
-      "title": "Scheduled At",
-      "type": "string"
-     }
-    },
-    "required": [
-     "id",
-     "label",
-     "scheduled_at",
-     "all_day",
-     "format"
-    ],
-    "title": "ApplicationNextInterview",
     "type": "object"
    },
    "AvailabilityShape": {
@@ -1526,6 +1556,18 @@
       "type": "string",
       "x-text": "content"
      },
+     "link": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Link",
+      "x-text": "identifier"
+     },
      "outcome": {
       "anyOf": [
        {
@@ -1550,6 +1592,7 @@
      "label",
      "all_day",
      "format",
+     "link",
      "outcome"
     ],
     "title": "CalendarInterview",
@@ -9384,6 +9427,30 @@
      "pay_source": {
       "$ref": "#/components/schemas/SectionSource"
      },
+     "pipeline_stage": {
+      "anyOf": [
+       {
+        "enum": [
+         "saved",
+         "researching",
+         "networking",
+         "applied",
+         "interviewing",
+         "offer",
+         "accepted",
+         "declined",
+         "withdrawn",
+         "rejected",
+         "role_closed"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Pipeline Stage"
+     },
      "place_count": {
       "anyOf": [
        {
@@ -9563,6 +9630,7 @@
     "required": [
      "id",
      "is_favorite",
+     "pipeline_stage",
      "is_dismissed",
      "company_unfollowed",
      "company",
@@ -10012,6 +10080,30 @@
       "title": "New Listing",
       "type": "boolean"
      },
+     "pipeline_stage": {
+      "anyOf": [
+       {
+        "enum": [
+         "saved",
+         "researching",
+         "networking",
+         "applied",
+         "interviewing",
+         "offer",
+         "accepted",
+         "declined",
+         "withdrawn",
+         "rejected",
+         "role_closed"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Pipeline Stage"
+     },
      "place_count": {
       "anyOf": [
        {
@@ -10116,6 +10208,7 @@
     "required": [
      "id",
      "is_favorite",
+     "pipeline_stage",
      "is_dismissed",
      "company_unfollowed",
      "company",
@@ -10563,6 +10656,30 @@
       "title": "New Listing",
       "type": "boolean"
      },
+     "pipeline_stage": {
+      "anyOf": [
+       {
+        "enum": [
+         "saved",
+         "researching",
+         "networking",
+         "applied",
+         "interviewing",
+         "offer",
+         "accepted",
+         "declined",
+         "withdrawn",
+         "rejected",
+         "role_closed"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Pipeline Stage"
+     },
      "place_count": {
       "anyOf": [
        {
@@ -10700,6 +10817,7 @@
     "required": [
      "id",
      "is_favorite",
+     "pipeline_stage",
      "is_dismissed",
      "company_unfollowed",
      "company",
@@ -11469,6 +11587,30 @@
       "title": "New Listing",
       "type": "boolean"
      },
+     "pipeline_stage": {
+      "anyOf": [
+       {
+        "enum": [
+         "saved",
+         "researching",
+         "networking",
+         "applied",
+         "interviewing",
+         "offer",
+         "accepted",
+         "declined",
+         "withdrawn",
+         "rejected",
+         "role_closed"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Pipeline Stage"
+     },
      "place_count": {
       "anyOf": [
        {
@@ -11573,6 +11715,7 @@
     "required": [
      "id",
      "is_favorite",
+     "pipeline_stage",
      "is_dismissed",
      "company_unfollowed",
      "company",
@@ -20565,6 +20708,16 @@
    "PursuitItem": {
     "additionalProperties": false,
     "properties": {
+     "awaiting_outcome": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PursuitRound"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "created_at": {
       "format": "date-time",
       "title": "Created At",
@@ -20602,6 +20755,16 @@
       ],
       "title": "Next Action Due"
      },
+     "next_interview": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PursuitRound"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "notes": {
       "anyOf": [
        {
@@ -20622,6 +20785,10 @@
       "minimum": 1.0,
       "title": "Priority",
       "type": "integer"
+     },
+     "priority_set": {
+      "title": "Priority Set",
+      "type": "boolean"
      },
      "revision": {
       "minimum": 1.0,
@@ -20663,7 +20830,10 @@
      "created_at",
      "updated_at",
      "revision",
-     "opportunity"
+     "opportunity",
+     "next_interview",
+     "awaiting_outcome",
+     "priority_set"
     ],
     "title": "PursuitItem",
     "type": "object"
@@ -20834,6 +21004,69 @@
      "url"
     ],
     "title": "PursuitOpportunity",
+    "type": "object"
+   },
+   "PursuitRound": {
+    "additionalProperties": false,
+    "description": "An interview round, as the pipeline's card names it.",
+    "properties": {
+     "all_day": {
+      "title": "All Day",
+      "type": "boolean"
+     },
+     "format": {
+      "anyOf": [
+       {
+        "enum": [
+         "video",
+         "phone",
+         "onsite"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Format",
+      "x-text": "code"
+     },
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string",
+      "x-text": "content"
+     },
+     "link": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Link",
+      "x-text": "identifier"
+     },
+     "scheduled_at": {
+      "format": "date-time",
+      "title": "Scheduled At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "label",
+     "scheduled_at",
+     "all_day",
+     "format",
+     "link"
+    ],
+    "title": "PursuitRound",
     "type": "object"
    },
    "PursuitState": {
@@ -25728,6 +25961,30 @@
       "title": "New Listing",
       "type": "boolean"
      },
+     "pipeline_stage": {
+      "anyOf": [
+       {
+        "enum": [
+         "saved",
+         "researching",
+         "networking",
+         "applied",
+         "interviewing",
+         "offer",
+         "accepted",
+         "declined",
+         "withdrawn",
+         "rejected",
+         "role_closed"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Pipeline Stage"
+     },
      "place_count": {
       "anyOf": [
        {
@@ -25836,6 +26093,7 @@
     "required": [
      "id",
      "is_favorite",
+     "pipeline_stage",
      "is_dismissed",
      "company_unfollowed",
      "company",
@@ -29618,7 +29876,7 @@
           "x-text": "content"
          },
          "priority": {
-          "description": "1 to 5. Cannot be null.",
+          "description": "5 Urgent, 4 High, 3 Medium, 2 Low, 1 No priority. Cannot be null.",
           "maximum": 5,
           "minimum": 1,
           "title": "Priority",
@@ -29708,7 +29966,7 @@
           "type": "integer"
          },
          "priority": {
-          "description": "1 to 5. A new pursuit starts at 3; an existing one keeps its own unless this is given.",
+          "description": "5 Urgent, 4 High, 3 Medium, 2 Low, 1 No priority. A new pursuit has no priority chosen; an existing one keeps its own unless this is given.",
           "maximum": 5,
           "minimum": 1,
           "title": "Priority",

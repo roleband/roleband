@@ -7,10 +7,13 @@ import {
   applicationsColumnDecided,
   applicationsMenuMoveTo,
 } from "../../copy/gen/applications";
-import { CLOSED_STAGES, DECIDED_STAGES, MOVING_STAGES, boardStage } from "./board";
+import { CLOSED_STAGES, DECIDED_STAGES, MOVING_STAGES, boardStage, reachableEndings } from "./board";
 
 export interface StageMenuProps {
   current: StageSlug;
+  /** For an ended role, the stage it ended from: it decides which other
+   *  endings the menu offers. */
+  endedAt?: StageSlug | null;
   label: string;
   anchor: HTMLElement | null;
   isOpen: boolean;
@@ -22,11 +25,13 @@ export interface StageMenuProps {
   children?: ReactNode;
 }
 
-/** Every stage an application can move to, the one path that needs no
- *  pointer, shared by a board card and the application page. The moving
- *  stages answer to the number keys 1 to 5 while the menu is open. The
+/** Every stage an application can move to from where it is, the one path
+ *  that needs no pointer, shared by a list row, a board card and the
+ *  application page. The moving stages are always offered and answer to the
+ *  number keys 1 to 5 while the menu is open; an ending only where it can
+ *  happen (`reachableEndings`), and a group with none is left out. The
  *  current stage carries a tick, and choosing it changes nothing. */
-export function StageMenu({ current, label, anchor, isOpen, onClose, onMove, reached, children }: StageMenuProps) {
+export function StageMenu({ current, endedAt = null, label, anchor, isOpen, onClose, onMove, reached, children }: StageMenuProps) {
   useEffect(() => {
     if (!isOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -40,7 +45,8 @@ export function StageMenu({ current, label, anchor, isOpen, onClose, onMove, rea
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isOpen, onMove]);
 
-  const group = (heading: string, stages: readonly StageSlug[], keyed: boolean) => (
+  const endings = reachableEndings(current, endedAt);
+  const group = (heading: string, stages: readonly StageSlug[], keyed: boolean) => stages.length > 0 && (
     <MenuGroup label={heading}>
       {stages.map((stage, index) => {
         const on = reached?.get(stage);
@@ -63,8 +69,8 @@ export function StageMenu({ current, label, anchor, isOpen, onClose, onMove, rea
   return (
     <Menu isOpen={isOpen} onClose={onClose} anchor={anchor} label={label}>
       {group(applicationsMenuMoveTo(), MOVING_STAGES, true)}
-      {group(applicationsColumnDecided(), DECIDED_STAGES, false)}
-      {group(applicationsColumnClosed(), CLOSED_STAGES, false)}
+      {group(applicationsColumnDecided(), DECIDED_STAGES.filter((stage) => endings.has(stage)), false)}
+      {group(applicationsColumnClosed(), CLOSED_STAGES.filter((stage) => endings.has(stage)), false)}
       {children && <MenuGroup>{children}</MenuGroup>}
     </Menu>
   );

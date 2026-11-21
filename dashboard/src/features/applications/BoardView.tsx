@@ -21,8 +21,10 @@ import { VIEW_FILTERS, isFiltering, matches, quickCounts } from "./filters";
 import { beside, useFocusAfter } from "./focusAfter";
 import { NoMatches, PipelineEmpty } from "./PipelineEmpty";
 import { PipelineToolbar } from "./PipelineToolbar";
+import { StageRing } from "./StageRing";
 import type { useBoardController } from "./useBoardController";
 import { useCardDrag } from "./useCardDrag";
+import { usePageScrollsFirst } from "./usePageScrollsFirst";
 import { stepColumns, useScrollEdges } from "./useScrollEdges";
 import { useStageAsk } from "./useStageAsk";
 import { useViewFilter } from "./useViewFilter";
@@ -101,6 +103,7 @@ export function BoardView({ board, now }: {
     setScrollNode(node);
   }, []);
   const edges = useScrollEdges(scrollNode);
+  usePageScrollsFirst(scrollNode);
   const focusAfter = useFocusAfter();
   const besideCard = (jobId: number) => {
     const tile = scroller.current?.querySelector(`.app-tile[data-job-id="${jobId}"]`);
@@ -194,6 +197,7 @@ export function BoardView({ board, now }: {
                         data-drop-target={!sectioned && landing != null && column.stages.includes(landing) ? "" : undefined}
                       >
                         <div className="app-column-head">
+                          <StageRing stage={column.stages[0]} />
                           <h2 id={`app-column-${column.id}`} className="app-column-name">{name}</h2>
                           <span className="app-column-count">
                             {filtering ? applicationsColumnCountOf({ count: matched, total: all }) : all}

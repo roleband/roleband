@@ -11,6 +11,9 @@ import { deleteJSON, getJSON, patchJSON, postJSON, putJSON } from "./transport";
  *  is a card at `saved` with `pursuit_id` null. */
 export type ApplicationCard = Schemas["ApplicationCard"];
 
+/** A round a card names: its next one, or the one waiting for its outcome. */
+export type ApplicationCardInterview = Schemas["ApplicationCardInterview"];
+
 export type ApplicationBoard = Schemas["ApplicationBoardResponse"];
 
 /** One application: its card, every interview, and when it reached each stage. */

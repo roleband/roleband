@@ -163,9 +163,13 @@ async def test_save_answers_what_the_tool_answers_for_the_same_pursuit(api_clien
     # answers the pursuit as it stands: the fields the operation answered.
     tool = await server.save_opportunity(job_id, priority=2)
 
-    assert PursuitItem.model_validate({**tool, "revision": 1, "opportunity": data["opportunity"]}).model_dump(
-        mode="json"
-    ) == data
+    # The role has no rounds booked, which the tool does not name either way.
+    assert PursuitItem.model_validate(
+        {
+            **tool, "revision": 1, "opportunity": data["opportunity"],
+            "next_interview": None, "awaiting_outcome": None, "priority_set": True,
+        }
+    ).model_dump(mode="json") == data
     assert (await _pursuit(db_session, job_id)).revision == 1
 
 

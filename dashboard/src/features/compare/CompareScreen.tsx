@@ -117,7 +117,7 @@ export function CompareScreen({
           elems={{
             radar: <Link to="/">{compareScreenRadar()}</Link>,
             pipeline: <Link to="/pipeline/list">{compareScreenPipeline()}</Link>,
-            icon: <Icon name="columns" size={13} />,
+            icon: <Icon name="compare" size={13} />,
           }}
         />
       </EmptyState>,

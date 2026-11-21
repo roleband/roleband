@@ -36,7 +36,7 @@ import {
  * The shell loads this lazily on first open, so the list costs the startup
  * chunk nothing. The keys themselves are answered where they act — App (the
  * palette, `/`, `?`), JobList (`j`/`k`), JobCard (Enter, `s`, `c`), JobDetail (`j`/`k` between a list's postings),
- * ReviewScreen (D/T/N), ApplicationPage (`m`, `i`) and StageMenu (1 to 5), so a key added there belongs here in the same change.
+ * ReviewScreen (D/T/N), the pipeline's part of a posting (`m`, `i`, features/applications/usePostingPipeline.tsx) and StageMenu (1 to 5), so a key added there belongs here in the same change.
  */
 
 interface Shortcut {

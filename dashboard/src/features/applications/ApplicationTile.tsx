@@ -1,35 +1,90 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { ApplicationCard } from "../../api";
+import { date as formatDate, daysAgo, time as formatTime } from "../../copy/format";
 import type { StageSlug } from "../../copy/vocabulary";
 import { companyName } from "../../format";
 import { Badge, Button, CompanyIcon, Content, Icon, MenuItem, dragSurface } from "../../ui";
-import { Abbr } from "../../ui/Abbr";
 import {
   applicationsCardActions,
-  applicationsCardComments,
-  applicationsCardDaysInStage,
-  applicationsCardDaysShort,
+  applicationsCardApplied,
+  applicationsCardAskOutcome,
+  applicationsCardDayTime,
+  applicationsCardDueStep,
+  applicationsCardGoneQuiet,
+  applicationsCardOverdue,
   applicationsCardPostingClosed,
   applicationsCardPriority,
-  applicationsCardQuiet,
+  applicationsCardRoundPast,
   applicationsMenuLabel,
   applicationsMenuRemove,
 } from "../../copy/gen/applications";
-import { useOriginState } from "./pageOrigin";
-import { applicationPath, daysToSay, daysQuiet, dueOf, isStale } from "./board";
-import { DueBadge } from "./DueBadge";
+import { cardDay } from "./dayWords";
+import { useRoleLink } from "./roleLink";
+import {
+  boardStage,
+  dayOffset,
+  daysInStage,
+  daysOverdue,
+  dueState,
+  isMoving,
+  isStale,
+  stepDue,
+} from "./board";
+import { PRIORITY_LABEL, priorityOf } from "./priority";
+import { PriorityMark } from "./PriorityMark";
 import { StageMenu } from "./StageMenu";
 import { endingName } from "./StageLabel";
 import type { CardDragHandlers } from "./useCardDrag";
 
-const PRIORITY_STEPS = [1, 2, 3, 4, 5] as const;
-
-/** The card's one due field: the sooner of the next interview and the next
- *  step. */
-function DueField({ card, now }: { card: ApplicationCard; now: Date }) {
-  const due = dueOf(card);
-  return due ? <DueBadge due={due} now={now} /> : null;
+/** The card's lead line: the one fact its column asks about. Applied says
+ *  when, then a step that is late or close, or that the role has gone
+ *  quiet; Interviewing names the round awaiting its outcome, else the next
+ *  one; every other moving stage names the next step. Nothing set is
+ *  nothing said. */
+function leadOf(card: ApplicationCard, now: Date): ReactNode[] {
+  const due = stepDue(card);
+  const state = due && dueState(due, now);
+  const late = due && state === "overdue"
+    ? <span key="late" className="app-tile-late">{applicationsCardOverdue({ days: daysOverdue(due, now) })}</span>
+    : null;
+  const stage = boardStage(card.stage);
+  if (stage === "applied") {
+    const days = daysInStage(card, now);
+    const after = late
+      ?? (due && state === "soon"
+        ? <span key="due">{applicationsCardDueStep({ offset: dayOffset(due.on, now), date: formatDate(due.on, "weekday") })}</span>
+        : isStale(card, now) ? <span key="quiet">{applicationsCardGoneQuiet()}</span> : null);
+    return [
+      days != null && <span key="main" className="app-tile-lead-main">{applicationsCardApplied({ ago: daysAgo(days) })}</span>,
+      after,
+    ];
+  }
+  if (stage === "interviewing") {
+    const past = card.awaiting_outcome;
+    if (past) {
+      return [
+        <span key="main" className="app-tile-lead-main">
+          {applicationsCardRoundPast({ label: past.label, day: cardDay(new Date(past.scheduled_at), now) })}
+        </span>,
+        <span key="ask" className="app-tile-ask">{applicationsCardAskOutcome()}</span>,
+      ];
+    }
+    const next = card.next_interview;
+    if (next) {
+      const at = new Date(next.scheduled_at);
+      const day = cardDay(at, now);
+      return [
+        <span key="main" className="app-tile-lead-main"><Content text={next.label} /></span>,
+        <span key="when">{next.all_day ? day : applicationsCardDayTime({ day, time: formatTime(at) })}</span>,
+      ];
+    }
+  }
+  if (!card.next_action) return [];
+  return [
+    <span key="main" className="app-tile-lead-main"><Content text={card.next_action} /></span>,
+    late ?? (due && <span key="when">{cardDay(due.on, now)}</span>),
+  ];
 }
 
 export interface ApplicationTileProps {
@@ -53,11 +108,11 @@ export interface ApplicationTileProps {
 export function ApplicationTile({ card, now, onMove, onRemove, drag, dragged, match }: ApplicationTileProps) {
   const [menuButton, setMenuButton] = useState<HTMLButtonElement | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const origin = useOriginState();
+  const role = useRoleLink();
   const company = companyName(card.company);
-  const days = daysToSay(card, now);
-  const stale = isStale(card, now);
   const ending = endingName(card);
+  const closed = card.posting_status === "closed";
+  const level = priorityOf(card);
 
   /* A drag surface (src/ui/dragSurface.ts): a drag that starts on the card
      moves it and selects nothing. The company and the title stay copyable
@@ -67,7 +122,7 @@ export function ApplicationTile({ card, now, onMove, onRemove, drag, dragged, ma
     <div
       className="app-tile"
       data-job-id={card.job_id}
-      data-posting-closed={card.posting_status === "closed" || undefined}
+      data-posting-closed={closed || undefined}
       data-dragging={dragged ? "" : undefined}
       data-match={match == null ? undefined : String(match)}
       style={dragged ? { transform: `translate(${dragged.dx}px, ${dragged.dy}px)` } : undefined}
@@ -90,7 +145,7 @@ export function ApplicationTile({ card, now, onMove, onRemove, drag, dragged, ma
           <Icon name="more" size={16} />
         </Button>
       </div>
-      <Link to={applicationPath(card.job_id)} state={origin} className="app-tile-open" draggable={false}>
+      <Link {...role(card)} className="app-tile-open" draggable={false}>
         <span className="app-tile-title" data-selection="content"><Content text={card.title} /></span>
       </Link>
       {ending && (
@@ -98,39 +153,28 @@ export function ApplicationTile({ card, now, onMove, onRemove, drag, dragged, ma
           {ending}
         </span>
       )}
-      <div className="app-tile-foot">
-        <DueField card={card} now={now} />
-        {card.posting_status === "closed" && (
-          <Badge tone="warning" variant="tint" size="sm">{applicationsCardPostingClosed()}</Badge>
-        )}
-        {card.comment_count > 0 && (
-          <span className="app-tile-fact" role="img" aria-label={applicationsCardComments({ count: card.comment_count })}>
-            <Icon name="message" size={12} />
-            <span aria-hidden="true">{card.comment_count}</span>
+      {isMoving(card) && (
+        <div className="app-tile-lead">
+          <span className="app-tile-facts">
+            {leadOf(card, now)}
+            {closed && <Badge tone="warning" variant="tint" size="sm">{applicationsCardPostingClosed()}</Badge>}
           </span>
-        )}
-        <span className="app-tile-end">
-        <span className="app-tile-priority" role="img" aria-label={applicationsCardPriority({ priority: card.priority })}>
-          {PRIORITY_STEPS.map((step) => (
-            <span key={step} className="app-tile-dot" data-filled={step <= card.priority || undefined} aria-hidden="true" />
-          ))}
-        </span>
-        {days != null && (
-          <span className="app-tile-fact app-tile-days" data-stale={stale || undefined}>
-            {stale && <Icon name="clock" size={12} />}
-            <Abbr
-              short={applicationsCardDaysShort({ days })}
-              full={stale ? applicationsCardQuiet({ days, quiet: daysQuiet(card, now) ?? days }) : applicationsCardDaysInStage({ days })}
-            />
-          </span>
-        )}
-        </span>
-      </div>
+          {level !== "none" && (
+            <span className="app-tile-priority">
+              <PriorityMark level={level} label={applicationsCardPriority({ level: PRIORITY_LABEL[level]() })} />
+            </span>
+          )}
+        </div>
+      )}
+      {!isMoving(card) && closed && (
+        <Badge tone="warning" variant="tint" size="sm">{applicationsCardPostingClosed()}</Badge>
+      )}
     </div>
     {/* Beside the card, not in it: the menu is portalled, and React would
         bubble a press inside it to the card's drag handlers. */}
       <StageMenu
         current={card.stage}
+        endedAt={card.ended_at_stage}
         label={applicationsMenuLabel({ title: card.title })}
         anchor={menuButton}
         isOpen={menuOpen}

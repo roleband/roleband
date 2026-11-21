@@ -114,6 +114,7 @@ export type {
   ApplicationBoard,
   ApplicationCalendarItem,
   ApplicationCard,
+  ApplicationCardInterview,
   ApplicationDetail,
   ApplicationInterview,
   InterviewUpdate,

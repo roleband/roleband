@@ -1,16 +1,21 @@
 /* A column's name, and which columns the board hides. Hiding is a
- * preference of this browser, as the theme is, never a setting. Storage can
- * throw on access (blocked site data, a private window), so a failed read
- * shows every column and a failed write is dropped: the choice still holds
- * for this visit. */
+ * preference of this browser, as the theme is, never a setting. Until the
+ * person chooses, the board shows the stages a role moves through and hides
+ * the rest: Considering, which the List holds, and the two that end a role.
+ * Storage can throw on access (blocked site data, a private window), so a
+ * failed read hides those same columns and a failed write is dropped: the
+ * choice still holds for this visit. */
 
 import { STAGE_LABEL } from "../../copy/vocabulary";
 import { applicationsColumnClosed, applicationsColumnDecided } from "../../copy/gen/applications";
 import { COLUMNS, type ColumnId } from "./board";
 
 const KEY = "roleband.pipeline-hidden-columns";
-/** Where a browser kept the one choice the board offered before: hiding Closed. */
+/** Where a browser kept the one choice the board offered before, hiding
+ *  Closed. The default hides Closed too, so it is only ever cleared. */
 const CLOSED_KEY = "roleband.pipeline-closed-hidden";
+
+const DEFAULT_HIDDEN: readonly ColumnId[] = ["saved", "decided", "closed"];
 
 const NAME: Record<ColumnId, () => string> = {
   saved: () => STAGE_LABEL.saved,
@@ -33,11 +38,11 @@ export function readHiddenColumns(): ColumnId[] {
   let stored: unknown;
   try {
     const raw = localStorage.getItem(KEY);
-    stored = raw == null ? (localStorage.getItem(CLOSED_KEY) === "1" ? ["closed"] : []) : JSON.parse(raw);
+    stored = raw == null ? DEFAULT_HIDDEN : JSON.parse(raw);
   } catch {
-    return [];
+    return [...DEFAULT_HIDDEN];
   }
-  if (!Array.isArray(stored)) return [];
+  if (!Array.isArray(stored)) return [...DEFAULT_HIDDEN];
   const hidden = IDS.filter((id) => stored.includes(id));
   return hidden.length === IDS.length ? [] : hidden;
 }

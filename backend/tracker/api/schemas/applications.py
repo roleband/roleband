@@ -22,12 +22,16 @@ InterviewOutcome = Literal["passed", "not_passed", "cancelled"]
 Actor = Literal["user", "agent"]
 
 
-class ApplicationNextInterview(Built):
+class ApplicationCardInterview(Built):
+    """A round as the card names it."""
+
     id: int
     label: str = Field(json_schema_extra=text("content"))
     scheduled_at: datetime
     all_day: bool
     format: InterviewFormat | None
+    #: Where the round is held: a call's address, as the person entered it.
+    link: str | None = Field(json_schema_extra=text("identifier"))
 
 
 class ApplicationCard(Built):
@@ -36,7 +40,11 @@ class ApplicationCard(Built):
     job_id: int
     pursuit_id: int | None
     stage: PursuitStage
+    #: 5 Urgent, 4 High, 3 Medium, 2 Low, 1 No priority.
     priority: int
+    #: False until a priority is chosen: the role reads as having none, whatever
+    #: the stored number.
+    priority_set: bool
     #: False for a role moved past Considering whose star was later taken away.
     starred: bool
     company: str = Field(json_schema_extra=text("code"))
@@ -46,7 +54,11 @@ class ApplicationCard(Built):
     next_action: str | None = Field(json_schema_extra=text("content"))
     next_action_due: datetime | None
     #: The soonest round with no outcome, until twelve hours after it began.
-    next_interview: ApplicationNextInterview | None
+    next_interview: ApplicationCardInterview | None
+    #: The latest round that has taken place with no outcome given: a timed
+    #: round once it began, an all-day round once its day is over. In the
+    #: hours after it began it is also `next_interview`.
+    awaiting_outcome: ApplicationCardInterview | None
     comment_count: int
     #: When the application entered its current stage.
     stage_since: datetime | None
@@ -142,6 +154,7 @@ class CalendarInterview(Built):
     label: str = Field(json_schema_extra=text("content"))
     all_day: bool
     format: InterviewFormat | None
+    link: str | None = Field(json_schema_extra=text("identifier"))
     outcome: InterviewOutcome | None
 
 

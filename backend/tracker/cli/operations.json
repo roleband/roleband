@@ -2956,10 +2956,83 @@
       ],
       "title": "PursuedOpportunity",
       "type": "object"
+     },
+     "PursuitRound": {
+      "additionalProperties": false,
+      "description": "An interview round, as the pipeline's card names it.",
+      "properties": {
+       "all_day": {
+        "title": "All Day",
+        "type": "boolean"
+       },
+       "format": {
+        "anyOf": [
+         {
+          "enum": [
+           "video",
+           "phone",
+           "onsite"
+          ],
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Format",
+        "x-text": "code"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "label": {
+        "title": "Label",
+        "type": "string",
+        "x-text": "content"
+       },
+       "link": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Link",
+        "x-text": "identifier"
+       },
+       "scheduled_at": {
+        "format": "date-time",
+        "title": "Scheduled At",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id",
+       "label",
+       "scheduled_at",
+       "all_day",
+       "format",
+       "link"
+      ],
+      "title": "PursuitRound",
+      "type": "object"
      }
     },
     "additionalProperties": false,
     "properties": {
+     "awaiting_outcome": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/PursuitRound"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "created_at": {
       "format": "date-time",
       "title": "Created At",
@@ -2997,6 +3070,16 @@
       ],
       "title": "Next Action Due"
      },
+     "next_interview": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/PursuitRound"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "notes": {
       "anyOf": [
        {
@@ -3017,6 +3100,10 @@
       "minimum": 1,
       "title": "Priority",
       "type": "integer"
+     },
+     "priority_set": {
+      "title": "Priority Set",
+      "type": "boolean"
      },
      "revision": {
       "minimum": 1,
@@ -3058,7 +3145,10 @@
      "created_at",
      "updated_at",
      "revision",
-     "opportunity"
+     "opportunity",
+     "next_interview",
+     "awaiting_outcome",
+     "priority_set"
     ],
     "title": "PursuitItem",
     "type": "object"
@@ -3197,6 +3287,16 @@
      "PursuitItem": {
       "additionalProperties": false,
       "properties": {
+       "awaiting_outcome": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/PursuitRound"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
        "created_at": {
         "format": "date-time",
         "title": "Created At",
@@ -3234,6 +3334,16 @@
         ],
         "title": "Next Action Due"
        },
+       "next_interview": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/PursuitRound"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
        "notes": {
         "anyOf": [
          {
@@ -3254,6 +3364,10 @@
         "minimum": 1,
         "title": "Priority",
         "type": "integer"
+       },
+       "priority_set": {
+        "title": "Priority Set",
+        "type": "boolean"
        },
        "revision": {
         "minimum": 1,
@@ -3295,9 +3409,75 @@
        "created_at",
        "updated_at",
        "revision",
-       "opportunity"
+       "opportunity",
+       "next_interview",
+       "awaiting_outcome",
+       "priority_set"
       ],
       "title": "PursuitItem",
+      "type": "object"
+     },
+     "PursuitRound": {
+      "additionalProperties": false,
+      "description": "An interview round, as the pipeline's card names it.",
+      "properties": {
+       "all_day": {
+        "title": "All Day",
+        "type": "boolean"
+       },
+       "format": {
+        "anyOf": [
+         {
+          "enum": [
+           "video",
+           "phone",
+           "onsite"
+          ],
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Format",
+        "x-text": "code"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "label": {
+        "title": "Label",
+        "type": "string",
+        "x-text": "content"
+       },
+       "link": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Link",
+        "x-text": "identifier"
+       },
+       "scheduled_at": {
+        "format": "date-time",
+        "title": "Scheduled At",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id",
+       "label",
+       "scheduled_at",
+       "all_day",
+       "format",
+       "link"
+      ],
+      "title": "PursuitRound",
       "type": "object"
      }
     },
@@ -3327,7 +3507,7 @@
    "required_scopes": [
     "agent_access.enabled"
    ],
-   "summary": "List the pursuits with their stage, priority, notes and next action, by priority.",
+   "summary": "List the pursuits with their stage, priority, notes and next action, the most urgent first.",
    "supports_dry_run": false,
    "tool_tiers": [
     "small",
@@ -3428,7 +3608,7 @@
      },
      "priority": {
       "default": null,
-      "description": "1 to 5. Cannot be null.",
+      "description": "5 Urgent, 4 High, 3 Medium, 2 Low, 1 No priority. Cannot be null.",
       "maximum": 5,
       "minimum": 1,
       "title": "Priority",
@@ -3499,10 +3679,83 @@
       ],
       "title": "PursuedOpportunity",
       "type": "object"
+     },
+     "PursuitRound": {
+      "additionalProperties": false,
+      "description": "An interview round, as the pipeline's card names it.",
+      "properties": {
+       "all_day": {
+        "title": "All Day",
+        "type": "boolean"
+       },
+       "format": {
+        "anyOf": [
+         {
+          "enum": [
+           "video",
+           "phone",
+           "onsite"
+          ],
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Format",
+        "x-text": "code"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "label": {
+        "title": "Label",
+        "type": "string",
+        "x-text": "content"
+       },
+       "link": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Link",
+        "x-text": "identifier"
+       },
+       "scheduled_at": {
+        "format": "date-time",
+        "title": "Scheduled At",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id",
+       "label",
+       "scheduled_at",
+       "all_day",
+       "format",
+       "link"
+      ],
+      "title": "PursuitRound",
+      "type": "object"
      }
     },
     "additionalProperties": false,
     "properties": {
+     "awaiting_outcome": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/PursuitRound"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "created_at": {
       "format": "date-time",
       "title": "Created At",
@@ -3540,6 +3793,16 @@
       ],
       "title": "Next Action Due"
      },
+     "next_interview": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/PursuitRound"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "notes": {
       "anyOf": [
        {
@@ -3560,6 +3823,10 @@
       "minimum": 1,
       "title": "Priority",
       "type": "integer"
+     },
+     "priority_set": {
+      "title": "Priority Set",
+      "type": "boolean"
      },
      "revision": {
       "minimum": 1,
@@ -3601,7 +3868,10 @@
      "created_at",
      "updated_at",
      "revision",
-     "opportunity"
+     "opportunity",
+     "next_interview",
+     "awaiting_outcome",
+     "priority_set"
     ],
     "title": "PursuitItem",
     "type": "object"
@@ -3666,7 +3936,7 @@
      },
      "priority": {
       "default": null,
-      "description": "1 to 5. A new pursuit starts at 3; an existing one keeps its own unless this is given.",
+      "description": "5 Urgent, 4 High, 3 Medium, 2 Low, 1 No priority. A new pursuit has no priority chosen; an existing one keeps its own unless this is given.",
       "maximum": 5,
       "minimum": 1,
       "title": "Priority",
@@ -3716,10 +3986,83 @@
       ],
       "title": "PursuedOpportunity",
       "type": "object"
+     },
+     "PursuitRound": {
+      "additionalProperties": false,
+      "description": "An interview round, as the pipeline's card names it.",
+      "properties": {
+       "all_day": {
+        "title": "All Day",
+        "type": "boolean"
+       },
+       "format": {
+        "anyOf": [
+         {
+          "enum": [
+           "video",
+           "phone",
+           "onsite"
+          ],
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Format",
+        "x-text": "code"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "label": {
+        "title": "Label",
+        "type": "string",
+        "x-text": "content"
+       },
+       "link": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Link",
+        "x-text": "identifier"
+       },
+       "scheduled_at": {
+        "format": "date-time",
+        "title": "Scheduled At",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id",
+       "label",
+       "scheduled_at",
+       "all_day",
+       "format",
+       "link"
+      ],
+      "title": "PursuitRound",
+      "type": "object"
      }
     },
     "additionalProperties": false,
     "properties": {
+     "awaiting_outcome": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/PursuitRound"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "created_at": {
       "format": "date-time",
       "title": "Created At",
@@ -3757,6 +4100,16 @@
       ],
       "title": "Next Action Due"
      },
+     "next_interview": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/PursuitRound"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "notes": {
       "anyOf": [
        {
@@ -3777,6 +4130,10 @@
       "minimum": 1,
       "title": "Priority",
       "type": "integer"
+     },
+     "priority_set": {
+      "title": "Priority Set",
+      "type": "boolean"
      },
      "revision": {
       "minimum": 1,
@@ -3818,7 +4175,10 @@
      "created_at",
      "updated_at",
      "revision",
-     "opportunity"
+     "opportunity",
+     "next_interview",
+     "awaiting_outcome",
+     "priority_set"
     ],
     "title": "PursuitItem",
     "type": "object"

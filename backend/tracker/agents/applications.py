@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any
 
-from sqlalchemy import and_, exists, func, literal, or_, select, union
+from sqlalchemy import Select, and_, exists, func, literal, or_, select, union
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.agents.pursuits import ENDED_STAGES, public_interview
@@ -45,6 +45,87 @@ CALENDAR_SPAN_MAX = timedelta(days=42, hours=1)
 #: accepted offer is not one: signing and a start date still carry dates.
 #: The same set as the follow-up reminders (`pursuit_due.TERMINAL_STAGES`).
 OWES_NOTHING = ENDED_STAGES - {"accepted"}
+
+
+def _next_interview(now: datetime) -> Select[tuple[PursuitInterview]]:
+    """Each pursuit's soonest round with no outcome, kept until twelve hours
+    after it began (an all-day round: until its day is over)."""
+    return (
+        select(PursuitInterview)
+        .where(
+            PursuitInterview.outcome.is_(None),
+            or_(
+                and_(PursuitInterview.all_day.is_(False), PursuitInterview.scheduled_at >= now - NEXT_INTERVIEW_GRACE),
+                and_(PursuitInterview.all_day.is_(True), PursuitInterview.scheduled_at >= now - ALL_DAY_SPAN),
+            ),
+        )
+        .distinct(PursuitInterview.pursuit_id)
+        .order_by(PursuitInterview.pursuit_id, PursuitInterview.scheduled_at, PursuitInterview.id)
+    )
+
+
+def _awaiting_outcome(now: datetime) -> Select[tuple[PursuitInterview]]:
+    """Each pursuit's latest round that has taken place with no outcome given:
+    a timed round once it has begun, an all-day round once its day is over. A
+    timed round is also the next one for its first twelve hours, so the two
+    can be the same round."""
+    return (
+        select(PursuitInterview)
+        .where(
+            PursuitInterview.outcome.is_(None),
+            or_(
+                and_(PursuitInterview.all_day.is_(False), PursuitInterview.scheduled_at <= now),
+                and_(PursuitInterview.all_day.is_(True), PursuitInterview.scheduled_at <= now - ALL_DAY_SPAN),
+            ),
+        )
+        .distinct(PursuitInterview.pursuit_id)
+        .order_by(PursuitInterview.pursuit_id, PursuitInterview.scheduled_at.desc(), PursuitInterview.id.desc())
+    )
+
+
+def priority_chosen(pursuit_id: Any) -> Any:
+    """True when the person, or an agent for them, has ever chosen the
+    pursuit's priority. A new pursuit is written at the column's default, so
+    the stored value alone cannot tell a chosen Medium from one never set: the
+    change log can, since it records every priority a write chose."""
+    return exists().where(
+        PursuitEvent.pursuit_id == pursuit_id,
+        PursuitEvent.detail["changed"].contains(["priority"]),
+    )
+
+
+def card_interview(interview: PursuitInterview) -> dict[str, Any]:
+    """A round as a card or a pursuit read names it."""
+    return {
+        "id": interview.id,
+        "label": interview.label,
+        "scheduled_at": interview.scheduled_at,
+        "all_day": interview.all_day,
+        "format": interview.format,
+        "link": interview.link,
+    }
+
+
+async def pursuit_marks(
+    session: AsyncSession, pursuit_ids: list[int], *, now: datetime
+) -> dict[int, dict[str, Any]]:
+    """What the board reads about each pursuit beyond its row (its next round,
+    the round awaiting its outcome, whether its priority was ever chosen), for
+    a read that is not the board's."""
+    marks: dict[int, dict[str, Any]] = {
+        pid: {"next_interview": None, "awaiting_outcome": None, "priority_set": False} for pid in pursuit_ids
+    }
+    if not pursuit_ids:
+        return marks
+    for key, query in (("next_interview", _next_interview(now)), ("awaiting_outcome", _awaiting_outcome(now))):
+        for interview in (await session.scalars(query.where(PursuitInterview.pursuit_id.in_(pursuit_ids)))).all():
+            marks[interview.pursuit_id][key] = card_interview(interview)
+    chosen = await session.scalars(
+        select(Pursuit.id).where(Pursuit.id.in_(pursuit_ids), priority_chosen(Pursuit.id))
+    )
+    for pid in chosen.all():
+        marks[pid]["priority_set"] = True
+    return marks
 
 
 def _stage_changes():
@@ -88,19 +169,8 @@ async def board(session: AsyncSession, *, now: datetime, job_id: int | None = No
         .group_by(PursuitComment.pursuit_id)
         .subquery()
     )
-    next_interview = (
-        select(PursuitInterview)
-        .where(
-            PursuitInterview.outcome.is_(None),
-            or_(
-                and_(PursuitInterview.all_day.is_(False), PursuitInterview.scheduled_at >= now - NEXT_INTERVIEW_GRACE),
-                and_(PursuitInterview.all_day.is_(True), PursuitInterview.scheduled_at >= now - ALL_DAY_SPAN),
-            ),
-        )
-        .distinct(PursuitInterview.pursuit_id)
-        .order_by(PursuitInterview.pursuit_id, PursuitInterview.scheduled_at, PursuitInterview.id)
-        .subquery()
-    )
+    next_interview = _next_interview(now).subquery()
+    awaiting = _awaiting_outcome(now).subquery()
     interview_touched = (
         select(PursuitInterview.pursuit_id, func.max(PursuitInterview.updated_at).label("last_at"))
         .group_by(PursuitInterview.pursuit_id)
@@ -122,6 +192,14 @@ async def board(session: AsyncSession, *, now: datetime, job_id: int | None = No
             next_interview.c.scheduled_at.label("ni_at"),
             next_interview.c.all_day.label("ni_all_day"),
             next_interview.c.format.label("ni_format"),
+            next_interview.c.link.label("ni_link"),
+            awaiting.c.id.label("ao_id"),
+            awaiting.c.label.label("ao_label"),
+            awaiting.c.scheduled_at.label("ao_at"),
+            awaiting.c.all_day.label("ao_all_day"),
+            awaiting.c.format.label("ao_format"),
+            awaiting.c.link.label("ao_link"),
+            priority_chosen(Pursuit.id).label("priority_set"),
         )
         .select_from(on_board)
         .join(Job, Job.id == on_board.c.job_id)
@@ -131,6 +209,7 @@ async def board(session: AsyncSession, *, now: datetime, job_id: int | None = No
         .outerjoin(ended_from, ended_from.c.pursuit_id == Pursuit.id)
         .outerjoin(comments, comments.c.pursuit_id == Pursuit.id)
         .outerjoin(next_interview, next_interview.c.pursuit_id == Pursuit.id)
+        .outerjoin(awaiting, awaiting.c.pursuit_id == Pursuit.id)
         .outerjoin(interview_touched, interview_touched.c.pursuit_id == Pursuit.id)
         .where(or_(Favorite.id.is_not(None), Pursuit.stage != "saved"))
     )
@@ -155,6 +234,7 @@ async def board(session: AsyncSession, *, now: datetime, job_id: int | None = No
             "pursuit_id": pursuit.id if pursuit is not None else None,
             "stage": stage,
             "priority": pursuit.priority if pursuit is not None else 3,
+            "priority_set": bool(row.priority_set),
             "starred": row.starred_at is not None,
             "company": job.company,
             "title": job.title,
@@ -169,8 +249,21 @@ async def board(session: AsyncSession, *, now: datetime, job_id: int | None = No
                     "scheduled_at": row.ni_at,
                     "all_day": row.ni_all_day,
                     "format": row.ni_format,
+                    "link": row.ni_link,
                 }
                 if row.ni_id is not None
+                else None
+            ),
+            "awaiting_outcome": (
+                {
+                    "id": row.ao_id,
+                    "label": row.ao_label,
+                    "scheduled_at": row.ao_at,
+                    "all_day": row.ao_all_day,
+                    "format": row.ao_format,
+                    "link": row.ao_link,
+                }
+                if row.ao_id is not None
                 else None
             ),
             "comment_count": row.comment_count,
@@ -342,6 +435,7 @@ async def calendar(session: AsyncSession, *, start: datetime, end: datetime) -> 
             "label": interview.label,
             "all_day": interview.all_day,
             "format": interview.format,
+            "link": interview.link,
             "outcome": interview.outcome,
         }
         for interview, job_id in interviews.all()

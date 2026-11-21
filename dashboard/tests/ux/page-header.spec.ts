@@ -3,19 +3,17 @@ import { installEveryRoute } from "./routesHarness";
 
 /* ONE PAGE HEADER. Every tab of the rail names itself with the same h1, at the
    same height and the same left edge, so switching tabs moves nothing but the
-   content. Measured through the rail, the way a jump is seen. The Pipeline's
-   views are rail entries of their own, so its title is the view's: the
-   Pipeline opens on Considering. */
+   content. Measured through the rail, the way a jump is seen. */
 
 const TABS = [
-  { title: "Radar", path: "/" },
-  { title: "Considering", path: "/pipeline" },
-  { title: "Profile", path: "/profile" },
-  { title: "Insights", path: "/statistics" },
-  { title: "Companies", path: "/company" },
-  { title: "Duplicates", path: "/review" },
-  { title: "Notifications", path: "/notifications" },
-  { title: "Settings", path: "/settings" },
+  { rail: "Radar", path: "/" },
+  { rail: "Pipeline", path: "/pipeline" },
+  { rail: "Profile", path: "/profile" },
+  { rail: "Insights", path: "/statistics" },
+  { rail: "Companies", path: "/company" },
+  { rail: "Duplicates", path: "/review" },
+  { rail: "Notifications", path: "/notifications" },
+  { rail: "Settings", path: "/settings" },
 ];
 
 test.beforeEach(async ({ page }) => {
@@ -31,11 +29,11 @@ test("every tab's title is its rail label, in one place, at one size", async ({ 
   for (const tab of TABS) {
     await page.goto(tab.path);
     const title = page.getByRole("main").first().getByRole("heading", { level: 1 });
-    await expect(title).toHaveText(tab.title);
+    await expect(title).toHaveText(tab.rail);
     await expect(title).toBeVisible();
     // One h1 per screen: a panel's own title is an h2 under it.
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
-    seen.push(`${tab.title}: ${await title.evaluate((node) => {
+    seen.push(`${tab.rail}: ${await title.evaluate((node) => {
       const box = node.getBoundingClientRect();
       const style = getComputedStyle(node);
       return `${Math.round(box.top)}/${Math.round(box.left)} ${style.fontSize}/${style.fontWeight}`;

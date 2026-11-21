@@ -582,7 +582,7 @@ async def _seed_pursuits(session) -> dict[str, int]:
     session.add_all(
         [
             Pursuit(job_id=ids["newest"], stage="applied", priority=2, updated_at=NOW),
-            Pursuit(job_id=ids["richest"], stage="offer", priority=1, updated_at=NOW),
+            Pursuit(job_id=ids["richest"], stage="offer", priority=4, updated_at=NOW),
         ]
     )
     await session.commit()

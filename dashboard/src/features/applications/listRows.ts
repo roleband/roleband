@@ -10,10 +10,11 @@ import type { ApplicationCard, Job } from "../../api";
 import { compare } from "../../copy/format";
 import { BAND_ORDER } from "../../format";
 import { dueOf, sortColumn } from "./board";
+import { priorityOf, priorityRank } from "./priority";
 
 /** The columns the List can show, in their first order. */
 const LIST_COLUMNS = [
-  "role", "pay", "location", "level", "next", "posting", "priority", "in_stage", "activity",
+  "role", "pay", "location", "level", "posting", "saved", "next", "priority", "activity",
 ] as const;
 export type ListColumn = (typeof LIST_COLUMNS)[number];
 
@@ -26,11 +27,12 @@ export interface ListLayout {
   hidden: ListColumn[];
 }
 
-/** A first visit: what a card on the board shows, with priority, days in
- *  stage and last activity left to the reader to add. */
+/** A first visit: the facts a decision is made on, and how long the role has
+ *  waited for it. The next step, priority and last activity track work that
+ *  has not started, so they are left to the reader to add. */
 export const DEFAULT_LAYOUT: ListLayout = {
   order: [...LIST_COLUMNS],
-  hidden: ["priority", "in_stage", "activity"],
+  hidden: ["next", "priority", "activity"],
 };
 
 const KEY = "roleband.pipeline-list-columns";
@@ -99,7 +101,7 @@ export interface ListRow {
   job: Job | undefined;
 }
 
-const LIST_SORTS = ["board", "role", "pay", "level", "next", "posting", "priority", "in_stage", "activity"] as const;
+const LIST_SORTS = ["board", "role", "pay", "level", "next", "posting", "saved", "priority", "activity"] as const;
 export type ListSort = (typeof LIST_SORTS)[number];
 export type ListOrder = "asc" | "desc";
 
@@ -111,8 +113,8 @@ export const FIRST_ORDER: Record<ListSort, ListOrder> = {
   level: "desc",
   next: "asc",
   posting: "asc",
+  saved: "asc",
   priority: "desc",
-  in_stage: "desc",
   activity: "desc",
 };
 
@@ -174,10 +176,10 @@ function key(row: ListRow, sort: Exclude<ListSort, "board" | "role">, now: Date)
       return dueOf(card)?.at.getTime() ?? null;
     case "posting":
       return job?.listed_days ?? null;
-    case "priority":
-      return card.priority;
-    case "in_stage":
+    case "saved":
       return card.stage_since ? (now.getTime() - new Date(card.stage_since).getTime()) / DAY : null;
+    case "priority":
+      return priorityRank(priorityOf(card)) || null;
     case "activity":
       return card.last_activity_at ? new Date(card.last_activity_at).getTime() : null;
   }

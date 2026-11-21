@@ -10,6 +10,7 @@
 import type { ApplicationCard } from "../../api";
 import { companyName } from "../../format";
 import { dueOf, dueState, isMoving, isStale, needsNextStep } from "./board";
+import { priorityOf } from "./priority";
 
 export const QUICK_FILTERS = [
   "overdue",
@@ -60,7 +61,7 @@ export function matchesQuick(card: ApplicationCard, filter: QuickFilter, now: Da
     case "quiet":
       return isStale(card, now);
     case "high_priority":
-      return card.priority >= 4;
+      return ["urgent", "high"].includes(priorityOf(card));
     case "posting_closed":
       return card.posting_status === "closed";
   }

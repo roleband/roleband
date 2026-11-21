@@ -255,8 +255,8 @@ describe("register material", () => {
  * A pale page has no glow to separate things, so light must draw its
  * boundaries: a hairline that can be seen, a panel visibly lighter than the
  * page under it, a lift under each panel, and page light without a tint. The
- * floors sit just under the current values; the earlier light palette
- * (hairline 1.25:1, panel 1.09:1, a warm and a green haze) fails every one.
+ * floors sit just under the current values; a hairline at 1.25:1 or a warm or
+ * green haze fails them.
  */
 describe("light theme draws its structure", () => {
   const canvas = rootLight.get("--app-canvas")!;
@@ -276,7 +276,22 @@ describe("light theme draws its structure", () => {
   });
 
   it("a panel is visibly lighter than the page it lies on", () => {
-    expect(ratio(panel, canvas)).toBeGreaterThanOrEqual(1.12);
+    // The page is pale, so the step is small: the panel's lift and its
+    // hairline (gated above and in "light panels") carry the rest.
+    expect(ratio(panel, canvas)).toBeGreaterThanOrEqual(1.08);
+  });
+
+  /* A page much darker than its white panels reads as a tinted field, and
+     on a display that warms its greys (True Tone, Night Shift) as a pink or
+     beige one, while the panels stay white to the eye. */
+  const paleNeutral = (c: RGBA) =>
+    luminance(c) >= 0.88 && Math.max(c.r, c.g, c.b) - Math.min(c.r, c.g, c.b) <= 4 && c.b >= c.r;
+
+  it("the page is a pale neutral, never a warm or a mid grey", () => {
+    expect(paleNeutral(canvas)).toBe(true);
+    // Negative controls: the mid grey and the warm grey that read as a tint.
+    expect(paleNeutral({ r: 233, g: 236, b: 240, a: 1 }), "mid grey").toBe(false);
+    expect(paleNeutral({ r: 245, g: 243, b: 240, a: 1 }), "warm grey").toBe(false);
   });
 
   it("the page light carries no tint", () => {
@@ -733,10 +748,10 @@ describe("native UI follows the page's theme, not the OS's", () => {
 });
 
 /* ---- The light accent ------------------------------------------------------
- * Light's gold is a fill on a pale page, so it needs saturation the dark
- * theme's pale gold does not: at the old 0.57 it read as khaki, the same voice
- * as a disabled control. It stays a gold, apart from the warning orange, and
- * the topbar's copy of it moves with it.
+ * Light's accent is a fill on a pale page, so it needs saturation: a muted
+ * one reads as the voice of a disabled control. It stays a blue, apart from
+ * the warning orange and away from the warm hues whose wash tints a pale page,
+ * and the topbar's copy of it moves with it. The logo keeps the brand's gold.
  */
 function hueSat({ r, g, b }: RGBA): { hue: number; sat: number } {
   const [rn, gn, bn] = [r, g, b].map((v) => v / 255);
@@ -753,8 +768,20 @@ function hueSat({ r, g, b }: RGBA): { hue: number; sat: number } {
 describe("light accent", () => {
   const action = rootLight.get("--app-action")!;
 
-  it("is a saturated gold", () => {
+  it("is saturated", () => {
     expect(hueSat(action).sat).toBeGreaterThanOrEqual(0.7);
+  });
+
+  it("is a blue: no warm hue, whose chosen wash would tint the pale page", () => {
+    // Negative control: the gold this replaced sits at 40°, inside the warm band.
+    expect(hueSat({ r: 138, g: 97, b: 15, a: 1 }).hue).toBeLessThan(60);
+    expect(hueSat(action).hue).toBeGreaterThanOrEqual(200);
+    expect(hueSat(action).hue).toBeLessThanOrEqual(230);
+  });
+
+  it("leaves the logo its gold in both themes", () => {
+    expect(rootLight.get("--app-brand")).toEqual({ r: 138, g: 97, b: 15, a: 1 });
+    expect(block(tokensCss, ':root[data-theme="dark"] {')).toMatch(/--app-brand:\s*#dbcb90/);
   });
 
   it("stays apart from the warning orange", () => {

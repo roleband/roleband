@@ -76,6 +76,8 @@
    "differences": [
     "Cursor paging; the MCP tool returns one page of up to 100.",
     "Each pursuit carries its revision, which a patch passes back.",
+    "Each pursuit names its next interview round and the latest round awaiting an outcome, as the pipeline's card does; the MCP tool names no rounds.",
+    "Each pursuit says whether its priority was ever chosen, as the pipeline's card does; the MCP tool does not.",
     "pursuits.get reads one pursuit with its notes by opportunity ID; the MCP server has no single-pursuit tool.",
     "A limit outside 1 to 100 is an input error naming the range; the MCP tool clamps it."
    ],

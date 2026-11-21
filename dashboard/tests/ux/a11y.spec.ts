@@ -20,7 +20,8 @@ const ROUTES = [
   "/pipeline/list",
   "/pipeline/board",
   "/pipeline/up-next",
-  "/pipeline/101",
+  // A role in the pipeline, on its Workspace.
+  "/company/openai/job/101?tab=workspace",
   "/profile",
   "/compare",
   "/statistics",

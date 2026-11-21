@@ -7,10 +7,9 @@ import { NAV_TABS } from "../navigation";
 import { ROUTE_COMPONENTS } from "../routeRegistry";
 
 /* Every tab of the rail wears ONE page header, titled by its rail label, so
- * the title never jumps or vanishes on a tab switch. A tab whose views are
- * rail entries of their own (the Pipeline's) is titled by the entry on
- * screen. The geometry is pinned in the browser (`tests/ux/page-header.spec.ts`).
- * A new tab lands here unlisted and fails by name.
+ * the title never jumps or vanishes on a tab switch. The geometry is pinned
+ * in the browser (`tests/ux/page-header.spec.ts`). A new tab lands here
+ * unlisted and fails by name.
  */
 
 const src = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -40,15 +39,7 @@ describe("PageHeader adoption", () => {
     // Titled by the rail's own label: the literal, or the nav message that
     // says the same words (the copy catalog).
     const named = source.match(/<PageHeader title=\{(shellNav\w+)\(\)\}/)?.[1];
-    if (path === "/pipeline") {
-      // Each view's entry: the same messages the rail names the views by.
-      expect(source).toContain("<PageHeader title={TAB_LABEL[tab]()}");
-      const views = NAV_TABS.find((tab) => tab.path === path)!.tabs!.map((view) => view.label);
-      for (const message of source.match(/(?<=: )shellTabPipeline\w+(?=,)/g) ?? []) {
-        expect(views, message).toContain((shell as unknown as Record<string, () => string>)[message]());
-      }
-      expect(source.match(/(?<=: )shellTabPipeline\w+(?=,)/g)).toHaveLength(views.length);
-    } else if (named) expect((shell as unknown as Record<string, () => string>)[named](), file).toBe(label);
+    if (named) expect((shell as unknown as Record<string, () => string>)[named](), file).toBe(label);
     else expect(source).toContain(`<PageHeader title="${label}"`);
     // No second head of its own, and no title only a screen reader could see.
     expect(source).not.toMatch(/settings-head|<h1 className="sr-only"/);

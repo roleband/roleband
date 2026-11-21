@@ -94,7 +94,7 @@ async def test_pursuits_list_highest_priority_first_with_the_opportunity_each_tr
     assert all(list(item) == _fields(contract.PursuitListItem) for item in body["pursuits"])
     assert _fields(contract.PursuitListItem) == [*_fields(JobPursuit), "opportunity"]
     assert body["pursuits"][0] == {
-        "id": p["applied"], "job_id": j["applied"], "stage": "applied", "priority": 1,
+        "id": p["applied"], "job_id": j["applied"], "stage": "applied", "priority": 5,
         "notes": "Referred by a former colleague.", "next_action": "Prepare the product sense interview",
         "next_action_due": "2026-07-23T15:00:00Z", "created_at": "2026-07-14T15:00:00Z",
         "updated_at": "2026-07-19T15:00:00Z",

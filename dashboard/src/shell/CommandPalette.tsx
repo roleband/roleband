@@ -147,7 +147,7 @@ export function CommandPalette({
         id: "open-compare",
         section: shellPaletteActions(),
         label: shellPaletteCompare({ count: compareIds.size }),
-        icon: "columns",
+        icon: "compare",
         run: openCompare,
       });
     }
@@ -156,7 +156,7 @@ export function CommandPalette({
         id: "clear-compare",
         section: shellPaletteActions(),
         label: shellPaletteClearCompare({ count: compareIds.size }),
-        icon: "columns",
+        icon: "compare",
         run: clearCompare,
       });
     }
@@ -175,14 +175,16 @@ export function CommandPalette({
         hint: "↵",
         // The search of the screen the reader is on: the Pipeline's lives in
         // its address (`?q=`) on each tab, so it stays on the tab the reader
-        // is on, and an application's page sends it to the List; Radar's is
+        // is on; Radar's is
         // the board's query. Staying on a tab keeps the rest of its filter
         // and the entry's state, which holds the other tabs' filters; from
-        // the tab itself it is a filter change, which replaces the entry.
+        // the tab itself it is a filter change, which replaces the entry. A
+        // role's posting opened over a view searches that view.
         run: () => {
           if (listScreenOf(location) === "pipeline") {
             const under = pageUnder(location);
-            const tab = under.pathname === "/pipeline/board" ? "board" : under.pathname === "/pipeline/up-next" ? "up-next" : "list";
+            const from = under.pathname;
+            const tab = from === "/pipeline/board" ? "board" : from === "/pipeline/up-next" ? "up-next" : "list";
             const stays = under.pathname === `/pipeline/${tab}`;
             const params = new URLSearchParams(stays ? under.search ?? "" : "");
             params.set("q", query.trim());

@@ -196,6 +196,22 @@
   color: var(--app-chosen-text);
 }
 
+/* The tick: the icon rank drawn as a round box the person ticks to finish
+   something, such as a next step. Empty at rest; the check shows in the
+   action hue while the pointer or the focus is on it. */
+.ui-btn-icon.ui-btn-tick {
+  border-color: var(--app-border-strong);
+  border-radius: 50%;
+  color: transparent;
+}
+
+.ui-btn-icon.ui-btn-tick:not(:disabled):not([aria-disabled="true"]):hover,
+.ui-btn-icon.ui-btn-tick:focus-visible {
+  border-color: var(--app-action);
+  background: transparent;
+  color: var(--app-action-text);
+}
+
 /* ---- link: a verb inside running text ------------------------------------ */
 
 .ui-btn-link {

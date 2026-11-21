@@ -82,10 +82,8 @@ role-job-detail-back = Back
 role-job-detail-1-in-compare-pick-one = 1 in compare · pick one more
 # kind=button wording=as-is
 role-job-detail-compare-roles = Compare { $compareCount } roles
-# kind=link wording=as-is
-role-job-detail-view-apply = View & apply
-# kind=link note="Opens the employer's posting once the person has applied, in place of View & apply"
-role-job-detail-view-posting = View posting
+# kind=link note="Opens the employer's site to apply; shown until the person has applied"
+role-job-detail-view-apply = Apply
 # kind=label wording=as-is
 role-job-detail-postings = { $lineage_size } postings
 # kind=label wording=as-is
@@ -120,6 +118,14 @@ role-job-detail-role = { $choice ->
 }
 # kind=aria wording=as-is
 role-job-detail-back-2 = Back
+# kind=aria note="Back, naming the view the posting returns to: Radar, Board, Considering or Up next"
+role-job-detail-back-to = Back to { $view }
+# kind=aria note="A posting's two tabs for a role in the pipeline: the posting, and the person's own work on the role"
+role-job-detail-tabs = Posting and workspace
+# kind=label note="The tab that shows the posting itself, beside Workspace"
+role-job-detail-tab-posting = Posting
+# kind=label
+role-job-detail-tab-workspace = Workspace
 # kind=aria note="Names the group that holds a posting's place in the list it was opened from, with the previous and next buttons"
 role-job-detail-pager = Place in the list
 # kind=label note="A posting's place in the list it was opened from, for example 3 of 24"
@@ -374,7 +380,7 @@ role-listing-age-level = Level
 role-listing-age-discipline = Discipline
 # kind=label wording=as-is
 role-listing-age-location = Location
-# kind=label wording=as-is
+# kind=label wording=as-is same-as=role-job-detail-tab-posting
 role-listing-age-posting = Posting
 # kind=label
 role-listing-age-same-role-matched-automatically = { $choice ->

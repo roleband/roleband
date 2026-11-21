@@ -109,17 +109,6 @@ shell-stat-reposted = reposted
 shell-stat-reposted-aria = { $count } reposted today
 # kind=tooltip
 shell-stat-reposted-title = Show today's reposted roles
-# kind=label note="Beside the count of saved roles"
-shell-stat-saved = saved
-# kind=aria
-shell-stat-saved-aria = { $count ->
-    [one] { $count } saved role
-   *[other] { $count } saved roles
-}
-# kind=aria
-shell-stat-saved-aria-unknown = Saved roles, not counted yet
-# kind=tooltip
-shell-stat-saved-title = Saved roles
 # kind=label
 shell-loading-page = Loading this page…
 # kind=heading
@@ -144,8 +133,6 @@ shell-rail-expand-aria = Expand navigation
 shell-rail-collapse = Collapse
 # kind=button
 shell-rail-expand = Expand
-# kind=label
-shell-rail-workspace = Workspace
 # kind=aria
 shell-theme-aria = Toggle theme
 # kind=tooltip

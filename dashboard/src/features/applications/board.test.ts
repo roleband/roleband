@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { STAGES } from "../../copy/vocabulary";
 import { applicationCardFixture as card } from "../../test/fixtures";
-import { COLUMNS, boardCounts, byStage, daysInStage, daysToSay, dueOf, dueState, isStale, movedCard, sortColumn } from "./board";
+import { COLUMNS, byStage, daysInStage, daysToSay, dueOf, dueState, isStale, movedCard, sortColumn } from "./board";
 
 /* The board's rules as the spec states them: ten stages in seven columns,
  * one due field that is the sooner of two dates, three due states, a stale
@@ -45,12 +45,12 @@ describe("the due field", () => {
   it("is the sooner of the next interview and the next step", () => {
     const interviewFirst = card({
       next_action_due: days(3),
-      next_interview: { id: 1, label: "Hiring manager", scheduled_at: days(1), all_day: false, format: "video" },
+      next_interview: { id: 1, label: "Hiring manager", scheduled_at: days(1), all_day: false, format: "video", link: null },
     });
     expect(dueOf(interviewFirst)).toMatchObject({ kind: "interview" });
     const stepFirst = card({
       next_action_due: days(1),
-      next_interview: { id: 1, label: "Hiring manager", scheduled_at: days(3), all_day: false, format: null },
+      next_interview: { id: 1, label: "Hiring manager", scheduled_at: days(3), all_day: false, format: null, link: null },
     });
     expect(dueOf(stepFirst)).toMatchObject({ kind: "step" });
     expect(dueOf(card())).toBeNull();
@@ -58,7 +58,7 @@ describe("the due field", () => {
 
   it("holds an all-day interview open until its day ends: the next local midnight", () => {
     const allDay = (on: Date) => dueOf(card({
-      next_interview: { id: 1, label: "Onsite", scheduled_at: on.toISOString(), all_day: true, format: "onsite" },
+      next_interview: { id: 1, label: "Onsite", scheduled_at: on.toISOString(), all_day: true, format: "onsite", link: null },
     }))!;
     expect(allDay(new Date(2026, 10, 4)).at).toEqual(new Date(2026, 10, 5));
 
@@ -77,7 +77,7 @@ describe("the due field", () => {
     const step = dueOf(card({ next_action_due: hours(-1) }))!;
     expect(dueState(step, NOW)).toBe("overdue");
     const interview = dueOf(card({
-      next_interview: { id: 1, label: "Screen", scheduled_at: hours(-1), all_day: false, format: "phone" },
+      next_interview: { id: 1, label: "Screen", scheduled_at: hours(-1), all_day: false, format: "phone", link: null },
     }))!;
     expect(dueState(interview, NOW)).toBe("soon");
   });
@@ -125,23 +125,6 @@ describe("a quiet card", () => {
     for (const stage of ["saved", "accepted", "declined", "withdrawn", "rejected", "role_closed"] as const) {
       expect(isStale(card({ stage, last_activity_at: days(-200) }), NOW), stage).toBe(false);
     }
-  });
-});
-
-describe("the summary", () => {
-  it("counts the cards past Considering that have neither a next step nor an interview", () => {
-    const counts = boardCounts([
-      card({ job_id: 1, stage: "saved" }),
-      card({ job_id: 2, stage: "applied" }),
-      card({ job_id: 3, stage: "applied", next_action: "Follow up" }),
-      card({ job_id: 4, stage: "interviewing", next_interview: {
-        id: 9, label: "Screen", scheduled_at: days(2), all_day: false, format: null,
-      } }),
-      card({ job_id: 5, stage: "withdrawn", ended_at_stage: "applied" }),
-      card({ job_id: 6, stage: "rejected", ended_at_stage: "interviewing" }),
-      card({ job_id: 7, stage: "accepted", ended_at_stage: "offer" }),
-    ]);
-    expect(counts).toEqual({ moving: 4, decided: 2, closed: 1, needNextStep: 1 });
   });
 });
 
