@@ -1370,6 +1370,9 @@ new execution checks the revision the caller read (`revision_conflict`), and
 the write, its event and the receipt commit together. `pursuits.revision`
 counts every write of a pursuit, the dashboard's included; the mapper advances
 it. The actor of an agent write comes from its principal, never its input.
+Duplicate verdict retries and receipt reads check whether both postings of
+each pair are still visible. An unavailable pair answers `not_found` and
+counts as refused in the reply. The stored verdict and receipt stay intact.
 Every operation that answers, and every policy refusal, is listed in
 `agent_activity` (`tracker/agents/activity.py`), which Settings › AI › Activity
 reads through `GET /api/agent-activity`, newest first, 50 to a page, with a

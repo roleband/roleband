@@ -25,7 +25,14 @@ from tracker.agents.operations.outcomes import outcome
 from tracker.agents.operations.search import COLUMNS
 from tracker.agents.operations.workspace import ensure_workspace_id
 from tracker.api.agent_operations import IDEMPOTENCY_KEY_HEADER, PREFIX
-from tracker.db.models import AgentActivity, Favorite, Job, JobLineageLink, JobTwinLink
+from tracker.db.models import (
+    AgentActivity,
+    Favorite,
+    Job,
+    JobLineageLink,
+    JobTwinLink,
+    TrackedCompany,
+)
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("no_escape")]
 
@@ -498,6 +505,70 @@ async def test_a_saved_pair_at_a_hidden_company_is_unknown_while_pursuits_are_no
     await db_session.commit()
     data = _data(*await _decide(api_client, [_verdict(f"lineage-{link.id}", "same_opening")], key=OTHER_KEY))
     assert data["decided"] == 1, data
+
+
+@pytest.mark.parametrize("sharing", ["local_only", "not_shared"])
+async def test_a_verdict_replay_uses_current_visibility_for_each_pair(db_session, api_client, pairs, sharing):
+    db_session.add(make_company("hidden", "Hidden", visible=False))
+    older, newer = await seed_rows(
+        db_session, lineage_job("h1", 0, company="hidden"), lineage_job("h2", 20, company="hidden"),
+    )
+    db_session.add_all([Favorite(job_id=older.id), Favorite(job_id=newer.id)])
+    (link,) = await seed_rows(db_session, twin_proposal(older, newer, score=0.95))
+    hidden_pair = f"twin-{link.id}"
+    verdicts = [
+        _verdict(hidden_pair, "two_openings"),
+        _verdict(f"lineage-{pairs['shown_twice']}", "same_opening"),
+    ]
+    first = _data(*await _decide(api_client, verdicts))
+    assert first["decided"] == 2
+
+    settings = await api_client.patch("/api/intelligence/agents", json={"categories": {"private_pursuit": sharing}})
+    assert settings.status_code == 200, settings.text
+    response, body = await _decide(api_client, verdicts)
+    assert body["meta"]["replayed"] is True
+    assert body["meta"]["data_classes"] == ["public_posting"]
+    assert _data(response, body) == {
+        "decided": 1,
+        "left_for_person": 0,
+        "refused": 1,
+        "results": [
+            {
+                "pair": hidden_pair, "verdict": "two_openings", "outcome": "refused",
+                "refusal": "not_found", "before": None, "after": None,
+            },
+            first["results"][1],
+        ],
+    }
+    assert len(await _changes(db_session)) == 1
+
+    settings = await api_client.patch("/api/intelligence/agents", json={"categories": {"private_pursuit": "any_model"}})
+    assert settings.status_code == 200, settings.text
+    assert _data(*await _decide(api_client, verdicts)) == first
+
+
+async def test_a_verdict_receipt_uses_current_posting_visibility(db_session, api_client, pairs):
+    verdicts = [_verdict(f"lineage-{pairs['shown_twice']}", "unsure")]
+    first = _data(*await _decide(api_client, verdicts))
+    assert first["left_for_person"] == 1
+    receipt_query = {"operation": "duplicates.decide", "key": KEY}
+    receipt = await api_client.get(f"{PREFIX}/receipts", params=receipt_query)
+    assert _data(receipt, receipt.json())["result"] == first
+
+    await db_session.execute(update(TrackedCompany).where(TrackedCompany.slug == "google").values(visible=False))
+    await db_session.commit()
+    receipt = await api_client.get(f"{PREFIX}/receipts", params=receipt_query)
+    assert _data(receipt, receipt.json())["result"] == {
+        "decided": 0,
+        "left_for_person": 0,
+        "refused": 1,
+        "results": [
+            {
+                "pair": verdicts[0]["pair"], "verdict": "unsure", "outcome": "refused",
+                "refusal": "not_found", "before": None, "after": None,
+            },
+        ],
+    }
 
 
 async def test_a_rejected_twin_decided_the_same_opening_stacks_its_postings(db_session, api_client, pairs):

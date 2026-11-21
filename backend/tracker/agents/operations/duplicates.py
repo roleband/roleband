@@ -540,21 +540,32 @@ def parse_pair(token: str) -> tuple[Literal["lineage", "twin"], int]:
     return match.group(1), int(match.group(2))  # type: ignore[return-value]
 
 
-async def _one(session: AsyncSession, item: DuplicateVerdictInput, *, pursuits: bool) -> DuplicateVerdictItem:
-    kind, link_id = parse_pair(item.pair)
+async def _visible_link(
+    session: AsyncSession, kind: Literal["lineage", "twin"], link_id: int, *, pursuits: bool,
+) -> JobLineageLink | JobTwinLink | None:
     link: JobLineageLink | JobTwinLink | None
-    # Read under the relationship lock `decide` holds, past the session's own
-    # copy, so `before` is the status the verdict replaces.
     if kind == "lineage":
         link = await session.get(JobLineageLink, link_id, populate_existing=True)
         postings = (link.prior_job_id, link.job_id) if link is not None else ()
     else:
         link = await session.get(JobTwinLink, link_id, populate_existing=True)
         postings = (link.job_a_id, link.job_b_id) if link is not None else ()
+    if link is None or len(await visible_jobs(session, list(postings), summary=True, chosen_counts=pursuits)) != 2:
+        return None
+    return link
+
+
+def _pair_not_found(pair: str, verdict: Verdict) -> DuplicateVerdictItem:
+    return DuplicateVerdictItem(pair=pair, verdict=verdict, outcome="refused", refusal="not_found")
+
+
+async def _one(session: AsyncSession, item: DuplicateVerdictInput, *, pursuits: bool) -> DuplicateVerdictItem:
+    kind, link_id = parse_pair(item.pair)
+    # Read under the relationship lock `decide` holds, so `before` is the
+    # status the verdict replaces.
+    link = await _visible_link(session, kind, link_id, pursuits=pursuits)
     if link is None:
-        return DuplicateVerdictItem(pair=item.pair, verdict=item.verdict, outcome="refused", refusal="not_found")
-    if len(await visible_jobs(session, list(postings), summary=True, chosen_counts=pursuits)) != 2:
-        return DuplicateVerdictItem(pair=item.pair, verdict=item.verdict, outcome="refused", refusal="not_found")
+        return _pair_not_found(item.pair, item.verdict)
     before = link.status
     try:
         async with session.begin_nested():
@@ -573,7 +584,7 @@ async def _one(session: AsyncSession, item: DuplicateVerdictInput, *, pursuits: 
     except DecidedByPerson:
         return DuplicateVerdictItem(pair=item.pair, verdict=item.verdict, outcome="refused", refusal="decided_by_person")
     except LinkNotFound:
-        return DuplicateVerdictItem(pair=item.pair, verdict=item.verdict, outcome="refused", refusal="not_found")
+        return _pair_not_found(item.pair, item.verdict)
     return DuplicateVerdictItem(
         pair=item.pair,
         verdict=item.verdict,
@@ -603,12 +614,31 @@ async def decide(
         for result in results
     ):
         await rebuild_lineage_projection(session)
+    return _verdict_result(results)
+
+
+def _verdict_result(results: list[DuplicateVerdictItem]) -> DuplicateVerdictsResult:
     return DuplicateVerdictsResult(
         decided=sum(result.outcome == "decided" for result in results),
         left_for_person=sum(result.outcome == "left_for_person" for result in results),
         refused=sum(result.outcome == "refused" for result in results),
         results=results,
     )
+
+
+async def visible_verdicts(
+    session: AsyncSession, result: DuplicateVerdictsResult, *, pursuits: bool,
+) -> DuplicateVerdictsResult:
+    """Answer a stored verdict batch under current visibility, preserving the
+    recorded outcome of each readable pair."""
+    results = []
+    for item in result.results:
+        if item.refusal != "not_found":
+            kind, link_id = parse_pair(item.pair)
+            if await _visible_link(session, kind, link_id, pursuits=pursuits) is None:
+                item = _pair_not_found(item.pair, item.verdict)
+        results.append(item)
+    return _verdict_result(results)
 
 
 @dataclass(frozen=True)
