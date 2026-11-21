@@ -16,6 +16,7 @@ import pytest
 from sqlalchemy import func, select
 
 from tests.factories import make_job
+from tracker.analytics import comp_trends as comp_trends_module
 from tracker.analytics import demand as demand_module
 from tracker.config import get_settings
 from tracker.db.models import (
@@ -28,14 +29,27 @@ from tracker.db.models import (
     SkillConcept,
     SkillDemandDaily,
 )
+from tracker.skills import analytics as skill_analytics_module
 from tracker.workflows import post_passes
 from tracker.workflows.post_passes import PostPassContext, run_post_passes
 
 pytestmark = pytest.mark.asyncio
 
-TODAY = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+# A fixed day, never the day the suite runs: a rollup that read the wall
+# clock instead of the pinned one writes a day these tests never read.
+TODAY = datetime(2020, 3, 9, tzinfo=UTC)
 YESTERDAY = TODAY - timedelta(days=1)
 ROLLUPS = ("demand_metrics", "skill_demand", "comp_metrics", "disclosure_metrics")
+#: Every module whose `datetime.now` names a rollup's day.
+CLOCK_READERS = (demand_module, comp_trends_module, skill_analytics_module)
+
+
+class _Clock(datetime):
+    at = TODAY + timedelta(hours=12)
+
+    @classmethod
+    def now(cls, tz=None):
+        return cls.at if tz is not None else cls.at.replace(tzinfo=None)
 
 
 @pytest.fixture(autouse=True)
@@ -43,6 +57,15 @@ def rollups_only(monkeypatch):
     monkeypatch.setattr(
         post_passes, "POST_PASSES", tuple(p for p in post_passes.POST_PASSES if p.name in ROLLUPS)
     )
+
+
+@pytest.fixture(autouse=True)
+def clock(monkeypatch) -> type[_Clock]:
+    """The rollups' clock, at noon of `TODAY` until a test moves it."""
+    monkeypatch.setattr(_Clock, "at", TODAY + timedelta(hours=12))
+    for module in CLOCK_READERS:
+        monkeypatch.setattr(module, "datetime", _Clock)
+    return _Clock
 
 
 async def _derive(db_session) -> None:
@@ -82,9 +105,13 @@ async def _seed(db_session):
     return a, b
 
 
-async def _today(db_session, model, *columns):
-    rows = (await db_session.execute(select(*columns).where(model.metric_date == TODAY))).all()
+async def _on(db_session, day, model, *columns):
+    rows = (await db_session.execute(select(*columns).where(model.metric_date == day))).all()
     return sorted(tuple(r) for r in rows)
+
+
+async def _today(db_session, model, *columns):
+    return await _on(db_session, TODAY, model, *columns)
 
 
 async def _yesterday_untouched(db_session) -> None:
@@ -156,3 +183,43 @@ async def test_a_failed_rollup_keeps_the_day_it_would_have_replaced(db_session, 
     with pytest.raises(RuntimeError, match="insert failed"):
         await _derive(db_session)
     assert await _today(db_session, DemandMetric, DemandMetric.company, DemandMetric.open_count) == before
+
+
+async def test_a_run_past_midnight_writes_the_new_day_and_keeps_the_old(db_session, clock):
+    """A suite that crosses midnight between two passes: the second writes the
+    day its clock names, and the first day keeps what the first pass wrote."""
+    a, b = await _seed(db_session)
+    tomorrow = TODAY + timedelta(days=1)
+    clock.at = tomorrow - timedelta(seconds=1)
+    await _derive(db_session)
+
+    a.in_scope = False
+    await db_session.commit()
+    clock.at = tomorrow
+    await _derive(db_session)
+
+    assert await _on(db_session, tomorrow, DemandMetric, DemandMetric.company,
+                     DemandMetric.location_group) == [("meta", "new_york")]
+    assert await _on(db_session, tomorrow, CompSnapshot, CompSnapshot.company) == [("meta",)]
+    assert await _on(db_session, tomorrow, SkillDemandDaily, SkillDemandDaily.company) == [("meta",)]
+    assert {r[0] for r in await _on(db_session, tomorrow, DisclosureSnapshot,
+                                    DisclosureSnapshot.company)} == {"meta"}
+    # The day before midnight is a finished day: the later pass replaces
+    # its own day only.
+    assert await _today(db_session, DemandMetric, DemandMetric.company, DemandMetric.location_group) == [
+        ("google", "silicon_valley"), ("meta", "new_york"),
+    ]
+    assert await _today(db_session, CompSnapshot, CompSnapshot.company) == [("google",), ("meta",)]
+    await _yesterday_untouched(db_session)
+
+
+async def test_every_rollup_reads_the_pinned_clock(db_session):
+    """The negative control for the pin: the clock names a day the suite never
+    runs on, so a rollup that read the wall clock would write a day other than
+    these two."""
+    await _seed(db_session)
+    await _derive(db_session)
+    for model in (DemandMetric, CompSnapshot, CompMetric, SkillDemandDaily, DisclosureSnapshot):
+        days = set((await db_session.scalars(select(model.metric_date).distinct())).all())
+        assert TODAY in days, model
+        assert days <= {YESTERDAY, TODAY}, model
