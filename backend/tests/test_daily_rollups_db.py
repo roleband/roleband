@@ -201,6 +201,8 @@ async def test_a_run_past_midnight_writes_the_new_day_and_keeps_the_old(db_sessi
     assert await _on(db_session, tomorrow, DemandMetric, DemandMetric.company,
                      DemandMetric.location_group) == [("meta", "new_york")]
     assert await _on(db_session, tomorrow, CompSnapshot, CompSnapshot.company) == [("meta",)]
+    assert set(await _on(db_session, tomorrow, CompMetric, CompMetric.count, CompMetric.p50)) == {
+        (1, 200_000)}
     assert await _on(db_session, tomorrow, SkillDemandDaily, SkillDemandDaily.company) == [("meta",)]
     assert {r[0] for r in await _on(db_session, tomorrow, DisclosureSnapshot,
                                     DisclosureSnapshot.company)} == {"meta"}
@@ -210,6 +212,9 @@ async def test_a_run_past_midnight_writes_the_new_day_and_keeps_the_old(db_sessi
         ("google", "silicon_valley"), ("meta", "new_york"),
     ]
     assert await _today(db_session, CompSnapshot, CompSnapshot.company) == [("google",), ("meta",)]
+    before_midnight = await _today(db_session, CompMetric, CompMetric.count, CompMetric.p50)
+    assert max(count for count, _p50 in before_midnight) == 2, "both roles, as the first pass saw them"
+    assert 300_000 in {p50 for _count, p50 in before_midnight}
     await _yesterday_untouched(db_session)
 
 
