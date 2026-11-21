@@ -5,7 +5,9 @@
 One request returns the WHOLE board: `{"name": ..., "description": ..., "jobs":
 [...]}`, each job carrying its full `description` HTML. So there is no paging to
 terminate and no detail route to call — `fetch()` yields complete postings and
-`hydrate()` stays a no-op, like Lever.
+`hydrate()` stays a no-op. Workable serves one job alone only to a keyed API
+(`/spi/v3/jobs/{shortcode}`), so a posting stored without its text waits for
+the board's next listing.
 
 `apply.workable.com/robots.txt` is `Disallow:` with an empty value — RFC 9309's
 "nothing is disallowed" — and declares no `Crawl-delay`, so the 2.0s default

@@ -934,12 +934,12 @@ async def test_the_description_backfill_counts_only_rows_it_can_fill(db_session,
         company("wdco", "workday", board_token="wdco.wd1.myworkdayjobs.com|External"),
         company("efco", "eightfold"),
         company("gone", "eightfold", enabled=False),  # the user does not follow it
-        company("ghco", "greenhouse"),  # text arrives inline: nothing to fetch
+        company("abco", "ashby"),  # text arrives inline: nothing to fetch
     ])
     db_session.add_all([_blank("wdco", f"wd{i}", old.replace(hour=i % 24, minute=i)) for i in range(30)])
     db_session.add_all([
         _blank("gone", "g1", old.replace(day=1)),
-        _blank("ghco", "h1", old.replace(day=2)),
+        _blank("abco", "a1", old.replace(day=2)),
         _blank("efco", "e1", datetime(2026, 9, 28, tzinfo=UTC)),
     ])
     await db_session.commit()
