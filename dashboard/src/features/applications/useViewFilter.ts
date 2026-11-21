@@ -5,7 +5,7 @@ import { VIEW_FILTERS, readFilter, writeFilter, type BoardFilter, type PipelineV
 /** One view's filter, kept in that view's own address. The query belongs to
  *  the path it is on, so a view reads only its own filter and two views never
  *  share one. Typing is not a destination, so a change replaces the entry,
- *  and keeps what the entry holds besides (the page's note of other views).
+ *  and keeps the entry's history state.
  *  It holds only the quick filters the view offers: one it does not, in an
  *  address typed or kept from elsewhere, is ignored and dropped on the next
  *  change. */

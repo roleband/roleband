@@ -242,8 +242,6 @@ applications-interview-delete-failed = No se pudo eliminar la entrevista. Intén
 
 applications-interview-delete-confirm = ¿Eliminar esta entrevista?
 
-applications-tabs-label = Vistas del seguimiento
-
 applications-list-head-next = Siguiente paso
 
 applications-list-head-actions = Acciones

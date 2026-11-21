@@ -248,9 +248,6 @@ applications-interview-delete-failed = Couldn't delete the interview. Try again.
 # kind=label note="Asked in the interview form's actions before an interview is deleted"
 applications-interview-delete-confirm = Delete this interview?
 
-## The pipeline's tabs
-# kind=aria
-applications-tabs-label = Pipeline views
 
 ## The List: the backlog, every role still in Considering, as a row of a table
 # kind=label note="The List's column of the next interview or next step, and when it is due"

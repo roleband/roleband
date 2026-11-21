@@ -36,7 +36,9 @@ import {
   CircleCheck,
   CircleHelp,
   CircleX,
+  CalendarClock,
   CalendarDays,
+  CircleDashed,
   Clock,
   Columns2,
   Compass,
@@ -94,6 +96,10 @@ const ICONS = {
   bell: Bell,
   building: Building2,
   calendar: CalendarDays,
+  // What is due, by day: the pipeline's Up next.
+  calendarClock: CalendarClock,
+  // Not started yet: the pipeline's Considering.
+  circleDashed: CircleDashed,
   chart: ChartColumn,
   check: Check,
   checkCircle: CircleCheck,
@@ -130,8 +136,8 @@ const ICONS = {
   cloud: Cloud,
   laptop: Laptop,
   pause: Pause,
-  // Columns of cards: the application pipeline.
-  pipeline: SquareKanban,
+  // Columns of cards: the pipeline's Board.
+  board: SquareKanban,
   play: Play,
   // A plugin: an add-on piece that fits into RoleBand.
   plugin: Puzzle,

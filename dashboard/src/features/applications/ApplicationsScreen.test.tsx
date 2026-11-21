@@ -1,12 +1,13 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes, useLocation, useParams } from "react-router-dom";
+import { MemoryRouter, NavLink, Route, Routes, useLocation, useParams } from "react-router-dom";
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, type ApplicationCard } from "../../api";
 import { ToastProvider } from "../../ui/Toast";
 import { applicationCardFixture } from "../../test/fixtures";
 import { msg } from "../../test/msg";
+import { PIPELINE_TABS } from "../../navTabs";
 import { ApplicationsScreen } from "./ApplicationsScreen";
 import { interviewFrom } from "./InterviewDialog";
 
@@ -310,10 +311,21 @@ describe("moving into Interviewing", () => {
   });
 });
 
+/** The rail beside the screen, expanded so each view is named: the views are
+ *  rail entries, and the rail is where a person switches between them. */
+/** The rail's entries for the views, as the rail draws them (NavLinks under
+ *  navigation "Main"): the screen only ever sees an arrival at a bare view
+ *  address. The rail itself is pinned in src/shell/NavRail.test.tsx. */
+const rail = (
+  <nav aria-label={msg("shell-rail-aria")}>
+    {PIPELINE_TABS.map((view) => <NavLink key={view.slug} to={`/pipeline/${view.slug}`}>{view.label}</NavLink>)}
+  </nav>
+);
+const viewLink = (name: string) => within(screen.getByRole("navigation", { name: msg("shell-rail-aria") })).getByRole("link", { name });
 const atRoute = (path: string) => (
   <ToastProvider>
     <MemoryRouter initialEntries={[path]}>
-      <Routes><Route path="/pipeline/:tab" element={<ApplicationsScreen />} /></Routes>
+      <Routes><Route path="/pipeline/:tab" element={<>{rail}<ApplicationsScreen /></>} /></Routes>
     </MemoryRouter>
   </ToastProvider>
 );
@@ -325,7 +337,7 @@ function RemountedOnPath() {
 const atRouteRemounting = (path: string) => (
   <ToastProvider>
     <MemoryRouter initialEntries={[path]}>
-      <Routes><Route path="/pipeline/:tab" element={<RemountedOnPath />} /></Routes>
+      <Routes><Route path="/pipeline/:tab" element={<>{rail}<RemountedOnPath /></>} /></Routes>
     </MemoryRouter>
   </ToastProvider>
 );
@@ -468,19 +480,19 @@ describe("filtering", () => {
     expect(screen.queryByText("Director of Product")).toBeNull();
 
     // Up next holds Notion's overdue step, which the board's search hides.
-    await userEvent.click(screen.getByRole("tab", { name: msg("shell-tab-pipeline-up-next") }));
+    await userEvent.click(viewLink(msg("shell-tab-pipeline-up-next")));
     expect(await screen.findByText(msg("applications-upnext-step", { step: "Send the case study" }))).toBeInTheDocument();
     expect(search()).toHaveValue("");
     expect(screen.queryByRole("button", { name: msg("applications-filter-reset") })).toBeNull();
     await userEvent.type(search(), "zzz");
     expect(screen.getByText(msg("applications-no-matches"))).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("tab", { name: msg("shell-tab-pipeline-board") }));
+    await userEvent.click(viewLink(msg("shell-tab-pipeline-board")));
     expect(search()).toHaveValue("stripe");
     expect(await screen.findByText("Principal Engineering Manager")).toBeInTheDocument();
     expect(screen.queryByText("Director of Product")).toBeNull();
 
-    await userEvent.click(screen.getByRole("tab", { name: msg("shell-tab-pipeline-up-next") }));
+    await userEvent.click(viewLink(msg("shell-tab-pipeline-up-next")));
     expect(search()).toHaveValue("zzz");
     expect(screen.getByText(msg("applications-no-matches"))).toBeInTheDocument();
   });
@@ -490,12 +502,13 @@ describe("filtering", () => {
     await screen.findByText("Director of Product");
     const search = () => screen.getByRole("searchbox", { name: msg("applications-search-label") });
     await userEvent.type(search(), "stripe");
-    await userEvent.click(screen.getByRole("tab", { name: msg("shell-tab-pipeline-up-next") }));
+    await userEvent.click(viewLink(msg("shell-tab-pipeline-up-next")));
     await userEvent.type(search(), "notion");
 
     await userEvent.click(screen.getByRole("button", { name: msg("applications-board-need-next", { count: 1 }) }));
 
-    expect(screen.getByRole("tab", { name: msg("shell-tab-pipeline-board") })).toHaveAttribute("aria-selected", "true");
+    expect(viewLink(msg("shell-tab-pipeline-board"))).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(msg("shell-tab-pipeline-board"));
     expect(search()).toHaveValue("stripe");
     expect(screen.getByRole("button", { name: msg("applications-filter-remove", { filter: msg("applications-quick-needs-next") }) }))
       .toBeInTheDocument();
@@ -503,7 +516,7 @@ describe("filtering", () => {
     // The board shows the filter, so the summary's count is no longer a way to it.
     expect(screen.queryByRole("button", { name: msg("applications-board-need-next", { count: 1 }) })).toBeNull();
 
-    await userEvent.click(screen.getByRole("tab", { name: msg("shell-tab-pipeline-up-next") }));
+    await userEvent.click(viewLink(msg("shell-tab-pipeline-up-next")));
     expect(search()).toHaveValue("notion");
     expect(screen.queryByRole("button", { name: /^Columns/ })).toBeNull();
   });
@@ -516,7 +529,7 @@ describe("filtering", () => {
     render(
       <ToastProvider>
         <MemoryRouter initialEntries={["/pipeline/list?only=quiet,high_priority"]}>
-          <Routes><Route path="/pipeline/:tab" element={<><ApplicationsScreen /><Address /></>} /></Routes>
+          <Routes><Route path="/pipeline/:tab" element={<>{rail}<ApplicationsScreen /><Address /></>} /></Routes>
         </MemoryRouter>
       </ToastProvider>,
     );
@@ -535,7 +548,7 @@ describe("filtering", () => {
     const chip = (label: string) => screen.queryByRole("button", { name: msg("applications-filter-remove", { filter: label }) });
 
     // The List: roles in Considering never go quiet and are owed no next step yet.
-    await screen.findByRole("tab", { name: msg("shell-tab-pipeline-list"), selected: true });
+    await screen.findByRole("heading", { level: 1, name: msg("shell-tab-pipeline-list") });
     expect(chip(highPriority)).toBeInTheDocument();
     expect(chip(quiet)).toBeNull();
     const list = await offered();
@@ -551,13 +564,13 @@ describe("filtering", () => {
     expect(screen.getByTestId("address").textContent).toBe("");
 
     // Up next: every row has a date, so none needs a next step.
-    await userEvent.click(screen.getByRole("tab", { name: msg("shell-tab-pipeline-up-next") }));
+    await userEvent.click(viewLink(msg("shell-tab-pipeline-up-next")));
     const upNext = await offered();
     expect(has(upNext, needsNext)).toBe(false);
     expect(has(upNext, quiet)).toBe(true);
     expect(upNext).toHaveLength(5);
 
-    await userEvent.click(screen.getByRole("tab", { name: msg("shell-tab-pipeline-board") }));
+    await userEvent.click(viewLink(msg("shell-tab-pipeline-board")));
     expect(await offered()).toHaveLength(6);
   });
 
@@ -593,7 +606,7 @@ describe("the cards and the tabs", () => {
         </MemoryRouter>
       </ToastProvider>,
     );
-    expect(await screen.findByRole("tab", { name: msg("shell-tab-pipeline-up-next") })).toHaveAttribute("aria-selected", "true");
+    expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent(msg("shell-tab-pipeline-up-next"));
     const days = await screen.findAllByRole("region");
     expect(days[0]).toHaveAccessibleName(msg("applications-upnext-overdue"));
     expect(within(days[0]).getByText(msg("applications-upnext-step", { step: "Ask for an intro" }))).toBeInTheDocument();
@@ -874,7 +887,7 @@ describe("the pipeline's empty states", () => {
     stored = [];
     render(atRoute("/pipeline/board"));
     for (const tab of [null, msg("shell-tab-pipeline-up-next"), msg("shell-tab-pipeline-list")]) {
-      if (tab) await userEvent.click(screen.getByRole("tab", { name: tab }));
+      if (tab) await userEvent.click(viewLink(tab));
       expect(await screen.findByText(msg("applications-empty"))).toBeInTheDocument();
       expect(screen.getByText(msg("applications-empty-hint"))).toBeInTheDocument();
       expect(screen.getByRole("link", { name: msg("applications-empty-radar") })).toHaveAttribute("href", "/");

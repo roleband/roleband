@@ -1,11 +1,12 @@
 import { createEvent, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { MemoryRouter, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api, type ApplicationCard, type Job, type JobList } from "../../api";
 import { ToastProvider } from "../../ui/Toast";
 import { applicationCardFixture, jobFixture } from "../../test/fixtures";
 import { msg } from "../../test/msg";
+import { PIPELINE_TABS } from "../../navTabs";
 import { ApplicationsScreen } from "./ApplicationsScreen";
 
 /* The List's contracts: it is the backlog, one row per role still in
@@ -86,10 +87,19 @@ function Address() {
   const { search } = useLocation();
   return <output data-testid="address">{search}</output>;
 }
+/** The rail's entries for the views, as the rail draws them (NavLinks under
+ *  navigation "Main"): the screen only ever sees an arrival at a bare view
+ *  address. The rail itself is pinned in src/shell/NavRail.test.tsx. */
+const rail = (
+  <nav aria-label={msg("shell-rail-aria")}>
+    {PIPELINE_TABS.map((view) => <NavLink key={view.slug} to={`/pipeline/${view.slug}`}>{view.label}</NavLink>)}
+  </nav>
+);
+const viewLink = (name: string) => within(screen.getByRole("navigation", { name: msg("shell-rail-aria") })).getByRole("link", { name });
 const at = (path = "/pipeline/list") => (
   <ToastProvider>
     <MemoryRouter initialEntries={[path]}>
-      <Routes><Route path="/pipeline/:tab" element={<><Screen /><Address /></>} /></Routes>
+      <Routes><Route path="/pipeline/:tab" element={<>{rail}<Screen /><Address /></>} /></Routes>
     </MemoryRouter>
   </ToastProvider>
 );
@@ -452,11 +462,11 @@ describe("the List's filter", () => {
     await loaded();
     await userEvent.type(search(), "stripe");
 
-    await userEvent.click(screen.getByRole("tab", { name: msg("shell-tab-pipeline-board") }));
+    await userEvent.click(viewLink(msg("shell-tab-pipeline-board")));
     expect(search()).toHaveValue("");
     expect(await screen.findByText("Head of Platform")).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("tab", { name: msg("shell-tab-pipeline-list") }));
+    await userEvent.click(viewLink(msg("shell-tab-pipeline-list")));
     expect(search()).toHaveValue("stripe");
     expect(rowOrder()).toEqual([4]);
   });

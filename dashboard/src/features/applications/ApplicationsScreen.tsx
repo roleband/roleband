@@ -1,17 +1,22 @@
 import { useCallback, useRef } from "react";
-import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { STAGE_LABEL, type StageSlug } from "../../copy/vocabulary";
 import { PageHeader } from "../../patterns/PageHeader";
+import {
+  PIPELINE_VIEW_PARAMS,
+  pipelineViewScope,
+  rememberedPipelineQuery,
+} from "../../routing/pipelineViews";
+import { useRememberedParams } from "../../routing/useRememberedParams";
 import { useTabRoute } from "../../routing/useTabRoute";
-import { Button, TabBar } from "../../ui";
+import { Button } from "../../ui";
 import { Msg } from "../../ui/Msg";
-import { shellNavPipeline, shellTabPipelineBoard, shellTabPipelineList, shellTabPipelineUpNext } from "../../copy/gen/shell";
+import { shellTabPipelineBoard, shellTabPipelineList, shellTabPipelineUpNext } from "../../copy/gen/shell";
 import {
   applicationsBoardNeedNext,
   applicationsBoardSummary,
   applicationsMoved,
   applicationsMovedHidden,
-  applicationsTabsLabel,
 } from "../../copy/gen/applications";
 import { ApplicationPage } from "./ApplicationPage";
 import { BoardView } from "./BoardView";
@@ -30,27 +35,22 @@ const TAB_LABEL: Record<PipelineTab, () => string> = {
   board: shellTabPipelineBoard,
   "up-next": shellTabPipelineUpNext,
 };
-/** Where a history entry keeps the other tabs' queries. */
-const LEFT = "pipelineTabsLeft";
-const leftOf = (state: unknown): Partial<Record<PipelineTab, string>> => {
-  const held = (state as Record<string, unknown> | null)?.[LEFT];
-  return held && typeof held === "object" ? (held as Partial<Record<PipelineTab, string>>) : {};
-};
 const isApplication = (slug: string | undefined): slug is string => slug != null && /^\d+$/.test(slug);
 
 /** The application pipeline. `/pipeline/<job id>` is one application's page;
- *  every other slug is one of the place's tabs. */
+ *  every other slug is one of the pipeline's views, each a rail entry. */
 export function ApplicationsScreen() {
   const { tab } = useParams();
   // Keyed by the role, so stepping to a neighbour starts its page afresh.
   if (isApplication(tab)) return <ApplicationPage key={tab} jobId={Number(tab)} />;
-  return <PipelineTabs />;
+  return <PipelineView />;
 }
 
-/** The place: its summary, its tabs, and the applications every tab reads.
- *  Each tab is a view of its own, with its own filter in its own address;
- *  the page shares the data and nothing else. */
-function PipelineTabs() {
+/** The view on screen, titled by its rail entry, and the applications every
+ *  view reads. Each view has its own filter in its own address, and finds it
+ *  again when the rail brings the person back to a bare one; the views share
+ *  the data and nothing else, so switching views reads nothing again. */
+function PipelineView() {
   const { tab } = useTabRoute<PipelineTab>({ base: "/pipeline", slugs: PIPELINE_SLUGS, fallback: "list" });
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -72,20 +72,12 @@ function PipelineTabs() {
   const now = new Date();
   const counts = boardCounts(board.cards);
 
-  // Each tab's query as it was left rides in the history entry, so coming
-  // back finds the tab's own filter and never the other tab's. The entry
-  // holds it, not the component, because Back and a reload must find it too.
-  const left = leftOf(useLocation().state);
-  const open = (next: PipelineTab, search = left[next] ?? "") => {
-    // A filter change within a tab is not a destination.
-    navigate(
-      { pathname: `/pipeline/${next}`, search },
-      { replace: next === tab, state: { [LEFT]: { ...left, [tab]: params.toString() } } },
-    );
-  };
+  // A filter change within a view is not a destination.
+  const open = (next: PipelineTab, search: string) =>
+    navigate({ pathname: `/pipeline/${next}`, search }, { replace: next === tab });
   // The summary's count is the board's: its link opens the board with that
-  // filter added to whatever the board already had.
-  const boardParams = new URLSearchParams(tab === "board" ? params : left.board);
+  // filter added to whatever the board was last left with.
+  const boardParams = tab === "board" ? new URLSearchParams(params) : rememberedPipelineQuery("board");
   const boardFilter = readFilter(boardParams, VIEW_FILTERS.board);
   const needNext = tab === "board" && boardFilter.quick.includes("needs_next");
   const showNeedNext = () =>
@@ -93,7 +85,8 @@ function PipelineTabs() {
 
   return (
     <main className="main app-main" data-design-system="app" data-view={tab}>
-      <PageHeader title={shellNavPipeline()}
+      <ViewMemory key={tab} slug={tab} />
+      <PageHeader title={TAB_LABEL[tab]()}
         // The line keeps its height while the board loads, so the tabs and
         // everything under them do not drop when the counts land.
         meta={!board.resource.data ? <p className="app-summary" aria-hidden="true">{"\u00a0"}</p> : (
@@ -112,22 +105,10 @@ function PipelineTabs() {
           </p>
         )}
       />
-      <TabBar
-        className="app-tabbar"
-        label={applicationsTabsLabel()}
-        idPrefix="pipeline"
-        controls="pipeline-tabpanel"
-        value={tab}
-        onChange={(next) => open(next)}
-        tabs={PIPELINE_SLUGS.map((slug) => ({ id: slug, label: TAB_LABEL[slug]() }))}
-      />
       <div
-        id="pipeline-tabpanel"
         // The List keeps Radar's ledger margin (patterns/jobs/margin.css) for
         // its compare beacon; the board's columns and Up next have none.
         className={tab === "list" ? "app-tabpanel job-margin-page" : "app-tabpanel"}
-        role="tabpanel"
-        aria-labelledby={`pipeline-tab-${tab}`}
       >
         {tab === "list" && <ListView board={board} now={now} />}
         {tab === "board" && <BoardView board={board} now={now} />}
@@ -135,4 +116,11 @@ function PipelineTabs() {
       </div>
     </main>
   );
+}
+
+/** A view's filter memory. Keyed by the view, so each arrival at one is a
+ *  mount, which is when `useRememberedParams` decides whether to restore. */
+function ViewMemory({ slug }: { slug: PipelineTab }) {
+  useRememberedParams(pipelineViewScope(slug), PIPELINE_VIEW_PARAMS);
+  return null;
 }

@@ -10,6 +10,7 @@
 import { expect, mockGet, test, type Page } from "./fixtures";
 import { msg } from "../../src/test/msg";
 import { installBoardRoutes } from "./boardHarness";
+import { openPipelineView } from "./pipelineRail";
 import { installEveryRoute } from "./routesHarness";
 import { historyFixture, overviewFixture, statsFixture, statusFixture } from "../../src/test/fixtures";
 
@@ -41,7 +42,7 @@ async function openPipelineWithADeadChunk(page: Page) {
 
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Radar", level: 1 })).toBeVisible();
-  await page.getByRole("link", { name: "Pipeline", exact: true }).click();
+  await openPipelineView(page, msg("shell-tab-pipeline-list"));
   const alert = page.getByRole("alert");
   /* The failure must have happened before a caller lets the chunk through,
      or the import can race the switch and load, and there is nothing to retry. */
@@ -81,13 +82,13 @@ test("trying again after a dead route chunk recovers the screen", async ({ page 
   const { alert, letThrough } = await openPipelineWithADeadChunk(page);
   letThrough();
   await alert.getByRole("button", { name: "Try again" }).click();
-  await expect(page.getByRole("heading", { name: "Pipeline", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: msg("shell-tab-pipeline-list"), level: 1 })).toBeVisible();
 });
 
 test("a dead chunk does not poison the routes either side of it", async ({ page }) => {
   await page.route(/ApplicationsScreen/, (route) => route.abort("failed"));
   await page.goto("/");
-  await page.getByRole("link", { name: "Pipeline", exact: true }).click();
+  await openPipelineView(page, msg("shell-tab-pipeline-list"));
   await expect(page.getByRole("alert")).toBeVisible();
 
   // Navigating away must clear the boundary — otherwise one bad chunk blanks
@@ -289,7 +290,8 @@ test("the mobile dock keeps legal touch targets and labels inside their boxes", 
   test.skip(testInfo.project.name !== "mobile", "phone-width layout");
 
   await page.goto("/");
-  const items = page.locator(".nav-rail .rail-item");
+  // What the dock draws: the Pipeline's star stays out of it, its views stand in.
+  const items = page.locator(".nav-rail .rail-item:visible");
   // `count()` does not wait: read it once the dock has drawn.
   await expect(items.first()).toBeVisible();
   const count = await items.count();
@@ -346,7 +348,8 @@ test("the mobile dock's destinations do not overlap each other", async ({
   test.skip(testInfo.project.name !== "mobile", "phone-width layout");
 
   await page.goto("/");
-  const items = page.locator(".nav-rail .rail-item");
+  // What the dock draws: the Pipeline's star stays out of it, its views stand in.
+  const items = page.locator(".nav-rail .rail-item:visible");
   // `count()` does not wait: read it once the dock has drawn.
   await expect(items.first()).toBeVisible();
   const count = await items.count();

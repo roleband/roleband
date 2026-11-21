@@ -617,12 +617,6 @@
   }
 }
 
-/* ---- the place's tabs ---------------------------------------------------- */
-
-.app-tabbar {
-  margin-bottom: var(--app-space-4);
-}
-
 /* ---- each view's toolbar ------------------------------------------------- */
 
 .app-pipeline-search {

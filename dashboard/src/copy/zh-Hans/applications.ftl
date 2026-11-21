@@ -214,8 +214,6 @@ applications-interview-delete-failed = 无法删除面试。请重试。
 
 applications-interview-delete-confirm = 删除这场面试？
 
-applications-tabs-label = 求职进展视图
-
 applications-list-head-next = 下一步
 
 applications-list-head-actions = 操作

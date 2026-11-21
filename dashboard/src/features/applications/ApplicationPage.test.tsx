@@ -123,7 +123,7 @@ describe("the application page", () => {
     expect(back).toHaveAttribute("href", "/pipeline/board?q=product");
 
     await userEvent.click(back);
-    expect(await screen.findByRole("tab", { name: msg("shell-tab-pipeline-board"), selected: true })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: msg("shell-tab-pipeline-board") })).toBeInTheDocument();
     expect(screen.getByRole("searchbox")).toHaveValue("product");
   });
 

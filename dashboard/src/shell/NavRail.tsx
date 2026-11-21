@@ -23,6 +23,7 @@ import { Icon } from "../ui/Icon";
 import { BrandMark } from "../ui/BrandMark";
 import { BEHIND_COVER } from "../ui/Overlay";
 import { CountBadge } from "../ui/CountBadge";
+import { PipelineRailGroup } from "./PipelineRailGroup";
 
 interface Props {
   expanded: boolean;
@@ -70,6 +71,7 @@ export function NavRail({ expanded, onToggleExpanded, theme, onToggleTheme }: Pr
         <div className="rail-section-label">{shellRailWorkspace()}</div>
         <div className="rail-group">
           {primary.map((t) => {
+            if (t.path === "/pipeline") return <PipelineRailGroup key={t.path} tab={t} expanded={expanded} />;
             const count = badge(t.path);
             /* One string for all three: the hover tooltip when the rail is
                collapsed (`data-tip`), the native one when it is expanded

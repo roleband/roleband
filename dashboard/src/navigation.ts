@@ -53,7 +53,7 @@ export interface NavTabDef {
 // listed: a Compare entry would advertise an empty room (docs/ui.md "Cover").
 export const NAV_TABS: NavTabDef[] = [
   { path: "/", get label() { return shellNavRadar(); }, icon: "grid", end: true },
-  { path: "/pipeline", get label() { return shellNavPipeline(); }, icon: "pipeline", tabs: PIPELINE_TABS, indexRedirect: "list" },
+  { path: "/pipeline", get label() { return shellNavPipeline(); }, icon: "star", tabs: PIPELINE_TABS, indexRedirect: "list" },
   { path: "/profile", get label() { return shellNavProfile(); }, icon: "person", tabs: PROFILE_TABS, indexRedirect: "direction" },
   {
     path: "/statistics",

@@ -883,6 +883,14 @@ html[data-ground="plain"] body {
   --rail-accent-soft: rgba(219, 203, 144, 0.12);
   --rail-accent-line: rgba(219, 203, 144, 0.18);
   --rail-accent-glow: rgba(219, 203, 144, 0.6);
+  /* The Pipeline's star tile and the well its views drop into: the tile a
+     step brighter than the well, so the parent outweighs what it holds. */
+  --rail-tile: rgba(255, 255, 255, 0.04);
+  --rail-tile-hover: rgba(255, 255, 255, 0.07);
+  --rail-tile-line-hover: rgba(230, 233, 240, 0.24);
+  --rail-well: rgba(255, 255, 255, 0.03);
+  --rail-well-line: rgba(230, 233, 240, 0.13);
+  --rail-accent-edge: rgba(219, 203, 144, 0.32);
   position: relative;
   z-index: 25;
   min-width: 0;
@@ -1120,6 +1128,136 @@ html[data-ground="plain"] body {
   --ui-count-min: 9px;
   --ui-count-height: 9px;
   --ui-count-pad: 0px;
+}
+
+/* ---- the Pipeline and its views (shell/PipelineRailGroup.tsx) ------------- */
+
+/* The star is the parent and outweighs what it holds: a full rail entry with
+   a tile of its own, the views smaller and dimmer inside a narrower well that
+   hangs from under the tile. Everything stays on the rail's centre line. */
+.rail-family {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* The star the person presses on a role, gold wherever it stands for the
+   Pipeline. */
+.rail-family-star svg {
+  color: var(--rail-accent);
+  fill: currentColor;
+}
+
+.rail-family-star {
+  z-index: 1;
+  border-color: var(--rail-line-strong);
+  border-radius: 11px;
+  background: var(--rail-tile);
+  /* A ring of the rail's own ground, so the tile sits over the well's top
+     edge instead of crossing it. */
+  box-shadow: 0 0 0 3px var(--rail-canvas);
+}
+
+.rail-family-star:hover,
+.rail-family.open .rail-family-star {
+  background: var(--rail-tile-hover);
+  border-color: var(--rail-tile-line-hover);
+}
+
+/* In the Pipeline the star carries the place's mark, so it says where the
+   person is while the well is closed. */
+.rail-family.is-within .rail-family-star {
+  color: var(--rail-accent-text);
+  background: var(--rail-accent-soft);
+  border-color: var(--rail-accent-edge);
+}
+
+.rail-family.is-within .rail-family-star::before {
+  content: "";
+  position: absolute;
+  left: -14px;
+  top: 9px;
+  bottom: 9px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--rail-accent);
+  box-shadow: 0 0 14px var(--rail-accent-glow);
+}
+
+.rail-well {
+  display: none;
+}
+
+.rail-family.open .rail-well {
+  width: 36px;
+  box-sizing: border-box;
+  margin-top: -9px;
+  padding: 14px 2px 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  border: 1px solid var(--rail-well-line);
+  border-radius: 11px;
+  background: var(--rail-well);
+  animation: rail-well-in var(--app-duration-medium) ease-out;
+}
+
+.rail-family.open.is-within .rail-well {
+  border-color: var(--rail-accent-edge);
+}
+
+@keyframes rail-well-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.rail-sub {
+  width: 30px;
+  min-height: 30px;
+  border-radius: 8px;
+  color: var(--rail-faint);
+}
+
+.rail-sub[aria-current="page"]::before {
+  content: none;
+}
+
+/* Expanded: the views drop in named, on a line set in from the star. */
+.app.nav-expanded .rail-family {
+  align-items: stretch;
+}
+
+.app.nav-expanded .rail-family.is-within .rail-family-star::before {
+  left: -15px;
+}
+
+.app.nav-expanded .rail-family.open .rail-well {
+  width: auto;
+  margin: 2px 0 4px 19px;
+  padding: 0 0 0 9px;
+  align-items: stretch;
+  gap: 2px;
+  border: 0;
+  border-left: 1px solid var(--rail-line-strong);
+  border-radius: 0;
+  background: none;
+}
+
+.app.nav-expanded .rail-sub {
+  min-height: 36px;
+}
+
+.app.nav-expanded .rail-sub:not(:hover, [aria-current="page"]) {
+  color: var(--rail-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail-family.open .rail-well {
+    animation: none;
+  }
 }
 
 .app:not(.nav-expanded) .rail-item[data-tip]::after,
@@ -1496,6 +1634,47 @@ html[data-ground="plain"] body {
   .app:not(.nav-expanded) .rail-item[data-tip]::after,
   .app:not(.nav-expanded) .rail-toggle[data-tip]::after {
     display: none;
+  }
+
+  /* The dock has no room to drop a well: the Pipeline's views stand in it as
+     entries of their own. */
+  .rail-family,
+  .app.nav-expanded .rail-family {
+    flex-direction: row;
+    align-items: stretch;
+    gap: 2px;
+  }
+
+  .rail-family-star {
+    display: none;
+  }
+
+  .rail-well,
+  .rail-family.open .rail-well,
+  .app.nav-expanded .rail-family.open .rail-well {
+    width: auto;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: row;
+    gap: 2px;
+    border: 0;
+    background: none;
+    animation: none;
+  }
+
+  .rail-sub,
+  .app.nav-expanded .rail-sub {
+    width: auto;
+    min-height: 0;
+  }
+
+  .rail-sub {
+    color: var(--rail-muted);
+  }
+
+  .rail-sub[aria-current="page"]::before {
+    content: "";
   }
 }
 

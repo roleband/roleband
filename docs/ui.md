@@ -496,7 +496,9 @@ lowers one lowers the baseline too.
 | `click-target` | `onClick` on a `div`, `span`, `li` and similar | A real button or link |
 
 The raw buttons that remain are known shapes (whole-row targets, palette
-options, the dial's drag handle, the sync button). A new exception is paid for
+options, the dial's drag handle, the sync button, and the rail's theme toggle
+and Pipeline star, which wear the class of the rail entries beside them on the
+rail's fixed-dark palette). A new exception is paid for
 by converting an existing one, never by raising the number.
 
 ## Controls
@@ -648,6 +650,14 @@ The nav rail is `--app-nav-width` (72px), or `--app-nav-width-expanded`
 (204px) when expanded. Below 860px it becomes a bottom dock that scrolls
 horizontally. Each rail tab renders `patterns/PageHeader` with its rail label
 as the `h1` (`patterns/page-header.test.ts`, `tests/ux/page-header.spec.ts`).
+The Pipeline's views (Considering, Board, Up next) are rail entries under its
+star rather than a tab row, so a view's page is titled by the view. The views
+stay folded away until the pointer rests on the star or the star is pressed;
+then they drop in under it and push the rest of the rail down, in a narrow well
+when the rail is collapsed and named when it is expanded. The star wears the
+place's mark while a view is on screen, and the dock lists the views in its
+row (`shell/PipelineRailGroup.tsx`). Each view keeps its own filters and finds
+them again on arrival through the rail (`routing/useRememberedParams`).
 Under the header, a list screen's count and its Reset all live in
 `patterns/ResultsSummary`; Reset all clears every filter and lens, never the
 search query.
@@ -1272,6 +1282,7 @@ Unit gates (`npm run test:unit`) are under `dashboard/src/`; UX specs
 | A selector lives in one sheet; keyframes defined once and reachable | `design/one-definition.test.ts` |
 | Filter register type grammar | `design/filter-grammar.test.ts` |
 | Every tab wears `PageHeader` | `patterns/page-header.test.ts`, `page-header.spec.ts` |
+| The Pipeline's views drop out of its star and push the rail down | `shell/NavRail.test.tsx`, `pipeline-rail.spec.ts` |
 | Rail boundary named once | `patterns/rail-shell.test.ts` |
 | Sticky offsets derived, container queries kept | `features/companies/register.test.ts`, `features/opportunities/board-shell.test.ts` |
 | Register screens match the rest | `material-parity.spec.ts` |
