@@ -114,6 +114,16 @@ async def _today(db_session, model, *columns):
     return await _on(db_session, TODAY, model, *columns)
 
 
+async def _day_rows(db_session, day) -> dict:
+    """Every rollup's rows for `day`, all columns but the surrogate key."""
+    rows = {}
+    for model in (DemandMetric, CompSnapshot, CompMetric, SkillDemandDaily, DisclosureSnapshot):
+        columns = [c for c in model.__table__.columns if c.name != "id"]
+        result = await db_session.execute(select(*columns).where(model.metric_date == day))
+        rows[model.__name__] = sorted((tuple(r) for r in result), key=repr)
+    return rows
+
+
 async def _yesterday_untouched(db_session) -> None:
     assert (await db_session.scalars(
         select(DemandMetric.open_count).where(DemandMetric.metric_date == YESTERDAY))).all() == [7]
@@ -192,6 +202,8 @@ async def test_a_run_past_midnight_writes_the_new_day_and_keeps_the_old(db_sessi
     tomorrow = TODAY + timedelta(days=1)
     clock.at = tomorrow - timedelta(seconds=1)
     await _derive(db_session)
+    first_day = await _day_rows(db_session, TODAY)
+    assert all(first_day.values()), "the control: the first pass wrote every rollup"
 
     a.in_scope = False
     await db_session.commit()
@@ -215,6 +227,7 @@ async def test_a_run_past_midnight_writes_the_new_day_and_keeps_the_old(db_sessi
     before_midnight = await _today(db_session, CompMetric, CompMetric.count, CompMetric.p50)
     assert max(count for count, _p50 in before_midnight) == 2, "both roles, as the first pass saw them"
     assert 300_000 in {p50 for _count, p50 in before_midnight}
+    assert await _day_rows(db_session, TODAY) == first_day
     await _yesterday_untouched(db_session)
 
 
