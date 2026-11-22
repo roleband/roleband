@@ -117,6 +117,23 @@ describe("Up next", () => {
     expect(screen.getByRole("button", { name: /^Wed, Nov 4/ })).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("offers a round to come as a file for the person's calendar, naming its role", async () => {
+    const files: Blob[] = [];
+    URL.createObjectURL = vi.fn((file: Blob) => {
+      files.push(file);
+      return "blob:calendar";
+    });
+    URL.revokeObjectURL = vi.fn();
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    render(<Page cards={[openai, stripe]} />);
+    await userEvent.click(screen.getByRole("button", { name: msg("applications-interview-calendar-label", { label: "Hiring manager" }) }));
+    expect(files).toHaveLength(1);
+    const body = await files[0].text();
+    expect(body).toContain("UID:interview-5@roleband");
+    expect(body.replace(/\r\n /g, "")).toContain("Principal Engineering Manager");
+    click.mockRestore();
+  });
+
   it("moves the mark to the day picked in the month", async () => {
     const user = userEvent.setup();
     render(<Page cards={[openai, stripe]} />);

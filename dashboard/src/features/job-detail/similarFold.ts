@@ -1,24 +1,13 @@
-/* Whether the posting's "More like this" section is folded to its heading.
- * A preference of this browser, as the theme is, never a setting, and the
- * same for every posting. Storage can throw on access (blocked site data, a
- * private window), so a failed read shows the section and a failed write is
- * dropped: the choice still holds for this visit. */
+/* Whether the posting's "More like this" section is folded to its heading:
+ * one of the person's view choices (hooks/viewChoices), the same for every
+ * posting and in any browser. A failed save keeps it for this visit. */
 
-const KEY = "roleband.posting-similar-folded";
+import { setViewChoice, viewChoice } from "../../hooks/viewChoices";
 
-export function readSimilarFolded(): boolean {
-  try {
-    return localStorage.getItem(KEY) === "1";
-  } catch {
-    return false;
-  }
-}
+const CHOICE = "posting.similar-folded";
+
+export const readSimilarFolded = (): boolean => viewChoice(CHOICE) === true;
 
 export function writeSimilarFolded(folded: boolean): void {
-  try {
-    if (folded) localStorage.setItem(KEY, "1");
-    else localStorage.removeItem(KEY);
-  } catch {
-    // Not remembered: the next visit shows the section.
-  }
+  void setViewChoice(CHOICE, folded);
 }

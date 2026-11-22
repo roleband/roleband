@@ -29,7 +29,7 @@ export interface PostingPipeline {
   workspace: ReactNode;
 }
 
-type Asking = { kind: "add" } | { kind: "edit"; interview: ApplicationInterview };
+type Asking = { kind: "add" } | { kind: "edit"; interview: ApplicationInterview; at?: "notes" };
 
 /** State that belongs to one role: it reads as unset for any other and is
  *  dropped once the role changes, so a dialog or menu opened on one role never
@@ -144,10 +144,12 @@ export function usePostingPipeline(
           onAddStep={actions.addStep}
           onEditStep={actions.editStep}
           onFinishStep={actions.finishStep}
+          onReopenStep={actions.reopenStep}
           onRemoveStep={actions.removeStep}
           onSaveNotes={actions.saveNotes}
+          onLoadNotesVersions={actions.notesVersions}
           onAddInterview={() => setAsking({ kind: "add" })}
-          onEditInterview={(interview) => setAsking({ kind: "edit", interview })}
+          onEditInterview={(interview, at) => setAsking({ kind: "edit", interview, at })}
           onOutcome={actions.setOutcome}
           onAddComment={actions.addComment}
           onEditComment={actions.editComment}
@@ -177,6 +179,7 @@ export function usePostingPipeline(
               card={card}
               moving={false}
               interview={asking.kind === "edit" ? asking.interview : undefined}
+              startAt={asking.kind === "edit" ? asking.at : undefined}
               onCancel={() => setAsking(null)}
               onSubmit={submitInterview}
               onDelete={asking.kind === "edit"

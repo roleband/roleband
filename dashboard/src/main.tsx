@@ -9,6 +9,7 @@ import { installGlobalErrorCapture } from "./diagnostics/clientErrors";
 import { intentRevision, storedChoice } from "./copy/runtime";
 import { preloadRoute } from "./routeRegistry";
 import { readUnconfigured } from "./routing/setupMode";
+import { readViewChoices } from "./hooks/viewChoicesRead";
 // The app typeface: IBM Plex Sans + Plex Mono everywhere. Bundled here, not in a feature — every
 // route renders it.
 import "@fontsource-variable/ibm-plex-sans";
@@ -45,6 +46,9 @@ if (window.location.pathname === "/") void readUnconfigured();
    rendered after it. */
 const NAMES_WAIT_MS = 1500;
 const names = shellApi.companyNames().then((read) => setCompanyNames(read.names), () => undefined);
+/* The person's view choices, under the same cap, so a screen opens already
+   arranged; one that arrives late arranges what is drawn after it. */
+const choices = readViewChoices();
 
 /* The stored language is activated before the first render too, for the same
    reason: messages are plain functions (docs/copy.md, section 3).
@@ -59,7 +63,7 @@ const language =
       ? copy().then(c => c.activate(c.negotiate(navigator.languages), {revision: bootRevision})).catch(() => undefined)
       : Promise.resolve();
 
-void Promise.race([Promise.all([names, language]), new Promise((resolve) => setTimeout(resolve, NAMES_WAIT_MS))]).then(() =>
+void Promise.race([Promise.all([names, language, choices]), new Promise((resolve) => setTimeout(resolve, NAMES_WAIT_MS))]).then(() =>
   ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
       <BrowserRouter>

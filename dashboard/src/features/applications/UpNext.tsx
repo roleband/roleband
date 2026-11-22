@@ -23,6 +23,7 @@ import {
 } from "../../copy/gen/applications";
 import { useRoleLink } from "./roleLink";
 import { NoMatches, PipelineEmpty } from "./PipelineEmpty";
+import { AddToCalendar } from "./AddToCalendar";
 import { DueBadge } from "./DueBadge";
 import { upNext, type UpNextItem } from "./dueByDay";
 import { FORMAT_LABEL, OUTCOME_LABEL } from "./interviewWords";
@@ -79,6 +80,7 @@ function RowSide({ item, now, actions }: { item: UpNextItem; now: Date; actions:
       <span className="app-upnext-when">
         {interview.format ? applicationsNextInterviewMeta({ when, format: FORMAT_LABEL[interview.format]() }) : when}
       </span>
+      <AddToCalendar interview={interview} role={card} />
       {interview.link && (
         <ExternalLink href={interview.link} label={applicationsNextInterviewJoinLabel({ label: interview.label })}>
           {applicationsNextInterviewJoin()}

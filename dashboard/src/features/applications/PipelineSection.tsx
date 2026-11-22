@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ApplicationCard, ApplicationDetail } from "../../api";
-import { date as formatDate } from "../../copy/format";
+import { recordDay } from "./recordDays";
 import { STAGE_LABEL, type StageSlug } from "../../copy/vocabulary";
 import { Button, Content, Icon, Msg, Popover } from "../../ui";
 import {
@@ -47,7 +47,7 @@ interface Line {
 function historyLines(card: ApplicationCard, history: History, now: Date): Line[] {
   const lines: Line[] = history.stages_reached.map(({ stage, at }) => ({
     at,
-    when: formatDate(at, "day"),
+    when: recordDay(at, now),
     text: STAGE_LABEL[stage],
     tone: LOST.has(stage) ? "is-closed" : undefined,
   }));
@@ -55,7 +55,7 @@ function historyLines(card: ApplicationCard, history: History, now: Date): Line[
     if (interview.outcome === "cancelled" || new Date(interview.scheduled_at) > now) continue;
     lines.push({
       at: interview.scheduled_at,
-      when: formatDate(interview.scheduled_at, "day"),
+      when: recordDay(interview.scheduled_at, now),
       text: <Msg of={applicationsPostingHistoryInterview} elems={{ label: <Content text={interview.label} /> }} />,
     });
   }
@@ -215,7 +215,7 @@ export function PipelineSection({ card, history, now, column, workspace = false,
           <>
             <dt>{applicationsPostingEnded()}</dt>
             <dd className="jd-listed">
-              <span>{formatDate(card.stage_since, "day")}</span>
+              <span>{recordDay(card.stage_since, now)}</span>
               {historyButton}
             </dd>
           </>
@@ -223,7 +223,7 @@ export function PipelineSection({ card, history, now, column, workspace = false,
         {interview && (
           <>
             <dt>{applicationsPostingInterview()}</dt>
-            <dd>{interviewWhen(interview)}</dd>
+            <dd>{interviewWhen(interview, now)}</dd>
           </>
         )}
         {step && (

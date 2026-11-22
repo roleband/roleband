@@ -8,10 +8,13 @@ import { dayKey, fromDayKey, monthOf, shiftDay, shiftMonth, sixWeeks } from "./m
  *  click picks; the arrows walk the days, across months, and pick as they
  *  go, so the summary above follows the keyboard. Past days stay pickable:
  *  a round already held is recorded too. */
-export function DayPicker({ value, onChange, now }: {
+export function DayPicker({ value, onChange, onChoose, now }: {
   /** The picked day as "YYYY-MM-DD", or "" for none yet. */
   value: string;
   onChange: (day: string) => void;
+  /** A day was clicked, or pressed with Enter or Space: the person's answer,
+   *  where the arrows only walk. */
+  onChoose?: (day: string) => void;
   now: Date;
 }) {
   const today = dayKey(now);
@@ -85,7 +88,10 @@ export function DayPicker({ value, onChange, now }: {
                       aria-pressed={key === value}
                       aria-label={formatDate(day, "weekday")}
                       tabIndex={key === tabStop ? 0 : -1}
-                      onClick={() => pick(day)}
+                      onClick={() => {
+                        pick(day);
+                        onChoose?.(key);
+                      }}
                       onKeyDown={(event) => move(event, day)}
                     >
                       <span className="app-month-num">{day.getDate()}</span>

@@ -15,7 +15,13 @@ from sqlalchemy import Select, and_, exists, func, literal, or_, select, union
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
-from tracker.agents.pursuits import priority_chosen, public_interview, steps_of
+from tracker.agents.pursuits import (
+    continues_notes,
+    done_steps,
+    priority_chosen,
+    public_interview,
+    steps_of,
+)
 from tracker.db.models import (
     ENDED_STAGES,
     OWES_NOTHING,
@@ -234,7 +240,8 @@ async def board(session: AsyncSession, *, now: datetime, job_id: int | None = No
 
 
 async def application(session: AsyncSession, job_id: int, *, now: datetime) -> dict | None:
-    """One application: its card, every interview, and when it reached each stage.
+    """One application: its card, every interview, when it reached each stage,
+    and the steps ticked done, which the card leaves out.
 
     `None` when the role is not on the board."""
     cards = await board(session, now=now, job_id=job_id)
@@ -243,7 +250,9 @@ async def application(session: AsyncSession, job_id: int, *, now: datetime) -> d
     card = cards[0]
     interviews: list[dict[str, Any]] = []
     reached: list[dict[str, Any]] = []
+    done: list[dict[str, Any]] = []
     if card["pursuit_id"] is not None:
+        done = await done_steps(session, card["pursuit_id"])
         rows = await session.scalars(
             select(PursuitInterview)
             .where(PursuitInterview.pursuit_id == card["pursuit_id"])
@@ -262,7 +271,7 @@ async def application(session: AsyncSession, job_id: int, *, now: datetime) -> d
     if starred_at is not None and not any(r["stage"] == "saved" for r in reached):
         reached.append({"stage": "saved", "at": starred_at})
     reached.sort(key=lambda r: r["at"])
-    return {"application": card, "interviews": interviews, "stages_reached": reached}
+    return {"application": card, "interviews": interviews, "stages_reached": reached, "done_steps": done}
 
 
 # Ids per hydrating read: asyncpg binds at most 32,767 parameters in one
@@ -278,6 +287,46 @@ async def _rows_by_id[Row: (PursuitEvent, PursuitComment)](
         chunk = ids[start : start + _HYDRATE_CHUNK]
         rows.update((row.id, row) for row in (await session.scalars(select(model).where(model.id.in_(chunk)))).all())
     return rows
+
+
+#: The most earlier versions of the notes the page lists.
+NOTES_VERSIONS_MAX = 50
+
+
+async def notes_versions(session: AsyncSession, job_id: int) -> list[dict] | None:
+    """The notes as each writing session left them, newest first, leaving
+    out the notes as they are now and any session that left them empty. A
+    session's first event keeps the text it replaced, which is what the
+    session before it ended with; the last session ended with the notes as
+    they are. `None` when the role is not on the board."""
+    if await activity(session, job_id, limit=1) is None:
+        return None
+    pursuit = await session.scalar(select(Pursuit).where(Pursuit.job_id == job_id))
+    if pursuit is None:
+        return []
+    rows = (
+        await session.execute(
+            select(PursuitEvent.id, PursuitEvent.actor, PursuitEvent.created_at, PursuitEvent.detail)
+            .where(PursuitEvent.pursuit_id == pursuit.id, PursuitEvent.detail["changed"].contains(["notes"]))
+            .order_by(PursuitEvent.created_at, PursuitEvent.id)
+        )
+    ).all()
+    sessions: list[dict] = []
+    by_start: dict[int, dict] = {}
+    for event_id, actor, at, detail in rows:
+        start = (detail or {}).get("session")
+        if start in by_start:
+            by_start[start]["at"] = at
+            continue
+        found = {"at": at, "actor": actor, "replaced": ((detail or {}).get("before") or {}).get("notes")}
+        by_start[event_id] = found
+        sessions.append(found)
+    versions = [
+        {"at": earlier["at"], "actor": earlier["actor"], "text": later["replaced"]}
+        for earlier, later in zip(sessions, sessions[1:], strict=False)
+        if later["replaced"] and later["replaced"] != pursuit.notes
+    ]
+    return versions[::-1][:NOTES_VERSIONS_MAX]
 
 
 async def activity(
@@ -306,11 +355,19 @@ async def activity(
     if pursuit_id is None:
         return []
 
+    # A notes writing session is one entry, its first event, at the time of
+    # its last save.
+    later = aliased(PursuitEvent)
+    session_end = (
+        select(func.max(later.created_at))
+        .where(later.pursuit_id == pursuit_id, later.detail["session"].as_integer() == PursuitEvent.id)
+        .scalar_subquery()
+    )
     events = select(
         literal("event").label("kind"),
         PursuitEvent.id,
-        PursuitEvent.created_at,
-    ).where(PursuitEvent.pursuit_id == pursuit_id)
+        func.coalesce(session_end, PursuitEvent.created_at).label("created_at"),
+    ).where(PursuitEvent.pursuit_id == pursuit_id, ~continues_notes())
     notes = select(
         literal("comment").label("kind"),
         PursuitComment.id,
@@ -318,7 +375,7 @@ async def activity(
     ).where(PursuitComment.pursuit_id == pursuit_id)
     feed = union(events, notes).subquery()
     ordered = (
-        select(feed.c.kind, feed.c.id)
+        select(feed.c.kind, feed.c.id, feed.c.created_at)
         .order_by(feed.c.created_at.desc(), feed.c.kind, feed.c.id.desc())
         .offset(max(0, offset))
     )
@@ -326,18 +383,18 @@ async def activity(
         ordered = ordered.limit(max(1, limit))
     page = (await session.execute(ordered)).all()
 
-    event_rows = await _rows_by_id(session, PursuitEvent, [i for kind, i in page if kind == "event"])
-    comment_rows = await _rows_by_id(session, PursuitComment, [i for kind, i in page if kind == "comment"])
+    event_rows = await _rows_by_id(session, PursuitEvent, [i for kind, i, _ in page if kind == "event"])
+    comment_rows = await _rows_by_id(session, PursuitComment, [i for kind, i, _ in page if kind == "comment"])
 
     items: list[dict] = []
-    for kind, i in page:
+    for kind, i, at in page:
         if kind == "event":
             e = event_rows[i]
             detail = e.detail or {}
             items.append({
                 "kind": "event",
                 "id": e.id,
-                "created_at": e.created_at,
+                "created_at": at,
                 "actor": e.actor,
                 "source": e.source,
                 "event_type": e.event_type,

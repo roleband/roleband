@@ -109,11 +109,13 @@ class StageReached(Built):
 
 
 class ApplicationDetailResponse(Built):
-    """`GET /api/applications/{job_id}`: interviews newest first, stages in the order reached."""
+    """`GET /api/applications/{job_id}`: interviews newest first, stages in the
+    order reached, and the steps ticked done, the latest done first."""
 
     application: ApplicationCard
     interviews: list[ApplicationInterview]
     stages_reached: list[StageReached]
+    done_steps: list[ApplicationStep]
 
 
 class ApplicationComment(Built):
@@ -157,6 +159,22 @@ class ApplicationActivityResponse(Built):
     number of items already read as `offset` for the page after it."""
 
     items: list[ActivityItem]
+
+
+class NotesVersion(Built):
+    """The notes as one writing session left them."""
+
+    #: The session's last save.
+    at: datetime
+    actor: Actor
+    text: str = Field(json_schema_extra=text("content"))
+
+
+class NotesVersionsResponse(Built):
+    """`GET /api/applications/{job_id}/notes/versions`: the notes' earlier
+    versions, newest first; the notes as they are now are not among them."""
+
+    versions: list[NotesVersion]
 
 
 class ApplicationCommentResponse(Built):

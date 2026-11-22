@@ -510,6 +510,7 @@ export type ApplicationsRouteContract = [
   >>,
   Expect<Equals<Returns<typeof api.application>, Ok<"application_ep_api_applications__job_id__get">>>,
   Expect<Equals<Returns<typeof api.activity>, Ok<"activity_ep_api_applications__job_id__activity_get">>>,
+  Expect<Equals<Returns<typeof api.notesVersions>, Ok<"notes_versions_ep_api_applications__job_id__notes_versions_get">>>,
   Expect<Equals<Returns<typeof api.addComment>, Ok<"add_comment_ep_api_jobs__job_id__pursuit_comments_post">>>,
   Expect<Equals<
     Returns<typeof api.editComment>,

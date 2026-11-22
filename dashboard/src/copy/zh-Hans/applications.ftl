@@ -218,9 +218,17 @@ applications-interview-outcome-not-passed = 未通过
 
 applications-interview-outcome-cancelled = 已取消
 
+applications-interview-prompt-people = 面试官是谁
+applications-interview-prompt-questions = 要问的问题
+applications-interview-prompt-points = 要强调的要点
+applications-ws-round-prepare = 面试官是谁、要问的问题、要强调的要点
 applications-interview-notes = 备注
 
 applications-interview-failed = 无法保存面试。请重试。
+applications-interview-calendar = 添加到日历
+applications-interview-calendar-label = 将{ $label }添加到日历
+applications-interview-calendar-title = { $label }（{ $company }）
+applications-ws-layout-failed = 无法保存工作区布局。请重试。
 
 applications-interview-delete-failed = 无法删除面试。请重试。
 
@@ -524,11 +532,32 @@ applications-ws-next-add = 添加下一步
 applications-ws-next-edit = 编辑下一步：{ $step }
 
 applications-ws-next-due = 截止
+
+applications-ws-next-due-none = 日期待定
+
+applications-ws-next-due-clear = 清除日期
 # kind=button note="In a next step's edit, takes the step off the list with nothing kept, for one added by mistake"
 applications-ws-next-remove = 移除
+applications-ws-next-done-fold = 已完成（{ $count }）
+applications-ws-next-delete-label = 删除这一步：{ $step }
+applications-ws-next-delete-confirm = 删除这一步？
+applications-ws-next-delete = 删除
 
 applications-ws-notes-hint = 写下你已知的情况和见过的人。输入 / 可添加标题、列表和清单。
 applications-notes-too-long = 未保存：超出上限 { $over } 个字符。
+applications-notes-pictures-left-out = { $count ->
+        [one] 图片未保留：笔记只保留文字和链接。
+       *[other] { $count } 张图片未保留：笔记只保留文字和链接。
+    }
+applications-notes-picture = 图片
+applications-notes-merged = 这些笔记也在别处被更改过。两个版本都已保留。
+applications-notes-versions = 早期版本
+applications-notes-versions-loading = 正在读取早期版本…
+applications-notes-versions-none = 暂无。每次你回来书写时都会保留一个版本。
+applications-notes-versions-failed = 无法读取早期版本。请重试。
+applications-notes-version-put-back = 恢复
+applications-notes-version-put-back-label = 恢复 { $when } 的版本
+applications-notes-version-back = 已恢复 { $when } 的版本。撤销可让页面回到之前的样子。
 applications-notes-blocks = 区块
 applications-notes-block-text = 文本
 applications-notes-block-heading = 标题 { $level }
@@ -538,6 +567,28 @@ applications-notes-block-checklist = 清单
 applications-notes-block-quote = 引用
 applications-notes-block-divider = 分隔线
 applications-notes-block-none = 没有这个名称的区块。
+applications-notes-help = 格式帮助
+applications-notes-help-title = 格式
+applications-notes-help-lines = 在行首输入
+applications-notes-help-words = 文字样式
+applications-notes-style-bold = 粗体
+applications-notes-style-italic = 斜体
+applications-notes-style-strike = 删除线
+applications-notes-style-code = 代码
+applications-notes-help-slash = 也可以输入 / 按名称选择块。
+applications-notes-help-links = 选中文字后按 { $link }，或在其上粘贴链接，即可添加链接。按住 { $key } 并点击链接即可打开。
+applications-notes-key-ctrl = Ctrl
+applications-notes-key-shift = Shift
+applications-notes-help-select = 也可以选中文字，在上方出现的工具栏中选择样式。
+applications-notes-bar = 设置所选内容的样式
+applications-notes-turn-into = 转换为
+applications-notes-turn-into-label = 转换为，当前为{ $block }
+applications-notes-style-tip = { $name }（{ $keys }）
+applications-notes-link = 链接
+applications-notes-link-field = 链接地址
+applications-notes-link-placeholder = 粘贴链接
+applications-notes-link-remove = 移除链接
+applications-notes-link-invalid = 请使用网址或电子邮件地址。
 applications-notes-check = { $checked ->
     [yes] 已完成：{ $line }
    *[no] 待办：{ $line }

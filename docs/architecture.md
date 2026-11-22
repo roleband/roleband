@@ -1498,6 +1498,18 @@ and `steps.undo` opens it again. No operation deletes a step. The server keeps
 same transaction as every step write.
 `backend/tests/test_agent_pursuit_and_draft_writes.py` holds each write to
 the rows it changes.
+The role's page saves the notes over the text it started from (`notes_was`):
+notes written elsewhere meanwhile are refused with `notes-moved`, and the page
+merges the two and saves again. The person's saves from the page fold into
+writing sessions in History, and each session's last text is an earlier
+version the page can put back
+([0026](decisions/0026-notes-saved-over-what-they-started-from.md));
+`backend/tests/test_pursuit_notes_db.py` holds both.
+How the person arranges the screens (the Workspace's blocks per stage, the
+Pipeline's columns, crossings dismissed, folded sections, the Insights view,
+each screen's filters) is kept in `app_settings`, one row per view choice, not
+in the browser ([0027](decisions/0027-view-choices-in-local-database.md));
+`backend/tests/test_view_choices.py` holds it.
 The company reads (`companies.list`, `companies.get`, `companies.facts.list`,
 `companies.prices.get`, `agents/operations/companies.py`) and the posting
 relations (`opportunities.similar`, `opportunities.duplicates`,

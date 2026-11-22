@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { ApplicationInterview } from "../../api";
+import type { ApplicationCard, ApplicationInterview } from "../../api";
 import { Button, Content, ExternalLink, Icon, Menu, MenuGroup, MenuItem } from "../../ui";
 import {
   applicationsInterviewAdd,
@@ -10,7 +10,9 @@ import {
   applicationsNextInterviewNone,
   applicationsUpnextOutcomeLabel,
   applicationsWsAskOutcome,
+  applicationsWsRoundPrepare,
 } from "../../copy/gen/applications";
+import { AddToCalendar } from "./AddToCalendar";
 import { FORMAT_LABEL, OUTCOME_LABEL, interviewPast, interviewWhen } from "./interviewWords";
 
 export type Outcome = NonNullable<ApplicationInterview["outcome"]>;
@@ -49,12 +51,14 @@ function OutcomeAsk({ interview, onOutcome }: { interview: ApplicationInterview;
 }
 
 /** Every round: the ones to come first, soonest first, then the past ones,
- *  latest first. A round to come offers its call link; a past one asks how
- *  it went until the person says. */
-export function Interviews({ interviews, now, onEdit, onOutcome }: {
+ *  latest first. A round to come offers a file for the person's calendar and
+ *  its call link, and with nothing written yet, the outline its notes start
+ *  from; a past one asks how it went until the person says. */
+export function Interviews({ interviews, role, now, onEdit, onOutcome }: {
   interviews: readonly ApplicationInterview[];
+  role: Pick<ApplicationCard, "job_id" | "company" | "title">;
   now: Date;
-  onEdit: (interview: ApplicationInterview) => void;
+  onEdit: (interview: ApplicationInterview, at?: "notes") => void;
   onOutcome: (interview: ApplicationInterview, outcome: Outcome) => void;
 }) {
   const at = (one: ApplicationInterview) => new Date(one.scheduled_at).getTime();
@@ -68,8 +72,8 @@ export function Interviews({ interviews, now, onEdit, onOutcome }: {
       {[...coming, ...past].map((interview) => {
           const upcoming = !interviewPast(interview, now);
           const when = interview.format
-            ? applicationsNextInterviewMeta({ when: interviewWhen(interview), format: FORMAT_LABEL[interview.format]() })
-            : interviewWhen(interview);
+            ? applicationsNextInterviewMeta({ when: interviewWhen(interview, now), format: FORMAT_LABEL[interview.format]() })
+            : interviewWhen(interview, now);
           return (
             <li key={interview.id} className="app-ws-round" data-past={upcoming ? undefined : true}>
               <div className="app-ws-round-head">
@@ -85,6 +89,7 @@ export function Interviews({ interviews, now, onEdit, onOutcome }: {
                   <Icon name="edit" size={14} />
                 </Button>
                 <span className="app-tile-spacer" />
+                {upcoming && <AddToCalendar interview={interview} role={role} />}
                 {upcoming && interview.link && (
                   <ExternalLink href={interview.link} label={applicationsNextInterviewJoinLabel({ label: interview.label })}>
                     {applicationsNextInterviewJoin()}
@@ -93,7 +98,13 @@ export function Interviews({ interviews, now, onEdit, onOutcome }: {
                 {!upcoming && !interview.outcome && <OutcomeAsk interview={interview} onOutcome={(outcome) => onOutcome(interview, outcome)} />}
                 {interview.outcome && <span className="app-ws-round-outcome">{OUTCOME_LABEL[interview.outcome]()}</span>}
               </div>
-              {interview.notes && <p className="app-ws-round-notes"><Content text={interview.notes} /></p>}
+              {interview.notes ? (
+                <p className="app-ws-round-notes"><Content text={interview.notes} /></p>
+              ) : upcoming && (
+                <Button variant="link" className="ui-btn-quiet app-ws-round-prepare" onClick={() => onEdit(interview, "notes")}>
+                  {applicationsWsRoundPrepare()}
+                </Button>
+              )}
             </li>
           );
         })}

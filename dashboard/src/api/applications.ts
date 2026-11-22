@@ -24,6 +24,9 @@ export type ApplicationInterview = Schemas["ApplicationInterview"];
 /** One entry of an application's feed: a comment or a recorded change. */
 export type ActivityItem = Schemas["ApplicationActivityResponse"]["items"][number];
 
+/** The notes as one writing session left them. */
+export type NotesVersion = Schemas["NotesVersion"];
+
 /** An interview as a write sends it. */
 export type InterviewWrite = Schemas["InterviewWrite"];
 
@@ -54,6 +57,8 @@ export const applicationsApi = {
     ),
   activity: (jobId: number, signal?: AbortSignal) =>
     getJSON<Schemas["ApplicationActivityResponse"]>(`/api/applications/${jobId}/activity`, signal),
+  notesVersions: (jobId: number) =>
+    getJSON<Schemas["NotesVersionsResponse"]>(`/api/applications/${jobId}/notes/versions`),
   addComment: (jobId: number, body: string) =>
     postJSON<Schemas["ApplicationCommentResponse"]>(`/api/jobs/${jobId}/pursuit/comments`, { body }),
   editComment: (jobId: number, commentId: number, body: string) =>

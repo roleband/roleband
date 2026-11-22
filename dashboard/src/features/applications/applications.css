@@ -619,6 +619,81 @@
   font-size: var(--app-type-meta);
 }
 
+.app-notes-left-out {
+  margin: var(--app-space-1) 0 0;
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+}
+
+/* Under the page: the way to its earlier versions. */
+.app-notes-foot {
+  display: flex;
+  margin-top: var(--app-space-2);
+}
+.app-notes-versions-open.ui-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--app-space-1);
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+  text-decoration: none;
+}
+
+.ui-popover.app-notes-versions .ui-popover-inner {
+  width: 380px;
+  max-width: calc(100vw / var(--page-zoom, 1) - 32px);
+  padding: var(--app-space-4);
+}
+.app-notes-versions h3 {
+  margin: 0 0 var(--app-space-2);
+  font-size: var(--app-type-body);
+  font-weight: var(--app-weight-strong);
+}
+.app-notes-versions-note {
+  margin: 0;
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+}
+.app-notes-versions-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* One version: when and who on top, its first lines, and its button at the
+   end of the row, level with the words. */
+.app-notes-version {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: var(--app-space-3);
+  align-items: center;
+  padding: var(--app-space-2) 0;
+  border-top: 1px solid var(--app-border);
+}
+.app-notes-version:first-child {
+  border-top: 0;
+}
+.app-notes-version > .ui-btn {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+}
+.app-notes-version-head {
+  display: flex;
+  gap: var(--app-space-2);
+  margin: 0;
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+}
+.app-notes-version-text {
+  display: -webkit-box;
+  margin: 2px 0 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  color: var(--app-text);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 /* What may be left empty. Its name rides the rule that parts it from the
    when, so one line both divides the form and says what follows. */
 .app-interview-optional {
@@ -1821,6 +1896,45 @@
   min-height: var(--app-control-sm);
 }
 
+/* A step that is done: its words struck through in the quiet ink, the day it
+   was done beside them. */
+.app-ws-step[data-done] .app-ws-step-words {
+  color: var(--app-text-muted);
+  font-weight: var(--app-weight-body);
+  text-decoration: line-through;
+}
+
+.app-ws-step-when {
+  display: flex;
+  flex: none;
+  align-items: center;
+  min-height: var(--app-control-sm);
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The done steps, folded under the line that adds a step. */
+.app-ws-done {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-2);
+}
+
+.app-ws-done-toggle.ui-btn {
+  gap: var(--app-space-1);
+  align-self: flex-start;
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+  text-decoration: none;
+}
+
+/* A done step's delete question, under its words. */
+.app-ws-step-confirm {
+  padding-inline-start: calc(var(--app-control-sm) + var(--app-space-2));
+}
+
 /* The open steps, one under another, and the line that adds the next one
    under the last. */
 .app-ws-steps,
@@ -1836,11 +1950,33 @@
   list-style: none;
 }
 
-/* A step being changed, and under a list the new step, keep their words
-   where the listed steps' words are, past the ticks. */
-.app-ws-step-list .app-ws-step-form,
-.app-ws-step-list + .app-ws-step-add {
+/* A step being changed keeps its words where the listed steps' words are,
+   past the ticks. */
+.app-ws-step-list .app-ws-step-form {
   padding-inline-start: calc(var(--app-control-sm) + var(--app-space-2));
+}
+
+/* The line that adds a step, a row like the steps: the plus in the ticks'
+   column, the field where their words are. */
+.app-ws-step-add {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--app-space-2);
+}
+
+.app-ws-step-add > .app-ws-step-form {
+  flex: 1;
+  min-width: 0;
+}
+
+.app-ws-step-plus {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--app-control-sm);
+  height: var(--app-control-sm);
+  color: var(--app-text-faint);
+  cursor: text;
 }
 
 /* Writing a step: the words take the whole width and grow with the text; the
@@ -1863,10 +1999,9 @@
   font-size: var(--app-type-meta);
 }
 
-/* The empty step is a line to type on: the field's box shows when the
-   pointer or the focus is on it, so a page with nothing to do stays quiet. */
+/* A step's words and day, in the Workspace's field box. */
 .app-ws-step-input,
-.app-ws-step-day {
+.app-ws-due-field {
   box-sizing: border-box;
   min-height: var(--app-control-sm);
   padding: 0 var(--app-control-sm-pad);
@@ -1878,25 +2013,60 @@
   font-size: var(--app-type-body);
 }
 
-/* The words start where the read step's words do: the field's room reaches
-   out into the margin, so the text does not move when the box shows. */
 .app-ws-step-input {
   display: block;
   min-width: 0;
-  margin-inline-start: calc(-1 * var(--app-control-sm-pad));
   padding-block: calc((var(--app-control-sm) - 1lh - 2px) / 2);
   overflow: hidden;
   overflow-wrap: anywhere;
   resize: none;
 }
 
-.app-ws-step-input:placeholder-shown:not(:hover, :focus) {
-  border-color: transparent;
-  background: transparent;
-}
-
 .app-ws-step-input::placeholder {
   color: var(--app-text-faint);
+}
+
+/* The day is a field the whole of which opens the month: the icons and the
+   words are one target. It rings inside its edge, as a field does, and while
+   the month is open it takes the edge of an open picker (ui/TimeField.css). */
+.app-ws-due-field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--app-space-1);
+  color: var(--app-text-muted);
+  cursor: pointer;
+  transition: border-color var(--app-duration-fast), background var(--app-duration-fast);
+}
+.app-ws-due-field:hover {
+  border-color: var(--app-text-faint);
+}
+.app-ws-due-field:focus-visible {
+  outline-offset: calc(-1 * var(--app-ring-offset));
+}
+.app-ws-due-field[aria-expanded="true"] {
+  border-color: var(--app-chosen-line);
+  background: var(--app-chosen-wash);
+}
+.app-ws-due-value {
+  color: var(--app-text);
+  font-variant-numeric: tabular-nums;
+}
+.app-ws-due-field[data-empty] .app-ws-due-value {
+  color: var(--app-text-faint);
+}
+
+/* The month a step's day is picked from, at the interview form's size. */
+.ui-popover.app-ws-due-pop .ui-popover-inner {
+  width: 300px;
+  max-width: calc(100vw / var(--page-zoom, 1) - 32px);
+  padding: var(--app-space-3);
+}
+.app-ws-due-foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--app-space-2);
+  padding-top: var(--app-space-2);
+  border-top: 1px solid var(--app-border);
 }
 
 /* Interviews: each round's name opens it; its day and format beside. */
@@ -1932,23 +2102,28 @@
   white-space: pre-wrap;
 }
 
-/* Notes: the page itself. Its box shows when the pointer or the focus is
-   on it, with room inside, so the words never touch its edge or its ring.
-   The room reaches out into the row's margin, so the text stands where the
-   other rows' text does and does not move when the box shows. It grows with
-   its text, so the page scrolls, never the field. */
+/* A coming round with nothing written: the outline its notes start from,
+   as quiet as the notes that would stand in its place. */
+.app-ws-round-prepare {
+  margin-top: var(--app-space-1);
+  font-size: var(--app-type-meta);
+}
+
+/* Notes: the page itself, in the box the Workspace's other fields use, its
+   words at the comment field's inset. It grows with its text, so the page
+   scrolls, never the field. */
 .app-ws-notes {
   --notes-room-block: var(--app-space-2);
-  --notes-room-inline: var(--app-space-3);
+  --notes-room-inline: var(--app-control-md-pad);
   display: block;
   box-sizing: border-box;
-  width: calc(100% + 2 * var(--notes-room-inline));
+  width: 100%;
   min-height: calc(1.6em + 2 * var(--notes-room-block) + 2px);
-  margin: calc(-1 * var(--notes-room-block)) calc(-1 * var(--notes-room-inline));
+  margin: 0;
   padding: var(--notes-room-block) var(--notes-room-inline);
-  border: 1px solid transparent;
+  border: 1px solid var(--app-border-control);
   border-radius: var(--app-radius-md);
-  background: transparent;
+  background: var(--app-surface);
   color: var(--app-text);
   font: inherit;
   font-size: var(--app-type-body);
@@ -1958,16 +2133,7 @@
   overflow-wrap: anywhere;
 }
 
-.app-ws-notes:hover {
-  border-color: var(--app-border-control);
-}
-
-/* Focused, the ring is drawn over the edge and takes its place, and the page
-   opens to a few lines to write in. */
-.app-ws-notes:is(:hover, :focus) {
-  background: var(--app-surface);
-}
-
+/* Focused, the page opens to a few lines to write in. */
 .app-ws-notes:focus {
   min-height: calc(4 * 1.6em + 2 * var(--notes-room-block) + 2px);
 }
@@ -1994,19 +2160,34 @@
   margin: var(--app-space-4) 0 var(--app-space-1);
   color: var(--app-text);
   font-weight: var(--app-weight-strong);
-  line-height: 1.3;
 }
 
+/* The page's own ramp, in steps of its text size: the posting scales its type
+   with the window, and the app's heading roles do not all scale with it, so
+   only steps of the text itself keep the three levels apart at every width. */
 .app-ws-notes h1 {
-  font-size: var(--app-type-title);
+  font-size: 1.6em;
+  line-height: 1.2;
 }
 
 .app-ws-notes h2 {
-  font-size: var(--app-type-label);
+  font-size: 1.3em;
+  line-height: 1.25;
 }
 
 .app-ws-notes h3 {
-  font-size: var(--app-type-body);
+  font-size: 1.1em;
+  line-height: 1.3;
+}
+
+/* Code in a line: the app's mono voice on a quiet ground, so it reads as
+   something to copy as it stands. */
+.app-ws-notes code {
+  padding: 0.1em 0.3em;
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-sunken);
+  font-family: var(--app-font-mono);
+  font-size: 0.9em;
 }
 
 .app-ws-notes :where(ul, ol) {
@@ -2093,13 +2274,62 @@
   pointer-events: none;
 }
 
-/* Before the editor has loaded: the notes as text, or the hint. */
 .app-notes {
   position: relative;
 }
 
-.app-notes-waiting {
-  margin-block: calc(-1 * var(--notes-room-block, var(--app-space-2)));
+/* The notes' formatting guide: each line names what a mark or a key makes,
+   the mark or key at its end, as the "/" menu shows them. */
+.ui-popover.app-notes-help .ui-popover-inner {
+  width: 520px;
+  max-width: calc(100vw / var(--page-zoom, 1) - 32px);
+  padding: var(--app-space-4);
+}
+
+.app-notes-help-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  column-gap: var(--app-space-5);
+}
+
+.app-notes-help h3 {
+  margin: 0;
+  color: var(--app-text);
+  font-size: var(--app-type-title);
+  font-weight: var(--app-weight-name);
+  line-height: 1.3;
+}
+
+.app-notes-help h4 {
+  margin: var(--app-space-4) 0 var(--app-space-2);
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+  font-weight: var(--app-weight-name);
+}
+
+.app-notes-help dl {
+  display: grid;
+  gap: var(--app-space-1);
+  margin: 0;
+}
+
+.app-notes-help dl > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--app-space-3);
+}
+
+.app-notes-help :is(dt, dd) {
+  margin: 0;
+  color: var(--app-text);
+  font-size: var(--app-type-body);
+}
+
+.app-notes-help p {
+  margin: var(--app-space-2) 0 0;
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
 }
 
 /* The "/" menu: the blocks by name, each with the mark that makes it at the
@@ -2146,6 +2376,84 @@
   margin: 0;
   padding: var(--app-space-1) var(--app-control-sm-pad);
   color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+}
+
+/* The bar over selected words (NotesToolbar): one row of small buttons on the
+   "/" menu's glass, the kind of line first, a hairline between the groups.
+   Tiptap places it from the selection's box and takes it out of the page
+   while nothing is selected. */
+.app-notes-bar {
+  z-index: 121;
+  width: max-content;
+  max-width: calc(100% - var(--app-space-2));
+}
+
+.app-notes-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  box-sizing: border-box;
+  padding: 3px;
+  background: var(--app-surface-glass);
+  backdrop-filter: blur(28px) saturate(160%);
+  border: 1px solid var(--app-border-strong);
+  border-radius: var(--app-radius-lg);
+  box-shadow: var(--app-shadow-pop);
+  color: var(--app-text);
+  font-family: var(--app-font-sans);
+}
+
+.app-notes-bar-row > .ui-btn {
+  gap: var(--app-space-1);
+  white-space: nowrap;
+}
+
+/* A style's letter drawn in the style it gives, as a writer's bar shows them. */
+.app-notes-bar-letter {
+  font-size: var(--app-type-body);
+  line-height: 1;
+}
+.app-notes-bar-letter > b { font-weight: var(--app-weight-strong); }
+.app-notes-bar-letter > u { text-underline-offset: 2px; }
+.app-notes-bar-letter > code { font-family: var(--app-font-mono); font-size: var(--app-type-meta); }
+
+.app-notes-bar-rule {
+  align-self: stretch;
+  width: 1px;
+  margin: 4px 2px;
+  background: var(--app-border);
+}
+
+.app-notes-bar-link {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--app-space-1);
+}
+
+.app-notes-bar-field {
+  box-sizing: border-box;
+  width: 260px;
+  min-height: var(--app-control-sm);
+  padding: 0 var(--app-control-sm-pad);
+  border: 1px solid var(--app-border-control);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface);
+  color: var(--app-text);
+  font: inherit;
+  font-size: var(--app-type-meta);
+}
+
+.app-notes-bar-field::placeholder {
+  color: var(--app-text-faint);
+}
+
+.app-notes-bar-error {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 0 var(--app-space-1) 2px;
+  color: var(--app-danger);
   font-size: var(--app-type-meta);
 }
 

@@ -5,8 +5,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActivityItem, ApplicationCard, ApplicationDetail, ApplicationStep } from "../../api";
 import { applicationCardFixture, applicationDetailFixture, stepFixture } from "../../test/fixtures";
 import { msg } from "../../test/msg";
+import { date as formatDate } from "../../copy/format";
 import { ToastProvider, useEscapeLayer } from "../../ui";
+import { dayKey, dueFromDay } from "./monthGrid";
 import { Workspace, type WorkspaceProps } from "./Workspace";
+import { readViewChoices } from "../../hooks/viewChoicesRead";
+import { fakeViewChoiceServer } from "../../test/viewChoicesServer";
 
 /* A role's Workspace: its blocks, each a card, with the role's activity among
  * them. The handlers stand in for the posting's writes; comments are kept in
@@ -27,8 +31,14 @@ let items: ActivityItem[];
 let detail: ApplicationDetail;
 let handlers: Pick<
   WorkspaceProps,
-  "onAddStep" | "onEditStep" | "onFinishStep" | "onRemoveStep" | "onAddComment" | "onEditComment" | "onDeleteComment" | "onSaveNotes"
+  "onAddStep" | "onEditStep" | "onFinishStep" | "onReopenStep" | "onRemoveStep" | "onAddComment" | "onEditComment" | "onDeleteComment" | "onSaveNotes" | "onLoadNotesVersions" | "onEditInterview"
 >;
+
+// The person's view choices, the Workspace's layouts among them, read before each test.
+beforeEach(async () => {
+  fakeViewChoiceServer();
+  await readViewChoices();
+});
 
 beforeEach(() => {
   localStorage.clear();
@@ -48,25 +58,32 @@ beforeEach(() => {
     onAddStep: vi.fn(async () => true),
     onEditStep: vi.fn(async () => true),
     onFinishStep: vi.fn(),
+    onReopenStep: vi.fn(async () => true),
     onRemoveStep: vi.fn(async () => true),
     onAddComment: vi.fn(async () => true),
     onEditComment: vi.fn(async () => true),
     onDeleteComment: vi.fn(async () => true),
     onSaveNotes: vi.fn(async () => true),
+    onLoadNotesVersions: vi.fn(async () => []),
+    onEditInterview: vi.fn(),
   };
 });
 
-/** The Workspace with the screen's own answer to a tick or a removal: the
- *  step leaves the card. */
-function Harness({ card: initial }: { card: ApplicationCard }) {
+/** The Workspace with the screen's own answer to a tick, a reopen or a
+ *  removal: a ticked step moves from the card to the done steps and back. */
+function Harness({ card: initial, done: initialDone = [] }: { card: ApplicationCard; done?: ApplicationStep[] }) {
   const [feed, setFeed] = useState(items);
   const [card, setCard] = useState(initial);
-  const drop = (step: ApplicationStep) => setCard((was) => ({ ...was, steps: was.steps.filter((one) => one.id !== step.id) }));
+  const [done, setDone] = useState(initialDone);
+  const drop = (step: ApplicationStep) => {
+    setCard((was) => ({ ...was, steps: was.steps.filter((one) => one.id !== step.id) }));
+    setDone((was) => was.filter((one) => one.id !== step.id));
+  };
   return (
     <ToastProvider>
       <Workspace
         card={card}
-        detail={{ ...detail, application: card }}
+        detail={{ ...detail, application: card, done_steps: done }}
         notes={null}
         activity={feed}
         now={NOW}
@@ -75,6 +92,15 @@ function Harness({ card: initial }: { card: ApplicationCard }) {
         onFinishStep={(step) => {
           handlers.onFinishStep(step);
           drop(step);
+          setDone((was) => [{ ...step, done_at: NOW.toISOString() }, ...was]);
+        }}
+        onReopenStep={async (step) => {
+          const reopened = await handlers.onReopenStep(step);
+          if (reopened) {
+            drop(step);
+            setCard((was) => ({ ...was, steps: [...was.steps, { ...step, done_at: null }] }));
+          }
+          return reopened;
         }}
         onRemoveStep={async (step) => {
           const removed = await handlers.onRemoveStep(step);
@@ -82,8 +108,9 @@ function Harness({ card: initial }: { card: ApplicationCard }) {
           return removed;
         }}
         onSaveNotes={handlers.onSaveNotes}
+        onLoadNotesVersions={handlers.onLoadNotesVersions}
         onAddInterview={vi.fn()}
-        onEditInterview={vi.fn()}
+        onEditInterview={handlers.onEditInterview}
         onOutcome={vi.fn()}
         onAddComment={async (body) => {
           const saved = await handlers.onAddComment(body);
@@ -104,8 +131,8 @@ function Harness({ card: initial }: { card: ApplicationCard }) {
 
 /** The Workspace of the role with these fields changed; a card given a
  *  next step lists it as its one step, as the server's does. */
-function renderWorkspace(card: Partial<ApplicationCard> = {}) {
-  return render(<Harness card={applicationCardFixture({ ...detail.application, steps: undefined, ...card })} />);
+function renderWorkspace(card: Partial<ApplicationCard> = {}, done: ApplicationStep[] = []) {
+  return render(<Harness card={applicationCardFixture({ ...detail.application, steps: undefined, ...card })} done={done} />);
 }
 
 const block = (name: string) => screen.getByRole("region", { name });
@@ -384,6 +411,60 @@ describe("the next step", () => {
     expect(field.closest(".app-ws-step-actions")).toBeNull();
   });
 
+  it("takes its day from the month its whole field opens, and clears it again from there", async () => {
+    renderWorkspace();
+    await userEvent.type(screen.getByRole("textbox", { name: msg("applications-ws-next-add") }), "Write to the hiring manager");
+    // The app's own field, never the browser's date input and its picker.
+    expect(document.querySelector('input[type="date"]')).toBeNull();
+    const none = `${msg("applications-ws-next-due")} ${msg("applications-ws-next-due-none")}`;
+    const day = screen.getByRole("button", { name: none });
+    expect(day).toHaveAttribute("aria-expanded", "false");
+    const month = () => screen.queryByRole("dialog", { name: msg("applications-ws-next-due") });
+    const pick = (on: Date) => within(month()!).getByRole("button", { name: formatDate(on, "weekday") });
+    const nov25 = new Date(2026, 10, 25);
+
+    // The words beside it open the month too, with the keyboard on today.
+    await userEvent.click(screen.getByText(msg("applications-ws-next-due"), { selector: "label" }));
+    expect(month()).not.toBeNull();
+    expect(day).toHaveAttribute("aria-expanded", "true");
+    await waitFor(() => expect(document.activeElement).toHaveAttribute("data-day", dayKey(NOW)));
+    // The arrows walk the days and leave the month open; a click answers.
+    await userEvent.keyboard("{ArrowRight}");
+    expect(month()).not.toBeNull();
+    await userEvent.click(pick(nov25));
+    await waitFor(() => expect(month()).toBeNull());
+    expect(day).toHaveTextContent(formatDate(nov25, "weekday"));
+    expect(day).toHaveFocus();
+
+    // Clearing is offered once a day is set, and leaves none.
+    await userEvent.click(day);
+    await userEvent.click(within(month()!).getByRole("button", { name: msg("applications-ws-next-due-clear") }));
+    await waitFor(() => expect(month()).toBeNull());
+    expect(screen.getByRole("button", { name: none })).toBe(day);
+
+    await userEvent.click(day);
+    expect(within(month()!).queryByRole("button", { name: msg("applications-ws-next-due-clear") })).toBeNull();
+    await userEvent.click(pick(nov25));
+    await userEvent.click(screen.getByRole("button", { name: msg("applications-next-save") }));
+    // A day picked is due by its end, in the reader's zone.
+    expect(handlers.onAddStep).toHaveBeenCalledWith("Write to the hiring manager", dueFromDay("2026-11-25"));
+  });
+
+  it("closes only the month on Escape, and the edit around it stays open", async () => {
+    renderWorkspace({ next_action: "Send the portfolio" });
+    await userEvent.click(screen.getByRole("button", { name: msg("applications-ws-next-edit", { step: "Send the portfolio" }) }));
+    const day = screen.getByRole("button", { name: new RegExp(`^${msg("applications-ws-next-due")} `) });
+    await userEvent.click(day);
+    expect(screen.getByRole("dialog", { name: msg("applications-ws-next-due") })).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: msg("applications-ws-next-due") })).toBeNull();
+    expect(screen.getByRole("textbox", { name: msg("applications-ws-next-edit", { step: "Send the portfolio" }) })).toBeInTheDocument();
+    await waitFor(() => expect(day).toHaveFocus());
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("textbox", { name: msg("applications-ws-next-edit", { step: "Send the portfolio" }) })).toBeNull();
+    expect(handlers.onEditStep).not.toHaveBeenCalled();
+  });
+
   it("saves on Enter, and starts a new line on Shift and Enter instead", async () => {
     renderWorkspace();
     const field = screen.getByRole("textbox", { name: msg("applications-ws-next-add") });
@@ -477,6 +558,114 @@ describe("several next steps", () => {
     renderWorkspace({ steps: [first] });
     await userEvent.click(tick(first.text));
     await waitFor(() => expect(screen.getByRole("textbox", { name: msg("applications-ws-next-add") })).toHaveFocus());
+  });
+});
+
+describe("the done steps", () => {
+  const open = stepFixture({ id: 11, text: "Send the portfolio", due: null });
+  const latest = stepFixture({ id: 21, text: "Call the recruiter", done_at: "2026-11-18T10:00:00Z" });
+  const earlier = stepFixture({ id: 22, text: "Tailor the CV", done_at: "2026-11-10T10:00:00Z" });
+  const fold = (count: number) => screen.queryByRole("button", { name: msg("applications-ws-next-done-fold", { count }) });
+  const tick = (step: string) => screen.getByRole("button", { name: msg("applications-upnext-done-label", { step }) });
+  const trash = (step: string) => screen.getByRole("button", { name: msg("applications-ws-next-delete-label", { step }) });
+  const question = () => screen.queryByRole("group", { name: msg("applications-ws-next-delete-confirm") });
+  const doneRows = () => Array.from(document.querySelectorAll(".app-ws-done [data-step-id] .app-ws-step-words"), (words) => words.textContent);
+  const openRows = () => Array.from(document.querySelectorAll(".app-ws-step-list:not(.app-ws-done *) .app-ws-step-words"), (words) => words.textContent);
+
+  it("folds the done steps under one line that says how many, and opens them in the order given, each ticked with its day", async () => {
+    renderWorkspace({ steps: [open] }, [latest, earlier]);
+    const toggle = fold(2)!;
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText(latest.text)).toBeNull();
+
+    await userEvent.click(toggle);
+
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(doneRows()).toEqual([latest.text, earlier.text]);
+    expect(tick(latest.text)).toHaveAttribute("aria-pressed", "true");
+    expect(tick(open.text)).toHaveAttribute("aria-pressed", "false");
+    const days = Array.from(document.querySelectorAll(".app-ws-done time"), (time) => time.getAttribute("datetime"));
+    expect(days).toEqual([latest.done_at, earlier.done_at]);
+    expect(openRows()).toEqual([open.text]);
+  });
+
+  it("names the year of a step done in another year, and only then", async () => {
+    const lastYear = stepFixture({ id: 51, text: "Send the thank-you note", done_at: "2025-12-30T15:00:00Z" });
+    const thisYear = stepFixture({ id: 52, text: "Book the flight", done_at: "2026-01-05T15:00:00Z" });
+    renderWorkspace({ steps: [open] }, [thisYear, lastYear]);
+    await userEvent.click(fold(2)!);
+    const shown = Array.from(document.querySelectorAll(".app-ws-done time"), (time) => time.textContent);
+    expect(shown).toEqual([formatDate(thisYear.done_at!, "day"), formatDate(lastYear.done_at!, "full")]);
+    expect(shown[1]).toContain("2025");
+    expect(shown[0]).not.toContain("2026");
+  });
+
+  it("draws no fold line while no step is done", () => {
+    renderWorkspace({ steps: [open] });
+    expect(document.querySelector(".app-ws-done")).toBeNull();
+    expect(screen.queryByRole("button", { name: msg("applications-ws-next-done-fold", { count: 0 }) })).toBeNull();
+  });
+
+  it("counts a step ticked just now among the done steps, the first of them", async () => {
+    renderWorkspace({ steps: [open] }, [latest]);
+    await userEvent.click(tick(open.text));
+    await userEvent.click(fold(2)!);
+    expect(doneRows()).toEqual([open.text, latest.text]);
+    expect(openRows()).toEqual([]);
+  });
+
+  it("puts a done step back among the open ones from its ticked tick, and keeps the keyboard in the list", async () => {
+    renderWorkspace({ steps: [open] }, [latest, earlier]);
+    await userEvent.click(fold(2)!);
+    await userEvent.click(tick(latest.text));
+    expect(handlers.onReopenStep).toHaveBeenCalledWith(latest);
+    expect(handlers.onRemoveStep).not.toHaveBeenCalled();
+    expect(openRows()).toEqual([open.text, latest.text]);
+    expect(doneRows()).toEqual([earlier.text]);
+    expect(fold(1)).toBeInTheDocument();
+    await waitFor(() => expect(tick(earlier.text)).toHaveFocus());
+  });
+
+  it("keeps a done step in its list when the server refuses to open it again", async () => {
+    handlers.onReopenStep = vi.fn(async () => false);
+    renderWorkspace({ steps: [] }, [latest]);
+    await userEvent.click(fold(1)!);
+    await userEvent.click(tick(latest.text));
+    expect(doneRows()).toEqual([latest.text]);
+    expect(openRows()).toEqual([]);
+  });
+
+  it("hands the keyboard to the add line once the last done step leaves", async () => {
+    renderWorkspace({ steps: [] }, [latest]);
+    await userEvent.click(fold(1)!);
+    await userEvent.click(tick(latest.text));
+    expect(document.querySelector(".app-ws-done")).toBeNull();
+    await waitFor(() => expect(screen.getByRole("textbox", { name: msg("applications-ws-next-add") })).toHaveFocus());
+  });
+
+  it("deletes a done step only once its question is answered Delete; Cancel and Escape keep it", async () => {
+    renderWorkspace({ steps: [open] }, [latest, earlier]);
+    await userEvent.click(fold(2)!);
+
+    await userEvent.click(trash(latest.text));
+    expect(question()).toBeInTheDocument();
+    await userEvent.click(within(question()!).getByRole("button", { name: msg("applications-interview-cancel") }));
+    expect(question()).toBeNull();
+
+    await userEvent.click(trash(latest.text));
+    await userEvent.keyboard("{Escape}");
+    expect(question()).toBeNull();
+    expect(handlers.onRemoveStep).not.toHaveBeenCalled();
+    expect(doneRows()).toEqual([latest.text, earlier.text]);
+
+    await userEvent.click(trash(latest.text));
+    await userEvent.click(within(question()!).getByRole("button", { name: msg("applications-ws-next-delete") }));
+    expect(handlers.onRemoveStep).toHaveBeenCalledTimes(1);
+    expect(handlers.onRemoveStep).toHaveBeenCalledWith(latest);
+    expect(handlers.onReopenStep).not.toHaveBeenCalled();
+    expect(doneRows()).toEqual([earlier.text]);
+    expect(openRows()).toEqual([open.text]);
+    await waitFor(() => expect(tick(earlier.text)).toHaveFocus());
   });
 });
 
@@ -656,5 +845,55 @@ describe("the interviews block", () => {
     expect(ask("Onsite day")).toBeNull();
     expect(ask("Phone screen")).not.toBeNull();
     expect(ask("Last week")).not.toBeNull();
+  });
+  it("offers a round to come with nothing written the outline to prepare under, opening its notes; never a past round or one with notes", async () => {
+    const tomorrow = new Date(NOW.getTime() + DAY);
+    detail = { ...detail, interviews: [
+      interview(7, "Hiring manager", tomorrow, false),
+      { ...interview(8, "Panel", new Date(NOW.getTime() + 2 * DAY), false), notes: "Ask about on-call" },
+      interview(9, "Recruiter call", new Date(NOW.getTime() - 2 * DAY), false),
+    ] };
+    renderWorkspace({ stage: "interviewing" });
+    const prepare = (label: string) => within(screen.getByText(label).closest("li")!)
+      .queryByRole("button", { name: msg("applications-ws-round-prepare") });
+
+    expect(prepare("Panel"), "its notes stand in the outline's place").toBeNull();
+    expect(within(screen.getByText("Panel").closest("li")!).getByText("Ask about on-call")).toBeInTheDocument();
+    expect(prepare("Recruiter call"), "a past round asks how it went instead").toBeNull();
+    await userEvent.click(prepare("Hiring manager")!);
+    expect(handlers.onEditInterview).toHaveBeenCalledWith(expect.objectContaining({ id: 7 }), "notes");
+  });
+
+  it("offers each round to come as a file for the person's calendar, and no past round", async () => {
+    const tomorrow = new Date(NOW.getTime() + DAY);
+    detail = { ...detail, interviews: [
+      interview(7, "Hiring manager", tomorrow, false),
+      interview(8, "Recruiter call", new Date(NOW.getTime() - 2 * DAY), false),
+    ] };
+    const files: Blob[] = [];
+    const saved: string[] = [];
+    URL.createObjectURL = vi.fn((file: Blob) => {
+      files.push(file);
+      return "blob:calendar";
+    });
+    URL.revokeObjectURL = vi.fn();
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+      saved.push(this.download);
+    });
+    renderWorkspace({ stage: "interviewing" });
+    const add = (label: string) => within(screen.getByText(label).closest("li")!)
+      .queryByRole("button", { name: msg("applications-interview-calendar-label", { label }) });
+
+    expect(add("Recruiter call"), "a past round has nothing to add").toBeNull();
+    await userEvent.click(add("Hiring manager")!);
+
+    expect(saved).toEqual([expect.stringMatching(/hiring-manager\.ics$/)]);
+    expect(files).toHaveLength(1);
+    expect(files[0].type).toBe("text/calendar;charset=utf-8");
+    const body = await files[0].text();
+    expect(body).toContain("UID:interview-7@roleband");
+    expect(body).toContain(`DTSTART:${tomorrow.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "")}`);
+    expect(document.querySelector("a[download]"), "the link leaves the page once used").toBeNull();
+    click.mockRestore();
   });
 });

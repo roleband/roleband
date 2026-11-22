@@ -70,6 +70,7 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 summary:focus-visible,
+[contenteditable="true"]:focus-visible,
 [tabindex]:focus-visible {
   outline: var(--app-ring-width) solid var(--app-action);
   outline-offset: var(--app-ring-offset);
@@ -78,11 +79,14 @@ summary:focus-visible,
 /* A field has an edge of its own, so its ring is drawn inside, over that edge,
    and takes its place: outside it, the field's border and the ring would be two
    lines with a gap between. A box, a radio, a slider or a button-like input has
-   no such edge and keeps the ring outside. */
+   no such edge and keeps the ring outside. An editable page (a rich text
+   editor is a `div` the person types in) is a field too: by its tag alone it
+   would take the outside ring of `[tabindex]`. */
 input:is([type="time"], [type="date"], [type="datetime-local"], [type="month"], [type="week"]):focus-within,
 input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="button"], [type="submit"], [type="reset"], [type="image"]):focus-visible,
 select:focus-visible,
-textarea:focus-visible {
+textarea:focus-visible,
+[contenteditable="true"]:focus-visible {
   outline-offset: calc(-1 * var(--app-ring-offset));
 }
 

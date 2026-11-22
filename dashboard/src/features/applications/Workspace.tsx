@@ -1,5 +1,5 @@
 import { Suspense, lazy, useRef, useState, type ReactNode } from "react";
-import type { ActivityItem, ApplicationCard, ApplicationDetail, ApplicationInterview, ApplicationStep } from "../../api";
+import type { ActivityItem, ApplicationCard, ApplicationDetail, ApplicationInterview, ApplicationStep, NotesVersion } from "../../api";
 import { date as formatDate } from "../../copy/format";
 import { STAGE_LABEL } from "../../copy/vocabulary";
 import { Button, Icon, Menu, MenuGroup, MenuItem, useToast } from "../../ui";
@@ -7,12 +7,15 @@ import {
   applicationsMoveUndo,
   applicationsWsAdd,
   applicationsWsHidden,
+  applicationsWsLayoutFailed,
   applicationsWsNotesHint,
 } from "../../copy/gen/applications";
 import { ActivityFeed } from "./ActivityFeed";
 import { useFocusAfter } from "./focusAfter";
 import { endingName } from "./StageLabel";
 import { NextSteps } from "./NextSteps";
+import type { NotesSaved } from "./NotesEditor";
+import { NotesHelp } from "./NotesHelp";
 import { useReorder } from "./useReorder";
 import { useSectionLayout } from "./useSectionLayout";
 import { Block, SECTION_ABOUT, SECTION_LABEL, type BlockReorder } from "./WorkspaceBlock";
@@ -24,10 +27,14 @@ const NotesEditor = lazy(() => import("./NotesEditor"));
 /** The notes page. Its editor is a chunk of its own, loaded when the page
  *  first shows; until then the notes stand as text where the page will be,
  *  so nothing moves when it arrives. */
-function Notes({ notes, onSave }: { notes: string | null; onSave: (notes: string) => Promise<boolean> }) {
+function Notes({ notes, onSave, loadVersions }: {
+  notes: string | null;
+  onSave: (notes: string, was: string) => Promise<NotesSaved>;
+  loadVersions: () => Promise<NotesVersion[]>;
+}) {
   return (
-    <Suspense fallback={<div className="app-notes"><p className="app-ws-notes app-notes-waiting">{notes || applicationsWsNotesHint()}</p></div>}>
-      <NotesEditor notes={notes} onSave={onSave} />
+    <Suspense fallback={<div className="app-notes"><p className="app-ws-notes">{notes || applicationsWsNotesHint()}</p></div>}>
+      <NotesEditor notes={notes} onSave={onSave} loadVersions={loadVersions} />
     </Suspense>
   );
 }
@@ -50,10 +57,12 @@ export interface WorkspaceProps {
   onAddStep: (text: string, due: string | null) => Promise<boolean>;
   onEditStep: (step: ApplicationStep, text: string, due: string | null) => Promise<boolean>;
   onFinishStep: (step: ApplicationStep) => void;
+  onReopenStep: (step: ApplicationStep) => Promise<boolean>;
   onRemoveStep: (step: ApplicationStep) => Promise<boolean>;
-  onSaveNotes: (notes: string) => Promise<boolean>;
+  onSaveNotes: (notes: string, was: string) => Promise<NotesSaved>;
+  onLoadNotesVersions: () => Promise<NotesVersion[]>;
   onAddInterview: () => void;
-  onEditInterview: (interview: ApplicationInterview) => void;
+  onEditInterview: (interview: ApplicationInterview, at?: "notes") => void;
   onOutcome: (interview: ApplicationInterview, outcome: Outcome) => void;
   onAddComment: (body: string) => Promise<boolean>;
   onEditComment: (id: number, body: string) => Promise<boolean>;
@@ -63,15 +72,17 @@ export interface WorkspaceProps {
 /** The person's own work on the role: the blocks the stage offers, each a
  *  card, the notes page and the role's activity among them. A block moves by
  *  its grip and hides by its eye; the plus under the last block brings a
- *  hidden one back. Order and what is hidden are kept per stage, in this
- *  browser. */
+ *  hidden one back. Order and what is hidden are kept per stage, with the
+ *  person's settings; the blocks are drawn once those are read. */
 export function Workspace(props: WorkspaceProps) {
   const { card, detail, notes, activity, now } = props;
   const stage = workspaceStage(card);
   const { toast } = useToast();
   const focusAfter = useFocusAfter();
   const host = useRef<HTMLDivElement>(null);
-  const layout = useSectionLayout(stage);
+  const layout = useSectionLayout(stage, () =>
+    toast({ key: "workspace-layout", tone: "error", text: applicationsWsLayoutFailed() }),
+  );
   const { shown, offeredBack } = layout;
   const [addFrom, setAddFrom] = useState<HTMLButtonElement | null>(null);
   const [adding, setAdding] = useState(false);
@@ -110,19 +121,21 @@ export function Workspace(props: WorkspaceProps) {
 
   const content: Record<WorkspaceSection, () => ReactNode> = {
     interviews: () => (
-      <Interviews interviews={detail.interviews} now={now} onEdit={props.onEditInterview} onOutcome={props.onOutcome} />
+      <Interviews interviews={detail.interviews} role={card} now={now} onEdit={props.onEditInterview} onOutcome={props.onOutcome} />
     ),
     next: () => (
       <NextSteps
         steps={card.steps}
+        done={detail.done_steps}
         now={now}
         onAdd={props.onAddStep}
         onEdit={props.onEditStep}
         onFinish={props.onFinishStep}
+        onReopen={props.onReopenStep}
         onRemove={props.onRemoveStep}
       />
     ),
-    notes: () => <Notes notes={notes} onSave={props.onSaveNotes} />,
+    notes: () => <Notes notes={notes} onSave={props.onSaveNotes} loadVersions={props.onLoadNotesVersions} />,
     outcome: () => <OutcomeLine card={card} />,
     activity: () => (
       <ActivityFeed
@@ -137,7 +150,10 @@ export function Workspace(props: WorkspaceProps) {
   };
   const action: Partial<Record<WorkspaceSection, ReactNode>> = {
     interviews: <AddInterview onAdd={props.onAddInterview} />,
+    notes: <NotesHelp />,
   };
+
+  if (!layout.ready) return <div className="app-ws" aria-busy="true" />;
 
   return (
     <div className="app-ws" ref={host} data-dragging={dnd.dragging ? "" : undefined}>

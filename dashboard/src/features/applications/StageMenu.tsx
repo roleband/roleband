@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { STAGE_LABEL, type StageSlug } from "../../copy/vocabulary";
-import { date as formatDate } from "../../copy/format";
+import { recordDay } from "./recordDays";
 import { Kbd, Menu, MenuGroup, MenuItem } from "../../ui";
 import {
   applicationsColumnClosed,
@@ -56,7 +56,7 @@ export function StageMenu({ current, endedAt = null, label, anchor, isOpen, onCl
             current={stage === boardStage(current)}
             shortcut={keyed ? String(index + 1) : undefined}
             lead={keyed ? <Kbd>{index + 1}</Kbd> : undefined}
-            detail={on ? formatDate(on, "day") : undefined}
+            detail={on ? recordDay(on, new Date()) : undefined}
             onSelect={() => onMove(stage)}
           >
             {STAGE_LABEL[stage]}

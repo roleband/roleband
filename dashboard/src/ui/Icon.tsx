@@ -13,6 +13,7 @@
 // aliases still resolve but are deprecated upstream.
 import {
   Activity,
+  Link,
   Ellipsis,
   MessageSquare,
   SquareKanban,
@@ -102,6 +103,8 @@ const ICONS = {
   calendarClock: CalendarClock,
   // Not started yet: the pipeline's Considering.
   circleDashed: CircleDashed,
+  // A link on the bar over words selected in the notes.
+  link: Link,
   chart: ChartColumn,
   check: Check,
   checkCircle: CircleCheck,

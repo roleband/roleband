@@ -77,6 +77,7 @@ error-step-not-found = 这个下一步已不存在。
 error-comment-not-yours = 只能更改你自己的评论。
 
 error-application-under-way = 这个职位已在推进中，因此会继续保存。请改为将它标记为“已撤回”。
+error-notes-moved = 这些笔记在打开后已在别处被更改。
 
 error-scheduling-unavailable-unnamed = 这家公司的扫描已暂停或关闭。
 

@@ -22,6 +22,7 @@ shortcuts-keyboard-shortcuts-close = 关闭
 
 ## shell/KeyboardShortcuts.tsx
 shortcuts-keyboard-shortcuts-ctrl-k = Ctrl K
+shortcuts-keyboard-shortcuts-alt-f10 = Alt F10
 
 shortcuts-keyboard-shortcuts-pipeline = 在申请页面上
 
@@ -30,3 +31,6 @@ shortcuts-keyboard-shortcuts-change-stage = 打开阶段菜单
 shortcuts-keyboard-shortcuts-pick-stage = 选择对应阶段
 
 shortcuts-keyboard-shortcuts-add-interview = 添加面试
+shortcuts-keyboard-shortcuts-notes = 在职位笔记中
+shortcuts-keyboard-shortcuts-link-words = 为选中的文字添加链接
+shortcuts-keyboard-shortcuts-to-the-bar = 转到格式工具栏

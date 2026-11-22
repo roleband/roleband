@@ -1,7 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
-import { afterEach, vi } from "vitest";
-import { resetMemorySweep } from "../hooks/filterMemory";
+import { afterEach, beforeEach, vi } from "vitest";
 import { resetRoleSaves } from "../hooks/useRoleSaves";
 import { resetWriteQueues } from "../hooks/useWriteQueue";
 import { forgetKeptAnswers } from "../api/keptAnswers";
@@ -56,8 +55,8 @@ afterEach(() => {
   setCompanyNames({});
 });
 
-/* Storage is shared by every test in a file, and with filter memory
- * (hooks/filterMemory) a screen WRITES to it as soon as a filter moves — so a
+/* Storage is shared by every test in a file, and a screen WRITES its filter
+ * memory (hooks/filterMemory) as soon as a filter moves — so a
  * spec that narrowed a register hands the next one a pre-filtered screen. That
  * failure reads as a bug in the component under test, which is the worst kind
  * to chase. Clear it between tests; a spec that wants a remembered state seeds
@@ -69,10 +68,15 @@ afterEach(() => {
   } catch {
     /* A jsdom without storage is not a test failure. */
   }
-  // The stale-version sweep runs once per page life, which inside one spec
-  // file means once per FILE — so a test that seeds an old-version key would
-  // find it never swept.
-  resetMemorySweep();
+});
+
+/* The person's view choices are module state, read once per page: each test
+ * starts with the database's answer in, holding none. Imported here, after the
+ * test file's own `vi.mock` calls have taken hold: a static import would load
+ * the real client first, and a file that mocks `../api` would get it. */
+beforeEach(async () => {
+  const { forgetViewChoices } = await import("../hooks/viewChoices");
+  forgetViewChoices({});
 });
 
 // The write queue's promise tails are module state on purpose — they outlive a

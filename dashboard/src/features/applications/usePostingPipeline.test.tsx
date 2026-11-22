@@ -280,7 +280,7 @@ describe("a posting on the board", () => {
     });
     renderPosting(posting({ is_favorite: true, pursuit: pursuit("interviewing") }));
     const booked = await findRow(msg("applications-posting-interview"));
-    expect(booked.textContent, "when, as the application page says it, and only that").toBe(interviewWhen(interview));
+    expect(booked.textContent, "when, as the application page says it, and only that").toBe(interviewWhen(interview, new Date()));
     expect(within(column()).queryByText(/Hiring manager/), "the round stays on the application page").toBeNull();
     expect(row(msg("applications-posting-next-step"))).toHaveTextContent("Email the recruiter");
   });

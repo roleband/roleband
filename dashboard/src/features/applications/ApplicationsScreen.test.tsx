@@ -8,6 +8,7 @@ import { api, type ApplicationCard } from "../../api";
 import { ToastProvider } from "../../ui/Toast";
 import { applicationCardFixture, stepFixture } from "../../test/fixtures";
 import { msg } from "../../test/msg";
+import { forgetViewChoices } from "../../hooks/viewChoices";
 import { ApplicationsScreen } from "./ApplicationsScreen";
 import { useBoardController } from "./useBoardController";
 import { ApiError } from "../../api/transport";
@@ -74,10 +75,9 @@ let stored: ApplicationCard[] = [];
 
 beforeEach(() => {
   vi.clearAllMocks();
-  localStorage.clear();
   // Every column on show, as a person sets it from Columns: these contracts
   // are about the columns' content. The first visit's choice has its own test.
-  localStorage.setItem("roleband.pipeline-hidden-columns", "[]");
+  forgetViewChoices({ "pipeline.board-hidden": [] });
   stored = [considering, applied, rejected];
   vi.mocked(api.applications).mockImplementation(async () => ({ applications: stored.map((card) => ({ ...card })) }));
   vi.mocked(api.setPursuit).mockImplementation(async (jobId, update) => {
@@ -99,7 +99,7 @@ beforeEach(() => {
 
 describe("the board", () => {
   it("at first shows the stages a role moves through, leaving Considering to the List and hiding the endings", async () => {
-    localStorage.clear();
+    forgetViewChoices({});
     render(withProviders(<ApplicationsScreen />));
     await screen.findByText("Principal Engineering Manager");
     expect(screen.getAllByRole("region")).toHaveLength(4);
@@ -401,7 +401,7 @@ describe("hiding columns", () => {
   });
 
   it("says so when a move sends a card into a hidden column, and keeps its Undo", async () => {
-    localStorage.setItem("roleband.pipeline-hidden-columns", JSON.stringify(["offer"]));
+    forgetViewChoices({ "pipeline.board-hidden": ["offer"] });
     render(withProviders(<ApplicationsScreen />));
     await screen.findByText("Principal Engineering Manager");
 
@@ -414,7 +414,7 @@ describe("hiding columns", () => {
   });
 
   it("on the List a move says only where the role went: the hidden columns are the Board's", async () => {
-    localStorage.setItem("roleband.pipeline-hidden-columns", JSON.stringify(["researching"]));
+    forgetViewChoices({ "pipeline.board-hidden": ["researching"] });
     vi.mocked(api.jobs).mockResolvedValue({ items: [], total: 0, limit: 500, offset: 0 } as never);
     render(atRoute("/pipeline/list"));
     await screen.findByText(considering.title);
@@ -602,7 +602,7 @@ describe("the cards and the tabs", () => {
     expect(within(days[0]).getByRole("button", { name: msg("applications-upnext-done-label", { step: "Ask for an intro" }) })).toBeInTheDocument();
     expect(within(days[1]).getByText("Hiring manager call")).toBeInTheDocument();
     expect(within(days[1]).getByRole("img", { name: msg("applications-month-legend-interview") })).toBeInTheDocument();
-    expect(within(days[1]).queryByRole("button", { name: /Hiring manager call/ }), "a round is not ticked off").toBeNull();
+    expect(within(days[1]).queryByRole("button", { name: msg("applications-upnext-done-label", { step: "Hiring manager call" }) }), "a round is not ticked off").toBeNull();
     expect(within(days[1]).getByRole("link"), "Up next opens on the Workspace").toHaveAttribute("href", `${positionPath(applied.company, 2)}?tab=workspace`);
     expect(within(days[0]).getByRole("link"), "whatever the stage").toHaveAttribute("href", `${positionPath(considering.company, considering.job_id)}?tab=workspace`);
     expect(screen.queryByText("Head of Platform")).toBeNull();

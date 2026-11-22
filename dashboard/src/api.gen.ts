@@ -907,6 +907,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/{job_id}/notes/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Notes Versions Ep */
+        get: operations["notes_versions_ep_api_applications__job_id__notes_versions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/companies": {
         parameters: {
             query?: never;
@@ -3496,6 +3513,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/settings/view-choices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get View Choices Ep
+         * @description How the person arranged what the screens show, by choice.
+         */
+        get: operations["get_view_choices_ep_api_settings_view_choices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/view-choices/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put View Choice Ep
+         * @description Save one choice. A name the screens do not have, or a value that does
+         *     not fit it, is refused (422) and the saved choice stays as it was.
+         */
+        put: operations["put_view_choice_ep_api_settings_view_choices__name__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/skills/top": {
         parameters: {
             query?: never;
@@ -4520,10 +4578,13 @@ export interface components {
         };
         /**
          * ApplicationDetailResponse
-         * @description `GET /api/applications/{job_id}`: interviews newest first, stages in the order reached.
+         * @description `GET /api/applications/{job_id}`: interviews newest first, stages in the
+         *     order reached, and the steps ticked done, the latest done first.
          */
         ApplicationDetailResponse: {
             application: components["schemas"]["ApplicationCard"];
+            /** Done Steps */
+            done_steps: components["schemas"]["ApplicationStep"][];
             /** Interviews */
             interviews: components["schemas"]["ApplicationInterview"][];
             /** Stages Reached */
@@ -7764,7 +7825,7 @@ export interface components {
          * ErrorCode
          * @enum {string}
          */
-        ErrorCode: "engine-locked" | "job-not-found" | "company-not-found" | "company-profile-not-found" | "local-model-not-found" | "cloud-model-not-found" | "notification-not-found" | "activity-entry-not-found" | "link-not-found" | "suggestion-not-found" | "recipe-not-found" | "rule-not-found" | "fit-band-not-found" | "schedule-not-found" | "page-not-found" | "application-not-found" | "comment-not-found" | "interview-not-found" | "step-not-found" | "plugin-not-found" | "invalid-input" | "careers-page-refused" | "careers-page-unreachable" | "company-conflict" | "company-refused" | "consent-required" | "scope-refused" | "schedule-refused" | "scheduling-unavailable" | "discovery-unsupported" | "manual-scan-queued" | "switch-running" | "switch-not-started" | "no-switch-running" | "switch-not-stopped" | "price-key-refused" | "switch-not-managed" | "server-not-managed" | "model-unreachable" | "local-models-off" | "ai-egress-off" | "no-local-model" | "model-profiles-unreadable" | "key-saved-for-another-address" | "plugin-not-runnable" | "plugin-running" | "plugin-approval-stale" | "plugin-still-enabled" | "plugin-confirm-mismatch" | "plugin-estimates-moving" | "field-answered-by-plugin" | "link-to-itself" | "already-linked" | "verdict-decided" | "pair-refused" | "not-a-member" | "suggestion-decided" | "last-world" | "recipe-invalid" | "recipe-conflict" | "usage-catalogue-changed" | "comment-not-yours" | "application-under-way";
+        ErrorCode: "engine-locked" | "job-not-found" | "company-not-found" | "company-profile-not-found" | "local-model-not-found" | "cloud-model-not-found" | "notification-not-found" | "activity-entry-not-found" | "link-not-found" | "suggestion-not-found" | "recipe-not-found" | "rule-not-found" | "fit-band-not-found" | "schedule-not-found" | "page-not-found" | "application-not-found" | "comment-not-found" | "interview-not-found" | "step-not-found" | "plugin-not-found" | "invalid-input" | "careers-page-refused" | "careers-page-unreachable" | "company-conflict" | "company-refused" | "consent-required" | "scope-refused" | "schedule-refused" | "scheduling-unavailable" | "discovery-unsupported" | "manual-scan-queued" | "switch-running" | "switch-not-started" | "no-switch-running" | "switch-not-stopped" | "price-key-refused" | "switch-not-managed" | "server-not-managed" | "model-unreachable" | "local-models-off" | "ai-egress-off" | "no-local-model" | "model-profiles-unreadable" | "key-saved-for-another-address" | "plugin-not-runnable" | "plugin-running" | "plugin-approval-stale" | "plugin-still-enabled" | "plugin-confirm-mismatch" | "plugin-estimates-moving" | "field-answered-by-plugin" | "link-to-itself" | "already-linked" | "verdict-decided" | "pair-refused" | "not-a-member" | "suggestion-decided" | "last-world" | "recipe-invalid" | "recipe-conflict" | "usage-catalogue-changed" | "comment-not-yours" | "application-under-way" | "notes-moved";
         /**
          * ErrorDetail
          * @description The `detail` of every error the API answers on purpose.
@@ -11203,6 +11264,33 @@ export interface components {
             size: 1;
         };
         /**
+         * NotesVersion
+         * @description The notes as one writing session left them.
+         */
+        NotesVersion: {
+            /**
+             * Actor
+             * @enum {string}
+             */
+            actor: "user" | "agent";
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * NotesVersionsResponse
+         * @description `GET /api/applications/{job_id}/notes/versions`: the notes' earlier
+         *     versions, newest first; the notes as they are now are not among them.
+         */
+        NotesVersionsResponse: {
+            /** Versions */
+            versions: components["schemas"]["NotesVersion"][];
+        };
+        /**
          * NotificationListResponse
          * @description `GET /api/notifications`: one page, newest first. `total` and
          *     `category_counts` follow the filters (the counts ignore the category filter
@@ -13603,14 +13691,20 @@ export interface components {
              */
             updated_at: string;
         };
-        /** PursuitUpdate */
-        PursuitUpdate: {
+        /**
+         * PursuitWrite
+         * @description `PUT /api/jobs/{job_id}/pursuit`: the fields to change, and for new
+         *     notes the text they were written over.
+         */
+        PursuitWrite: {
             /** Next Action */
             next_action?: string | null;
             /** Next Action Due */
             next_action_due?: string | null;
             /** Notes */
             notes?: string | null;
+            /** Notes Was */
+            notes_was?: string | null;
             /** Priority */
             priority?: number | null;
             /** Stage */
@@ -16460,6 +16554,33 @@ export interface components {
             since: string | null;
         };
         /**
+         * ViewChoice
+         * @description One choice as stored: duplicates dropped, in the order given.
+         */
+        ViewChoice: {
+            /** Name */
+            name: string;
+            value: components["schemas"]["JsonValue"];
+        };
+        /**
+         * ViewChoiceWrite
+         * @description One choice's new value.
+         */
+        ViewChoiceWrite: {
+            value: components["schemas"]["JsonValue"];
+        };
+        /**
+         * ViewChoices
+         * @description Every choice the person has made, by name; a choice absent here shows
+         *     the screen's own default.
+         */
+        ViewChoices: {
+            /** Choices */
+            choices: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+        };
+        /**
          * VocabFacetOption
          * @description A family, track or world: the key is its slug, and the client names it
          *     from its catalog (`dashboard/src/copy/vocab.ts`). No English here.
@@ -18204,6 +18325,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApplicationActivityResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    notes_versions_ep_api_applications__job_id__notes_versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotesVersionsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20486,7 +20638,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PursuitUpdate"];
+                "application/json": components["schemas"]["PursuitWrite"];
             };
         };
         responses: {
@@ -22753,6 +22905,61 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RetentionState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_view_choices_ep_api_settings_view_choices_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViewChoices"];
+                };
+            };
+        };
+    };
+    put_view_choice_ep_api_settings_view_choices__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ViewChoiceWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViewChoice"];
                 };
             };
             /** @description Validation Error */

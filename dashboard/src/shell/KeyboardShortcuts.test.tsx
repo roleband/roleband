@@ -22,6 +22,14 @@ describe("the shortcuts sheet", () => {
     expect(terms.slice(0, 2)).toEqual(["j↓", "k↑"]);
     for (const key of ["j", "k"]) expect(screen.getAllByText(key, { exact: true })).toHaveLength(1);
     expect(screen.queryByText(/in the list/i)).toBeNull();
-    expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(4);
+    expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(5);
+  });
+
+  it("lists the notes' keys in a group of their own: the link over selected words, and the way into the formatting bar", () => {
+    render(<KeyboardShortcuts onClose={() => {}} />);
+    const group = screen.getByRole("heading", { name: msg("shortcuts-keyboard-shortcuts-notes") }).closest("section")!;
+    const does = within(group).getAllByRole("term").map((term) => term.nextElementSibling?.textContent);
+    expect(does).toEqual([msg("shortcuts-keyboard-shortcuts-link-words"), msg("shortcuts-keyboard-shortcuts-to-the-bar")]);
+    expect(within(group).getByText(msg("shortcuts-keyboard-shortcuts-alt-f10"))).toBeInTheDocument();
   });
 });

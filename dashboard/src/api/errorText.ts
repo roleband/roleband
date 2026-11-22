@@ -68,6 +68,7 @@ import {
   errorUsageCatalogueChanged,
   errorCommentNotYours,
   errorApplicationUnderWay,
+  errorNotesMoved,
 } from "../copy/gen/errors";
 import { ApiError, type ErrorCode, type ErrorParams } from "./transport";
 
@@ -152,6 +153,7 @@ const BY_CODE: Record<ErrorCode, (params: ErrorParams) => string> = {
   "usage-catalogue-changed": () => errorUsageCatalogueChanged(),
   "comment-not-yours": () => errorCommentNotYours(),
   "application-under-way": () => errorApplicationUnderWay(),
+  "notes-moved": () => errorNotesMoved(),
   aborted: () => errorGeneric(),
   unknown: () => errorGeneric(),
 };

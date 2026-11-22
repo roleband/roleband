@@ -1224,10 +1224,17 @@
    },
    "ApplicationDetailResponse": {
     "additionalProperties": false,
-    "description": "`GET /api/applications/{job_id}`: interviews newest first, stages in the order reached.",
+    "description": "`GET /api/applications/{job_id}`: interviews newest first, stages in the\norder reached, and the steps ticked done, the latest done first.",
     "properties": {
      "application": {
       "$ref": "#/components/schemas/ApplicationCard"
+     },
+     "done_steps": {
+      "items": {
+       "$ref": "#/components/schemas/ApplicationStep"
+      },
+      "title": "Done Steps",
+      "type": "array"
      },
      "interviews": {
       "items": {
@@ -1247,7 +1254,8 @@
     "required": [
      "application",
      "interviews",
-     "stages_reached"
+     "stages_reached",
+     "done_steps"
     ],
     "title": "ApplicationDetailResponse",
     "type": "object"
@@ -11692,7 +11700,8 @@
      "recipe-conflict",
      "usage-catalogue-changed",
      "comment-not-yours",
-     "application-under-way"
+     "application-under-way",
+     "notes-moved"
     ],
     "title": "ErrorCode",
     "type": "string"
@@ -22856,6 +22865,55 @@
     "title": "NoLineage",
     "type": "object"
    },
+   "NotesVersion": {
+    "additionalProperties": false,
+    "description": "The notes as one writing session left them.",
+    "properties": {
+     "actor": {
+      "enum": [
+       "user",
+       "agent"
+      ],
+      "title": "Actor",
+      "type": "string"
+     },
+     "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "at",
+     "actor",
+     "text"
+    ],
+    "title": "NotesVersion",
+    "type": "object"
+   },
+   "NotesVersionsResponse": {
+    "additionalProperties": false,
+    "description": "`GET /api/applications/{job_id}/notes/versions`: the notes' earlier\nversions, newest first; the notes as they are now are not among them.",
+    "properties": {
+     "versions": {
+      "items": {
+       "$ref": "#/components/schemas/NotesVersion"
+      },
+      "title": "Versions",
+      "type": "array"
+     }
+    },
+    "required": [
+     "versions"
+    ],
+    "title": "NotesVersionsResponse",
+    "type": "object"
+   },
    "NotificationListResponse": {
     "additionalProperties": false,
     "description": "`GET /api/notifications`: one page, newest first. `total` and\n`category_counts` follow the filters (the counts ignore the category filter\nitself); `unread_count` and `high_unread_count` are global.",
@@ -30858,7 +30916,9 @@
     "title": "PursuitState",
     "type": "object"
    },
-   "PursuitUpdate": {
+   "PursuitWrite": {
+    "additionalProperties": false,
+    "description": "`PUT /api/jobs/{job_id}/pursuit`: the fields to change, and for new\nnotes the text they were written over.",
     "properties": {
      "next_action": {
       "anyOf": [
@@ -30895,6 +30955,19 @@
        }
       ],
       "title": "Notes",
+      "x-text": "content"
+     },
+     "notes_was": {
+      "anyOf": [
+       {
+        "maxLength": 20000,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Notes Was",
       "x-text": "content"
      },
      "priority": {
@@ -30935,7 +31008,7 @@
       "title": "Stage"
      }
     },
-    "title": "PursuitUpdate",
+    "title": "PursuitWrite",
     "type": "object"
    },
    "PursuitWriteResponse": {
@@ -39299,6 +39372,56 @@
     "title": "VelocityOut",
     "type": "object"
    },
+   "ViewChoice": {
+    "description": "One choice as stored: duplicates dropped, in the order given.",
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string",
+      "x-text": "code"
+     },
+     "value": {
+      "$ref": "#/components/schemas/JsonValue"
+     }
+    },
+    "required": [
+     "name",
+     "value"
+    ],
+    "title": "ViewChoice",
+    "type": "object"
+   },
+   "ViewChoiceWrite": {
+    "additionalProperties": false,
+    "description": "One choice's new value.",
+    "properties": {
+     "value": {
+      "$ref": "#/components/schemas/JsonValue"
+     }
+    },
+    "required": [
+     "value"
+    ],
+    "title": "ViewChoiceWrite",
+    "type": "object"
+   },
+   "ViewChoices": {
+    "description": "Every choice the person has made, by name; a choice absent here shows\nthe screen's own default.",
+    "properties": {
+     "choices": {
+      "additionalProperties": {
+       "$ref": "#/components/schemas/JsonValue"
+      },
+      "title": "Choices",
+      "type": "object"
+     }
+    },
+    "required": [
+     "choices"
+    ],
+    "title": "ViewChoices",
+    "type": "object"
+   },
    "VocabFacetOption": {
     "additionalProperties": false,
     "description": "A family, track or world: the key is its slug, and the client names it\nfrom its catalog (`dashboard/src/copy/vocab.ts`). No English here.",
@@ -43808,6 +43931,45 @@
     "summary": "Activity Ep"
    }
   },
+  "/api/applications/{job_id}/notes/versions": {
+   "get": {
+    "operationId": "notes_versions_ep_api_applications__job_id__notes_versions_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "job_id",
+      "required": true,
+      "schema": {
+       "title": "Job Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/NotesVersionsResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Notes Versions Ep"
+   }
+  },
   "/api/companies": {
    "get": {
     "description": "Every tracked company (built-in + user-added) with its tracking + visibility\nswitches. Built-ins are ordinary rows (seeded at startup) flagged `builtin` so the\nUI hides Remove.\n\nA pure read, for the reason `/api/companies/discovery` gives below: startup,\nthe pipeline and every mutating company route already reconcile built-ins,\nand a GET must not commit (`tests/test_api_get_is_read_only.py`).",
@@ -47031,7 +47193,7 @@
      "content": {
       "application/json": {
        "schema": {
-        "$ref": "#/components/schemas/PursuitUpdate"
+        "$ref": "#/components/schemas/PursuitWrite"
        }
       }
      },
@@ -50136,6 +50298,75 @@
      }
     },
     "summary": "Put Retention Ep"
+   }
+  },
+  "/api/settings/view-choices": {
+   "get": {
+    "description": "How the person arranged what the screens show, by choice.",
+    "operationId": "get_view_choices_ep_api_settings_view_choices_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ViewChoices"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get View Choices Ep"
+   }
+  },
+  "/api/settings/view-choices/{name}": {
+   "put": {
+    "description": "Save one choice. A name the screens do not have, or a value that does\nnot fit it, is refused (422) and the saved choice stays as it was.",
+    "operationId": "put_view_choice_ep_api_settings_view_choices__name__put",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "name",
+      "required": true,
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ViewChoiceWrite"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ViewChoice"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Put View Choice Ep"
    }
   },
   "/api/skills/top": {

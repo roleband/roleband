@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { interviewEnds, interviewPast } from "./interviewWords";
+import { interviewEnds, interviewOutline, interviewPast, notesToKeep } from "./interviewWords";
 
 /* A round is over when it has begun, and an all-day one when its day ends: the
  * same rule wherever a round is called coming or past. */
@@ -22,3 +22,21 @@ describe("when a round is over", () => {
     expect(interviewPast(round(day, true), new Date(2026, 10, 5, 0, 1))).toBe(true);
   });
 });
+
+describe("the notes a round keeps", () => {
+  it("keeps none for an empty field or the outline as offered, spacing aside", () => {
+    expect(notesToKeep("", interviewOutline())).toBeNull();
+    expect(notesToKeep("  \n ", "")).toBeNull();
+    expect(notesToKeep(interviewOutline(), interviewOutline())).toBeNull();
+    expect(notesToKeep(`\n${interviewOutline().replace(/\n\n/g, "\n \n\n")}  `, interviewOutline())).toBeNull();
+  });
+
+  it("keeps anything written, trimmed, with or without the outline", () => {
+    const written = interviewOutline().replace("\n\n", "\nPriya\n");
+    expect(notesToKeep(written, interviewOutline())).toBe(written.trim());
+    expect(notesToKeep(" Went well \n", "")).toBe("Went well");
+    // The outline typed as the person's own notes, where none was offered, is theirs.
+    expect(notesToKeep(interviewOutline(), "")).toBe(interviewOutline().trim());
+  });
+});
+

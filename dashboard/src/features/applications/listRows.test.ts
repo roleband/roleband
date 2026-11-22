@@ -1,6 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import type { Job } from "../../api";
+import { readViewChoices } from "../../hooks/viewChoicesRead";
 import { applicationCardFixture as card, jobFixture } from "../../test/fixtures";
+import { fakeViewChoiceServer } from "../../test/viewChoicesServer";
 import {
   DEFAULT_LAYOUT,
   moveColumn,
@@ -108,10 +110,16 @@ describe("a posting's facts", () => {
   });
 });
 
-describe("the columns' layout a browser keeps", () => {
-  beforeEach(() => localStorage.clear());
-  afterEach(() => vi.restoreAllMocks());
-  const KEY = "roleband.pipeline-list-columns";
+describe("the columns' layout kept with the person's settings", () => {
+  let server: ReturnType<typeof fakeViewChoiceServer>;
+  beforeEach(async () => {
+    server = fakeViewChoiceServer();
+    await readViewChoices();
+  });
+  const holding = async (layout: unknown) => {
+    fakeViewChoiceServer({ "pipeline.list-layout": layout });
+    await readViewChoices();
+  };
 
   it("starts with the role first and the next step, priority and last activity hidden", () => {
     expect(readListLayout()).toEqual(DEFAULT_LAYOUT);
@@ -121,18 +129,20 @@ describe("the columns' layout a browser keeps", () => {
     expect(readListLayout().hidden).not.toContain("saved");
   });
 
-  it("remembers an order and a hidden set, and never hides the role", () => {
+  it("remembers an order and a hidden set, saves them, and never hides the role", async () => {
     const order = moveColumn(DEFAULT_LAYOUT.order, "pay", "role");
     writeListLayout({ order, hidden: ["role", "location"] });
     expect(readListLayout()).toEqual({ order, hidden: ["location"] });
     expect(readListLayout().order.slice(0, 2)).toEqual(["pay", "role"]);
+    await new Promise((done) => setTimeout(done, 0));
+    expect(server.saved()).toEqual({ "pipeline.list-layout": { order, hidden: ["location"] } });
   });
 
-  it("makes a stored layout whole: unknown names go, repeats count once, a missing column comes back in its place", () => {
-    localStorage.setItem(KEY, JSON.stringify({
+  it("makes a saved layout whole: unknown names go, repeats count once, a missing column comes back in its place", async () => {
+    await holding({
       order: ["pay", "salary", "role", "pay", "stage", "location", "level", "next", "posting", "priority", "in_stage"],
       hidden: ["salary", "stage", "next"],
-    }));
+    });
     const { order, hidden } = readListLayout();
     // Columns the List no longer has (stage, days in stage) go; the day the
     // role was saved and its last activity come back where they first stand.
@@ -140,14 +150,10 @@ describe("the columns' layout a browser keeps", () => {
     expect(hidden).toEqual(["next"]);
   });
 
-  it("falls back to the first layout when storage throws or holds something else", () => {
-    localStorage.setItem(KEY, JSON.stringify(["priority"]));
+  it("falls back to the first layout when what was saved is something else", async () => {
+    await holding(["priority"]);
     expect(readListLayout()).toEqual(DEFAULT_LAYOUT);
-    localStorage.setItem(KEY, "{not json");
-    expect(readListLayout()).toEqual(DEFAULT_LAYOUT);
-    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
-      throw new Error("blocked");
-    });
+    await holding({ order: "pay" });
     expect(readListLayout()).toEqual(DEFAULT_LAYOUT);
   });
 });

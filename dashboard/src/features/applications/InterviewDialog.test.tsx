@@ -300,3 +300,53 @@ describe("changing an interview", () => {
     expect(onDelete).toHaveBeenCalledTimes(1);
   });
 });
+
+/* A coming round's notes start from an outline the person writes under:
+ * who they'll meet, questions to ask, points to make. It is their text to
+ * change; left as offered, the round keeps no notes. */
+describe("preparing for a round", () => {
+  const coming: ApplicationInterview = {
+    id: 9, label: "Panel", scheduled_at: new Date(2026, 10, 10, 15, 0).toISOString(), all_day: false,
+    format: "video", link: "https://meet.example.com/x", outcome: null, notes: null,
+    created_at: "2026-11-01T09:00:00Z", updated_at: "2026-11-01T09:00:00Z",
+  };
+  const prompts = () => [
+    msg("applications-interview-prompt-people"), msg("applications-interview-prompt-questions"), msg("applications-interview-prompt-points"),
+  ];
+  const notesField = (dialog: HTMLElement) => within(dialog).getByLabelText(msg("applications-interview-notes")) as HTMLTextAreaElement;
+  const save = () => userEvent.click(screen.getByRole("button", { name: msg("applications-interview-edit-submit") }));
+
+  it("starts a coming round's empty notes from the three lines, and keeps no notes when they are left as offered", async () => {
+    const { dialog, onSubmit } = open({ interview: coming });
+    expect(notesField(dialog).value).toBe(`${prompts().join("\n\n")}\n`);
+    await save();
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ notes: null });
+  });
+
+  it("keeps what was written under the lines, with the lines", async () => {
+    const { dialog, onSubmit } = open({ interview: coming, startAt: "notes" });
+    const field = notesField(dialog);
+    expect(field, "opened at the notes").toHaveFocus();
+    // The caret waits on the blank line under the first prompt.
+    expect(field.selectionStart).toBe(prompts()[0].length + 1);
+    await userEvent.keyboard("Priya, head of design");
+    await save();
+    expect(onSubmit.mock.calls[0][0].notes).toBe(
+      `${prompts()[0]}\nPriya, head of design\n${prompts()[1]}\n\n${prompts()[2]}`,
+    );
+  });
+
+  it("offers no outline to a past round or to notes already written, and an emptied field keeps none", async () => {
+    const past = open({ interview: { ...coming, scheduled_at: new Date(2026, 10, 2, 15, 0).toISOString() } });
+    expect(notesField(past.dialog).value, "a past round's notes are what happened").toBe("");
+    past.dialog.remove();
+
+    const written = open({ interview: { ...coming, notes: "Bring the roadmap" }, startAt: "notes" });
+    const field = notesField(written.dialog);
+    expect(field.value).toBe("Bring the roadmap");
+    expect(field.selectionStart, "the caret after what is written").toBe("Bring the roadmap".length);
+    await userEvent.clear(field);
+    await save();
+    expect(written.onSubmit.mock.calls[0][0]).toMatchObject({ notes: null });
+  });
+});

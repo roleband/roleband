@@ -337,7 +337,9 @@ function Shell() {
   useEffect(() => {
     if (muted) return;
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      // A ⌘K the page has already answered, as the notes do over selected
+      // words (a link), is not the palette's.
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k" && !e.defaultPrevented) {
         e.preventDefault();
         setPaletteOpen((v) => !v);
         return;

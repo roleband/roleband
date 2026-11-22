@@ -302,7 +302,7 @@ export function JobDetail({
   // top of a posting and folds once the person is reading (the pay panel has
   // left and its copy stands in the column), leaving the role's own facts
   // beside the text. Opened while reading, it stays open for that posting.
-  // Folded at the top, it is folded everywhere: the choice this browser keeps.
+  // Folded at the top, it is folded everywhere: a choice kept with the person's settings.
   const [similarFolded, setSimilarFolded] = useState(readSimilarFolded);
   const [reading, setReading] = useState(false);
   const [openedWhileReading, setOpenedWhileReading] = useState<number | null>(null);

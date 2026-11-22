@@ -49,3 +49,11 @@ shortcuts-keyboard-shortcuts-close = Close
 ## shell/KeyboardShortcuts.tsx (by hand)
 # kind=label wording=as-is
 shortcuts-keyboard-shortcuts-ctrl-k = Ctrl K
+# kind=label note="A key name in the shortcuts sheet, the same on every keyboard"
+shortcuts-keyboard-shortcuts-alt-f10 = Alt F10
+# kind=heading note="The shortcuts sheet's group for the keys of a role's notes page"
+shortcuts-keyboard-shortcuts-notes = In a role's notes
+# kind=label note="In the shortcuts sheet: ⌘ K with words selected in the notes opens the link field for them, in place of the command palette"
+shortcuts-keyboard-shortcuts-link-words = Link the selected words
+# kind=label note="In the shortcuts sheet: Alt F10 moves the keyboard into the bar of styles over the selected words"
+shortcuts-keyboard-shortcuts-to-the-bar = Focus the formatting bar

@@ -55,6 +55,13 @@
       "why": "the copy runtime every lazy catalog chunk and formatter calls; the shell's own messages need the module."
     },
     {
+      "module": "src/hooks/viewChoicesRead.ts",
+      "exports": [
+        "heldViewChoices"
+      ],
+      "why": "the person's view choices are read before the first render, so a screen opens already arranged; the store every screen reads them through adopts that one answer instead of asking again."
+    },
+    {
       "module": "src/diagnostics/sharingAnswered.ts",
       "exports": [
         "sharingAnswered"

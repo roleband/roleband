@@ -122,6 +122,8 @@ error-usage-catalogue-changed = What's shared changed while you were choosing. T
 error-comment-not-yours = Only your own comments can be changed.
 # kind=error note="Unstarring a role whose stage is past Considering; ending it keeps its history"
 error-application-under-way = This role is under way, so it stays saved. Mark it Withdrawn instead.
+# kind=error next=none note="A notes save started from notes that were changed elsewhere meanwhile, by the person's assistant or another window. The notes page merges both and saves again on its own, so this is said only where a page does not"
+error-notes-moved = These notes were changed elsewhere since they were opened.
 
 ## Plugins: what an install allows, and what the person saw
 # kind=error next=none

@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ActivityItem, ApplicationDetail } from "../../api";
 import { date as formatDate, list, relative, timestamp } from "../../copy/format";
+import { recordDay } from "./recordDays";
 import { Button, Content, Icon, Menu, MenuGroup, MenuItem, useEscapeLayer } from "../../ui";
 import {
   applicationsCommentAuthorAgent,
@@ -264,7 +265,7 @@ export function ActivityFeed({ items, detail, now, onAdd, onEdit, onDelete }: Ac
       <Menu isOpen={jumpFrom != null} onClose={() => setJumpFrom(null)} anchor={jumpFrom} label={applicationsFeedJumpLabel()} align="start">
         <MenuGroup>
           {points.filter((point) => point.kind !== "beginning").map((point) => (
-            <MenuItem key={point.kind} onSelect={() => jump(point.item)} detail={formatDate(point.at, "day")}>
+            <MenuItem key={point.kind} onSelect={() => jump(point.item)} detail={recordDay(point.at, now)}>
               {JUMP_LABEL[point.kind]()}
             </MenuItem>
           ))}

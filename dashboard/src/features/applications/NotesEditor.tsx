@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { Extension, type Editor, type Range } from "@tiptap/core";
+import { Extension, InputRule, type Editor } from "@tiptap/core";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
@@ -7,20 +7,23 @@ import { Placeholder } from "@tiptap/extensions";
 import { Markdown } from "@tiptap/markdown";
 import Suggestion, { type SuggestionProps } from "@tiptap/suggestion";
 import {
-  applicationsNotesBlockBullets,
-  applicationsNotesBlockChecklist,
-  applicationsNotesBlockDivider,
-  applicationsNotesBlockHeading,
   applicationsNotesBlockNone,
-  applicationsNotesBlockNumbers,
-  applicationsNotesBlockQuote,
-  applicationsNotesBlockText,
   applicationsNotesBlocks,
   applicationsNotesCheck,
   applicationsNotesLabel,
+  applicationsNotesMerged,
+  applicationsNotesPicture,
+  applicationsNotesPicturesLeftOut,
   applicationsNotesTooLong,
+  applicationsNotesVersionBack,
   applicationsWsNotesHint,
 } from "../../copy/gen/applications";
+import { blocksFor, type Block } from "./notesBlocks";
+import type { NotesVersion } from "../../api";
+import { mergeNotes } from "./notesMerge";
+import { NotesToolbar, type BarKeys } from "./NotesToolbar";
+import { NotesVersions } from "./NotesVersions";
+import { pictureFiles, readablePaste } from "./notesPaste";
 
 /** How long typing may pause before what is written is saved. */
 const SAVE_AFTER_MS = 800;
@@ -30,33 +33,58 @@ export const RETRY_AFTER_MS = 5_000;
 /** The longest note the server keeps, in Markdown characters. */
 const NOTES_MAX = 20_000;
 
-/** A kind of block the "/" menu puts in place of the line being typed. The
- *  mark is what the person may type instead, at the start of a line. */
-interface Block {
-  key: string;
-  name: () => string;
-  mark: string;
-  make: (editor: Editor, range: Range) => void;
+/** Opens the web or mail link a click with ⌘ or Ctrl held lands on. True
+ *  when it opened one. */
+export function openLink(event: MouseEvent): boolean {
+  if (!(event.metaKey || event.ctrlKey)) return false;
+  const href = (event.target as Element | null)?.closest?.("a[href]")?.getAttribute("href") ?? "";
+  if (!/^(?:https?:|mailto:)/i.test(href)) return false;
+  window.open(href, "_blank", "noopener,noreferrer");
+  return true;
 }
 
-const at = (editor: Editor, range: Range) => editor.chain().focus().deleteRange(range);
+/** "- [ ] " makes a checklist line, as "[ ] " does. The "- " has already made
+ *  a bullet by the time the box is typed, and the checklist's own rule cannot
+ *  put a checklist inside a bullet, so this one turns that bullet into a
+ *  checklist line, ticked for "[x]". Anywhere else it steps aside for the
+ *  checklist's own rule. */
+const checklistFromBullet = Extension.create({
+  name: "notesChecklistFromBullet",
+  // Ahead of the lists' own rules, which run in priority order.
+  priority: 200,
+  addInputRules() {
+    return [
+      new InputRule({
+        find: /^\s*\[([ xX])?\]\s$/,
+        handler: ({ state, range, match, chain }) => {
+          const at = state.doc.resolve(range.from);
+          const inBullet = at.depth >= 3
+            && at.node(-1).type.name === "listItem"
+            && at.node(-2).type.name === "bulletList"
+            && at.index(-1) === 0;
+          if (!inBullet) return null;
+          chain().deleteRange(range).toggleTaskList().updateAttributes("taskItem", { checked: /x/i.test(match[1] ?? "") }).run();
+        },
+      }),
+    ];
+  },
+});
 
-const BLOCKS: Block[] = [
-  { key: "text", name: applicationsNotesBlockText, mark: "", make: (e, r) => at(e, r).setParagraph().run() },
-  { key: "h1", name: () => applicationsNotesBlockHeading({ level: 1 }), mark: "#", make: (e, r) => at(e, r).setHeading({ level: 1 }).run() },
-  { key: "h2", name: () => applicationsNotesBlockHeading({ level: 2 }), mark: "##", make: (e, r) => at(e, r).setHeading({ level: 2 }).run() },
-  { key: "h3", name: () => applicationsNotesBlockHeading({ level: 3 }), mark: "###", make: (e, r) => at(e, r).setHeading({ level: 3 }).run() },
-  { key: "bullets", name: applicationsNotesBlockBullets, mark: "-", make: (e, r) => at(e, r).toggleBulletList().run() },
-  { key: "numbers", name: applicationsNotesBlockNumbers, mark: "1.", make: (e, r) => at(e, r).toggleOrderedList().run() },
-  { key: "checklist", name: applicationsNotesBlockChecklist, mark: "[ ]", make: (e, r) => at(e, r).toggleTaskList().run() },
-  { key: "quote", name: applicationsNotesBlockQuote, mark: ">", make: (e, r) => at(e, r).toggleBlockquote().run() },
-  { key: "divider", name: applicationsNotesBlockDivider, mark: "---", make: (e, r) => at(e, r).setHorizontalRule().run() },
-];
+/** What a save answers: whether it was kept, or the notes as they are now
+ *  when they changed since the text the save started from. */
+export type NotesSaved = boolean | { current: string };
 
-/** The blocks whose name holds what was typed after the "/". */
-export function blocksFor(query: string): Block[] {
-  const wanted = query.trim().toLowerCase();
-  return wanted ? BLOCKS.filter((block) => block.name().toLowerCase().includes(wanted)) : BLOCKS;
+/** Markdown as this editor writes it: the same words the person's assistant
+ *  or another window wrote, in the editor's own marks, so two versions are
+ *  compared line by line on what they say. */
+function asWritten(editor: Editor, markdown: string): string {
+  const manager = editor.markdown;
+  if (!manager || !markdown) return markdown;
+  try {
+    return manager.serialize(editor.schema.nodeFromJSON(manager.parse(markdown)).toJSON());
+  } catch {
+    return markdown;
+  }
 }
 
 /** The page's element, once the editor has one: before it is mounted the
@@ -80,21 +108,39 @@ interface Slash {
  *  them too. Saved as it is typed: a pause or leaving the page saves it.
  *  While the page has focus, what the person types wins over a re-read
  *  that lands meanwhile. */
-export default function NotesEditor({ notes, onSave }: { notes: string | null; onSave: (notes: string) => Promise<boolean> }) {
+export default function NotesEditor({ notes, onSave, loadVersions }: {
+  notes: string | null;
+  /** Saves the notes over `was`, the server's text this page last knew. */
+  onSave: (notes: string, was: string) => Promise<NotesSaved>;
+  /** Reads the notes' earlier versions; without it the page offers none. */
+  loadVersions?: () => Promise<NotesVersion[]>;
+}) {
   const [slash, setSlash] = useState<Slash | null>(null);
   // Characters past what the server keeps, from the last save tried: such a
   // page is not sent, and says so.
   const [over, setOver] = useState(0);
+  // Pictures the last paste or drop carried that the page cannot keep: said
+  // under the page until the next edit.
+  const [leftOut, setLeftOut] = useState(0);
   const slashNow = useRef<Slash | null>(null);
   slashNow.current = slash;
   // The text the server holds as far as this page knows: what it was given,
   // or what a save confirmed. Text that differs from it is unsaved.
   const sent = useRef(notes ?? "");
+  // The server's text itself, as it was given or saved, that a save is
+  // written over: the server refuses one whose notes have moved on since.
+  const base = useRef(notes ?? "");
+  // The notes were changed elsewhere while this page wrote: both are kept,
+  // which is said under the page until the next edit.
+  const [merged, setMerged] = useState(false);
+  // When the version put back last was written, said until the next edit.
+  const [putBack, setPutBack] = useState<string | null>(null);
   const inFlight = useRef<string | null>(null);
   const timer = useRef<number | null>(null);
   const save = useRef(onSave);
   save.current = onSave;
   const menuId = useId();
+  const barKeys = useRef<BarKeys | null>(null);
 
   const flush = useCallback((editor: Editor) => {
     if (timer.current != null) window.clearTimeout(timer.current);
@@ -105,12 +151,32 @@ export default function NotesEditor({ notes, onSave }: { notes: string | null; o
     // put back to the last saved words while another save is out still goes.
     if (value === (inFlight.current ?? sent.current) || value.length > NOTES_MAX) return;
     inFlight.current = value;
-    void save.current(value)
-      .catch(() => false)
+    const was = base.current;
+    void save.current(value, was)
+      .catch((): NotesSaved => false)
       .then((saved) => {
         if (inFlight.current === value) inFlight.current = null;
-        if (saved) {
+        if (saved === true) {
           sent.current = value;
+          base.current = value.trim() ? value : "";
+          return;
+        }
+        if (saved !== false && !editor.isDestroyed) {
+          // Written elsewhere meanwhile: what this page wrote since `was` and
+          // what was written there are put together, and that is saved.
+          const theirs = asWritten(editor, saved.current);
+          const mine = editor.getMarkdown();
+          const both = mergeNotes(asWritten(editor, was), mine, theirs);
+          base.current = saved.current;
+          sent.current = theirs;
+          if (both !== mine) {
+            const { from, to } = editor.state.selection;
+            editor.commands.setContent(both, { contentType: "markdown", emitUpdate: false });
+            const end = editor.state.doc.content.size;
+            editor.commands.setTextSelection({ from: Math.min(from, end), to: Math.min(to, end) });
+          }
+          setMerged(true);
+          flush(editor);
           return;
         }
         if (timer.current == null && !editor.isDestroyed) {
@@ -173,19 +239,41 @@ export default function NotesEditor({ notes, onSave }: { notes: string | null; o
     [],
   );
 
+  // ⌘ K links the selected words from the selection bar's field, Alt F10
+  // moves the keyboard into the bar, as in other editors' toolbars, and
+  // Escape lets go of the selection the bar stands over.
+  const barShortcuts = useMemo(
+    () =>
+      Extension.create({
+        name: "notesBarKeys",
+        addKeyboardShortcuts() {
+          return {
+            "Mod-k": () => barKeys.current?.link() ?? false,
+            "Alt-F10": () => barKeys.current?.enter() ?? false,
+            Escape: () => barKeys.current?.escape() ?? false,
+          };
+        },
+      }),
+    [],
+  );
+
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2, 3] }, link: { openOnClick: false }, codeBlock: false }),
+      // Markdown has no underline, and the notes are Markdown the person's
+      // assistant reads: underline would be saved as a raw `<u>` tag.
+      StarterKit.configure({ heading: { levels: [1, 2, 3] }, link: { openOnClick: false }, codeBlock: false, underline: false }),
       TaskList,
       TaskItem.configure({
         nested: true,
         a11y: { checkboxLabel: (node, checked) => applicationsNotesCheck({ line: node.textContent, checked: checked ? "yes" : "no" }) },
       }),
+      checklistFromBullet,
       Placeholder.configure({ placeholder: applicationsWsNotesHint() }),
       // A line break is kept as one: notes written as plain text keep their
       // lines rather than running into one paragraph.
       Markdown.configure({ markedOptions: { gfm: true, breaks: true } }),
       slashMenu,
+      barShortcuts,
     ],
     content: notes ?? "",
     contentType: "markdown",
@@ -198,13 +286,40 @@ export default function NotesEditor({ notes, onSave }: { notes: string | null; o
         "aria-multiline": "true",
         "aria-label": applicationsNotesLabel(),
       },
+      // A click places the caret, inside a link too; with ⌘ (Ctrl elsewhere)
+      // held it opens the link, in a new tab.
+      handleClick: (_view, _pos, event) => openLink(event),
+      // A pasted table becomes lines and a picture a link, or is said to be
+      // left out (notesPaste).
+      transformPastedHTML: (html) => {
+        const paste = readablePaste(html, applicationsNotesPicture());
+        if (paste.leftOut > 0) setLeftOut(paste.leftOut);
+        return paste.html;
+      },
+      // Pictures pasted or dropped as files alone bring nothing the page keeps.
+      handlePaste: (_view, event, slice) => {
+        const pictures = pictureFiles(event.clipboardData);
+        if (pictures === 0 || slice.content.size > 0) return false;
+        setLeftOut(pictures);
+        return true;
+      },
+      handleDrop: (_view, event, slice, moved) => {
+        const pictures = pictureFiles(event.dataTransfer);
+        if (moved || pictures === 0 || (slice && slice.content.size > 0)) return false;
+        setLeftOut(pictures);
+        event.preventDefault();
+        return true;
+      },
     },
     // The editor writes Markdown its own way, so what it holds at the start is
     // the page's baseline, whatever the stored text looked like.
     onCreate: ({ editor: made }) => {
       sent.current = made.getMarkdown();
     },
-    onUpdate: ({ editor: typed }) => {
+    onUpdate: ({ editor: typed, transaction }) => {
+      if (!transaction.getMeta("paste")) setLeftOut(0);
+      setMerged(false);
+      setPutBack(null);
       if (timer.current != null) window.clearTimeout(timer.current);
       timer.current = window.setTimeout(() => flush(typed), SAVE_AFTER_MS);
     },
@@ -220,6 +335,7 @@ export default function NotesEditor({ notes, onSave }: { notes: string | null; o
     if (editor.isFocused || value === written || written !== sent.current || inFlight.current != null) return;
     editor.commands.setContent(value, { contentType: "markdown", emitUpdate: false });
     sent.current = editor.getMarkdown();
+    base.current = value;
   }, [editor, notes]);
 
   // Leaving the page saves what is not saved yet.
@@ -247,7 +363,25 @@ export default function NotesEditor({ notes, onSave }: { notes: string | null; o
   return (
     <>
       <EditorContent editor={editor} className="app-notes" />
+      {editor && <NotesToolbar editor={editor} keys={barKeys} />}
       {over > 0 && <p className="app-notes-over" role="alert">{applicationsNotesTooLong({ over })}</p>}
+      {merged && <p className="app-notes-left-out" role="status">{applicationsNotesMerged()}</p>}
+      {putBack && <p className="app-notes-left-out" role="status">{applicationsNotesVersionBack({ when: putBack })}</p>}
+      {loadVersions && editor && (
+        <div className="app-notes-foot">
+          <NotesVersions
+            load={loadVersions}
+            onPutBack={(text, when) => {
+              // An edit like any other: saved over the notes as they are,
+              // and undone with the editor's own undo.
+              editor.commands.setContent(text, { contentType: "markdown" });
+              setPutBack(when);
+              flush(editor);
+            }}
+          />
+        </div>
+      )}
+      {leftOut > 0 && <p className="app-notes-left-out" role="status">{applicationsNotesPicturesLeftOut({ count: leftOut })}</p>}
       {/* Beside the page, not at the document's root: a role opened over a
           list is a dialog, and what stands outside it takes no pointer. */}
       {slash && <SlashMenu id={menuId} slash={slash} onChoose={(chosen) => setSlash({ ...slash, chosen })} />}

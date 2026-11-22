@@ -1,5 +1,5 @@
 import { useCallback, useRef } from "react";
-import { api, type ActivityItem, type ApplicationDetail, type ApplicationInterview, type ApplicationStep, type InterviewWrite } from "../../api";
+import { api, ApiError, type NotesVersion, type ActivityItem, type ApplicationDetail, type ApplicationInterview, type ApplicationStep, type InterviewWrite } from "../../api";
 import { useJobWorkspace } from "../../context/JobWorkspace";
 import { useAsyncResource, useRefetchOn } from "../../hooks/useAsyncResource";
 import { useToast } from "../../ui";
@@ -10,8 +10,9 @@ import {
   applicationsUpnextDone,
   applicationsUpnextOutcomeSet,
 } from "../../copy/gen/applications";
-import { withStep, withoutStep } from "./board";
+import { withStep, withoutStep, type StepFields } from "./board";
 import { OUTCOME_LABEL } from "./interviewWords";
+import type { NotesSaved } from "./NotesEditor";
 import type { PostingApplication } from "./usePostingApplication";
 import { useQuickChange } from "./useQuickChange";
 
@@ -24,9 +25,13 @@ export interface PostingWorkspaceActions {
   addStep: (text: string, due: string | null) => Promise<boolean>;
   editStep: (step: ApplicationStep, text: string, due: string | null) => Promise<boolean>;
   finishStep: (step: ApplicationStep) => void;
+  /** Puts a step that is done back among the open ones. */
+  reopenStep: (step: ApplicationStep) => Promise<boolean>;
+  /** Takes a step off the role for good, open or done. */
   removeStep: (step: ApplicationStep) => Promise<boolean>;
   setOutcome: (interview: ApplicationInterview, outcome: NonNullable<ApplicationInterview["outcome"]>) => void;
-  saveNotes: (notes: string) => Promise<boolean>;
+  saveNotes: (notes: string, was: string) => Promise<NotesSaved>;
+  notesVersions: () => Promise<NotesVersion[]>;
   addComment: (body: string) => Promise<boolean>;
   editComment: (id: number, body: string) => Promise<boolean>;
   deleteComment: (id: number) => Promise<boolean>;
@@ -91,6 +96,21 @@ export function usePostingWorkspace(
     [paintDetail],
   );
 
+  /** Paints the open steps and the done ones together, as a step moves
+   *  between them. */
+  const paintSteps = useCallback(
+    (
+      open: (current: ApplicationDetail["application"]) => StepFields,
+      done: (current: readonly ApplicationStep[]) => ApplicationStep[],
+    ) =>
+      paintDetail((current) => ({
+        ...current,
+        application: { ...current.application, ...open(current.application) },
+        done_steps: done(current.done_steps),
+      })),
+    [paintDetail],
+  );
+
   /** One pursuit write through the role's save command: paint, send. True
    *  when it saved; a failure says so and reads again. */
   const stepWrite = useCallback(
@@ -135,24 +155,42 @@ export function usePostingWorkspace(
       if (jobId == null) return Promise.resolve(false);
       return stepWrite(
         () => api.deleteStep(jobId, step.id),
-        () => paintApplication((current) => withoutStep(current, step.id)),
+        () => paintSteps((current) => withoutStep(current, step.id), (done) => done.filter((one) => one.id !== step.id)),
       );
     },
-    [jobId, stepWrite, paintApplication],
+    [jobId, stepWrite, paintSteps],
   );
 
-  /** A step is done: it leaves the list, and its toast opens it again. */
+  const reopenStep = useCallback(
+    (step: ApplicationStep) => {
+      if (jobId == null) return Promise.resolve(false);
+      return stepWrite(
+        () => api.updateStep(jobId, step.id, { done: false }),
+        () => paintSteps(
+          (current) => withStep(current, { ...step, done_at: null }),
+          (done) => done.filter((one) => one.id !== step.id),
+        ),
+      );
+    },
+    [jobId, stepWrite, paintSteps],
+  );
+
+  /** A step is done: it moves to the done steps, latest first, and its toast
+   *  opens it again. */
   const finishStep = useCallback((step: ApplicationStep) => {
     if (!card) return;
     void change({
       jobId: card.job_id,
       title: card.title,
-      paint: () => paintApplication((current) => withoutStep(current, step.id)),
+      paint: () => paintSteps(
+        (current) => withoutStep(current, step.id),
+        (done) => [{ ...step, done_at: new Date().toISOString() }, ...done.filter((one) => one.id !== step.id)],
+      ),
       send: () => writeRole(card, () => api.updateStep(card.job_id, step.id, { done: true })),
       undo: () => writeRole(card, () => api.updateStep(card.job_id, step.id, { done: false })),
       text: applicationsUpnextDone({ step: step.text }),
     });
-  }, [card, change, writeRole, paintApplication]);
+  }, [card, change, writeRole, paintSteps]);
 
   /** How a round went, in one click; its toast takes it back. */
   const setOutcome = useCallback(
@@ -175,13 +213,30 @@ export function usePostingWorkspace(
   );
 
   /** The notes live on the pursuit, which the posting's own read carries. */
+  /** Notes are saved over the text the page started from: notes written
+   *  elsewhere meanwhile come back for the page to merge, never written over. */
   const saveNotes = useCallback(
-    (notes: string): Promise<boolean> => {
-      if (!card) return Promise.resolve(false);
+    async (notes: string, was: string): Promise<NotesSaved> => {
+      if (!card) return false;
       const value = notes.trim() ? notes : null;
-      return stepWrite(() => api.setPursuit(card.job_id, { notes: value }), () => paintNotes(value));
+      let moved: string | null = null;
+      const send = async () => {
+        try {
+          await api.setPursuit(card.job_id, { notes: value, notes_was: was });
+        } catch (error) {
+          if (!(error instanceof ApiError && error.code === "notes-moved")) throw error;
+          moved = String(error.params.current ?? "");
+        }
+      };
+      const saved = await stepWrite(send, () => paintNotes(value));
+      return moved != null ? { current: moved } : saved;
     },
     [card, stepWrite, paintNotes],
+  );
+
+  const notesVersions = useCallback(
+    async (): Promise<NotesVersion[]> => (card ? (await api.notesVersions(card.job_id)).versions : []),
+    [card],
   );
 
   /** A comment or interview write, in order with the role's others; its
@@ -231,9 +286,11 @@ export function usePostingWorkspace(
     addStep,
     editStep,
     finishStep,
+    reopenStep,
     removeStep,
     setOutcome,
     saveNotes,
+    notesVersions,
     addComment,
     editComment,
     deleteComment,

@@ -70,7 +70,7 @@ export function dueOfStep(step: Pick<ApplicationStep, "due">): Due | null {
   return { kind: "step", at: on, on };
 }
 
-type StepFields = Pick<ApplicationCard, "steps" | "next_action" | "next_action_due">;
+export type StepFields = Pick<ApplicationCard, "steps" | "next_action" | "next_action_due">;
 
 /** The server's order of open steps: due ascending, a step with no day last,
  *  then id. */

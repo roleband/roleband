@@ -4,7 +4,7 @@ import { msg } from "../../src/test/msg";
 import { applicationCardFixture, applicationDetailFixture, jobDetailFixture, jobFixture, jobListFixture } from "../../src/test/fixtures";
 import type { ApplicationStep } from "../../src/api";
 import { installBoardRoutes, installJobDetailRoutes } from "./boardHarness";
-import { expect, mockApi, mockGet, test, watchReads, type Page } from "./fixtures";
+import { expect, mockApi, mockGet, test, viewChoices, watchReads, type Page } from "./fixtures";
 import { mainRail, openPipelineView, pipelineStar } from "./pipelineRail";
 
 /* The application pipeline in a browser: every move reachable from the
@@ -184,11 +184,9 @@ async function frames(page: Page, count: number) {
 
 test.beforeEach(async ({ page }) => {
   // Every board column on show, as a person sets it from Columns: these
-  // contracts are about the columns' content. Set only while the browser has
-  // no choice of its own, so a test's own choice survives a reload.
-  await page.addInitScript(() => {
-    if (localStorage.getItem("roleband.pipeline-hidden-columns") == null) localStorage.setItem("roleband.pipeline-hidden-columns", "[]");
-  });
+  // contracts are about the columns' content. A test with its own choice
+  // routes its own, which outranks this one.
+  await viewChoices(page, { "pipeline.board-hidden": [] });
   await installBoardRoutes(page);
   await installJobDetailRoutes(page);
 });
@@ -274,7 +272,7 @@ test("a click anywhere on a card opens its posting over the board, and Back name
 test("a role opened from the board leaves the rail live and marked, and the rail's Board returns to its card", async ({ page, isMobile }) => {
   test.skip(isMobile, "phones are not supported: there the rail lies along the bottom and the role covers the window");
   // The board as a first visit shows it: Considering and the endings hidden.
-  await page.addInitScript(() => localStorage.setItem("roleband.pipeline-hidden-columns", JSON.stringify(["saved", "decided", "closed"])));
+  await viewChoices(page, { "pipeline.board-hidden": ["saved", "decided", "closed"] });
   await installPipeline(page, [...cards, applicationCardFixture({
     job_id: 404, pursuit_id: 40, stage: "applied", title: "Director of Product", company: "netflix",
   })]);
@@ -284,8 +282,10 @@ test("a role opened from the board leaves the rail live and marked, and the rail
   const tiles = page.locator(".app-tile[data-job-id]");
   await expect(tiles).toHaveCount(2);
   const [firstId] = await tiles.evaluateAll((all) => all.map((tile) => tile.getAttribute("data-job-id")!));
+  // The card moves while the rail widens; a click on the card itself waits
+  // for it to settle, where one at measured coordinates can land beside it.
   const firstTile = (await tiles.first().boundingBox())!;
-  await page.mouse.click(firstTile.x + 12, firstTile.y + firstTile.height - 8);
+  await tiles.first().click({ position: { x: 12, y: firstTile.height - 8 } });
   // An Applied role opens on its Workspace.
   await expect(page).toHaveURL(new RegExp(`/job/${firstId}\\?tab=workspace$`));
   const cover = posting(page);
@@ -325,9 +325,12 @@ test("a role opened from the board leaves the rail live and marked, and the rail
 });
 
 /* A Workspace block moves by dragging its grip, and a hidden block stays
-   hidden on the next visit until the plus brings it back. */
-test("a Workspace block drags by its grip to a new place, and a hidden block stays hidden over a reload", async ({ page, isMobile }) => {
+   hidden on the next visit until the plus brings it back. Both are saved
+   with the person's settings, so clearing the browser's storage keeps them. */
+test("a Workspace block drags by its grip to a new place, and a hidden block stays hidden over a reload with the browser's storage cleared", async ({ page, isMobile }) => {
   test.skip(isMobile, "phones are not supported: a finger moves a block from its grip's menu, covered by the unit tests");
+  // Tall enough that the drop point, low in the last block, is in the window.
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await installPipeline(page);
   await page.goto("/company/stripe/job/202?tab=workspace");
   const cover = posting(page);
@@ -343,8 +346,12 @@ test("a Workspace block drags by its grip to a new place, and a hidden block sta
     .dragTo(activity, { targetPosition: { x: 40, y: activityBox.height - 12 } });
   await expect.poll(names).toEqual([NOTES, ACTIVITY, NEXT]);
 
+  const saved = page.waitForRequest((request) => request.method() === "PUT" && request.url().endsWith("/api/settings/view-choices/workspace.applied")
+    && JSON.stringify(request.postDataJSON()) === JSON.stringify({ value: { hidden: ["notes"], order: ["notes", "activity", "next"] } }));
   await cover.getByRole("button", { name: msg("applications-ws-hide", { section: NOTES }) }).click();
   await expect.poll(names).toEqual([ACTIVITY, NEXT]);
+  await saved;
+  await page.evaluate(() => localStorage.clear());
   await page.reload();
   await expect.poll(names).toEqual([ACTIVITY, NEXT]);
 
@@ -501,7 +508,47 @@ test("an old address of a role's page opens its posting on the tab it named", as
   await expect(posting(page).getByRole("tab", { name: msg("role-job-detail-tab-workspace") })).toHaveAttribute("aria-selected", "true");
 });
 
+/* A round to come with nothing written offers the outline its notes start
+   from: the form opens on the notes with the caret under the first line, and
+   what the person writes there is saved with the lines around it. */
+test("a coming round's notes start from three lines to write under, and what is written under them is saved", async ({ page, isMobile }) => {
+  test.skip(isMobile, "phones are not supported");
+  await page.clock.setFixedTime(new Date(2026, 10, 4, 10, 0));
+  const card = applicationCardFixture({ job_id: 505, pursuit_id: 50, stage: "interviewing", title: "Group Product Manager", company: "stripe" });
+  await installPipeline(page, [card]);
+  const round = {
+    id: 31, label: "Panel", scheduled_at: new Date(2026, 10, 10, 15, 0).toISOString(), all_day: false,
+    format: "video" as const, link: null, outcome: null, notes: null,
+    created_at: "2026-11-01T09:00:00Z", updated_at: "2026-11-01T09:00:00Z",
+  };
+  await mockGet(page, "/api/applications/505", (route) => route.fulfill({
+    json: applicationDetailFixture({ application: card, interviews: [round] }),
+  }));
+  const updates: Array<Record<string, unknown>> = [];
+  await mockApi(page, "PATCH", "/api/jobs/505/pursuit/interviews/31", async (route, request) => {
+    const update = request.postDataJSON() as Record<string, unknown>;
+    updates.push(update);
+    await route.fulfill({ json: { interview: { ...round, ...update } } });
+  });
+
+  await page.goto("/company/stripe/job/505?tab=workspace");
+  await posting(page).getByRole("button", { name: msg("applications-ws-round-prepare") }).click();
+  const form = page.getByRole("dialog", { name: msg("applications-interview-edit-title") });
+  const notes = form.getByLabel(msg("applications-interview-notes"));
+  await expect(notes).toBeFocused();
+  await page.keyboard.type("Priya, head of design");
+  await form.getByRole("button", { name: msg("applications-interview-edit-submit") }).click();
+  await expect(form).toHaveCount(0);
+  expect(updates).toEqual([expect.objectContaining({ notes: [
+    msg("applications-interview-prompt-people"), "Priya, head of design",
+    msg("applications-interview-prompt-questions"), "",
+    msg("applications-interview-prompt-points"),
+  ].join("\n") })]);
+});
+
 test("the Workspace's next steps are typed in place, listed soonest first, each done with its own tick, and Undo puts one back", async ({ page }) => {
+  // A fixed clock: the month the day is picked from opens on the test's own.
+  await page.clock.setFixedTime(new Date(2026, 10, 4, 10, 0));
   const { stepWrites } = await installPipeline(page);
   await page.goto("/company/stripe/job/202?tab=workspace");
   const cover = posting(page);
@@ -516,7 +563,10 @@ test("the Workspace's next steps are typed in place, listed soonest first, each 
   // A second step with a day goes above the one with none; the add line
   // stays under the last.
   await add.fill("Send the portfolio");
-  await cover.getByLabel(msg("applications-ws-next-due")).last().fill("2026-12-01");
+  // The day is picked from the month its field opens: December's first
+  // stands in November's last week.
+  await cover.getByRole("button", { name: new RegExp(`^${msg("applications-ws-next-due")} `) }).last().click();
+  await page.getByRole("dialog", { name: msg("applications-ws-next-due") }).locator('[data-day="2026-12-01"]').click();
   await cover.getByRole("button", { name: msg("applications-next-save") }).click();
   const steps = cover.locator(".app-ws-step-list .app-ws-step-words");
   await expect(steps).toHaveText(["Send the portfolio", "Email the recruiter"]);
@@ -972,7 +1022,7 @@ test("the columns shown share the board's width, and never shrink below their fl
   test.skip(testInfo.project.name === "mobile", "a desktop layout: the phone width is the floor case, checked below at 1280");
   await installPipeline(page);
   await page.setViewportSize({ width: 2000, height: 1000 });
-  await page.addInitScript(() => localStorage.setItem("roleband.pipeline-hidden-columns", JSON.stringify(["decided", "closed"])));
+  await viewChoices(page, { "pipeline.board-hidden": ["decided", "closed"] });
   await page.goto("/pipeline/board");
   await expect(column(page, "Considering").getByText("Staff Product Manager, API")).toBeVisible();
 

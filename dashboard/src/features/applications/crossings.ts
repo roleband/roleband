@@ -4,6 +4,7 @@
  * where they meet. */
 
 import type { ApplicationDetail, JobDetail } from "../../api";
+import { setViewChoice, viewChoice } from "../../hooks/viewChoices";
 import { DAY } from "./board";
 
 export type CrossingKind = "closed" | "reopened" | "pay";
@@ -42,26 +43,21 @@ export function latestCrossing(
   return latest;
 }
 
-const DISMISSED_KEY = "roleband.pipeline-crossings-dismissed";
+const CHOICE = "pipeline.crossings-dismissed";
+/** The most recent dismissals kept: an older one is of a posting long since
+ *  changed again. */
+const KEPT = 500;
 
 /** A crossing the reader dismissed, by role and instant: a later change to
- *  the same posting is a new line. Kept per browser. */
+ *  the same posting is a new line. One of the person's view choices
+ *  (hooks/viewChoices), so it holds in any browser. */
 export const crossingKey = (jobId: number, crossing: Crossing): string => `${jobId}:${crossing.kind}:${crossing.at}`;
 
 export function readDismissed(): Set<string> {
-  try {
-    const raw = localStorage.getItem(DISMISSED_KEY);
-    const parsed: unknown = raw ? JSON.parse(raw) : [];
-    return new Set(Array.isArray(parsed) ? parsed.filter((key): key is string => typeof key === "string") : []);
-  } catch {
-    return new Set();
-  }
+  const stored = viewChoice(CHOICE);
+  return new Set(Array.isArray(stored) ? stored.filter((key): key is string => typeof key === "string") : []);
 }
 
 export function writeDismissed(keys: ReadonlySet<string>): void {
-  try {
-    localStorage.setItem(DISMISSED_KEY, JSON.stringify([...keys]));
-  } catch {
-    // A browser that keeps no storage shows the line again next visit.
-  }
+  void setViewChoice(CHOICE, [...keys].slice(-KEPT));
 }

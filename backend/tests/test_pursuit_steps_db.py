@@ -148,6 +148,55 @@ async def test_reopening_a_ticked_step_puts_it_back_in_its_place(api_client, db_
     assert (await _last_event(api_client, job))["step"]["action"] == "reopened"
 
 
+async def _detail(api_client, job_id: int) -> dict:
+    response = await api_client.get(f"/api/applications/{job_id}")
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+async def test_the_role_page_lists_the_done_steps_latest_done_first_apart_from_the_open_ones(
+    api_client, db_session, roles
+):
+    job, other = roles
+    ids = await _three(api_client, job)
+    await _add(api_client, job, "Call Mo")
+    # Ticked in an order that is neither the order added nor the order of the days.
+    for name in ("Send portfolio", "Ask Sam", "Thank-you note"):
+        await _edit(api_client, job, ids[name], {"done": True})
+    await _apply(api_client, other)
+    elsewhere = await _add(api_client, other, "Another role's step")
+    await _edit(api_client, other, elsewhere, {"done": True})
+
+    detail = await _detail(api_client, job)
+
+    assert [step["text"] for step in detail["done_steps"]] == ["Thank-you note", "Ask Sam", "Send portfolio"]
+    assert all(step["done_at"] is not None for step in detail["done_steps"])
+    assert [step["text"] for step in detail["application"]["steps"]] == ["Call Mo"]
+
+
+async def test_a_done_step_leaves_the_done_steps_when_it_is_reopened_or_deleted(api_client, db_session, roles):
+    job, _ = roles
+    ids = await _three(api_client, job)
+    for step_id in ids.values():
+        await _edit(api_client, job, step_id, {"done": True})
+
+    await _edit(api_client, job, ids["Ask Sam"], {"done": False})
+    deleted = await api_client.delete(f"/api/jobs/{job}/pursuit/steps/{ids['Send portfolio']}")
+    assert deleted.status_code == 200, deleted.text
+
+    detail = await _detail(api_client, job)
+    assert [step["text"] for step in detail["done_steps"]] == ["Thank-you note"]
+    assert [step["text"] for step in detail["application"]["steps"]] == ["Ask Sam"]
+    assert (await _last_event(api_client, job))["step"]["action"] == "removed"
+
+
+async def test_a_role_with_no_step_done_has_no_done_steps(api_client, db_session, roles):
+    job, _ = roles
+    await _three(api_client, job)
+
+    assert (await _detail(api_client, job))["done_steps"] == []
+
+
 async def test_giving_an_undated_step_the_soonest_day_makes_it_first_and_taking_it_off_sends_it_last(
     api_client, db_session, roles
 ):

@@ -36,6 +36,7 @@ from tracker.api.schemas.scope import (
     ScopeRuleList,
     SettingsSaveResponse,
 )
+from tracker.api.schemas.view_choices import ViewChoice, ViewChoices, ViewChoiceWrite
 from tracker.api.scope_saves import promote_after_save, promotion_fields, queue_follow_up
 from tracker.company_store import off_board_company_slugs
 from tracker.config import get_settings
@@ -80,11 +81,13 @@ from tracker.settings_store import (
     get_retention_days,
     get_retention_last,
     get_role_answers,
+    get_view_choices,
     has_levels,
     set_intent_embedding,
     set_locale,
     set_persona_profile,
     set_retention_days,
+    set_view_choice,
 )
 from tracker.taxonomy.domains import DOMAIN_GROUPS
 from tracker.taxonomy.locations import canonical_location_slugs
@@ -576,3 +579,24 @@ async def put_locale_ep(payload: LocaleSettings, session: SessionDep) -> dict:
     saved = await set_locale(session, payload.language, payload.region)
     await session.commit()
     return saved
+
+
+@router.get("/api/settings/view-choices", response_model=ViewChoices)
+async def get_view_choices_ep(session: SessionDep) -> dict:
+    """How the person arranged what the screens show, by choice."""
+    return {"choices": await get_view_choices(session)}
+
+
+@router.put("/api/settings/view-choices/{name}", response_model=ViewChoice)
+async def put_view_choice_ep(name: str, payload: ViewChoiceWrite, session: SessionDep) -> dict:
+    """Save one choice. A name the screens do not have, or a value that does
+    not fit it, is refused (422) and the saved choice stays as it was."""
+    try:
+        value = await set_view_choice(session, name, payload.value)
+    except KeyError:
+        raise api_error(422, ErrorCode.INVALID_INPUT, f"not a view choice: {name!r}") from None
+    except ValueError as error:
+        raise api_error(422, ErrorCode.INVALID_INPUT, f"{name}: {error}") from None
+    await session.commit()
+    return {"name": name, "value": value}
+

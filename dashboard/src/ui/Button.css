@@ -196,6 +196,20 @@
   color: var(--app-chosen-text);
 }
 
+/* The bar rank: a ghost or icon button standing on a floating bar's own
+   glass, such as the bar over words selected in the notes, whose edge already
+   marks its contents as controls. No edge of its own at rest and the words'
+   muted ink; the pointer gives it the icon rank's edge, and on or open it
+   keeps the chosen paint above. */
+.ui-btn.ui-btn-bar:not([aria-pressed="true"]):not([aria-expanded="true"]) {
+  border-color: transparent;
+  color: var(--app-text-muted);
+}
+.ui-btn.ui-btn-bar:not(:disabled):not([aria-disabled="true"]):not([aria-pressed="true"]):not([aria-expanded="true"]):hover {
+  border-color: var(--app-border);
+  color: var(--app-text);
+}
+
 /* The tick: the icon rank drawn as a round box the person ticks to finish
    something, such as a next step. Empty at rest; the check shows in the
    action hue while the pointer or the focus is on it. */
@@ -210,6 +224,14 @@
   border-color: var(--app-action);
   background: transparent;
   color: var(--app-action-text);
+}
+
+/* Ticked (`aria-pressed`), the check stays, on the chosen wash; pressing it
+   again takes the tick off. */
+.ui-btn-icon.ui-btn-tick[aria-pressed="true"] {
+  border-color: var(--app-chosen-line);
+  background: var(--app-chosen-wash);
+  color: var(--app-chosen-text);
 }
 
 /* ---- link: a verb inside running text ------------------------------------ */

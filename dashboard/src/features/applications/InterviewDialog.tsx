@@ -52,6 +52,7 @@ import { ClockPicker } from "./ClockPicker";
 import { clockLabel, parseClock } from "./clock";
 import { DayPicker } from "./DayPicker";
 import { dayKey, fromDayKey } from "./monthGrid";
+import { interviewOutline, interviewPast, notesToKeep } from "./interviewWords";
 
 type FormatChoice = "" | "video" | "phone" | "onsite";
 type OutcomeChoice = "" | "passed" | "not_passed" | "cancelled";
@@ -137,6 +138,9 @@ export interface InterviewDialogProps {
   onSubmit: (interview: InterviewWrite) => Promise<boolean>;
   /** Offered only when changing a stored interview. */
   onDelete?: () => void;
+  /** Opens with the caret in the notes, under the outline's first line when
+   *  the notes start from it. */
+  startAt?: "notes";
 }
 
 /**
@@ -150,16 +154,18 @@ export interface InterviewDialogProps {
  * video interview opens the field for its link. The head and the actions hold
  * still while the middle scrolls, so the way to save is always in reach.
  */
-export function InterviewDialog({ card, interview, moving = false, onCancel, onSubmit, onDelete }: InterviewDialogProps) {
+export function InterviewDialog({ card, interview, moving = false, onCancel, onSubmit, onDelete, startAt }: InterviewDialogProps) {
   const [now] = useState(() => new Date());
   const [initial] = useState(() => (interview ? fieldsOf(interview) : null));
+  // A coming round with nothing written yet starts its notes from the outline.
+  const [outline] = useState(() => (interview && !interview.notes && !interviewPast(interview, now) ? interviewOutline() : ""));
   const [label, setLabel] = useState(initial?.label ?? "");
   const [day, setDay] = useState(initial?.day ?? "");
   const [clockText, setClockText] = useState(initial?.clock ? clockLabel(initial.clock) : "");
   const [format, setFormat] = useState<FormatChoice>(initial?.format ?? "");
   const [link, setLink] = useState(initial?.link ?? "");
   const [outcome, setOutcome] = useState<OutcomeChoice>(initial?.outcome ?? "");
-  const [notes, setNotes] = useState(initial?.notes ?? "");
+  const [notes, setNotes] = useState(initial?.notes || outline);
   const [naming, setNaming] = useState(false);
   const [draft, setDraft] = useState("");
   const addRound = useRef<HTMLButtonElement>(null);
@@ -206,7 +212,7 @@ export function InterviewDialog({ card, interview, moving = false, onCancel, onS
     const write = interviewFrom({ label, day, clock, format, link });
     setSaving(true);
     setFailed(false);
-    const saved = await onSubmit(editing ? { ...write, outcome: outcome || null, notes: notes.trim() || null } : write);
+    const saved = await onSubmit(editing ? { ...write, outcome: outcome || null, notes: notesToKeep(notes, outline) } : write);
     // A save that landed closes the form from outside; one that failed keeps
     // it, and what was typed, with the failure said beside Save.
     if (!open.current || saved) return;
@@ -252,6 +258,17 @@ export function InterviewDialog({ card, interview, moving = false, onCancel, onS
     }
   }, [deleting]);
   useEscapeLayer(deleting, () => setDeleting(false));
+
+  // A ref, not an effect: the dialog keeps a focus its content took as it
+  // mounted, and hands focus to its first control otherwise.
+  const caretPlaced = useRef(false);
+  const placeCaret = (field: HTMLTextAreaElement | null) => {
+    if (!field || startAt !== "notes" || caretPlaced.current) return;
+    caretPlaced.current = true;
+    const at = outline ? outline.indexOf("\n") + 1 : field.value.length;
+    field.focus();
+    field.setSelectionRange(at, at);
+  };
 
   const onNameKey = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key !== "Enter") return;
@@ -367,8 +384,9 @@ export function InterviewDialog({ card, interview, moving = false, onCancel, onS
                 <div className="app-interview-field">
                   <label htmlFor="app-interview-notes">{applicationsInterviewNotes()}</label>
                   <textarea
+                    ref={placeCaret}
                     id="app-interview-notes"
-                    rows={4}
+                    rows={6}
                     maxLength={20_000}
                     value={notes}
                     onChange={(event) => setNotes(event.target.value)}

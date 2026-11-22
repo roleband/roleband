@@ -1,6 +1,7 @@
 /* The endpoints the app shell calls at startup and on every route: system
    status and the scan, header stats, the compare selection and viewed marks,
-   the bell, the profile, usage consent, company names and the locale.
+   the bell, the profile, usage consent, company names, the locale and the
+   person's view choices.
 
    Their own module because every module the shell loads ships whole in the
    startup chunk, and a domain object is never tree-shaken by method: a shell
@@ -13,7 +14,7 @@ import type { CompareScope, CompareSelection, JobViewResult } from "./jobs";
 import type { CompanyNames } from "./companies";
 import type { Notification, NotificationList, NotificationParams } from "./notifications";
 import type { SyncCancelResult, SyncResult, SystemStatus } from "./ops";
-import type { LocaleSettings, ProfileState } from "./scope";
+import type { LocaleSettings, ProfileState, ViewChoices } from "./scope";
 import type { Stats } from "./statistics";
 import type { UsageState } from "./usage";
 import { getJSON, postJSON, postMarkJSON, putJSON, qs } from "./transport";
@@ -43,4 +44,5 @@ export const startupApi = {
   usage: (signal?: AbortSignal) => getJSON<UsageState>("/api/usage", signal),
   companyNames: () => getJSON<CompanyNames>("/api/companies/names"),
   locale: () => getJSON<LocaleSettings>("/api/settings/locale"),
+  viewChoices: () => getJSON<ViewChoices>("/api/settings/view-choices"),
 };

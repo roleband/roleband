@@ -407,6 +407,7 @@ export function applicationDetailFixture(overrides: Partial<ApplicationDetail> =
   return {
     application: applicationCardFixture({ pursuit_id: 10, stage: "applied", stage_since: "2026-11-01T09:00:00Z" }),
     interviews: [],
+    done_steps: [],
     stages_reached: [
       { stage: "saved", at: "2026-10-20T09:00:00Z" },
       { stage: "applied", at: "2026-11-01T09:00:00Z" },

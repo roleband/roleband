@@ -272,7 +272,7 @@ function Row({ row, now, columns, actions, match }: {
   );
 }
 
-/** The List's columns: their order and which are hidden, this browser's. */
+/** The List's columns: their order and which are hidden, as the person left them. */
 function useListLayout() {
   const [layout, setLayoutState] = useState<ListLayout>(readListLayout);
   const setLayout = useCallback((next: ListLayout) => {

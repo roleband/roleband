@@ -16,9 +16,11 @@ that one field.
   when it was added, and when it was ticked done. They are listed soonest first,
   steps with no day last in the order added; there is no manual order.
 - A ticked step leaves the open list and is kept, with its time, so History
-  names it and Undo opens it again. Remove deletes a step outright, for one
-  added by mistake; it is the person's alone, in the app, as deleting an
-  interview is.
+  names it and Undo opens it again. The role's page lists the done steps,
+  latest first, folded under the open ones: a done step opens again from its
+  tick, and Delete takes it off for good. Remove deletes an open step outright,
+  for one added by mistake. Deleting is the person's alone, in the app, as
+  deleting an interview is.
 - `pursuits.next_action` and `next_action_due` stay for one release as a mirror
   of the soonest open step, written only by the server in the same transaction
   as the step write. A write that still sends them changes the soonest open step,
@@ -43,7 +45,8 @@ that one field.
 - Removing the mirror columns is a later migration, and it removes columns, so
   it waits for the owner's go. Until then every reader of the old fields keeps
   working.
-- Done steps are not listed by any read; History is where they are read.
+- Done steps are listed by the role's page alone; no agent read lists them, and
+  History names each one's writes.
 
 ## Alternatives considered
 

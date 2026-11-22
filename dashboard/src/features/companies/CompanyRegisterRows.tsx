@@ -519,7 +519,7 @@ export function DirectoryNote() {
 /* A group that can fold to its heading. Only "Other companies" does: it is the
  * one group whose size is not ours to choose (hundreds of rows once the wider
  * market is followed), and it sits last, so folded it costs one line.
- * Folded by default and remembered per browser. A search unfolds it without
+ * Folded by default and remembered with the person's settings. A search unfolds it without
  * touching that memory, because a search's matches are drawn in it; so does an
  * index link to it, because following one is asking to see it. */
 export function SectorSection({

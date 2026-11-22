@@ -160,7 +160,7 @@ describe("one focus ring", () => {
     const global = rules(shell).find((r) => r.selectors.includes("[tabindex]:focus-visible"))!;
     expect(global.selectors).toEqual(expect.arrayContaining([
       "button:focus-visible", "a:focus-visible", "input:focus-visible", "select:focus-visible",
-      "textarea:focus-visible", "summary:focus-visible", "[tabindex]:focus-visible",
+      "textarea:focus-visible", "summary:focus-visible", '[contenteditable="true"]:focus-visible', "[tabindex]:focus-visible",
       'input:is([type="time"], [type="date"], [type="datetime-local"], [type="month"], [type="week"]):focus-within',
     ]));
     expect(global.decls.get("outline")).toBe("var(--app-ring-width) solid var(--app-action)");
@@ -171,12 +171,15 @@ describe("one focus ring", () => {
     const spec = readFileSync(join(SRC, "..", "tests", "ux", "focus-ring.spec.ts"), "utf8");
     const block = spec.slice(spec.indexOf("const CARRIERS"), spec.indexOf("];", spec.indexOf("const CARRIERS")));
     const carriers = [...block.matchAll(/\["([^"]+)", "([^"]+)"\]/g)].map((m) => m[2]);
-    // Each carrier the sweep accepts draws the ring in a sheet.
+    // Each carrier the sweep accepts draws the ring in a sheet: on focus, or
+    // in a state a suppression above names as what draws instead (the
+    // palette's highlighted option).
     const drawn = SHEETS.flatMap(({ css }) => rules(css))
       .filter((r) => /var\(--app-action\)/.test([...r.decls.values()].join(" ")))
       .flatMap((r) => r.selectors);
+    const named = (selector: string) => SUPPRESSIONS.some((one) => one.drawnBy === selector);
     for (const carrier of carriers) {
-      expect(drawn.some((s) => s.startsWith(carrier) && isFocusRule(s)), `${carrier} draws no ring`).toBe(true);
+      expect(drawn.some((s) => s.startsWith(carrier) && (isFocusRule(s) || named(s))), `${carrier} draws no ring`).toBe(true);
     }
   });
 });
@@ -207,7 +210,7 @@ const splitOutside = (s: string, sep: RegExp) => {
 };
 
 /** The focused thing a selector names is a field: a text input, a textarea,
- *  a select, or a carrier that stands for one. A leading `:is(…)` or
+ *  a select, an editable page, or a carrier that stands for one. A leading `:is(…)` or
  *  `:where(…)` names a field when one of its choices does. */
 const namesField = (selector: string): boolean => {
   const subject = splitOutside(withoutNegations(selector), /[\s>+~]/).pop() ?? "";
@@ -224,6 +227,7 @@ const namesField = (selector: string): boolean => {
   }
   if (FIELD_CARRIERS.some((c) => subject.startsWith(`${c}:`))) return true;
   if (/^(?:textarea|select)\b/.test(subject)) return true;
+  if (/^\[contenteditable(?:="true")?\]/.test(subject)) return true;
   return /^input\b/.test(subject) && !NOT_FIELD_TYPES.test(subject);
 };
 
@@ -252,7 +256,9 @@ describe("a field wears the ring on its own edge", () => {
     const field = all.findIndex((r) => r.selectors.some((s) => s.startsWith("input:not(") && s.endsWith(":focus-visible")));
     expect(field, "the field rule").toBeGreaterThan(global);
     expect(all[field].decls.get("outline-offset")).toBe(INSIDE);
-    expect(all[field].selectors).toEqual(expect.arrayContaining(["select:focus-visible", "textarea:focus-visible"]));
+    // An editable page is a `div` with a tab stop: by its tag it would take
+    // the outside ring of `[tabindex]`.
+    expect(all[field].selectors).toEqual(expect.arrayContaining(["select:focus-visible", "textarea:focus-visible", '[contenteditable="true"]:focus-visible']));
     expect(all[field].selectors.some((s) => s.startsWith('input:is([type="time"]') && s.endsWith(":focus-within"))).toBe(true);
     // The types left out are the ones that are not fields.
     const sel = all[field].selectors.find((s) => s.startsWith("input:not("))!;
@@ -282,6 +288,8 @@ describe("a field wears the ring on its own edge", () => {
       '.x input:is([type="time"], [type="date"]):focus-within { outline-offset: var(--app-ring-offset); }',
       ".x :is(input, textarea):focus-visible { outline-offset: var(--app-ring-offset); }",
       ".x :where(button, select):focus-visible { outline-offset: var(--app-ring-offset); }",
+      '.notes [contenteditable="true"]:focus-visible { outline-offset: var(--app-ring-offset); }',
+      ".notes [contenteditable]:focus-visible { outline-offset: var(--app-ring-offset); }",
     ])("%s fails", (css) => {
       expect(check(css).length).toBeGreaterThan(0);
     });
@@ -291,6 +299,8 @@ describe("a field wears the ring on its own edge", () => {
       ".x button:focus-visible { outline-offset: var(--app-ring-offset); }",
       ".x :is(button, a):focus-visible { outline-offset: var(--app-ring-offset); }",
       '.x input:is([type="checkbox"], [type="radio"]):focus-visible { outline-offset: var(--app-ring-offset); }',
+      '.notes [contenteditable="true"]:focus-visible { outline-offset: calc(-1 * var(--app-ring-offset)); }',
+      '.x [contenteditable="false"]:focus-visible { outline-offset: var(--app-ring-offset); }',
     ])("%s passes", (css) => {
       expect(check(css)).toEqual([]);
     });

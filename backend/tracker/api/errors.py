@@ -97,6 +97,9 @@ class ErrorCode(StrEnum):
     COMMENT_NOT_YOURS = "comment-not-yours"
     # Unstarring a role past Considering: it is withdrawn instead.
     APPLICATION_UNDER_WAY = "application-under-way"
+    # The role's notes changed after the text a save started from; the
+    # answer carries them as `current`, for the page to merge.
+    NOTES_MOVED = "notes-moved"
 
 
 class ErrorDetail(BaseModel):

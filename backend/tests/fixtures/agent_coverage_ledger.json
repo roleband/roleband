@@ -144,6 +144,12 @@
   },
   {
    "method": "GET",
+   "path": "/api/applications/{job_id}/notes/versions",
+   "excluded": "internal",
+   "reason": "Lists the notes' earlier versions for the notes page to restore one; an agent reads the notes through pursuits.get and keeps its own copy of what it writes."
+  },
+  {
+   "method": "GET",
    "path": "/api/companies",
    "operation": "companies.list"
   },
@@ -429,6 +435,12 @@
    "path": "/api/settings/retention",
    "excluded": "app_setting",
    "reason": "How long unread postings are kept decides what is removed; it stays in the app."
+  },
+  {
+   "method": "GET",
+   "path": "/api/settings/view-choices",
+   "excluded": "app_setting",
+   "reason": "How the person arranges the screens (blocks, columns, folded sections, filters) is a display setting of the app."
   },
   {
    "method": "GET",
@@ -1007,6 +1019,12 @@
    "path": "/api/settings/retention",
    "excluded": "app_setting",
    "reason": "How long unread postings are kept decides what is removed; it stays in the app."
+  },
+  {
+   "method": "PUT",
+   "path": "/api/settings/view-choices/{name}",
+   "excluded": "app_setting",
+   "reason": "How the person arranges the screens (blocks, columns, folded sections, filters) is a display setting of the app."
   },
   {
    "method": "PUT",

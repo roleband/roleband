@@ -9,7 +9,8 @@ when its row is absent or malformed.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+import json
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Any
@@ -995,3 +996,130 @@ async def set_locale(session: AsyncSession, language: str, region: str | None) -
         raise ValueError(f"not a language tag: language={language!r} region={region!r}")
     await set_setting_dict(session, LOCALE_KEY, {"language": language, "region": region})
     return {"language": language, "region": region}
+
+
+# --- view choices: how the person arranges the screens --------------------- #
+
+#: How the person arranged what the screens show: the Workspace's blocks per
+#: stage, the Pipeline's columns, crossings dismissed, a posting's folded
+#: section, the Insights view, the filters each screen was last left with. One row per choice,
+#: `view_choice.<name>` holding `{"value": ...}`, so a save is one upsert and
+#: two windows saving different choices never undo each other. Kept here, not
+#: in the browser, so a cleared browser or another one shows the same screens
+#: (docs/decisions/0027-view-choices-in-local-database.md).
+VIEW_CHOICE_PREFIX = "view_choice."
+
+WORKSPACE_STAGES = ("saved", "researching", "applied", "interviewing", "offer", "accepted", "ended")
+WORKSPACE_BLOCKS = ("interviews", "next", "notes", "outcome", "activity")
+BOARD_COLUMNS = ("saved", "researching", "applied", "interviewing", "offer", "decided", "closed")
+LIST_COLUMNS = ("role", "pay", "location", "level", "posting", "saved", "next", "priority", "activity")
+#: Each screen's filter memory: the state a screen restores (`board`,
+#: `companies`), the filter groups left open (`:open`), and the address a
+#: screen whose filters are its query string was left at (`:params`).
+FILTER_KEYS = (
+    "board", "board:open", "companies", "companies:open", "notifications:open", "notifications:params",
+    "pipeline-list:params", "pipeline-board:params", "pipeline-up-next:params",
+)
+#: A dismissed crossing is named by role, kind and instant; the dashboard keeps
+#: the most recent ones.
+MAX_DISMISSED = 500
+MAX_KEY_LENGTH = 120
+#: A screen's filters are a handful of short lists; the bound stops one row
+#: from growing without end.
+MAX_FILTER_BYTES = 16_384
+
+
+def _names(value: object, allowed: tuple[str, ...], strict: bool) -> list[str]:
+    """The names in `value` that `allowed` holds, once each, in order. Strict
+    (a write) refuses an unknown name; lenient (a read) drops it."""
+    if not isinstance(value, list):
+        if strict:
+            raise ValueError("not a list")
+        return []
+    unknown = [one for one in value if one not in allowed]
+    if strict and unknown:
+        raise ValueError(f"unknown names: {unknown!r}")
+    return list(dict.fromkeys(one for one in value if one in allowed))
+
+
+def _layout(allowed: tuple[str, ...]) -> Callable[[object, bool], object]:
+    def check(value: object, strict: bool) -> dict[str, list[str]]:
+        if not isinstance(value, dict) or (strict and set(value) != {"hidden", "order"}):
+            raise ValueError("not a layout of hidden and order")
+        return {"hidden": _names(value.get("hidden"), allowed, strict),
+                "order": _names(value.get("order"), allowed, strict)}
+    return check
+
+
+def _hidden_columns(value: object, strict: bool) -> list[str]:
+    return _names(value, BOARD_COLUMNS, strict)
+
+
+def _dismissed(value: object, strict: bool) -> list[str]:
+    if not isinstance(value, list) or (strict and len(value) > MAX_DISMISSED):
+        raise ValueError(f"not a list of at most {MAX_DISMISSED} keys")
+    keys = [one for one in value if isinstance(one, str) and 0 < len(one) <= MAX_KEY_LENGTH]
+    if strict and len(keys) != len(value):
+        raise ValueError(f"a key is not text of 1 to {MAX_KEY_LENGTH} characters")
+    return list(dict.fromkeys(keys))[-MAX_DISMISSED:]
+
+
+def _flag(value: object, strict: bool) -> bool:
+    if not isinstance(value, bool):
+        raise ValueError("not true or false")
+    return value
+
+
+def _insights_view(value: object, strict: bool) -> str:
+    if value not in ("basic", "advanced"):
+        raise ValueError("not basic or advanced")
+    return str(value)
+
+
+def _filters(value: object, strict: bool) -> dict[str, Any] | None:
+    """A screen's filter memory, as the dashboard shaped it, or None once the
+    screen has forgotten it: the dashboard decodes each key on the way back,
+    so this holds only its form and size."""
+    if value is None:
+        return None
+    if not isinstance(value, dict) or len(json.dumps(value)) > MAX_FILTER_BYTES:
+        raise ValueError(f"not an object of at most {MAX_FILTER_BYTES} bytes")
+    return value
+
+
+VIEW_CHOICES: dict[str, Callable[[object, bool], object]] = {
+    **{f"workspace.{stage}": _layout(WORKSPACE_BLOCKS) for stage in WORKSPACE_STAGES},
+    "pipeline.board-hidden": _hidden_columns,
+    "pipeline.list-layout": _layout(LIST_COLUMNS),
+    "pipeline.crossings-dismissed": _dismissed,
+    "posting.similar-folded": _flag,
+    "insights.view": _insights_view,
+    **{f"filters.{key}": _filters for key in FILTER_KEYS},
+}
+
+
+async def get_view_choices(session: AsyncSession) -> dict[str, Any]:
+    """Every choice the person has made, by name. A choice never made is
+    absent and the screen shows its own default; a stored row this version
+    does not know, or whose value no longer fits, is dropped, never served."""
+    rows = await session.execute(select(AppSetting).where(AppSetting.key.startswith(VIEW_CHOICE_PREFIX)))
+    choices: dict[str, Any] = {}
+    for row in rows.scalars():
+        name = row.key.removeprefix(VIEW_CHOICE_PREFIX)
+        check = VIEW_CHOICES.get(name)
+        if check is None or not isinstance(row.value, dict) or "value" not in row.value:
+            continue
+        try:
+            choices[name] = check(row.value["value"], False)
+        except ValueError:
+            continue
+    return dict(sorted(choices.items()))
+
+
+async def set_view_choice(session: AsyncSession, name: str, value: object) -> Any:
+    """Save one choice and return it as stored; raises KeyError for a name the
+    screens do not have and ValueError for a value that does not fit it."""
+    check = VIEW_CHOICES[name]
+    stored = check(value, True)
+    await set_setting_dict(session, VIEW_CHOICE_PREFIX + name, {"value": stored})
+    return stored

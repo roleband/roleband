@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit
 
@@ -144,6 +144,40 @@ def public_pursuit(pursuit: Pursuit, job: Job | None = None) -> dict:
     return data
 
 
+#: How long the person may pause writing the notes before the next save
+#: starts a new writing session, and with it a new entry in the role's history.
+NOTES_SESSION_GAP = timedelta(minutes=10)
+
+
+def continues_notes(event: type[PursuitEvent] = PursuitEvent) -> Any:
+    """An event that only carried on a notes writing session: History shows
+    the session once, as its first event, and keeps no copy of the notes in
+    the events after it."""
+    return and_(event.detail.has_key("session"), event.detail["changed"].astext == '["notes"]')
+
+
+async def _notes_session(session: AsyncSession, pursuit_id: int) -> int | None:
+    """The writing session a notes save by the person carries on: its first
+    event's id, when the role's latest event is the person's own notes save
+    from the page, made within the gap. Their assistant's writes are each an
+    entry of their own, and so is anything written between two saves."""
+    last = (
+        await session.execute(
+            select(PursuitEvent.id, PursuitEvent.actor, PursuitEvent.detail, PursuitEvent.created_at >= func.now() - NOTES_SESSION_GAP)
+            .where(PursuitEvent.pursuit_id == pursuit_id)
+            .order_by(PursuitEvent.created_at.desc(), PursuitEvent.id.desc())
+            .limit(1)
+        )
+    ).first()
+    if last is None:
+        return None
+    event_id, actor, detail, recent = last
+    detail = detail or {}
+    if actor != "user" or "via" in detail or detail.get("changed") != ["notes"] or not recent:
+        return None
+    return int(detail.get("session", event_id))
+
+
 def _stored(values: dict[str, object]) -> dict[str, object]:
     """Field values as the event's JSON column keeps them."""
     return {field: value.isoformat() if isinstance(value, datetime) else value for field, value in values.items()}
@@ -157,6 +191,7 @@ async def upsert_pursuit(
     actor: Literal["user", "agent"],
     expected_revision: int | None = None,
     via: str | None = None,
+    notes_was: str | None = None,
 ) -> Pursuit:
     """Create or change the pursuit of one role. Every write that changes the
     row advances its `revision` (the mapper does it on flush); a write that
@@ -170,12 +205,26 @@ async def upsert_pursuit(
     row has moved since; the check runs under the role's lock, so no write can
     land between it and this one. Omitted, the write is last-writer-wins, as
     the dashboard's is.
+
+    `notes_was` is the notes text the writer started from, "" for none. Given
+    with new notes, the write is refused with `NotesMoved` when the stored
+    notes differ from it, under the same lock: notes written meanwhile (by an
+    agent, or in another window) are never written over unseen.
     """
     pursuit, _ = await _write_pursuit(
         session, job_id, payload.model_dump(exclude_unset=True),
-        actor=actor, expected_revision=expected_revision, via=via,
+        actor=actor, expected_revision=expected_revision, via=via, notes_was=notes_was,
     )
     return pursuit
+
+
+class NotesMoved(Exception):
+    """The role's notes changed after the text a notes write started from.
+    Carries the notes as they are now, for the writer to merge."""
+
+    def __init__(self, current: str | None) -> None:
+        super().__init__("the notes changed since they were read")
+        self.current = current
 
 
 #: The pursuit's columns that hold its soonest open step, written from the steps.
@@ -191,6 +240,7 @@ async def _write_pursuit(
     expected_revision: int | None,
     via: str | None,
     step_write: StepChange | None = None,
+    notes_was: str | None = None,
 ) -> tuple[Pursuit, PursuitStep | None]:
     """`upsert_pursuit`, and the one way a step is written: the step change
     runs under the role's lock and revision check, the pursuit's soonest-step
@@ -211,6 +261,10 @@ async def _write_pursuit(
         current = 0 if pursuit is None else pursuit.revision
         if current != expected_revision:
             raise RevisionConflict(expected=expected_revision, current=current)
+    if notes_was is not None and "notes" in values:
+        stored = None if pursuit is None else pursuit.notes
+        if (stored or "") != notes_was:
+            raise NotesMoved(stored)
     created = pursuit is None
     if pursuit is None:
         # The table's defaults, stated, so the fields below compare against
@@ -272,6 +326,18 @@ async def _write_pursuit(
         await session.flush()
     said = plan.said()
 
+    # A save of the notes alone, by the person from the page, that carries on
+    # a writing session keeps no copy of the notes: the session's first event
+    # keeps what it replaced, and what the session ended with is what the next
+    # one replaced, or the notes as they are.
+    carries_on = None
+    if not created and actor == "user" and via is None and set(changed) == {"notes"} and said is None:
+        carries_on = await _notes_session(session, pursuit.id)
+    before_values, after_values = _stored(replaced), _stored(changed)
+    if carries_on is not None:
+        before_values.pop("notes")
+        after_values.pop("notes")
+
     if created or changed or said is not None:
         session.add(
             PursuitEvent(
@@ -281,13 +347,15 @@ async def _write_pursuit(
                 from_stage=None if created else before,
                 to_stage=pursuit.stage,
                 # Both versions of every field, so a write never loses what
-                # it replaced (an agent's note over the user's own).
+                # it replaced (an agent's note over the user's own); a save
+                # carrying on a notes session keeps neither (above).
                 detail={
                     "changed": sorted({*changed, *(["steps"] if said is not None else [])}),
-                    "before": _stored(replaced),
-                    "after": _stored(changed),
+                    "before": before_values,
+                    "after": after_values,
                     **({"step": said} if said is not None else {}),
                     **({"via": via} if via is not None else {}),
+                    **({"session": carries_on} if carries_on is not None else {}),
                 },
             )
         )
@@ -786,6 +854,16 @@ async def steps_of(session: AsyncSession, pursuit_ids: list[int]) -> dict[int, l
     for step in rows.all():
         found[step.pursuit_id].append(public_step(step))
     return found
+
+
+async def done_steps(session: AsyncSession, pursuit_id: int) -> list[dict]:
+    """The pursuit's ticked steps, the latest done first."""
+    rows = await session.scalars(
+        select(PursuitStep)
+        .where(PursuitStep.pursuit_id == pursuit_id, PursuitStep.done_at.is_not(None))
+        .order_by(PursuitStep.done_at.desc(), PursuitStep.id.desc())
+    )
+    return [public_step(step) for step in rows.all()]
 
 
 @dataclass(frozen=True)

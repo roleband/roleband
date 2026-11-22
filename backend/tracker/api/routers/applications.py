@@ -44,6 +44,7 @@ from tracker.api.schemas.applications import (
     ApplicationDetailResponse,
     ApplicationInterviewResponse,
     ApplicationStepResponse,
+    NotesVersionsResponse,
 )
 
 router = APIRouter()
@@ -92,6 +93,14 @@ async def activity_ep(
     if items is None:
         raise api_error(404, ErrorCode.APPLICATION_NOT_FOUND, "role is not on the board")
     return {"items": items}
+
+
+@router.get("/api/applications/{job_id}/notes/versions", response_model=NotesVersionsResponse)
+async def notes_versions_ep(job_id: int, session: SessionDep) -> dict:
+    versions = await reads.notes_versions(session, job_id)
+    if versions is None:
+        raise api_error(404, ErrorCode.APPLICATION_NOT_FOUND, "role is not on the board")
+    return {"versions": versions}
 
 
 # --- comments ------------------------------------------------------------------

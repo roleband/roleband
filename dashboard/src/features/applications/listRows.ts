@@ -2,12 +2,12 @@
  * which of them a browser hides, and how rows sort. A row is a role still in
  * Considering and, when the posting has been read, the posting's own facts
  * beside it.
- * The column layout is a preference of this browser, as the board's columns
- * are; storage can throw, so a failed read shows the default layout and a
- * failed write is dropped. */
+ * The column layout is one of the person's view choices (hooks/viewChoices),
+ * as the board's columns are, so it holds in any browser. */
 
 import type { ApplicationCard, Job } from "../../api";
 import { compare } from "../../copy/format";
+import { setViewChoice, viewChoice } from "../../hooks/viewChoices";
 import { BAND_ORDER } from "../../format";
 import { DAY, dueOf, sortColumn } from "./board";
 import { priorityOf, priorityRank } from "./priority";
@@ -35,7 +35,7 @@ export const DEFAULT_LAYOUT: ListLayout = {
   hidden: ["next", "priority", "activity"],
 };
 
-const KEY = "roleband.pipeline-list-columns";
+const CHOICE = "pipeline.list-layout";
 
 const isColumn = (value: unknown): value is ListColumn => (LIST_COLUMNS as readonly unknown[]).includes(value);
 
@@ -50,15 +50,7 @@ function settle(order: readonly unknown[], hidden: readonly unknown[]): ListLayo
 }
 
 export function readListLayout(): ListLayout {
-  let stored: unknown;
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (raw == null) return { order: [...DEFAULT_LAYOUT.order], hidden: [...DEFAULT_LAYOUT.hidden] };
-    stored = JSON.parse(raw);
-  } catch {
-    return { order: [...DEFAULT_LAYOUT.order], hidden: [...DEFAULT_LAYOUT.hidden] };
-  }
-  const value = stored as Partial<Record<keyof ListLayout, unknown>> | null;
+  const value = viewChoice(CHOICE) as Partial<Record<keyof ListLayout, unknown>> | null;
   if (!value || !Array.isArray(value.order) || !Array.isArray(value.hidden)) {
     return { order: [...DEFAULT_LAYOUT.order], hidden: [...DEFAULT_LAYOUT.hidden] };
   }
@@ -66,11 +58,7 @@ export function readListLayout(): ListLayout {
 }
 
 export function writeListLayout(layout: ListLayout): void {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(settle(layout.order, layout.hidden)));
-  } catch {
-    // Not remembered: the next visit shows the columns as they were.
-  }
+  void setViewChoice(CHOICE, settle(layout.order, layout.hidden));
 }
 
 /** The order with `column` moved to stand before `before`, or last when

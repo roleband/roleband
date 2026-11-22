@@ -237,8 +237,22 @@ applications-interview-outcome-not-passed = Didn't pass
 applications-interview-outcome-cancelled = Cancelled
 # kind=label
 applications-interview-notes = Notes
+# kind=label note="First line of the outline a coming interview's notes start with, the person writes under it: the people they will speak to"
+applications-interview-prompt-people = Who you'll meet
+# kind=label note="Second line of that outline: what the person wants to ask them"
+applications-interview-prompt-questions = Questions to ask
+# kind=label note="Third line of that outline: what the person wants them to remember"
+applications-interview-prompt-points = Points to make
+# kind=link note="Under a coming interview with no notes, in the Workspace: opens the interview's notes, which start with these three lines to write under"
+applications-ws-round-prepare = Who you'll meet, questions to ask, points to make
 # kind=error note="In the interview form beside Save when its save failed; the form keeps what was typed"
 applications-interview-failed = Couldn't save the interview. Try again.
+# kind=button note="On a coming interview in the Workspace: saves a calendar file for the round, for the person's calendar app to import"
+applications-interview-calendar = Add to calendar
+# kind=aria note="The Add to calendar button of one round. $label is the round's name"
+applications-interview-calendar-label = Add { $label } to your calendar
+# kind=label note="The event's title in the person's calendar app. $label is the round's name, $company the employer"
+applications-interview-calendar-title = { $label } with { $company }
 # kind=toast
 applications-interview-delete-failed = Couldn't delete the interview. Try again.
 # kind=label note="Asked in the interview form's actions before an interview is deleted"
@@ -519,12 +533,47 @@ applications-ws-next-add = Add a next step
 applications-ws-next-edit = Edit the next step: { $step }
 # kind=label same-as=applications-posting-due note="Before the next step's day field"
 applications-ws-next-due = Due
+# kind=status note="In a next step's day field when the step has no day; the field opens a month to pick one"
+applications-ws-next-due-none = No day yet
+# kind=button note="Under the month a next step's day is picked from: takes the day off the step"
+applications-ws-next-due-clear = Clear the day
 # kind=button note="In a next step's edit, takes the step off the list with nothing kept, for one added by mistake"
 applications-ws-next-remove = Remove
+# kind=button note="Under the next steps, opens and folds the list of steps already done; $count is how many"
+applications-ws-next-done-fold = { $count } done
+# kind=aria note="Takes a step that is done off the role for good; $step is the step"
+applications-ws-next-delete-label = Delete the step: { $step }
+# kind=label
+applications-ws-next-delete-confirm = Delete this step?
+# kind=button same-as=applications-comment-delete
+applications-ws-next-delete = Delete
 # kind=sentence note="The notes page's hint while it is empty; / opens the menu of headings, lists and checklists"
 applications-ws-notes-hint = Write what you know and who you met. Type / for headings, lists and checklists.
 # kind=sentence note="Under the notes page while it is longer than can be kept; $over is how many characters past the limit. Nothing is saved until it is shorter"
 applications-notes-too-long = Not saved: { $over } characters over the limit.
+# kind=sentence note="Under the notes page after a paste or a drop carried pictures the notes cannot keep, such as a screenshot; $count is how many. A picture on the web is kept as a link instead and is not counted"
+applications-notes-pictures-left-out = { $count ->
+        [one] The picture was left out: notes keep text and links.
+       *[other] { $count } pictures were left out: notes keep text and links.
+    }
+# kind=label note="Names the link a pasted web picture with no description of its own becomes in the notes"
+applications-notes-picture = Picture
+# kind=status note="Under the notes page after notes written elsewhere (the person's assistant, another window) arrived while this page was being written; the two were put together and saved, keeping every line of each"
+applications-notes-merged = These notes were also changed elsewhere. Both versions are kept.
+# kind=button note="Under the notes page: opens the notes as each earlier writing session left them, to put one back"
+applications-notes-versions = Earlier versions
+# kind=status note="In the list of the notes' earlier versions while it is read"
+applications-notes-versions-loading = Reading the earlier versions…
+# kind=sentence note="In the list of the notes' earlier versions when there is none: the notes were written in one sitting, or never"
+applications-notes-versions-none = None yet. A version is kept each time you come back to write.
+# kind=error note="The list of the notes' earlier versions could not be read"
+applications-notes-versions-failed = The earlier versions could not be read. Try again.
+# kind=button note="Beside one earlier version of the notes: puts it back on the page, replacing what is there; the editor's undo brings the page back"
+applications-notes-version-put-back = Put back
+# kind=aria note="Names the Put back button of one earlier version; $when is its date and time"
+applications-notes-version-put-back-label = Put back the version from { $when }
+# kind=status note="Under the notes page after an earlier version was put back; $when is its date and time. Undo in the editor brings the page as it was"
+applications-notes-version-back = The version from { $when } is back. Undo brings the page as it was.
 # kind=aria note="The menu a / in the notes opens: the kinds of block it can put on the page"
 applications-notes-blocks = Blocks
 # kind=label note="A notes block: plain text"
@@ -548,6 +597,50 @@ applications-notes-check = { $checked ->
 }
 # kind=sentence note="The / menu when what was typed after the / names no block"
 applications-notes-block-none = No block by that name.
+# kind=aria note="The button at the top right of the notes card that opens a guide to what the notes page can do"
+applications-notes-help = Formatting help
+# kind=heading note="The title of the guide to formatting the notes"
+applications-notes-help-title = Formatting
+# kind=label note="In the formatting guide: the marks that, typed at the start of a line, make it a heading, a list, a quote or a divider"
+applications-notes-help-lines = Start a line with
+# kind=label note="In the formatting guide: the keys that style the selected words"
+applications-notes-help-words = Style words
+# kind=label note="A word style in the notes: heavier type"
+applications-notes-style-bold = Bold
+# kind=label note="A word style in the notes: slanted type"
+applications-notes-style-italic = Italic
+# kind=label note="A word style in the notes: a line through the words"
+applications-notes-style-strike = Strikethrough
+# kind=label note="A word style in the notes: code, in a fixed-width type"
+applications-notes-style-code = Code
+# kind=sentence note="In the formatting guide, under the marks: / opens the menu of blocks"
+applications-notes-help-slash = Or type / and pick a block by name.
+# kind=sentence note="In the formatting guide: how a link is made and opened; $link is the keys that open the link field, ⌘ K on a Mac; $key is the key held, ⌘ on a Mac and Ctrl elsewhere"
+applications-notes-help-links = Select words and press { $link }, or paste a link over them, to link them. Hold { $key } and click a link to open it.
+# kind=label note="The key a shortcut is held with, on keyboards other than a Mac's"
+applications-notes-key-ctrl = Ctrl
+# kind=label note="The shift key, as printed on keyboards other than a Mac's"
+applications-notes-key-shift = Shift
+# kind=sentence note="In the formatting guide, under the word styles: selecting words shows a bar of styles over them"
+applications-notes-help-select = Or select words and pick a style from the bar over them.
+# kind=aria note="The bar of styles that shows over words selected in the notes"
+applications-notes-bar = Style the selection
+# kind=label note="Names the menu, opened from the selection bar, that changes the selected lines into a heading, a list, a checklist or a quote"
+applications-notes-turn-into = Turn into
+# kind=aria note="The first button of the selection bar, which shows the kind of line the selection is on and opens Turn into; $block is that kind, such as Heading 1"
+applications-notes-turn-into-label = Turn into, now { $block }
+# kind=tooltip note="On a style button of the selection bar: the style and its keys; $name is the style, $keys the keys, such as ⌘ B"
+applications-notes-style-tip = { $name } ({ $keys })
+# kind=button note="In the selection bar: links the selected words to a web or mail address"
+applications-notes-link = Link
+# kind=aria note="The field in the selection bar where the address of a link is typed"
+applications-notes-link-field = Link address
+# kind=label note="Shown in the empty link field of the selection bar"
+applications-notes-link-placeholder = Paste a link
+# kind=button note="In the link field of the selection bar: takes the link off the selected words, keeping the words"
+applications-notes-link-remove = Remove link
+# kind=error next=none note="Under the link field when what was typed is not a web or mail address; the message is itself the way out, and the field keeps what was typed"
+applications-notes-link-invalid = Use a web or email address.
 # kind=label same-as=applications-card-ask-outcome note="Opens the three outcomes of a past round"
 applications-ws-ask-outcome = How did it go?
 # kind=aria note="The eye beside a block's caption: takes the block off this stage's Workspace. $section is the block's name"
@@ -560,6 +653,8 @@ applications-ws-move-up = Move up
 applications-ws-move-down = Move down
 # kind=toast note="The toast after a block is hidden, beside Undo. $section is the block's name"
 applications-ws-hidden = { $section } hidden
+# kind=error note="A toast when moving, hiding or showing a Workspace block was not saved; the Workspace keeps the change until the page is reloaded"
+applications-ws-layout-failed = Couldn't save the Workspace layout. Try again.
 # kind=aria note="The plus under the last block: offers the hidden blocks"
 applications-ws-add = Add a section
 # kind=tooltip note="What the Interviews block holds, under its name in the add menu"

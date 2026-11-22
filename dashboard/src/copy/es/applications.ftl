@@ -226,9 +226,17 @@ applications-interview-outcome-not-passed = No superada
 
 applications-interview-outcome-cancelled = Cancelada
 
+applications-interview-prompt-people = Con quién hablarás
+applications-interview-prompt-questions = Preguntas que hacer
+applications-interview-prompt-points = Puntos que transmitir
+applications-ws-round-prepare = Con quién hablarás, preguntas que hacer, puntos que transmitir
 applications-interview-notes = Notas
 
 applications-interview-failed = No se pudo guardar la entrevista. Inténtalo de nuevo.
+applications-interview-calendar = Añadir al calendario
+applications-interview-calendar-label = Añadir { $label } a tu calendario
+applications-interview-calendar-title = { $label } con { $company }
+applications-ws-layout-failed = No se pudo guardar la disposición del espacio de trabajo. Inténtalo de nuevo.
 
 applications-interview-delete-failed = No se pudo eliminar la entrevista. Inténtalo de nuevo.
 
@@ -558,11 +566,32 @@ applications-ws-next-add = Añadir un siguiente paso
 applications-ws-next-edit = Editar el siguiente paso: { $step }
 
 applications-ws-next-due = Vence
+
+applications-ws-next-due-none = Aún sin día
+
+applications-ws-next-due-clear = Quitar el día
 # kind=button note="In a next step's edit, takes the step off the list with nothing kept, for one added by mistake"
 applications-ws-next-remove = Quitar
+applications-ws-next-done-fold = Hechos: { $count }
+applications-ws-next-delete-label = Eliminar el paso: { $step }
+applications-ws-next-delete-confirm = ¿Eliminar este paso?
+applications-ws-next-delete = Eliminar
 
 applications-ws-notes-hint = Escribe lo que sabes y a quién conociste. Escribe / para títulos, listas y listas de tareas.
 applications-notes-too-long = Sin guardar: { $over } caracteres por encima del límite.
+applications-notes-pictures-left-out = { $count ->
+        [one] La imagen no se guardó: las notas guardan texto y enlaces.
+       *[other] { $count } imágenes no se guardaron: las notas guardan texto y enlaces.
+    }
+applications-notes-picture = Imagen
+applications-notes-merged = Estas notas también se cambiaron en otro lugar. Se guardan ambas versiones.
+applications-notes-versions = Versiones anteriores
+applications-notes-versions-loading = Leyendo las versiones anteriores…
+applications-notes-versions-none = Ninguna todavía. Se guarda una versión cada vez que vuelves a escribir.
+applications-notes-versions-failed = No se pudieron leer las versiones anteriores. Inténtalo de nuevo.
+applications-notes-version-put-back = Restaurar
+applications-notes-version-put-back-label = Restaurar la versión del { $when }
+applications-notes-version-back = Se restauró la versión del { $when }. Deshacer devuelve la página como estaba.
 applications-notes-blocks = Bloques
 applications-notes-block-text = Texto
 applications-notes-block-heading = Título { $level }
@@ -572,6 +601,28 @@ applications-notes-block-checklist = Lista de tareas
 applications-notes-block-quote = Cita
 applications-notes-block-divider = Separador
 applications-notes-block-none = Ningún bloque con ese nombre.
+applications-notes-help = Ayuda de formato
+applications-notes-help-title = Formato
+applications-notes-help-lines = Empieza una línea con
+applications-notes-help-words = Estilo del texto
+applications-notes-style-bold = Negrita
+applications-notes-style-italic = Cursiva
+applications-notes-style-strike = Tachado
+applications-notes-style-code = Código
+applications-notes-help-slash = O escribe / y elige un bloque por su nombre.
+applications-notes-help-links = Selecciona palabras y pulsa { $link }, o pega un enlace sobre ellas, para enlazarlas. Mantén { $key } y haz clic en un enlace para abrirlo.
+applications-notes-key-ctrl = Ctrl
+applications-notes-key-shift = Mayús
+applications-notes-help-select = O selecciona palabras y elige un estilo en la barra que aparece sobre ellas.
+applications-notes-bar = Dar estilo a la selección
+applications-notes-turn-into = Convertir en
+applications-notes-turn-into-label = Convertir en, ahora { $block }
+applications-notes-style-tip = { $name } ({ $keys })
+applications-notes-link = Enlace
+applications-notes-link-field = Dirección del enlace
+applications-notes-link-placeholder = Pega un enlace
+applications-notes-link-remove = Quitar enlace
+applications-notes-link-invalid = Usa una dirección web o de correo.
 applications-notes-check = { $checked ->
     [yes] Hecho: { $line }
    *[no] Pendiente: { $line }

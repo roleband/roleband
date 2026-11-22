@@ -4,8 +4,8 @@
 
 import type { Locator, Page } from "@playwright/test";
 import { msg } from "../../src/test/msg";
-import { expect, mockApi, mockGet, test, watchReads } from "./fixtures";
-import { applicationCardFixture, applicationDetailFixture, compPackageFixture, jobFixture } from "../../src/test/fixtures";
+import { expect, mockApi, mockGet, test, viewChoices, watchReads } from "./fixtures";
+import { applicationCardFixture, applicationDetailFixture, compPackageFixture, jobFixture, stepFixture } from "../../src/test/fixtures";
 import { appleJobFixture, comparison, detail, installBoardRoutes, jobFixture2, twoJobList } from "./boardHarness";
 import { expectOnTop, pointAndClick, strangersOver } from "./paint";
 
@@ -1006,9 +1006,10 @@ test("switching tabs while they are held opens the other one from its start, wit
  *  activity as `items` holds. */
 async function openWorkspace(
   page: Page,
-  { card = {}, items = [], size = { width: 1440, height: 1000 } }: {
+  { card = {}, items = [], done = [], size = { width: 1440, height: 1000 } }: {
     card?: Parameters<typeof applicationCardFixture>[0];
     items?: unknown[];
+    done?: ReturnType<typeof stepFixture>[];
     size?: { width: number; height: number };
   } = {},
 ) {
@@ -1019,6 +1020,7 @@ async function openWorkspace(
       job_id: 303, pursuit_id: 10, stage: "applied", company: "apple", stage_since: new Date(Date.now() - 3 * DAY).toISOString(),
       ...card,
     }),
+    done_steps: done,
   }) }));
   await page.goto("/company/apple/job/303?tab=workspace");
   const panel = detail(page);
@@ -1158,7 +1160,44 @@ test("writing a next step grows its field with the text, with the day and Save s
   expect(save.y, "Save step is below the words").toBeGreaterThanOrEqual(box.y + box.height);
 });
 
-test("the notes keep their words off the field's edge, and the ring off the words", async ({ page }) => {
+/* A step's day is the app's own field: any part of it, and the word Due
+   beside it, opens the month the interview form picks its day from. */
+test("a click anywhere on a step's day field opens the month, and a day picked shows in it", async ({ page, isMobile }) => {
+  test.skip(isMobile, "phones are not supported");
+  const { panel } = await openWorkspace(page);
+  await panel.getByRole("textbox", { name: msg("applications-ws-next-add") }).fill("Send the portfolio");
+  await expect(panel.locator('input[type="date"]')).toHaveCount(0);
+  const field = panel.getByRole("button", { name: new RegExp(`^${msg("applications-ws-next-due")} `) });
+  const month = page.getByRole("dialog", { name: msg("applications-ws-next-due") });
+  const box = (await field.boundingBox())!;
+  // Its icon, its words and its chevron, then the label before it.
+  const spots: [string, () => Promise<void>][] = [
+    ["the icon", () => field.click({ position: { x: 10, y: box.height / 2 } })],
+    ["the words", () => field.click({ position: { x: box.width / 2, y: box.height / 2 } })],
+    ["the chevron", () => field.click({ position: { x: box.width - 9, y: box.height / 2 } })],
+    ["the label", () => panel.locator("label", { hasText: msg("applications-ws-next-due") }).click()],
+  ];
+  for (const [spot, click] of spots) {
+    await click();
+    await expect(month, `${spot} opens the month`).toBeVisible();
+    await expect(month.locator(".app-daypicker .app-month-grid")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(month).toBeHidden();
+  }
+  await field.click();
+  const picked = month.locator(".app-month-day:not([data-outside])").nth(14);
+  const name = (await picked.getAttribute("aria-label"))!;
+  await picked.click();
+  await expect(month).toBeHidden();
+  // The field writes the day as the month names it.
+  await expect(field).toHaveText(name);
+});
+
+/** Where a field's words start, from the page's left. */
+const textStart = (field: Locator) =>
+  field.evaluate((el) => el.getBoundingClientRect().left + parseFloat(getComputedStyle(el).paddingLeft) + parseFloat(getComputedStyle(el).borderLeftWidth));
+
+test("the notes keep their words off the field's edge, at the comment field's inset", async ({ page }) => {
   const { panel } = await openWorkspace(page);
   const notes = panel.getByRole("textbox", { name: msg("applications-notes-label") });
   await notes.focus();
@@ -1168,11 +1207,235 @@ test("the notes keep their words off the field's edge, and the ring off the word
   });
   expect(room.top, "room above the first line").toBeGreaterThanOrEqual(8);
   expect(room.left, "room before the words").toBeGreaterThanOrEqual(room.radius);
-  // The text stands where the other rows' text does: the room reaches out into the margin.
-  const notesText = await notes.evaluate((el) => el.getBoundingClientRect().left + parseFloat(getComputedStyle(el).paddingLeft) + parseFloat(getComputedStyle(el).borderLeftWidth));
-  const stepText = (await panel.getByRole("textbox", { name: msg("applications-ws-next-add") }).evaluate((el) =>
-    el.getBoundingClientRect().left + parseFloat(getComputedStyle(el).paddingLeft) + parseFloat(getComputedStyle(el).borderLeftWidth)));
-  expect(notesText).toBeCloseTo(stepText, 0);
+  // The page is a field like the comment's: its words start where the comment's do.
+  const comment = panel.getByRole("textbox", { name: msg("applications-comment-label") });
+  expect(await textStart(notes)).toBeCloseTo(await textStart(comment), 0);
+});
+
+/* Every field in the Workspace is a field like any other: its ring is drawn
+   over its own edge, and the field, ring and all, stands inside its card's
+   content edges. A ring outside the edge doubles the frame; a field reaching
+   into the card's padding looks misplaced. */
+test("each Workspace field rings on its own edge and stays inside its card", async ({ page }) => {
+  const { panel } = await openWorkspace(page);
+  await panel.getByRole("textbox", { name: msg("applications-ws-next-add") }).fill("Send the portfolio");
+  // Which content edges a field stands on: the next step's field starts past
+  // the ticks' column, where the steps' words start.
+  const nextStep = panel.getByRole("textbox", { name: msg("applications-ws-next-add") });
+  const fields: [string, Locator, { start: boolean; end: boolean }][] = [
+    ["notes", panel.getByRole("textbox", { name: msg("applications-notes-label") }), { start: true, end: true }],
+    ["next step", nextStep, { start: false, end: true }],
+    ["step day", panel.getByRole("button", { name: new RegExp(`^${msg("applications-ws-next-due")} `) }), { start: false, end: false }],
+    ["comment", panel.getByRole("textbox", { name: msg("applications-comment-label") }), { start: true, end: true }],
+  ];
+  for (const [name, field, flush] of fields) {
+    // A click on the day opens its month, which takes the keyboard: the day
+    // field is reached the way the keyboard reaches it, from the words.
+    if (name === "step day") {
+      await nextStep.click();
+      await page.keyboard.press("Tab");
+      await expect(field).toBeFocused();
+    } else {
+      await field.click();
+    }
+    const ring = await field.evaluate(async (el) => {
+      // Under reduced motion every change of style is a short transition:
+      // reading the style starts it, and the ring is read once it has landed.
+      getComputedStyle(el).outlineOffset;
+      await Promise.all(el.getAnimations().map((animation) => animation.finished.catch(() => {})));
+      const style = getComputedStyle(el);
+      const width = parseFloat(style.outlineWidth);
+      const offset = parseFloat(style.outlineOffset);
+      const reach = Math.max(0, offset + width);
+      const box = el.getBoundingClientRect();
+      const card = el.closest(".app-ws-card")!;
+      const cardStyle = getComputedStyle(card);
+      const edge = card.getBoundingClientRect();
+      const left = edge.left + parseFloat(cardStyle.borderLeftWidth) + parseFloat(cardStyle.paddingLeft);
+      const right = edge.right - parseFloat(cardStyle.borderRightWidth) - parseFloat(cardStyle.paddingRight);
+      return {
+        style: style.outlineStyle,
+        width,
+        offset,
+        border: parseFloat(style.borderTopWidth),
+        before: box.left - reach - left,
+        after: right - (box.right + reach),
+      };
+    });
+    expect(ring.style, `${name}: the ring`).toBe("solid");
+    expect(ring.width, `${name}: the ring's width`).toBeGreaterThanOrEqual(2);
+    expect(ring.offset, `${name}: the ring is over the field's edge`).toBeLessThanOrEqual(-ring.border);
+    expect(ring.before, `${name}: inside the card's left content edge`).toBeGreaterThanOrEqual(-0.5);
+    expect(ring.after, `${name}: inside the card's right content edge`).toBeGreaterThanOrEqual(-0.5);
+    if (flush.start) expect(ring.before, `${name}: on the card's left content edge`).toBeLessThanOrEqual(0.5);
+    if (flush.end) expect(ring.after, `${name}: on the card's right content edge`).toBeLessThanOrEqual(0.5);
+  }
+});
+
+/* The line that adds a step stands at the steps' own level: a plus in the
+   ticks' column and the field where the words are. Set in under the last
+   step, it would read as part of that step. */
+test("the line that adds a step is a row of the list, level with the steps", async ({ page }) => {
+  const { panel } = await openWorkspace(page, { card: { next_action: "Email the recruiter", next_action_due: tomorrowNoon() } });
+  const steps = panel.locator(".app-ws-steps");
+  const tick = (await steps.getByRole("button", { name: msg("applications-upnext-done-label", { step: "Email the recruiter" }) }).boundingBox())!;
+  const words = (await steps.locator(".app-ws-step-words").first().boundingBox())!;
+  const plus = (await steps.locator(".app-ws-step-plus").boundingBox())!;
+  const field = panel.getByRole("textbox", { name: msg("applications-ws-next-add") });
+  const box = (await field.boundingBox())!;
+  expect(Math.abs(plus.x - tick.x), "the plus stands in the ticks' column").toBeLessThanOrEqual(0.5);
+  expect(Math.abs(plus.width - tick.width), "as wide as a tick").toBeLessThanOrEqual(0.5);
+  expect(Math.abs(box.x - words.x), "the field starts where the steps' words do").toBeLessThanOrEqual(0.5);
+  expect(Math.abs(plus.y + plus.height / 2 - (box.y + box.height / 2)), "the plus is level with the field").toBeLessThanOrEqual(1);
+  // The plus is the field's label: a click on it is a click into the field.
+  await steps.locator(".app-ws-step-plus").click();
+  await expect(field).toBeFocused();
+});
+
+test("the notes' headings step down in size from the first level to the third, all above the text", async ({ page }) => {
+  // Typing pauses save the notes; the save is answered so a slow run stays on the page.
+  await mockApi(page, "PUT", "/api/jobs/303/pursuit", (route) => route.fulfill({
+    json: { pursuit: { ...appliedPursuit, job_id: 303, notes: route.request().postDataJSON().notes } },
+  }));
+  const { panel } = await openWorkspace(page);
+  const notes = panel.getByRole("textbox", { name: msg("applications-notes-label") });
+  await notes.click();
+  await page.keyboard.type("# One");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("## Two");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("### Three");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("Plain words with `code` in them");
+  const size = (selector: string) => notes.locator(selector).first().evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+  const [h1, h2, h3, text, code] = [await size("h1"), await size("h2"), await size("h3"), await size("p"), await size("code")];
+  expect(h1).toBeGreaterThan(h2);
+  expect(h2).toBeGreaterThan(h3);
+  expect(h3).toBeGreaterThan(text);
+  // Inline code is set apart by its face, not its size alone.
+  const face = await notes.locator("code").evaluate((el) => getComputedStyle(el).fontFamily);
+  const textFace = await notes.locator("p").first().evaluate((el) => getComputedStyle(el).fontFamily);
+  expect(face).not.toBe(textFace);
+  expect(code).toBeLessThanOrEqual(text);
+});
+
+/* Selected words show a bar of styles over them, as in Google Docs and
+   Notion: it stands clear of the words, its buttons keep the selection, and
+   ⌘K over them links them while ⌘K anywhere else is still the palette. */
+test("selected words show a bar over them that styles and links them, and ⌘K elsewhere is still the palette", async ({ page, isMobile }) => {
+  test.skip(isMobile, "phones are not supported");
+  const saves: string[] = [];
+  await mockApi(page, "PUT", "/api/jobs/303/pursuit", (route) => {
+    const { notes: written } = route.request().postDataJSON();
+    saves.push(written);
+    return route.fulfill({ json: { pursuit: { ...appliedPursuit, job_id: 303, notes: written } } });
+  });
+  const { panel } = await openWorkspace(page);
+  const notes = panel.getByRole("textbox", { name: msg("applications-notes-label") });
+  const bar = page.getByRole("toolbar", { name: msg("applications-notes-bar") });
+  await notes.click();
+  await page.keyboard.type("Ask Sam about the team");
+  await expect(bar, "a caret alone selects nothing to style").toHaveCount(0);
+
+  await notes.getByText("Ask Sam about the team").dblclick({ position: { x: 40, y: 8 } });
+  await expect(bar).toBeVisible();
+  await expect(bar).toBeInViewport();
+  const word = await page.evaluate(() => getSelection()!.toString());
+  expect(word).toBe("Sam");
+  // Above the words, not over them.
+  const words = (await page.evaluate(() => getSelection()!.getRangeAt(0).getBoundingClientRect().toJSON())) as DOMRect;
+  const barBox = (await bar.boundingBox())!;
+  expect(barBox.y + barBox.height).toBeLessThanOrEqual(words.y);
+
+  await bar.getByRole("button", { name: msg("applications-notes-style-bold") }).click();
+  await expect(bar.getByRole("button", { name: msg("applications-notes-style-bold") })).toHaveAttribute("aria-pressed", "true");
+  expect(await page.evaluate(() => getSelection()!.toString()), "the words stay selected").toBe("Sam");
+  await expect.poll(() => saves.at(-1)).toMatch(/^Ask \*\*Sam\*\* about the team/);
+
+  const palette = page.getByRole("dialog", { name: "Command palette" });
+  await page.keyboard.press("ControlOrMeta+k");
+  const field = bar.getByRole("textbox", { name: msg("applications-notes-link-field") });
+  await expect(field).toBeFocused();
+  await expect(palette).toHaveCount(0);
+  await field.fill("careers.example.com/team");
+  await field.press("Enter");
+  await expect(notes).toBeFocused();
+  await expect.poll(() => saves.at(-1)).toMatch(/^Ask \[\*\*Sam\*\*\]\(https:\/\/careers\.example\.com\/team\) about the team/);
+
+  // Escape lets go of the words; the role stays open.
+  await page.keyboard.press("Escape");
+  await expect(bar).toHaveCount(0);
+  await expect(notes).toBeVisible();
+  await expect(page).toHaveURL(/\/job\/303/);
+
+  // With nothing selected, ⌘K is the palette's, from the page as anywhere.
+  await page.keyboard.press("ControlOrMeta+k");
+  await expect(palette).toBeVisible();
+});
+
+/* The guide promises that each mark it lists, typed at the start of a line,
+   makes its block: every row is typed into the page and checked. */
+test("each mark the formatting guide lists makes its block at the start of a line", async ({ page, isMobile }) => {
+  test.skip(isMobile, "phones are not supported");
+  const { panel } = await openWorkspace(page);
+  await panel.getByRole("button", { name: msg("applications-notes-help") }).click();
+  const guide = page.getByRole("dialog", { name: msg("applications-notes-help-title") });
+  await expect(guide).toBeVisible();
+  await expect(guide).toBeInViewport();
+  const rows = await guide.locator("dl").first().locator(":scope > div").evaluateAll((divs) =>
+    divs.map((row) => [row.querySelector("dt")!.textContent ?? "", row.querySelector("dd")!.textContent ?? ""] as const));
+  const made: Record<string, string> = {
+    [msg("applications-notes-block-heading", { level: 1 })]: "h1",
+    [msg("applications-notes-block-heading", { level: 2 })]: "h2",
+    [msg("applications-notes-block-heading", { level: 3 })]: "h3",
+    [msg("applications-notes-block-bullets")]: "ul:not([data-type]) > li",
+    [msg("applications-notes-block-numbers")]: "ol > li",
+    [msg("applications-notes-block-checklist")]: "ul[data-type='taskList'] > li",
+    [msg("applications-notes-block-quote")]: "blockquote",
+    [msg("applications-notes-block-divider")]: "hr",
+  };
+  expect(rows.map(([name]) => name).sort()).toEqual(Object.keys(made).sort());
+  await page.keyboard.press("Escape");
+  await expect(guide).toHaveCount(0);
+
+  const notes = panel.getByRole("textbox", { name: msg("applications-notes-label") });
+  await notes.click();
+  for (const [name, mark] of rows) {
+    // Two Enters leave whatever block the last line made, for plain text.
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Enter");
+    const words = `Made by ${mark}`;
+    await page.keyboard.type(made[name] === "hr" ? mark : `${mark} ${words}`);
+    const block = notes.locator(made[name]);
+    if (made[name] === "hr") await expect(block, name).toHaveCount(1);
+    else await expect(block.filter({ hasText: words }), name).toHaveCount(1);
+  }
+});
+
+test("done steps fold under the open ones and read as done when opened", async ({ page }) => {
+  const done = [
+    stepFixture({ id: 31, text: "Call the recruiter", done_at: new Date(Date.now() - DAY).toISOString() }),
+    stepFixture({ id: 32, text: "Tailor the CV", done_at: new Date(Date.now() - 3 * DAY).toISOString() }),
+  ];
+  const { panel } = await openWorkspace(page, { card: { next_action: "Email the recruiter", next_action_due: tomorrowNoon() }, done });
+  const toggle = panel.getByRole("button", { name: msg("applications-ws-next-done-fold", { count: 2 }) });
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(panel.getByText("Call the recruiter")).toHaveCount(0);
+  await toggle.click();
+  const words = panel.locator(".app-ws-done .app-ws-step-words");
+  await expect(words).toHaveText(["Call the recruiter", "Tailor the CV"]);
+  const open = panel.locator(".app-ws-step-list").first().locator(".app-ws-step-words").first();
+  const look = async (el: Locator) => el.evaluate((node) => ({ line: getComputedStyle(node).textDecorationLine, color: getComputedStyle(node).color }));
+  const doneLook = await look(words.first());
+  const openLook = await look(open);
+  expect(doneLook.line, "a done step is struck through").toContain("line-through");
+  expect(openLook.line, "an open step is not").not.toContain("line-through");
+  expect(doneLook.color, "a done step is in the quiet ink").not.toBe(openLook.color);
+  // The done tick shows its check at rest; the open one is empty until pointed at.
+  const tick = (step: string) => panel.getByRole("button", { name: msg("applications-upnext-done-label", { step }) });
+  const check = (button: Locator) => button.evaluate((el) => getComputedStyle(el).color);
+  expect(await check(tick("Call the recruiter"))).not.toBe("rgba(0, 0, 0, 0)");
+  expect(await check(tick("Email the recruiter"))).toBe("rgba(0, 0, 0, 0)");
 });
 
 test("a / in the notes offers the blocks by name in reach of the pointer, and a picked checklist is saved as Markdown", async ({ page, isMobile }) => {
@@ -1553,7 +1816,8 @@ test("a posting opened by its link has no pager", async ({ page }) => {
 });
 
 /* More like this folds to its heading, for a column of the role's own facts.
-   The choice is this browser's, and holds for the next posting opened. */
+   The choice is kept with the person's settings, and holds for the next
+   posting opened. */
 test("More like this folds to its heading, and the next posting opens folded", async ({ page }) => {
   const { column } = await openLongPosting(page, { width: 1440, height: 1000 });
   const panel = detail(page);
@@ -1606,8 +1870,9 @@ test("More like this folds to its heading, and the next posting opens folded", a
 
 /* More like this is for choosing where to go next: open at the top of a
    posting, folded while it is read, open again back at the top. Opened while
-   reading it stays open, and none of that changes the choice the browser keeps. */
+   reading it stays open, and none of that changes the choice the person keeps. */
 test("More like this folds while the posting is read and opens again at the top", async ({ page }) => {
+  const saved = await viewChoices(page);
   const { column, scroll } = await openLongPosting(page, { width: 1440, height: 1000 });
   const fold = column.getByRole("button", { name: msg("role-job-detail-more-like-this") });
   const rows = column.locator(".similar-row");
@@ -1634,7 +1899,7 @@ test("More like this folds while the posting is read and opens again at the top"
   await expect(fold).toHaveAttribute("aria-expanded", "true");
   await expect(rows.first()).toBeVisible();
   // Folding by the scroll is not the person's choice: the next visit opens it.
-  expect(await page.evaluate(() => localStorage.getItem("roleband.posting-similar-folded"))).toBeNull();
+  expect(saved).not.toHaveProperty("posting.similar-folded");
 });
 
 test("in one column the side column follows the description and scrolls with the page", async ({ page }) => {

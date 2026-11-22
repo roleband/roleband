@@ -333,8 +333,9 @@ glide, and `--app-duration-fast` / `-medium` / `-slow` (120 / 180 / 260ms).
 `:root` is the light theme. Dark values live in `:root[data-theme="dark"]` and
 again in `@media (prefers-color-scheme: dark)` for a root with no theme set.
 The app sets `data-theme` on `<html>` from the viewer's choice, saved in
-`localStorage` (a choice for this device, as the language and the Insights
-view are; settings live on the backend). First-run setup is the exception: it
+`localStorage` (a choice for this device; how the person arranges the
+screens is kept with their settings,
+[0027](decisions/0027-view-choices-in-local-database.md)). First-run setup is the exception: it
 is always dark, without saving
 that over the viewer's choice (`shownTheme` in `shell/theme.ts`, and
 `public/theme-boot.js` before first paint). Every colour token needs a value
@@ -553,6 +554,9 @@ Modifier classes on top of a variant:
   it ("Show 23 more").
 - `ui-btn-tile` (with `ui-btn-tile-copy`, `-title`, `-description`): a
   full-width two-line opener. No nested controls inside it.
+- `ui-btn-bar` on a ghost or icon: a button on a floating bar's own glass
+  (the bar over words selected in the notes). No edge at rest, muted ink; on
+  or open, the chosen paint.
 - `ui-beacon` belongs to `patterns/jobs/MarginBeacon` only: the compare and
   dismiss pills in a job list's margin.
 
@@ -594,6 +598,10 @@ after its words), never a bare `<a target="_blank">`.
   folding More like this heading, the suggestion to apply at a posting's end) is a
   bare `<button>` or link carrying layout and no button chrome. It still owns hover,
   focus and disabled, and its ring is drawn inside.
+- **A field that opens a picker** (a next step's day) is a bare `<button>`
+  drawn as the field box around it, so a click anywhere on it opens the
+  picker. It owns hover and focus, rings inside its edge as a field does, and
+  takes the chosen edge while its picker is open.
 - `src/test/control-inventory.test.ts` lists every class outside `src/ui/`
   that declares `cursor: pointer` and paints a box. A new name fails, and so
   does a listed name that styles nothing.
@@ -765,7 +773,7 @@ where the ring is drawn:
 | Variant | When |
 |---|---|
 | Outside, `--app-ring-offset` | The default: buttons, chips, switches, boxes and radios |
-| Inside, `calc(-1 * var(--app-ring-offset))` | A field (text, search, select, textarea), where the ring takes the place of the field's own border, so the two never read as two lines with a gap; or the control is flush with its container, or the container clips: tabs, list rows, index entries |
+| Inside, `calc(-1 * var(--app-ring-offset))` | A field (text, search, select, textarea, an editable page such as the notes editor), where the ring takes the place of the field's own border, so the two never read as two lines with a gap; or the control is flush with its container, or the container clips: tabs, list rows, index entries |
 | On a carrier (`:focus-within`, `:has(:focus-visible)`) | The focused element is hidden or is only part of the visible control: `.ui-search`, the filter rail's search row |
 | As an SVG stroke at `--app-ring-width` | A mark inside a chart or map |
 | In `--rail-accent` | Anything inside the dark nav rail |
@@ -773,6 +781,11 @@ where the ring is drawn:
 - Never a tint, halo, glow, bar or another hue for focus.
 - Text fields ring on click as well as on Tab. A native select rings for the
   keyboard only (`ui/Select` marks pointer focus with `data-pointer`).
+- A field stands inside its container's content edges, ring included. A field
+  that reaches into a card's padding, or a ring that spills past it, looks like
+  a misplaced box. A new kind of field (a rich text editor is a `div` with
+  `contenteditable`, so by its tag it is not a field) joins the field rule in
+  `shell.css` and the field lists of both checks below.
 - A pop-up gives focus back to the control that opened it. `ui/Popover` gives
   it back without the ring when the pointer opened it (the opener wore none),
   so an Escape does not ring a button the person never reached by keyboard;
@@ -809,8 +822,11 @@ carries a control sets `data-above-cover` to join the cover's Tab ring.
 
 - `TabBar` is an ARIA tablist with a roving tabindex: Left, Right, Home and End
   move the selection.
-- `⌘K` / `Ctrl-K` opens the command palette anywhere; `/` focuses search; `?`
+- `⌘K` / `Ctrl-K` opens the command palette anywhere, except over words
+  selected in a role's notes, where it links them; `/` focuses search; `?`
   opens the shortcuts sheet (`shell/KeyboardShortcuts.tsx`).
+- In a role's notes, selected words show a bar of styles over them; `Alt F10`
+  moves the keyboard into it, the arrows walk it and Escape leaves it.
 - On a job list, `j` / `k` (or the arrow keys) move between rows, Enter opens
   the role, `s` saves and `c` adds to Compare.
 - Duplicate review answers `d`, `t` and `n` with a verdict.
