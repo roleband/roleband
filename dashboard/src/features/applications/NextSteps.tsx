@@ -152,8 +152,15 @@ function DoneRow({ step, now, onReopen, onDelete }: {
   onDelete: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
+  const bin = useRef<HTMLButtonElement>(null);
+  // Leaving the question puts the focus back on the bin that asked it, as the
+  // question's own buttons go with it.
+  const keep = () => {
+    setConfirming(false);
+    bin.current?.focus();
+  };
   // While the delete question is open, Escape leaves just that.
-  useEscapeLayer(confirming, () => setConfirming(false));
+  useEscapeLayer(confirming, keep);
   return (
     <>
       <div className="app-ws-step" data-done="">
@@ -174,6 +181,7 @@ function DoneRow({ step, now, onReopen, onDelete }: {
           </time>
         )}
         <Button
+          ref={bin}
           variant="icon"
           size="sm"
           className="app-row-tool"
@@ -186,7 +194,7 @@ function DoneRow({ step, now, onReopen, onDelete }: {
       {confirming && (
         <div className="app-comment-confirm app-ws-step-confirm" role="group" aria-label={applicationsWsNextDeleteConfirm()}>
           <span>{applicationsWsNextDeleteConfirm()}</span>
-          <Button variant="ghost" size="sm" onClick={() => setConfirming(false)}>{applicationsInterviewCancel()}</Button>
+          <Button variant="ghost" size="sm" onClick={keep}>{applicationsInterviewCancel()}</Button>
           <Button
             variant="danger"
             size="sm"

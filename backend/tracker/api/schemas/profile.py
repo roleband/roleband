@@ -146,6 +146,9 @@ class PursuitWrite(PursuitUpdate):
     #: The notes the page started from, "" for none. Given, the write is
     #: refused with `notes-moved` when the stored notes are no longer these.
     notes_was: str | None = Field(default=None, max_length=20_000, json_schema_extra=text("content"))
+    #: The notes are an earlier version put back. They start a writing
+    #: session of their own, so the notes they replace stay a version.
+    notes_put_back: bool | None = None
 
 
 class PursuitWriteResponse(Built):

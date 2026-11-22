@@ -651,10 +651,13 @@ describe("the done steps", () => {
     expect(question()).toBeInTheDocument();
     await userEvent.click(within(question()!).getByRole("button", { name: msg("applications-interview-cancel") }));
     expect(question()).toBeNull();
+    expect(trash(latest.text), "the focus goes back to the bin, not to the page").toHaveFocus();
 
     await userEvent.click(trash(latest.text));
+    within(question()!).getByRole("button", { name: msg("applications-interview-cancel") }).focus();
     await userEvent.keyboard("{Escape}");
     expect(question()).toBeNull();
+    expect(trash(latest.text)).toHaveFocus();
     expect(handlers.onRemoveStep).not.toHaveBeenCalled();
     expect(doneRows()).toEqual([latest.text, earlier.text]);
 
@@ -889,8 +892,10 @@ describe("the interviews block", () => {
 
     expect(saved).toEqual([expect.stringMatching(/hiring-manager\.ics$/)]);
     expect(files).toHaveLength(1);
-    expect(files[0].type).toBe("text/calendar;charset=utf-8");
+    // The type names the method the file states, as calendar apps check.
+    expect(files[0].type).toBe("text/calendar;charset=utf-8;method=publish");
     const body = await files[0].text();
+    expect(body).toContain("METHOD:PUBLISH");
     expect(body).toContain("UID:interview-7@roleband");
     expect(body).toContain(`DTSTART:${tomorrow.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "")}`);
     expect(document.querySelector("a[download]"), "the link leaves the page once used").toBeNull();

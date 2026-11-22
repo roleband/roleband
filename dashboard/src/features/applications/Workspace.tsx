@@ -29,7 +29,7 @@ const NotesEditor = lazy(() => import("./NotesEditor"));
  *  so nothing moves when it arrives. */
 function Notes({ notes, onSave, loadVersions }: {
   notes: string | null;
-  onSave: (notes: string, was: string) => Promise<NotesSaved>;
+  onSave: (notes: string, was: string, putBack?: boolean) => Promise<NotesSaved>;
   loadVersions: () => Promise<NotesVersion[]>;
 }) {
   return (
@@ -59,7 +59,7 @@ export interface WorkspaceProps {
   onFinishStep: (step: ApplicationStep) => void;
   onReopenStep: (step: ApplicationStep) => Promise<boolean>;
   onRemoveStep: (step: ApplicationStep) => Promise<boolean>;
-  onSaveNotes: (notes: string, was: string) => Promise<NotesSaved>;
+  onSaveNotes: (notes: string, was: string, putBack?: boolean) => Promise<NotesSaved>;
   onLoadNotesVersions: () => Promise<NotesVersion[]>;
   onAddInterview: () => void;
   onEditInterview: (interview: ApplicationInterview, at?: "notes") => void;

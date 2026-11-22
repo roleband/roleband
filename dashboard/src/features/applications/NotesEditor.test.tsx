@@ -220,9 +220,9 @@ describe("notes changed elsewhere while the page is written", () => {
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(2));
     // The first save names the text the page was given; it was refused.
-    expect(onSave.mock.calls[0]).toEqual(["Recruiter is Sam\n\nAsk about the team", "Recruiter is Sam"]);
+    expect(onSave.mock.calls[0].slice(0, 2)).toEqual(["Recruiter is Sam\n\nAsk about the team", "Recruiter is Sam"]);
     // The second is both, over the notes as they are now.
-    expect(onSave.mock.calls[1]).toEqual(["Recruiter is Sam\n\nAsk about the team\n\nComp band: 210-240k", theirs]);
+    expect(onSave.mock.calls[1].slice(0, 2)).toEqual(["Recruiter is Sam\n\nAsk about the team\n\nComp band: 210-240k", theirs]);
     expect(page()).toHaveTextContent("Ask about the team");
     expect(page()).toHaveTextContent("Comp band: 210-240k");
     expect(screen.getByRole("status")).toHaveTextContent(msg("applications-notes-merged"));
@@ -234,6 +234,55 @@ describe("notes changed elsewhere while the page is written", () => {
     await act(async () => page().blur());
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(3));
     expect(onSave.mock.calls[2][1]).toBe("Recruiter is Sam\n\nAsk about the team\n\nComp band: 210-240k");
+  });
+
+  it("sends a save written while another is out only once that one lands, over the text it confirmed", async () => {
+    let land!: (saved: NotesSaved) => void;
+    const onSave = vi.fn<(notes: string, was: string, putBack?: boolean) => Promise<NotesSaved>>()
+      .mockImplementationOnce(() => new Promise((resolve) => { land = resolve; }))
+      .mockResolvedValue(true);
+    render(<NotesEditor notes={"Met Sam"} onSave={onSave} />);
+    await act(() => new Promise((done) => setTimeout(done, 0)));
+    const typeAtEnd = (words: string) => act(async () => {
+      (page() as unknown as { editor: Editor }).editor.chain().focus("end").insertContent(words).run();
+    });
+    await typeAtEnd(" and Pat");
+    await act(async () => page().blur());
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0].slice(0, 2)).toEqual(["Met Sam and Pat", "Met Sam"]);
+
+    await typeAtEnd(" and Lee");
+    await act(async () => page().blur());
+    // Sent now, it would name "Met Sam" as its starting text, which the first
+    // save is about to replace, and be refused.
+    expect(onSave).toHaveBeenCalledTimes(1);
+
+    await act(async () => land(true));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(2));
+    expect(onSave.mock.calls[1].slice(0, 2)).toEqual(["Met Sam and Pat and Lee", "Met Sam and Pat"]);
+  });
+
+  it("puts both together and saves them when the page closed before the refusal came back", async () => {
+    const theirs = "Recruiter is Sam\n\nComp band: 210-240k";
+    let land!: (saved: NotesSaved) => void;
+    const onSave = vi.fn<(notes: string, was: string, putBack?: boolean) => Promise<NotesSaved>>()
+      .mockImplementationOnce(() => new Promise((resolve) => { land = resolve; }))
+      .mockResolvedValue(true);
+    const { unmount } = render(<NotesEditor notes={"Recruiter is Sam"} onSave={onSave} />);
+    await act(() => new Promise((done) => setTimeout(done, 0)));
+    const { editor } = page() as unknown as { editor: Editor };
+    await act(async () => {
+      editor.chain().focus("end").splitBlock().insertContent("Ask about the team").run();
+    });
+    // Closing the page saves what was typed since the last save.
+    unmount();
+    expect(onSave).toHaveBeenCalledTimes(1);
+    // The editor goes a moment after the page; the refusal comes after that.
+    await waitFor(() => expect(editor.isDestroyed).toBe(true));
+
+    await act(async () => land({ current: theirs }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(2));
+    expect(onSave.mock.calls[1].slice(0, 2)).toEqual(["Recruiter is Sam\n\nAsk about the team\n\nComp band: 210-240k", theirs]);
   });
 });
 
@@ -258,7 +307,8 @@ describe("the notes' earlier versions", () => {
     expect(within(rows[0]).getByText(msg("applications-comment-author-agent"))).toBeInTheDocument();
     expect(within(rows[1]).getByText(msg("applications-comment-author-you"))).toBeInTheDocument();
     // The marks that start a line are left out of the preview.
-    expect(within(rows[0]).getByText("Prep · Ask about the team · Comp band: 210-240k")).toBeInTheDocument();
+    // The person's own words, shown as written and never translated.
+    expect(within(rows[0]).getByText("Prep · Ask about the team · Comp band: 210-240k")).toHaveAttribute("translate", "no");
   });
 
   it("tells two versions from the same day apart by their time", async () => {
@@ -279,7 +329,8 @@ describe("the notes' earlier versions", () => {
 
     expect(screen.queryByRole("dialog", { name: msg("applications-notes-versions") })).toBeNull();
     expect(page()).toHaveTextContent(/^Recruiter is Sam$/);
-    await waitFor(() => expect(onSave).toHaveBeenCalledWith("Recruiter is Sam", "Today's notes"));
+    // Marked as put back, so the server keeps the notes it replaced as a version.
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith("Recruiter is Sam", "Today's notes", true));
     expect(screen.getByRole("status")).toHaveTextContent(msg("applications-notes-version-back", { when }));
 
     await act(async () => {

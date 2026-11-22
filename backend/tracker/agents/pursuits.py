@@ -192,6 +192,7 @@ async def upsert_pursuit(
     expected_revision: int | None = None,
     via: str | None = None,
     notes_was: str | None = None,
+    new_notes_session: bool = False,
 ) -> Pursuit:
     """Create or change the pursuit of one role. Every write that changes the
     row advances its `revision` (the mapper does it on flush); a write that
@@ -210,10 +211,15 @@ async def upsert_pursuit(
     with new notes, the write is refused with `NotesMoved` when the stored
     notes differ from it, under the same lock: notes written meanwhile (by an
     agent, or in another window) are never written over unseen.
+
+    `new_notes_session` starts a notes writing session with this write even
+    within the gap: an earlier version put back is not more of the typing
+    before it, and the notes it replaces must stay a version.
     """
     pursuit, _ = await _write_pursuit(
         session, job_id, payload.model_dump(exclude_unset=True),
         actor=actor, expected_revision=expected_revision, via=via, notes_was=notes_was,
+        new_notes_session=new_notes_session,
     )
     return pursuit
 
@@ -241,6 +247,7 @@ async def _write_pursuit(
     via: str | None,
     step_write: StepChange | None = None,
     notes_was: str | None = None,
+    new_notes_session: bool = False,
 ) -> tuple[Pursuit, PursuitStep | None]:
     """`upsert_pursuit`, and the one way a step is written: the step change
     runs under the role's lock and revision check, the pursuit's soonest-step
@@ -331,7 +338,7 @@ async def _write_pursuit(
     # keeps what it replaced, and what the session ended with is what the next
     # one replaced, or the notes as they are.
     carries_on = None
-    if not created and actor == "user" and via is None and set(changed) == {"notes"} and said is None:
+    if not created and actor == "user" and via is None and set(changed) == {"notes"} and said is None and not new_notes_session:
         carries_on = await _notes_session(session, pursuit.id)
     before_values, after_values = _stored(replaced), _stored(changed)
     if carries_on is not None:

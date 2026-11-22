@@ -2162,21 +2162,20 @@
   font-weight: var(--app-weight-strong);
 }
 
-/* The page's own ramp, in steps of its text size: the posting scales its type
-   with the window, and the app's heading roles do not all scale with it, so
-   only steps of the text itself keep the three levels apart at every width. */
+/* Roles the posting scales with the window as it scales the page's text, so
+   the three levels stay apart from it at every width. */
 .app-ws-notes h1 {
-  font-size: 1.6em;
+  font-size: var(--app-type-read-head);
   line-height: 1.2;
 }
 
 .app-ws-notes h2 {
-  font-size: 1.3em;
+  font-size: var(--app-type-read);
   line-height: 1.25;
 }
 
 .app-ws-notes h3 {
-  font-size: 1.1em;
+  font-size: var(--app-type-title);
   line-height: 1.3;
 }
 
@@ -2187,7 +2186,12 @@
   border-radius: var(--app-radius-sm);
   background: var(--app-surface-sunken);
   font-family: var(--app-font-mono);
-  font-size: 0.9em;
+  font-size: var(--app-type-meta);
+}
+
+/* In a heading, code keeps the heading's size. */
+.app-ws-notes :where(h1, h2, h3) code {
+  font-size: inherit;
 }
 
 .app-ws-notes :where(ul, ol) {

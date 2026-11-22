@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { fakeViewChoiceServer } from "../test/viewChoicesServer";
-import { setViewChoice, viewChoice, viewChoicesNow } from "./viewChoices";
-import { readViewChoices } from "./viewChoicesRead";
+import { forgetViewChoices, setViewChoice, viewChoice, viewChoicesNow } from "./viewChoices";
+import { heldViewChoices, readViewChoices } from "./viewChoicesRead";
 
 /* How the person arranged the screens is kept in the database: read once per
  * page, shown at once when changed, saved in the background with the last
@@ -50,6 +50,32 @@ describe("the person's view choices", () => {
     expect(await Promise.all(saves)).toEqual([true, true, true, true]);
     expect(server.save).toHaveBeenCalledTimes(2);
     expect(server.saved()["filters.board"]).toEqual({ company: ["d"] });
+  });
+
+  it("take nothing from a read or a save begun before the page started afresh", async () => {
+    let answerRead!: () => void;
+    server.read.mockImplementationOnce(() => new Promise((resolve) => {
+      answerRead = () => resolve({ choices: { "posting.similar-folded": true } as never });
+    }));
+    viewChoice("posting.similar-folded");
+    await settle();
+    let answerSave!: () => void;
+    server.save.mockImplementationOnce((name, value) => new Promise((resolve) => {
+      answerSave = () => resolve({ name, value: value as never });
+    }));
+    void setViewChoice("filters.board", { company: ["old"] });
+    await settle();
+
+    forgetViewChoices({ "pipeline.board-hidden": ["closed"] });
+    const fresh = setViewChoice("filters.board", { company: ["new"] });
+    await settle();
+    expect(server.save, "the fresh page's save does not wait on the old one").toHaveBeenCalledTimes(2);
+    answerRead();
+    answerSave();
+    expect(await fresh).toBe(true);
+    await settle();
+    expect(viewChoicesNow()).toEqual({ "pipeline.board-hidden": ["closed"], "filters.board": { company: ["new"] } });
+    expect(heldViewChoices(), "the old read is not held for the fresh page").toBeNull();
   });
 
   it("say a save failed, and keep the change on the page until it is reloaded", async () => {

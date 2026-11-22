@@ -10,6 +10,8 @@ import { linkTarget } from "./notesStyles";
 const page = () => screen.getByRole("textbox", { name: msg("applications-notes-label") });
 const editorOf = () => (page() as unknown as { editor: Editor }).editor;
 const bar = () => screen.queryByRole("toolbar", { name: msg("applications-notes-bar") });
+/** The bar's first button, whose name goes on to say the line's kind. */
+const turnInto = new RegExp(`^${msg("applications-notes-turn-into")}`);
 const shownBar = () => waitFor(() => expect(bar()).not.toBeNull()).then(() => bar()!);
 const markdown = () => editorOf().getMarkdown().trim();
 /** The modifier the editor's "Mod" keys are held with on this computer. */
@@ -109,7 +111,7 @@ describe("the bar over words selected in the notes", () => {
     await select("Sam");
     const shown = await shownBar();
     const turn = (name: string) => async () => {
-      await userEvent.click(within(bar()!).getByRole("button", { name: /^Turn into/ }));
+      await userEvent.click(within(bar()!).getByRole("button", { name: turnInto }));
       const menu = screen.getByRole("dialog", { name: msg("applications-notes-turn-into") });
       await userEvent.click(within(menu).getByRole("button", { name: new RegExp(`^${name}`) }));
       await act(() => new Promise((done) => setTimeout(done, 0)));
@@ -130,7 +132,7 @@ describe("the bar over words selected in the notes", () => {
   it("marks the kind the line is now in the Turn into menu, offers no divider there, and takes a quote off a line it turns", async () => {
     await mount("> Ask Sam about the team");
     await select("Sam");
-    await userEvent.click(within(await shownBar()).getByRole("button", { name: /^Turn into/ }));
+    await userEvent.click(within(await shownBar()).getByRole("button", { name: turnInto }));
     const menu = screen.getByRole("dialog", { name: msg("applications-notes-turn-into") });
     expect(within(menu).getByRole("button", { name: new RegExp(`^${msg("applications-notes-block-quote")}`) })).toHaveAttribute("aria-current", "true");
     expect(within(menu).queryByRole("button", { name: new RegExp(`^${msg("applications-notes-block-divider")}`) })).toBeNull();

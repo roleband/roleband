@@ -20,7 +20,7 @@
 
 import { applicationCardFixture, applicationDetailFixture, jobFixture } from "../../src/test/fixtures";
 import { msg } from "../../src/test/msg";
-import { expect, test, type Page } from "./fixtures";
+import { expect, mockGet, test, type Page } from "./fixtures";
 import { installEveryRoute } from "./routesHarness";
 import { installSettingsRoutes } from "./settingsHarness";
 
@@ -149,16 +149,16 @@ async function focusedRing(page: Page) {
  *  version of the notes to offer back. */
 async function routeRoleOnBoard(page: Page) {
   const card = applicationCardFixture({ job_id: 101, pursuit_id: 7, stage: "interviewing" });
-  await page.route("/api/jobs/101", (route) => route.fulfill({ json: {
+  await mockGet(page, "/api/jobs/101", (route) => route.fulfill({ json: {
     ...jobFixture, is_favorite: true,
     pursuit: { id: 7, job_id: 101, stage: card.stage, priority: card.priority, notes: null,
       next_action: null, next_action_due: null, created_at: "2026-10-20T09:00:00Z", updated_at: "2026-11-04T12:00:00Z" },
   } }));
-  await page.route("/api/applications/101", (route) => route.fulfill({
+  await mockGet(page, "/api/applications/101", (route) => route.fulfill({
     json: applicationDetailFixture({ application: card }),
   }));
-  await page.route("/api/applications", (route) => route.fulfill({ json: { applications: [card] } }));
-  await page.route("/api/applications/101/notes/versions", (route) => route.fulfill({
+  await mockGet(page, "/api/applications", (route) => route.fulfill({ json: { applications: [card] } }));
+  await mockGet(page, "/api/applications/101/notes/versions", (route) => route.fulfill({
     json: { versions: [{ actor: "user", at: "2026-11-20T10:00:00Z", text: "Ask Sam" }] },
   }));
 }

@@ -92,9 +92,10 @@ export function interviewCalendarName(interview: Pick<Round, "label">, role: Pic
   return `${words || "interview"}.ics`;
 }
 
-/** Hands the file to the browser to save or open, as a download. */
+/** Hands the file to the browser to save or open, as a download. Its type
+ *  names the method the file states: RFC 5545 has the two agree. */
 export function saveCalendarFile(name: string, body: string): void {
-  const url = URL.createObjectURL(new Blob([body], { type: "text/calendar;charset=utf-8" }));
+  const url = URL.createObjectURL(new Blob([body], { type: "text/calendar;charset=utf-8;method=PUBLISH" }));
   const link = document.createElement("a");
   link.href = url;
   link.download = name;

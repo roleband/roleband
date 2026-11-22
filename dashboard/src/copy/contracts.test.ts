@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
@@ -142,4 +142,14 @@ it("editorial review is separate from translation tracking and becomes stale on 
 it("reports branch explosion instead of silently skipping variants",()=>{
   const root=scratch("m = "+Array.from({length:9},(_,i)=>`{ $s${i} ->\n [a] A\n [b] B\n*[c] C\n}`).join("\n    ")+"\n");
   try{const m=readLocale(root,"en").messages[0];expect(()=>branches(m.pattern,m.terms)).toThrow(/branch combinations exceed/);}finally{rmSync(root,{recursive:true,force:true});}
+});
+it("gives every Spanish count its millions form, which takes \"de\"", () => {
+  // A term's `num` picks a word form the caller names; every other plural
+  // counts something, and "1.000.000 de imágenes" needs its own branch.
+  const dir = join(__dirname, "es");
+  const missing = readdirSync(dir).filter((file) => file.endsWith(".ftl")).flatMap((file) =>
+    [...readFileSync(join(dir, file), "utf8").matchAll(/^([\w-]+) =[^\n]*\{ *\$(\w+) *->((?:\n +[^\n]*)+?)\n *\}/gm)]
+      .filter(([, , variable, body]) => variable !== "num" && body.includes("[one]") && !body.includes("[many]"))
+      .map(([, key]) => `${file}: ${key}`));
+  expect(missing).toEqual([]);
 });

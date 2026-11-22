@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Extension, InputRule, type Editor } from "@tiptap/core";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -110,8 +110,9 @@ interface Slash {
  *  that lands meanwhile. */
 export default function NotesEditor({ notes, onSave, loadVersions }: {
   notes: string | null;
-  /** Saves the notes over `was`, the server's text this page last knew. */
-  onSave: (notes: string, was: string) => Promise<NotesSaved>;
+  /** Saves the notes over `was`, the server's text this page last knew;
+   *  `putBack` says they start with an earlier version put back. */
+  onSave: (notes: string, was: string, putBack?: boolean) => Promise<NotesSaved>;
   /** Reads the notes' earlier versions; without it the page offers none. */
   loadVersions?: () => Promise<NotesVersion[]>;
 }) {
@@ -136,53 +137,86 @@ export default function NotesEditor({ notes, onSave, loadVersions }: {
   // When the version put back last was written, said until the next edit.
   const [putBack, setPutBack] = useState<string | null>(null);
   const inFlight = useRef<string | null>(null);
+  // Saves go one at a time, each over the text the last one left: the latest
+  // text written while one is out waits here, and goes once it lands.
+  const waiting = useRef<string | null>(null);
+  // The next save starts with an earlier version put back.
+  const puttingBack = useRef(false);
   const timer = useRef<number | null>(null);
   const save = useRef(onSave);
   save.current = onSave;
   const menuId = useId();
   const barKeys = useRef<BarKeys | null>(null);
 
-  const flush = useCallback((editor: Editor) => {
-    if (timer.current != null) window.clearTimeout(timer.current);
-    timer.current = null;
-    const value = editor.getMarkdown();
-    setOver(Math.max(0, value.length - NOTES_MAX));
-    // Compared with what the server holds once the save in flight lands: text
-    // put back to the last saved words while another save is out still goes.
-    if (value === (inFlight.current ?? sent.current) || value.length > NOTES_MAX) return;
-    inFlight.current = value;
-    const was = base.current;
-    void save.current(value, was)
-      .catch((): NotesSaved => false)
-      .then((saved) => {
-        if (inFlight.current === value) inFlight.current = null;
-        if (saved === true) {
-          sent.current = value;
-          base.current = value.trim() ? value : "";
-          return;
-        }
-        if (saved !== false && !editor.isDestroyed) {
-          // Written elsewhere meanwhile: what this page wrote since `was` and
-          // what was written there are put together, and that is saved.
-          const theirs = asWritten(editor, saved.current);
-          const mine = editor.getMarkdown();
-          const both = mergeNotes(asWritten(editor, was), mine, theirs);
-          base.current = saved.current;
-          sent.current = theirs;
-          if (both !== mine) {
-            const { from, to } = editor.state.selection;
-            editor.commands.setContent(both, { contentType: "markdown", emitUpdate: false });
-            const end = editor.state.doc.content.size;
-            editor.commands.setTextSelection({ from: Math.min(from, end), to: Math.min(to, end) });
+  const flush = useMemo(() => {
+    /** Saves `value` over the text the server last confirmed. A save refused
+     *  because the notes were written elsewhere is merged and saved again,
+     *  also once the page has closed, so nothing written on it is lost. */
+    const send = (editor: Editor, value: string) => {
+      inFlight.current = value;
+      const was = base.current;
+      const putBack = puttingBack.current;
+      puttingBack.current = false;
+      void save.current(value, was, putBack)
+        .catch((): NotesSaved => false)
+        .then((saved) => {
+          inFlight.current = null;
+          const open = !editor.isDestroyed;
+          const next = waiting.current;
+          waiting.current = null;
+          if (saved === true) {
+            sent.current = value;
+            base.current = value.trim() ? value : "";
+            if (next != null && next !== value) send(editor, next);
+            return;
           }
-          setMerged(true);
-          flush(editor);
-          return;
-        }
-        if (timer.current == null && !editor.isDestroyed) {
-          timer.current = window.setTimeout(() => flush(editor), RETRY_AFTER_MS);
-        }
-      });
+          if (saved !== false) {
+            // Written elsewhere meanwhile: what this page wrote since `was` and
+            // what was written there are put together, and that is saved.
+            const written = (text: string) => (open ? asWritten(editor, text) : text);
+            const theirs = written(saved.current);
+            const mine = open ? editor.getMarkdown() : next ?? value;
+            const both = mergeNotes(written(was), mine, theirs);
+            base.current = saved.current;
+            sent.current = theirs;
+            if (!open) {
+              if (both !== theirs) send(editor, both);
+              return;
+            }
+            if (both !== mine) {
+              const { from, to } = editor.state.selection;
+              editor.commands.setContent(both, { contentType: "markdown", emitUpdate: false });
+              const end = editor.state.doc.content.size;
+              editor.commands.setTextSelection({ from: Math.min(from, end), to: Math.min(to, end) });
+            }
+            setMerged(true);
+            flush(editor);
+            return;
+          }
+          if (next != null) waiting.current = next;
+          if (timer.current == null && open) {
+            timer.current = window.setTimeout(() => flush(editor), RETRY_AFTER_MS);
+          }
+        });
+    };
+    const flush = (editor: Editor) => {
+      if (timer.current != null) window.clearTimeout(timer.current);
+      timer.current = null;
+      const value = editor.getMarkdown();
+      setOver(Math.max(0, value.length - NOTES_MAX));
+      if (value.length > NOTES_MAX) return;
+      if (inFlight.current != null) {
+        // Text put back to the words in flight needs nothing more; anything
+        // else, the saved words included, goes once that save lands.
+        waiting.current = value === inFlight.current ? null : value;
+        if (waiting.current == null) puttingBack.current = false;
+        return;
+      }
+      waiting.current = null;
+      if (value !== sent.current) send(editor, value);
+      else puttingBack.current = false;
+    };
+    return flush;
   }, []);
 
   // The "/" menu: the suggestion plugin finds the "/" and what follows it,
@@ -376,6 +410,7 @@ export default function NotesEditor({ notes, onSave, loadVersions }: {
               // and undone with the editor's own undo.
               editor.commands.setContent(text, { contentType: "markdown" });
               setPutBack(when);
+              puttingBack.current = true;
               flush(editor);
             }}
           />

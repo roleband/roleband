@@ -26,10 +26,12 @@ async def _job(db_session, req: str = "n1") -> int:
     return job.id
 
 
-async def _save(api_client, job_id: int, notes: str | None, was: str | None):
+async def _save(api_client, job_id: int, notes: str | None, was: str | None, *, put_back: bool = False):
     body: dict[str, object] = {"notes": notes}
     if was is not None:
         body["notes_was"] = was
+    if put_back:
+        body["notes_put_back"] = True
     return await api_client.put(f"/api/jobs/{job_id}/pursuit", json=body)
 
 
@@ -271,6 +273,25 @@ async def test_a_version_put_back_is_a_new_write_and_the_notes_it_replaced_becom
     assert restored.status_code == 200, restored.text
     assert await _stored(db_session, job_id) == "Recruiter is Sam"
     assert "Overwritten" in [v["text"] for v in await _versions(api_client, job_id)]
+
+
+async def test_a_version_put_back_inside_the_gap_keeps_the_notes_it_replaced(api_client, db_session):
+    # Typed in one session, then in another, then the first session's text
+    # put back a minute later: the second session's text stays a version.
+    job_id = await _job(db_session)
+    await _type(api_client, job_id, "Recruiter is Sam")
+    await _age(db_session, job_id, 60)
+    await _type(api_client, job_id, "Recruiter is Lee", was="Recruiter is Sam")
+    await _age(db_session, job_id, 1)
+
+    restored = await _save(api_client, job_id, "Recruiter is Sam", was="Recruiter is Lee", put_back=True)
+
+    assert restored.status_code == 200, restored.text
+    assert await _stored(db_session, job_id) == "Recruiter is Sam"
+    assert "Recruiter is Lee" in [v["text"] for v in await _versions(api_client, job_id)]
+    # Typing after it carries the put-back's own session on.
+    await _type(api_client, job_id, "Recruiter is Sam, ask about the team", was="Recruiter is Sam")
+    assert "session" in (await _notes_events(db_session, job_id))[-1].detail
 
 
 async def test_a_role_with_notes_written_once_has_no_earlier_version(api_client, db_session):

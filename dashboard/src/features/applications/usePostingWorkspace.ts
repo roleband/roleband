@@ -30,7 +30,7 @@ export interface PostingWorkspaceActions {
   /** Takes a step off the role for good, open or done. */
   removeStep: (step: ApplicationStep) => Promise<boolean>;
   setOutcome: (interview: ApplicationInterview, outcome: NonNullable<ApplicationInterview["outcome"]>) => void;
-  saveNotes: (notes: string, was: string) => Promise<NotesSaved>;
+  saveNotes: (notes: string, was: string, putBack?: boolean) => Promise<NotesSaved>;
   notesVersions: () => Promise<NotesVersion[]>;
   addComment: (body: string) => Promise<boolean>;
   editComment: (id: number, body: string) => Promise<boolean>;
@@ -216,13 +216,13 @@ export function usePostingWorkspace(
   /** Notes are saved over the text the page started from: notes written
    *  elsewhere meanwhile come back for the page to merge, never written over. */
   const saveNotes = useCallback(
-    async (notes: string, was: string): Promise<NotesSaved> => {
+    async (notes: string, was: string, putBack = false): Promise<NotesSaved> => {
       if (!card) return false;
       const value = notes.trim() ? notes : null;
       let moved: string | null = null;
       const send = async () => {
         try {
-          await api.setPursuit(card.job_id, { notes: value, notes_was: was });
+          await api.setPursuit(card.job_id, { notes: value, notes_was: was, ...(putBack ? { notes_put_back: true } : {}) });
         } catch (error) {
           if (!(error instanceof ApiError && error.code === "notes-moved")) throw error;
           moved = String(error.params.current ?? "");

@@ -219,16 +219,17 @@
   color: transparent;
 }
 
-.ui-btn-icon.ui-btn-tick:not(:disabled):not([aria-disabled="true"]):hover,
-.ui-btn-icon.ui-btn-tick:focus-visible {
+.ui-btn-icon.ui-btn-tick:not([aria-pressed="true"]):not(:disabled):not([aria-disabled="true"]):hover,
+.ui-btn-icon.ui-btn-tick:not([aria-pressed="true"]):focus-visible {
   border-color: var(--app-action);
   background: transparent;
   color: var(--app-action-text);
 }
 
-/* Ticked (`aria-pressed`), the check stays, on the chosen wash; pressing it
-   again takes the tick off. */
-.ui-btn-icon.ui-btn-tick[aria-pressed="true"] {
+/* Ticked (`aria-pressed`), the check stays, on the chosen wash, under the
+   pointer too; pressing it again takes the tick off. */
+.ui-btn-icon.ui-btn-tick[aria-pressed="true"],
+.ui-btn-icon.ui-btn-tick[aria-pressed="true"]:hover {
   border-color: var(--app-chosen-line);
   background: var(--app-chosen-wash);
   color: var(--app-chosen-text);

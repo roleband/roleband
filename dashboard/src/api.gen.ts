@@ -13703,6 +13703,8 @@ export interface components {
             next_action_due?: string | null;
             /** Notes */
             notes?: string | null;
+            /** Notes Put Back */
+            notes_put_back?: boolean | null;
             /** Notes Was */
             notes_was?: string | null;
             /** Priority */

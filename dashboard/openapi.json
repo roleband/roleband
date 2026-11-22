@@ -30957,6 +30957,17 @@
       "title": "Notes",
       "x-text": "content"
      },
+     "notes_put_back": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Notes Put Back"
+     },
      "notes_was": {
       "anyOf": [
        {

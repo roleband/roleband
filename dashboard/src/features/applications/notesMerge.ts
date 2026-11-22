@@ -48,9 +48,17 @@ function apart(mine: readonly string[], theirs: readonly string[]): string[] {
   return [...mine, ...(gap ? [""] : []), ...theirs];
 }
 
+/** The page's lines, then the other side's lines the page lacks: for text
+ *  too long to match line by line. */
+function unmatched(mine: readonly string[], theirs: readonly string[]): string[] {
+  const kept = new Set(mine);
+  return apart(mine, theirs.filter((line) => !kept.has(line)));
+}
+
 /** Both sides' lines for a stretch they changed differently: a line both
  *  wrote stands once, and where they differ the page's lines come first. */
 function both(mine: readonly string[], theirs: readonly string[]): string[] {
+  if (mine.length * theirs.length > MATCH_LIMIT) return unmatched(mine, theirs);
   const out: string[] = [];
   let m = 0;
   let t = 0;
@@ -71,10 +79,7 @@ export function mergeNotes(base: string, mine: string, theirs: string): string {
   const start = base.split("\n");
   const page = mine.split("\n");
   const other = theirs.split("\n");
-  if (start.length * Math.max(page.length, other.length) > MATCH_LIMIT) {
-    const kept = new Set(page);
-    return apart(page, other.filter((line) => !kept.has(line))).join("\n");
-  }
+  if (start.length * Math.max(page.length, other.length) > MATCH_LIMIT) return unmatched(page, other).join("\n");
   const toPage = matches(start, page);
   const toOther = matches(start, other);
   const out: string[] = [];

@@ -49,6 +49,25 @@ describe("a pasted table", () => {
     expect(lines(html)).toEqual(["Hi Sam,", "Thanks for your time. Pick a slot", "Best, Mo"]);
     expect(html).toContain('href="https://cal.example.test/book"');
   });
+
+  it("keeps a one-column table's rows apart when its cells hold words alone", () => {
+    const list = "<table><tr><td>Hi Sam,</td></tr><tr><td>Thanks for your <b>time</b>.</td></tr></table>";
+    expect(lines(readablePaste(list, "Picture").html)).toEqual(["Hi Sam,", "Thanks for your time."]);
+  });
+
+  it("keeps a cell's lines apart within its row", () => {
+    const cells = `<table><tr><th>Round</th><th>Who</th></tr>
+      <tr><td>Panel</td><td><p>Mo</p><p>Ana</p></td></tr>
+      <tr><td>Onsite</td><td>Lee<br>Kim</td></tr></table>`;
+    expect(lines(readablePaste(cells, "Picture").html)).toEqual(["Round: Panel · Who: Mo Ana", "Round: Onsite · Who: Lee Kim"]);
+  });
+
+  it("counts a screenshot in a cell as left out, keeping its description", () => {
+    const shot = '<table><tr><td>Floor plan</td><td><img src="data:image/png;base64,iVBORw0KGgo=" alt="Third floor"></td></tr></table>';
+    const { html, leftOut } = readablePaste(shot, "Picture");
+    expect(lines(html)).toEqual(["Floor plan · Third floor"]);
+    expect(leftOut).toBe(1);
+  });
 });
 
 describe("a pasted picture", () => {

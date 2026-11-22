@@ -11,7 +11,7 @@ import {
   applicationsNotesVersionsLoading,
   applicationsNotesVersionsNone,
 } from "../../copy/gen/applications";
-import { Button, Icon, Popover } from "../../ui";
+import { Button, Content, Icon, Popover } from "../../ui";
 
 /** A day and a time: several versions can come from one day. */
 const SAVED_AT: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" };
@@ -80,7 +80,7 @@ export function NotesVersions({ load, onPutBack }: {
                     <time dateTime={version.at}>{when}</time>
                     <span>{version.actor === "agent" ? applicationsCommentAuthorAgent() : applicationsCommentAuthorYou()}</span>
                   </p>
-                  <p className="app-notes-version-text">{versionPreview(version.text)}</p>
+                  <p className="app-notes-version-text"><Content text={versionPreview(version.text)} /></p>
                   <Button
                     variant="ghost"
                     size="sm"

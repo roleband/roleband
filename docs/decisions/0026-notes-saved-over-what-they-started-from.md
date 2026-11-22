@@ -32,7 +32,9 @@ none of those copies could be put back from the app.
 - The notes' earlier versions are what each session left: the text the next
   session replaced. `GET /api/applications/{job_id}/notes/versions` lists them
   newest first, leaving out the notes as they are. The page puts one back as an
-  edit of its own, saved like any other and undone by the editor's undo.
+  edit of its own, undone by the editor's undo. Its save says so
+  (`notes_put_back`) and starts a writing session of its own, so the notes it
+  replaced stay a version even when they were written a minute before.
 
 ## Consequences
 

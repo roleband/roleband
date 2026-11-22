@@ -581,6 +581,7 @@ applications-ws-notes-hint = Escribe lo que sabes y a quién conociste. Escribe 
 applications-notes-too-long = Sin guardar: { $over } caracteres por encima del límite.
 applications-notes-pictures-left-out = { $count ->
         [one] La imagen no se guardó: las notas guardan texto y enlaces.
+        [many] { $count } de imágenes no se guardaron: las notas guardan texto y enlaces.
        *[other] { $count } imágenes no se guardaron: las notas guardan texto y enlaces.
     }
 applications-notes-picture = Imagen

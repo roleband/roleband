@@ -55,4 +55,14 @@ describe("notes written in two places at once", () => {
     expect(merged).toContain("theirs");
     expect(merged.filter((line) => line === "line 7")).toHaveLength(1);
   });
+
+  it("keeps the page's lines, then the other side's it lacks, for long notes both started from nothing", () => {
+    const long = (prefix: string) => Array.from({ length: 2_100 }, (_, at) => `${prefix} ${at}`);
+    // The other side ends on the page's first line: matched line by line, its
+    // own lines would come first.
+    const mine = long("mine");
+    const theirs = [...long("theirs"), "mine 0"];
+    const merged = mergeNotes("", mine.join("\n"), theirs.join("\n")).split("\n");
+    expect(merged).toEqual([...mine, "", ...long("theirs")]);
+  });
 });

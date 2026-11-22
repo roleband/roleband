@@ -1292,11 +1292,14 @@ test("the line that adds a step is a row of the list, level with the steps", asy
   await expect(field).toBeFocused();
 });
 
+/** Typing pauses save the notes: each save is answered with the notes it
+ *  sent, so a slow run stays on the page. */
+const answerNotesSaves = (page: Page) => mockApi(page, "PUT", "/api/jobs/303/pursuit", (route) => route.fulfill({
+  json: { pursuit: { ...appliedPursuit, job_id: 303, notes: route.request().postDataJSON().notes } },
+}));
+
 test("the notes' headings step down in size from the first level to the third, all above the text", async ({ page }) => {
-  // Typing pauses save the notes; the save is answered so a slow run stays on the page.
-  await mockApi(page, "PUT", "/api/jobs/303/pursuit", (route) => route.fulfill({
-    json: { pursuit: { ...appliedPursuit, job_id: 303, notes: route.request().postDataJSON().notes } },
-  }));
+  await answerNotesSaves(page);
   const { panel } = await openWorkspace(page);
   const notes = panel.getByRole("textbox", { name: msg("applications-notes-label") });
   await notes.click();
@@ -1377,6 +1380,7 @@ test("selected words show a bar over them that styles and links them, and ⌘K e
    makes its block: every row is typed into the page and checked. */
 test("each mark the formatting guide lists makes its block at the start of a line", async ({ page, isMobile }) => {
   test.skip(isMobile, "phones are not supported");
+  await answerNotesSaves(page);
   const { panel } = await openWorkspace(page);
   await panel.getByRole("button", { name: msg("applications-notes-help") }).click();
   const guide = page.getByRole("dialog", { name: msg("applications-notes-help-title") });
@@ -1436,10 +1440,20 @@ test("done steps fold under the open ones and read as done when opened", async (
   const check = (button: Locator) => button.evaluate((el) => getComputedStyle(el).color);
   expect(await check(tick("Call the recruiter"))).not.toBe("rgba(0, 0, 0, 0)");
   expect(await check(tick("Email the recruiter"))).toBe("rgba(0, 0, 0, 0)");
+  // Under the pointer, a done tick keeps its ticked paint.
+  const paint = (button: Locator) => button.evaluate((el) => {
+    const style = getComputedStyle(el);
+    return [style.backgroundColor, style.borderColor, style.color];
+  });
+  const atRest = await paint(tick("Call the recruiter"));
+  await tick("Call the recruiter").hover();
+  await page.evaluate(() => { for (const animation of document.getAnimations()) animation.finish(); });
+  expect(await paint(tick("Call the recruiter"))).toEqual(atRest);
 });
 
 test("a / in the notes offers the blocks by name in reach of the pointer, and a picked checklist is saved as Markdown", async ({ page, isMobile }) => {
   test.skip(isMobile, "phones are not supported: there the keyboard covers the menu");
+  await answerNotesSaves(page);
   const { panel } = await openWorkspace(page);
   const notes = panel.getByRole("textbox", { name: msg("applications-notes-label") });
   await notes.click();

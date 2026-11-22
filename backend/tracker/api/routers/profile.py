@@ -279,9 +279,11 @@ async def set_pursuit_ep(
     stage, and history is the point."""
     fields = payload.model_dump(exclude_unset=True)
     notes_was = fields.pop("notes_was", None)
+    put_back = bool(fields.pop("notes_put_back", None))
     try:
         pursuit = await upsert_pursuit(
             session, job_id, PursuitUpdate.model_validate(fields), actor="user", notes_was=notes_was,
+            new_notes_session=put_back,
         )
     except LookupError as err:
         raise api_error(404, ErrorCode.JOB_NOT_FOUND, str(err)) from err

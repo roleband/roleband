@@ -22,6 +22,9 @@ type State = "reading" | "answered" | "failed";
 
 let choices: Choices = {};
 let state: State | null = null;
+/** Moves on with each reset, so a read or a save begun before one lands
+ *  nowhere after it. */
+let generation = 0;
 /** Choices made on this page before the read answered: they outrank it. */
 const madeHere = new Set<string>();
 const listeners = new Set<() => void>();
@@ -44,7 +47,9 @@ function ensureRead(again = false): void {
   const held = heldViewChoices();
   if (held) return adopt(held);
   state = "reading";
+  const mine = generation;
   void readViewChoices().then((read) => {
+    if (mine !== generation) return;
     if (read) adopt(read);
     else {
       state = "failed";
@@ -70,12 +75,15 @@ const queued = new Map<string, { value: unknown; settled: ((saved: boolean) => v
 const sending = new Set<string>();
 
 async function send(name: string): Promise<void> {
+  const mine = generation;
   sending.add(name);
   for (let next = queued.get(name); next; next = queued.get(name)) {
     queued.delete(name);
     const { value } = next;
     const saved = await Promise.resolve().then(() => api.saveViewChoice(name, value)).then(() => true, () => false);
     next.settled.forEach((settle) => settle(saved));
+    // After a reset the saves queued are the new page's, sent by its own loop.
+    if (mine !== generation) return;
   }
   sending.delete(name);
 }
@@ -137,6 +145,7 @@ function moveFromBrowser(): void {
 /** Forgets every choice and save, as on a fresh page; `seed` stands in for
  *  the database's answer. For tests. */
 export function forgetViewChoices(seed?: Choices): void {
+  generation += 1;
   choices = seed ?? {};
   state = seed ? "answered" : null;
   madeHere.clear();
