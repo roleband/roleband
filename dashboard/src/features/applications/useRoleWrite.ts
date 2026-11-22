@@ -17,7 +17,9 @@ export type RoleWrite = (
  * write for the role, whose change a pursuit write never carries.
  *
  * `show` paints the role's star as the write asks and as the server answers;
- * `failed` runs after a failed write, for what the screen painted ahead.
+ * `failed` runs after every write that did not land, the one behind a newer
+ * write included, for what the screen painted ahead: the newer write may not
+ * touch what this one painted.
  */
 export function useRoleWrite({ show, failed }: {
   show?: (jobId: number, saved: boolean) => void;
@@ -37,7 +39,10 @@ export function useRoleWrite({ show, failed }: {
         failed?.(jobId);
         throw error;
       });
-      if (outcome !== "saved") throw new Error("The pursuit write failed behind a newer write for the role.");
+      if (outcome !== "saved") {
+        failed?.(jobId);
+        throw new Error("The pursuit write failed behind a newer write for the role.");
+      }
     },
     [saveRole, show, failed],
   );

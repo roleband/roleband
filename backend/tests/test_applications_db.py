@@ -370,7 +370,8 @@ async def test_the_agents_read_the_priority_choice_the_card_does_and_list_the_mo
     page, _ = await agent_pursuits.pursuit_page(
         db_session, agent_pursuits.PursuitListInput(), workspace_id="test"
     )
-    assert [item.opportunity_id for item in page.items] == [urgent.id, unset.id, low.id]
+    # As the List sorts them: no priority last, below a chosen Low.
+    assert [item.opportunity_id for item in page.items] == [urgent.id, low.id, unset.id]
     assert {item.opportunity_id: item.priority_set for item in page.items} == {urgent.id: True, unset.id: False, low.id: True}
     assert (await agent_pursuits.pursuit_of(db_session, unset.id)).priority_set is False
 

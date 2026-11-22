@@ -562,6 +562,7 @@ applications-ws-next-due = Vence
 applications-ws-next-remove = Quitar
 
 applications-ws-notes-hint = Escribe lo que sabes y a quién conociste. Escribe / para títulos, listas y listas de tareas.
+applications-notes-too-long = Sin guardar: { $over } caracteres por encima del límite.
 applications-notes-blocks = Bloques
 applications-notes-block-text = Texto
 applications-notes-block-heading = Título { $level }

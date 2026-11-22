@@ -9,7 +9,7 @@ import type { ApplicationCard } from "../../api";
 import { boardStage, isMoving } from "./board";
 
 export type WorkspaceSection = "interviews" | "next" | "notes" | "outcome" | "activity";
-export type WorkspaceStage = "saved" | "researching" | "applied" | "interviewing" | "offer" | "ended";
+export type WorkspaceStage = "saved" | "researching" | "applied" | "interviewing" | "offer" | "accepted" | "ended";
 
 /** Every section a stage offers, in the order the page draws them. */
 const OFFERED: Record<WorkspaceStage, readonly WorkspaceSection[]> = {
@@ -18,6 +18,8 @@ const OFFERED: Record<WorkspaceStage, readonly WorkspaceSection[]> = {
   applied: ["next", "notes", "activity"],
   interviewing: ["interviews", "next", "notes", "activity"],
   offer: ["next", "notes", "activity"],
+  // An accepted offer has ended its search and still owes steps: signing, a start date.
+  accepted: ["outcome", "next", "notes", "activity"],
   ended: ["outcome", "notes", "activity"],
 };
 
@@ -25,6 +27,7 @@ const KEY = "roleband.pipeline-workspace-hidden";
 const ORDER_KEY = "roleband.pipeline-workspace-order";
 
 export function workspaceStage(card: ApplicationCard): WorkspaceStage {
+  if (card.stage === "accepted") return "accepted";
   if (!isMoving(card)) return "ended";
   return boardStage(card.stage) as WorkspaceStage;
 }

@@ -12,7 +12,9 @@ step: the person removes one in the app.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import UTC
 from typing import Any, Literal
 
 from pydantic import AwareDatetime, BaseModel, Field, field_validator, model_validator
@@ -45,12 +47,13 @@ from tracker.db.models import Job, Pursuit, PursuitStep
 
 _CONTENT: JsonDict = {"x-text": "content"}
 _EVERY_TIER: tuple[ToolTier, ...] = ("small", "standard", "full")
-_REVISION_READ = "The pursuit's revision you read (pursuits.get); 0 when the role has no pursuit yet."
+_REVISION_READ = "The pursuit's revision you read (pursuits.get)."
+_REVISION_OR_NONE = "The pursuit's revision you read (pursuits.get); 0 when the role has no pursuit yet."
 
 
 class StepAddInput(Shape):
     opportunity_id: int = Field(ge=1, description="The opportunity the pursuit is about.")
-    if_revision: int = Field(ge=0, description=f"{_REVISION_READ} A pursuit that moved since is not changed.")
+    if_revision: int = Field(ge=0, description=f"{_REVISION_OR_NONE} A pursuit that moved since is not changed.")
     text: str = Field(min_length=1, max_length=2_000, json_schema_extra=_CONTENT, description="What to do.")
     due: AwareDatetime | None = Field(
         default=None, description="The day it is due by, with its UTC offset. Leave it out for a step with no day."
@@ -179,6 +182,17 @@ async def change(
     return await _answer(session, pursuit)
 
 
+def edited_fields(params: StepInput) -> dict[str, Any]:
+    """The words and day a `steps.edit` names, in the form `StepActivity`
+    reads a step's: the day in UTC, as the store keeps it."""
+    if not isinstance(params, StepEditInput):
+        return {}
+    fields = params.model_dump(include={"text", "due"}, exclude_unset=True)
+    if fields.get("due") is not None:
+        fields["due"] = fields["due"].astimezone(UTC).isoformat()
+    return fields
+
+
 @dataclass(frozen=True)
 class StepActivity:
     """What a step write lists on the Activity screen: the role, what was
@@ -187,6 +201,8 @@ class StepActivity:
     opportunity_id: int
     action: Literal["add", "edit", "done", "undo"]
     step_id: int | None = None
+    #: The fields an edit names, as `edited_fields` records them.
+    edited: Mapping[str, Any] | None = None
 
     async def before(self, session: AsyncSession) -> dict[str, Any] | None:
         if self.step_id is None:
@@ -215,14 +231,16 @@ class StepActivity:
         else:
             # A ticked step leaves the open steps with its words unchanged, so
             # `done` records no field change. For the others the step is read
-            # as the write left it; one that is not open (an edit of a ticked
-            # step) is taken as it was.
+            # as the write left it. A ticked step is not among the open ones
+            # the answer lists, so an edit of one is what it was with the
+            # fields the edit named.
             now = next((step for step in result.steps if step.id == self.step_id), None)
-            after = (
-                {"text": now.text, "due": now.due.isoformat() if now.due else None}
-                if now is not None and self.action != "done"
-                else dict(prior)
-            )
+            if self.action == "done":
+                after = dict(prior)
+            elif now is not None:
+                after = {"text": now.text, "due": now.due.isoformat() if now.due else None}
+            else:
+                after = {**prior, **(self.edited or {})}
         changes = tuple(
             FieldChange(field, prior.get(field), after.get(field))
             for field in ("text", "due")

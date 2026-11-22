@@ -62,9 +62,12 @@ async def seed_profile(session: AsyncSession) -> SeededProfile:
     session.add(PursuitStep(pursuit_id=p["applied"], text="Prepare the product sense interview",
                             due=NOW + timedelta(days=3), created_at=NOW - timedelta(days=1)))
 
+    # A pursuit's creation logs the priority it was written with, as every
+    # write does, so each seeded priority reads as chosen.
     def event(pursuit: str, from_stage: str | None, to_stage: str, days_ago: int) -> PursuitEvent:
+        changed = ["priority", "stage"] if from_stage is None else ["stage"]
         return PursuitEvent(pursuit_id=p[pursuit], actor="user", event_type="created" if from_stage is None else "updated",
-                            from_stage=from_stage, to_stage=to_stage, detail={"changed": ["stage"]},
+                            from_stage=from_stage, to_stage=to_stage, detail={"changed": changed},
                             created_at=NOW - timedelta(days=days_ago))
 
     def saved(job: str, at: datetime) -> Favorite:

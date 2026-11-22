@@ -10,7 +10,7 @@ from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit
 
 from pydantic import AfterValidator, BaseModel, Field, field_validator, model_validator
-from sqlalchemy import and_, exists, func, or_, select
+from sqlalchemy import and_, case, exists, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.agents.receipts import RevisionConflict
@@ -305,6 +305,16 @@ def priority_chosen(pursuit_id: Any) -> Any:
         PursuitEvent.pursuit_id == pursuit_id,
         PursuitEvent.detail["changed"].contains(["priority"]),
     )
+
+
+#: The priority a pursuit reads as until one is chosen: No priority.
+UNCHOSEN_PRIORITY = 1
+
+
+def priority_rank() -> Any:
+    """A pursuit's priority as its place in a list reads it: the stored number
+    once one is chosen, No priority until then."""
+    return case((priority_chosen(Pursuit.id), Pursuit.priority), else_=literal(UNCHOSEN_PRIORITY))
 
 
 async def ensure_pursuit(
@@ -763,19 +773,15 @@ def public_step(step: PursuitStep) -> dict:
     }
 
 
-async def steps_of(
-    session: AsyncSession, pursuit_ids: list[int], *, done: bool = False
-) -> dict[int, list[dict]]:
-    """Each pursuit's open steps soonest first, and with `done` its ticked
-    ones after them, the latest ticked first."""
+async def steps_of(session: AsyncSession, pursuit_ids: list[int]) -> dict[int, list[dict]]:
+    """Each pursuit's open steps, soonest first."""
     found: dict[int, list[dict]] = {pid: [] for pid in pursuit_ids}
     if not pursuit_ids:
         return found
-    query = select(PursuitStep).where(PursuitStep.pursuit_id.in_(pursuit_ids))
-    if not done:
-        query = query.where(PursuitStep.done_at.is_(None))
     rows = await session.scalars(
-        query.order_by(PursuitStep.done_at.desc().nulls_first(), *soonest_first())
+        select(PursuitStep)
+        .where(PursuitStep.pursuit_id.in_(pursuit_ids), PursuitStep.done_at.is_(None))
+        .order_by(*soonest_first())
     )
     for step in rows.all():
         found[step.pursuit_id].append(public_step(step))
@@ -802,20 +808,23 @@ async def list_pursuits(
     """Pursuits by priority, the most urgent first and the most recently
     changed first within one, then by id, so two rows changed in one
     transaction still have one order and a
-    page that ends between them resumes at the second (`after`).
+    page that ends between them resumes at the second (`after`). A pursuit
+    with no priority chosen ranks as No priority, whatever its stored number,
+    and `after.priority` is that rank.
 
     `with_revision` adds each pursuit's `revision`, read with its fields, for a
     caller that passes it back to a write."""
     stmt = select(Pursuit, Job).join(Job, Job.id == Pursuit.job_id)
     if stage is not None:
         stmt = stmt.where(Pursuit.stage == stage)
+    rank = priority_rank()
     if after is not None:
         stmt = stmt.where(
             or_(
-                Pursuit.priority < after.priority,
-                and_(Pursuit.priority == after.priority, Pursuit.updated_at < after.updated_at),
+                rank < after.priority,
+                and_(rank == after.priority, Pursuit.updated_at < after.updated_at),
                 and_(
-                    Pursuit.priority == after.priority,
+                    rank == after.priority,
                     Pursuit.updated_at == after.updated_at,
                     Pursuit.id > after.id,
                 ),
@@ -823,7 +832,7 @@ async def list_pursuits(
         )
     rows = (
         await session.execute(
-            stmt.order_by(Pursuit.priority.desc(), Pursuit.updated_at.desc(), Pursuit.id.asc()).limit(limit)
+            stmt.order_by(rank.desc(), Pursuit.updated_at.desc(), Pursuit.id.asc()).limit(limit)
         )
     ).all()
     return [

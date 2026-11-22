@@ -291,9 +291,14 @@ test("a role opened from the board leaves the rail live and marked, and the rail
   const cover = posting(page);
 
   const rail = mainRail(page);
+  // The cover follows the rail's edge a frame after the rail settles, so the
+  // two are read together until they meet.
+  const apart = async () => {
+    const [railAt, coverAt] = await Promise.all([rail.boundingBox(), page.locator(".ui-overlay-full.cover-beside").boundingBox()]);
+    return coverAt!.x - (railAt!.x + railAt!.width);
+  };
+  await expect.poll(apart, { message: "the role starts where the rail ends" }).toBeCloseTo(0, 0);
   const railBox = (await rail.boundingBox())!;
-  const coverBox = (await page.locator(".ui-overlay-full.cover-beside").boundingBox())!;
-  expect(coverBox.x, "the role starts where the rail ends").toBeCloseTo(railBox.x + railBox.width, 0);
   // The rail is on top where it stands: a point in it hits the rail, not the cover.
   const hit = await page.evaluate(([x, y]) => !!document.elementFromPoint(x, y)?.closest("nav"), [railBox.x + railBox.width / 2, railBox.y + railBox.height / 2]);
   expect(hit, "the rail is not covered").toBe(true);
@@ -368,9 +373,9 @@ test("a Workspace block drags by its grip to a new place, and a hidden block sta
   expect(below).toBeGreaterThan(0);
   expect(below + 1).toBeLessThan(gap);
   await lower.hover();
-  const pointed = await look(lower);
-  expect(pointed.edge, "no edge drawn inside the menu").toBe("rgba(0, 0, 0, 0)");
-  expect(pointed.fill, "the row fills").not.toBe("rgba(0, 0, 0, 0)");
+  // The fill fades in, so it is read once the fade has begun.
+  await expect.poll(async () => (await look(lower)).fill, { message: "the row fills" }).not.toBe("rgba(0, 0, 0, 0)");
+  expect((await look(lower)).edge, "no edge drawn inside the menu").toBe("rgba(0, 0, 0, 0)");
 
   await offered.filter({ hasText: NOTES }).click();
   await expect.poll(names).toEqual([NOTES, NEXT]);

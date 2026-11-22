@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ActivityItem, ApplicationDetail } from "../../api";
 import { date as formatDate, list, relative, timestamp } from "../../copy/format";
 import { Button, Content, Icon, Menu, MenuGroup, MenuItem, useEscapeLayer } from "../../ui";
@@ -72,6 +72,40 @@ function EventLine({ event, now }: { event: ActivityEvent; now: Date }) {
       </span>
       <When iso={event.created_at} now={now} />
     </li>
+  );
+}
+
+/** Whether the browser can search text it keeps hidden (`hidden="until-found"`)
+ *  and says when a match is found in it. */
+const findsHidden = () => typeof HTMLElement !== "undefined" && "onbeforematch" in HTMLElement.prototype;
+
+/** A run's changes. Folded, they stay on the page hidden in a way the
+ *  browser's find still searches, and a match there opens the run; a browser
+ *  that cannot search hidden text leaves them out until the run opens. React
+ *  writes `hidden` as a plain on or off, so the value is set on the element. */
+function RunChanges({ events, open, onFound, now }: {
+  events: readonly ActivityEvent[];
+  open: boolean;
+  onFound: () => void;
+  now: Date;
+}) {
+  const list = useRef<HTMLOListElement>(null);
+  useLayoutEffect(() => {
+    const element = list.current;
+    if (!element) return;
+    if (open) {
+      element.removeAttribute("hidden");
+      return;
+    }
+    element.setAttribute("hidden", "until-found");
+    element.addEventListener("beforematch", onFound);
+    return () => element.removeEventListener("beforematch", onFound);
+  }, [open, onFound]);
+  if (!open && !findsHidden()) return null;
+  return (
+    <ol ref={list} className="app-feed-list app-event-changes">
+      {events.map((event) => <EventLine key={`event-${event.id}`} event={event} now={now} />)}
+    </ol>
   );
 }
 
@@ -174,11 +208,7 @@ export function ActivityFeed({ items, detail, now, onAdd, onEdit, onDelete }: Ac
           <When iso={entry.events[0].created_at} now={now} />
           <Icon name={open ? "chevronDown" : "chevronRight"} size={12} />
         </div>
-        {open && (
-          <ol className="app-feed-list app-event-changes">
-            {entry.events.map((event) => <EventLine key={`event-${event.id}`} event={event} now={now} />)}
-          </ol>
-        )}
+        <RunChanges events={entry.events} open={open} onFound={() => toggleRun(entry.events, true)} now={now} />
       </li>
     );
   });

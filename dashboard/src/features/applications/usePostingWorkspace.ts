@@ -39,10 +39,10 @@ export interface PostingWorkspaceActions {
  * The writes of a role's Workspace, on the posting's own read of its
  * application. Every write paints at once where it can; a failure says so and
  * reads again, so the posting never shows what the server refused. Pursuit
- * writes (steps, priority, notes, an interview's outcome) go through the save
- * command, whose announcement makes the application and the feed read again,
- * once each, with the board and every other reader of the role. A comment or
- * an interview is no pursuit write and reads both itself.
+ * writes (steps, priority, notes, an interview's outcome) and the comments
+ * and interviews beside them go through the save command, whose announcement
+ * makes the application and the feed read again, once each, with the board
+ * and every other reader of the role.
  */
 export function usePostingWorkspace(
   application: PostingApplication,
@@ -184,44 +184,45 @@ export function usePostingWorkspace(
     [card, stepWrite, paintNotes],
   );
 
-  /** A comment or interview write and the read after it. True when it
+  /** A comment or interview write, in order with the role's others; its
+   *  announcement reads the role again everywhere it shows. True when it
    *  saved. An interview's form says a failure itself, so it is not told. */
   const send = useCallback(
-    async (target: number, call: () => Promise<unknown>, failed: string | null): Promise<boolean> => {
+    async (call: (jobId: number) => Promise<unknown>, failed: string | null): Promise<boolean> => {
+      if (!card) return false;
       try {
-        await call();
+        await writeRole(card, () => call(card.job_id));
       } catch {
         if (failed) toast({ key: "applications", tone: "error", text: failed });
         return false;
       }
-      void readBoth(target);
       return true;
     },
-    [toast, readBoth],
+    [card, writeRole, toast],
   );
   const addComment = useCallback(
-    (body: string) => (jobId == null ? Promise.resolve(false) : send(jobId, () => api.addComment(jobId, body), applicationsCommentFailed())),
-    [send, jobId],
+    (body: string) => send((job) => api.addComment(job, body), applicationsCommentFailed()),
+    [send],
   );
   const editComment = useCallback(
-    (id: number, body: string) => (jobId == null ? Promise.resolve(false) : send(jobId, () => api.editComment(jobId, id, body), applicationsCommentFailed())),
-    [send, jobId],
+    (id: number, body: string) => send((job) => api.editComment(job, id, body), applicationsCommentFailed()),
+    [send],
   );
   const deleteComment = useCallback(
-    (id: number) => (jobId == null ? Promise.resolve(false) : send(jobId, () => api.deleteComment(jobId, id), applicationsCommentDeleteFailed())),
-    [send, jobId],
+    (id: number) => send((job) => api.deleteComment(job, id), applicationsCommentDeleteFailed()),
+    [send],
   );
   const addInterview = useCallback(
-    (interview: InterviewWrite) => (jobId == null ? Promise.resolve(false) : send(jobId, () => api.addInterview(jobId, interview), null)),
-    [send, jobId],
+    (interview: InterviewWrite) => send((job) => api.addInterview(job, interview), null),
+    [send],
   );
   const saveInterview = useCallback(
-    (id: number, interview: InterviewWrite) => (jobId == null ? Promise.resolve(false) : send(jobId, () => api.updateInterview(jobId, id, interview), null)),
-    [send, jobId],
+    (id: number, interview: InterviewWrite) => send((job) => api.updateInterview(job, id, interview), null),
+    [send],
   );
   const deleteInterview = useCallback(
-    (id: number) => (jobId == null ? Promise.resolve(false) : send(jobId, () => api.deleteInterview(jobId, id), applicationsInterviewDeleteFailed())),
-    [send, jobId],
+    (id: number) => send((job) => api.deleteInterview(job, id), applicationsInterviewDeleteFailed()),
+    [send],
   );
 
   return {

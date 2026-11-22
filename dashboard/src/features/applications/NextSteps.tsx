@@ -32,6 +32,9 @@ function StepForm({ text: initialText, day: initialDay, placeholder, label, focu
   const [saving, setSaving] = useState(false);
   // Read by the handler, not the render: two quick Enters save once.
   const inFlight = useRef(false);
+  // What the fields hold now, for a save that lands after more was typed.
+  const typed = useRef({ text, day });
+  typed.current = { text, day };
   const field = useRef<HTMLTextAreaElement>(null);
   const dueId = useId();
 
@@ -44,9 +47,11 @@ function StepForm({ text: initialText, day: initialDay, placeholder, label, focu
     if (!text.trim() || inFlight.current) return;
     inFlight.current = true;
     setSaving(true);
+    const sent = { text, day };
     try {
       const saved = await onSave(text.trim(), day);
-      if (saved && !onCancel) {
+      // The add line clears what it sent, and keeps a next step typed while it saved.
+      if (saved && !onCancel && typed.current.text === sent.text && typed.current.day === sent.day) {
         setText("");
         setDay("");
       }
@@ -141,6 +146,9 @@ export function NextSteps({ steps, now, onAdd, onEdit, onFinish, onRemove }: {
   onRemove: (step: ApplicationStep) => Promise<boolean>;
 }) {
   const [editing, setEditing] = useState<number | null>(null);
+  // Read when a save lands: the person may have left that edit for another.
+  const editingNow = useRef(editing);
+  editingNow.current = editing;
   const edits = useRef(new Map<number, HTMLButtonElement>());
   const box = useRef<HTMLDivElement>(null);
   const focusAfter = useFocusAfter();
@@ -153,7 +161,9 @@ export function NextSteps({ steps, now, onAdd, onEdit, onFinish, onRemove }: {
     return () =>
       (neighbour && box.current?.querySelector<HTMLElement>(`[data-step-id="${neighbour.id}"] .ui-btn-tick`)) || addField();
   };
+  /** Closes the step's edit, if it is still the one open. */
   const close = (step: ApplicationStep) => {
+    if (editingNow.current !== step.id) return;
     focusAfter(() => edits.current.get(step.id) ?? addField());
     setEditing(null);
   };
@@ -178,7 +188,7 @@ export function NextSteps({ steps, now, onAdd, onEdit, onFinish, onRemove }: {
                   onCancel={() => close(step)}
                   onRemove={async () => {
                     focusAfter(nextFocus(step));
-                    if (await onRemove(step)) setEditing(null);
+                    if (await onRemove(step)) setEditing((open) => (open === step.id ? null : open));
                   }}
                 />
               ) : (

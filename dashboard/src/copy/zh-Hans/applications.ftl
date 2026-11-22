@@ -528,6 +528,7 @@ applications-ws-next-due = 截止
 applications-ws-next-remove = 移除
 
 applications-ws-notes-hint = 写下你已知的情况和见过的人。输入 / 可添加标题、列表和清单。
+applications-notes-too-long = 未保存：超出上限 { $over } 个字符。
 applications-notes-blocks = 区块
 applications-notes-block-text = 文本
 applications-notes-block-heading = 标题 { $level }

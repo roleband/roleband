@@ -9,7 +9,7 @@
 
 import type { ApplicationCard } from "../../api";
 import { companyName } from "../../format";
-import { dayOffset, dueOf, dueState, isStale, needsNextStep, owesNothing } from "./board";
+import { dayOffset, dueOf, dueState, isStale, needsNextStep, owesNothing, stepDue } from "./board";
 import { priorityOf } from "./priority";
 
 export const QUICK_FILTERS = [
@@ -53,8 +53,11 @@ export function matchesQuick(card: ApplicationCard, filter: QuickFilter, now: Da
   if (owesNothing(card)) return false;
   const due = dueOf(card);
   switch (filter) {
-    case "overdue":
-      return due != null && dueState(due, now) === "overdue";
+    case "overdue": {
+      // A round is never overdue, so one that comes first must not hide a step that is.
+      const step = stepDue(card);
+      return step != null && dueState(step, now) === "overdue";
+    }
     case "due_week":
       return due != null && dueState(due, now) !== "overdue" && dayOffset(due.on, now) <= WEEK_DAYS;
     case "needs_next":

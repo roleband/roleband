@@ -302,7 +302,7 @@ async def _step_write(
         lambda: steps.change(op.session, params, actor=op.actor, action=action),
         on_revision_conflict=pursuits.reread(params.opportunity_id),
         shown=partial(pursuits.shown, postings=op.shares("public_posting")),
-        described=steps.StepActivity(params.opportunity_id, action, params.step_id),
+        described=steps.StepActivity(params.opportunity_id, action, params.step_id, steps.edited_fields(params)),
     )
 
 

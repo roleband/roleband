@@ -31,11 +31,21 @@ export interface PostingPipeline {
 
 type Asking = { kind: "add" } | { kind: "edit"; interview: ApplicationInterview };
 
-/** State that belongs to one role: it reads as unset for any other, so a
- *  dialog or menu opened on one role never carries over to the next. */
+/** State that belongs to one role: it reads as unset for any other and is
+ *  dropped once the role changes, so a dialog or menu opened on one role never
+ *  carries over to the next, nor comes back on returning. A setter keeps the
+ *  role it was made for: a save that lands late on the role left behind
+ *  clears only that role's state, never what the next role has open. */
 function useStateForJob<T>(jobId: number | null): [T | null, (value: T | null) => void] {
   const [held, setHeld] = useState<{ jobId: number | null; value: T } | null>(null);
-  const set = useCallback((value: T | null) => setHeld(value == null ? null : { jobId, value }), [jobId]);
+  if (held && held.jobId !== jobId) setHeld(null);
+  const set = useCallback(
+    (value: T | null) => setHeld((current) => {
+      if (value != null) return { jobId, value };
+      return current && current.jobId !== jobId ? current : null;
+    }),
+    [jobId],
+  );
   return [held && held.jobId === jobId ? held.value : null, set];
 }
 

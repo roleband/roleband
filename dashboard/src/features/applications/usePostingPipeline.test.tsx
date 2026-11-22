@@ -105,6 +105,7 @@ function Posting({ initial, other, asked = null }: { initial: Job; other?: Job; 
       <nav aria-label="Posting bar">{pipeline.control}</nav>
       <nav aria-label="Roles and tabs">
         {other && <button type="button" onClick={() => setJob(other)}>Open the other role</button>}
+        {other && <button type="button" onClick={() => setJob(initial)}>Back to the first role</button>}
         <button type="button" onClick={() => setTab("posting")}>Tab: posting</button>
         <button type="button" onClick={() => setTab("workspace")}>Tab: workspace</button>
       </nav>
@@ -557,6 +558,33 @@ describe("one write, one read", () => {
     expect(api.activity, "the feed follows the same announcement once").toHaveBeenCalledTimes(2);
   });
 
+  it("announces an interview deleted on the posting, so the board under it reads the role again", async () => {
+    const round = {
+      id: 3, label: "Hiring manager", scheduled_at: tomorrowNoon(), all_day: false, format: null, link: null,
+      outcome: null, notes: null, created_at: daysAgo(1), updated_at: daysAgo(1),
+    };
+    detail = applicationDetailFixture({
+      application: applicationCardFixture({ job_id: 101, pursuit_id: 10, stage: "interviewing", stage_since: daysAgo(3) }),
+      interviews: [round],
+    });
+    vi.mocked(api.deleteInterview).mockImplementation(async () => {
+      if (detail) detail = { ...detail, interviews: [] };
+      return undefined as never;
+    });
+    renderPosting(posting({ id: 101, title: TITLE, is_favorite: true, pursuit: { ...pursuit("interviewing"), job_id: 101 } }), "workspace");
+    await userEvent.click(await within(main()).findByRole("button", {
+      name: msg("applications-interview-edit-label", { label: "Hiring manager" }),
+    }));
+    const form = await screen.findByRole("dialog", { name: msg("applications-interview-edit-title") });
+    await userEvent.click(within(form).getByRole("button", { name: msg("applications-interview-delete") }));
+    await userEvent.click(within(form).getByRole("button", { name: msg("applications-comment-delete") }));
+
+    await waitFor(() => expect(appState.savedChanged).toHaveBeenCalledWith({ jobId: 101, saved: true }));
+    await settle();
+    expect(api.deleteInterview).toHaveBeenCalledExactlyOnceWith(101, 3);
+    expect(api.application, "the first read and the announcement's, none by hand").toHaveBeenCalledTimes(2);
+  });
+
   it("keeps the feed on screen while it reads again after a tab toggle, instead of clearing it", async () => {
     detail = appliedWith(101);
     vi.mocked(api.activity).mockResolvedValue({ items: [comment] } as Awaited<ReturnType<typeof api.activity>>);
@@ -628,5 +656,53 @@ describe("a role switch", () => {
     await userEvent.click(screen.getByRole("button", { name: "Open the other role" }));
     await waitFor(() => expect(screen.queryByRole("dialog", { name: /stage/i })).toBeNull());
     expect(screen.queryByRole("dialog", { name: msg("applications-stage-menu-label", { title: "Other role" }) })).toBeNull();
+  });
+
+  it("leaves the interview form open on the new role when a save sent from the old one lands late", async () => {
+    detail = applicationDetailFixture({
+      application: applicationCardFixture({ pursuit_id: 10, stage: "applied", stage_since: daysAgo(3) }),
+    });
+    vi.mocked(api.application).mockImplementation(async () => structuredClone(detail!));
+    let land!: () => void;
+    vi.mocked(api.addInterview).mockImplementationOnce(() => new Promise((resolve) => { land = () => resolve(undefined as never); }));
+    const other = posting({ id: 102, title: "Other role", is_favorite: true, pursuit: { ...pursuit("applied"), job_id: 102 } });
+    renderPosting(posting({ is_favorite: true, pursuit: pursuit("applied") }), null, other);
+    await findRow(msg("applications-posting-stage"));
+    const form = () => screen.queryByRole("dialog", { name: msg("applications-interview-add-title") });
+
+    await userEvent.keyboard("i");
+    const first = await screen.findByRole("dialog", { name: msg("applications-interview-add-title") });
+    const today = within(first).getAllByRole("button").find((day) => day.getAttribute("aria-current") === "date")!;
+    await userEvent.click(today);
+    await userEvent.click(within(first).getByRole("button", { name: msg("applications-interview-add") }));
+    await waitFor(() => expect(api.addInterview).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(api.addInterview).mock.calls[0][0], "the save is the first role's").toBe(101);
+
+    await userEvent.click(screen.getByRole("button", { name: "Open the other role" }));
+    await waitFor(() => expect(form()).toBeNull());
+    await userEvent.keyboard("i");
+    await screen.findByRole("dialog", { name: msg("applications-interview-add-title") });
+
+    await act(async () => land());
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 60)); });
+    expect(form(), "the first role's save closes only its own form").not.toBeNull();
+  });
+
+  it("opens no form left open on a role when the person comes back to it", async () => {
+    detail = applicationDetailFixture({
+      application: applicationCardFixture({ pursuit_id: 10, stage: "applied", stage_since: daysAgo(3) }),
+    });
+    vi.mocked(api.application).mockImplementation(async () => structuredClone(detail!));
+    const other = posting({ id: 102, title: "Other role", is_favorite: true, pursuit: { ...pursuit("applied"), job_id: 102 } });
+    renderPosting(posting({ is_favorite: true, pursuit: pursuit("applied") }), null, other);
+    await findRow(msg("applications-posting-stage"));
+
+    await userEvent.keyboard("i");
+    await screen.findByRole("dialog", { name: msg("applications-interview-add-title") });
+    await userEvent.click(screen.getByRole("button", { name: "Open the other role" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: msg("applications-interview-add-title") })).toBeNull());
+    await userEvent.click(screen.getByRole("button", { name: "Back to the first role" }));
+    await findRow(msg("applications-posting-stage"));
+    expect(screen.queryByRole("dialog", { name: msg("applications-interview-add-title") }), "a form left behind stays closed").toBeNull();
   });
 });

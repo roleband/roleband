@@ -295,14 +295,6 @@ export function JobDetail({
     }
     onTab(next);
   }
-  useLayoutEffect(() => {
-    const box = scrollRef.current;
-    const held = keepTabs.current;
-    // Rounded up: a scroll lands on whole device pixels, and one short of
-    // the line would leave the tabs a pixel under the bar.
-    if (box && held != null) box.scrollTop = Math.ceil(held);
-    keepTabs.current = null;
-  }, [askedTab]);
 
   /** The side column, which the histories open across. */
   const [aside, setAside] = useState<HTMLElement | null>(null);
@@ -336,11 +328,12 @@ export function JobDetail({
   // Tabs are held under the bar once scrolled to, on either tab: the columns
   // under them reach at least the window's foot, so a short tab (a Workspace
   // with little in it yet) scrolls as far as a long posting does instead of
-  // stopping with the hero's last line at the top.
-  const tabbed = tab != null;
+  // stopping with the hero's last line at the top. Measured again for each
+  // tab: the posting's related roles sit between its tabs and its columns,
+  // and the Workspace has nothing there.
   useLayoutEffect(() => {
     const box = scrollRef.current;
-    if (!box || !tabbed) return;
+    if (!box || tab == null) return;
     let sized: HTMLElement | null = null;
     const fit = () => {
       const tabs = box.querySelector<HTMLElement>(".jd-tabs");
@@ -358,7 +351,17 @@ export function JobDetail({
       watch.disconnect();
       if (sized) sized.style.minHeight = "";
     };
-  }, [tabbed, job?.id, scrollRef]);
+  }, [tab, job?.id, scrollRef]);
+  // After the columns are measured for the new tab, so a short one already
+  // reaches far enough down for the scroll to land.
+  useLayoutEffect(() => {
+    const box = scrollRef.current;
+    const held = keepTabs.current;
+    // Rounded up: a scroll lands on whole device pixels, and one short of
+    // the line would leave the tabs a pixel under the bar.
+    if (box && held != null) box.scrollTop = Math.ceil(held);
+    keepTabs.current = null;
+  }, [askedTab]);
   const team = job && postingTeam(job);
   const workplace = job && postingWorkplace(job);
 

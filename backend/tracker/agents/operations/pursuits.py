@@ -44,6 +44,7 @@ from tracker.agents.applications import pursuit_marks
 from tracker.agents.operations.descriptor import EngineEffects, OperationDescriptor, Shape, ToolTier
 from tracker.agents.operations.envelope import NextAction, OperationError
 from tracker.agents.pursuits import (
+    UNCHOSEN_PRIORITY,
     PursuitListKey,
     PursuitStage,
     PursuitUpdate,
@@ -65,7 +66,9 @@ _EVERY_TIER: tuple[ToolTier, ...] = ("small", "standard", "full")
 DEFAULT_LIMIT = 50
 MAX_LIMIT = 100
 #: The cursor's own format; a cursor of another format is refused, never guessed at.
-_CURSOR_FORMAT = 1
+#: A cursor's priority is the rank `list_pursuits` orders by; format 1 held the
+#: stored number, which a pursuit with no priority chosen does not rank by.
+_CURSOR_FORMAT = 2
 
 
 class PursuitState(Shape):
@@ -144,6 +147,22 @@ class PursuitItem(PursuitState):
     priority_set: bool
     #: Absent when the person does not share postings with assistants.
     opportunity: PursuedOpportunity | MISSING = MISSING
+
+    @model_validator(mode="before")
+    @classmethod
+    def _from_one_step_receipt(cls, data: Any) -> Any:
+        """A write's receipt keeps the result it answered, and one answered
+        under the one-step contract names none of the steps, the rounds or the
+        priority mark; a same-key retry replays it with none of them, its
+        priority read as chosen, as that contract read every priority. A
+        result that names any of them must name all."""
+        if isinstance(data, dict) and not data.keys() & _STEP_CONTRACT_FIELDS:
+            return {**data, "steps": [], "next_interview": None, "awaiting_outcome": None, "priority_set": True}
+        return data
+
+
+#: What a pursuit's answer gained with several next steps per role.
+_STEP_CONTRACT_FIELDS = frozenset({"steps", "next_interview", "awaiting_outcome", "priority_set"})
 
 
 class PursuitListInput(Shape):
@@ -368,10 +387,12 @@ async def pursuit_page(
         session, stage=params.stage, limit=params.limit + 1, after=after, with_revision=True
     )
     page, more = rows[: params.limit], len(rows) > params.limit
-    next_cursor = (
-        encode_cursor(workspace_id=workspace_id, stage=params.stage, last=page[-1]) if more and page else None
-    )
     marks = await pursuit_marks(session, [row["id"] for row in page], now=datetime.now(UTC))
+    next_cursor = None
+    if more and page:
+        last = page[-1]
+        rank = last["priority"] if marks[last["id"]]["priority_set"] else UNCHOSEN_PRIORITY
+        next_cursor = encode_cursor(workspace_id=workspace_id, stage=params.stage, last={**last, "priority": rank})
     items = [item_of({**agent_fields(row), **marks[row["id"]]}, postings=postings) for row in page]
     return PursuitList(count=len(items), items=items), next_cursor
 

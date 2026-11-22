@@ -85,6 +85,17 @@ def downgrade() -> None:
           )
         """
     )
+    # Each pursuit's one open step goes back into the columns that held it
+    # before the table goes, whether or not the columns already name it.
+    op.execute(
+        """
+        UPDATE pursuits AS p
+        SET next_action = s.text, next_action_due = s.due
+        FROM pursuit_steps AS s
+        WHERE s.pursuit_id = p.id AND s.done_at IS NULL
+          AND (p.next_action IS DISTINCT FROM s.text OR p.next_action_due IS DISTINCT FROM s.due)
+        """
+    )
     op.execute("DELETE FROM notifications WHERE source_type = 'step'")
     op.drop_index("ix_pursuit_steps_due", table_name="pursuit_steps")
     op.drop_index("ix_pursuit_steps_pursuit_id", table_name="pursuit_steps")

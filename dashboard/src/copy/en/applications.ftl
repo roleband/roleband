@@ -523,6 +523,8 @@ applications-ws-next-due = Due
 applications-ws-next-remove = Remove
 # kind=sentence note="The notes page's hint while it is empty; / opens the menu of headings, lists and checklists"
 applications-ws-notes-hint = Write what you know and who you met. Type / for headings, lists and checklists.
+# kind=sentence note="Under the notes page while it is longer than can be kept; $over is how many characters past the limit. Nothing is saved until it is shorter"
+applications-notes-too-long = Not saved: { $over } characters over the limit.
 # kind=aria note="The menu a / in the notes opens: the kinds of block it can put on the page"
 applications-notes-blocks = Blocks
 # kind=label note="A notes block: plain text"

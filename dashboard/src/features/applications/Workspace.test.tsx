@@ -115,6 +115,24 @@ const NEXT = () => msg("applications-ws-next");
 const NOTES = () => msg("applications-notes-title");
 const ACTIVITY = () => msg("applications-feed-title");
 const activity = () => block(ACTIVITY());
+/** Whether a line can be seen: a folded run keeps its changes on the page
+ *  only hidden, or leaves them out. */
+const seen = (feed: HTMLElement, text: string) => {
+  const line = within(feed).queryByText(text);
+  return line != null && line.closest("[hidden]") == null;
+};
+/** Runs `check` in a browser that can, or cannot, search hidden text. */
+async function withHiddenSearch(can: boolean, check: () => Promise<void>) {
+  const own = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "onbeforematch");
+  if (can) Object.defineProperty(HTMLElement.prototype, "onbeforematch", { configurable: true, writable: true, value: null });
+  else delete (HTMLElement.prototype as unknown as Record<string, unknown>).onbeforematch;
+  try {
+    await check();
+  } finally {
+    if (own) Object.defineProperty(HTMLElement.prototype, "onbeforematch", own);
+    else delete (HTMLElement.prototype as unknown as Record<string, unknown>).onbeforematch;
+  }
+}
 const hideButton = (section: string) => screen.queryByRole("button", { name: msg("applications-ws-hide", { section }) });
 const moveButton = (section: string) => screen.queryByRole("button", { name: msg("applications-ws-move", { section }) });
 const addButton = () => screen.queryByRole("button", { name: msg("applications-ws-add") });
@@ -250,16 +268,43 @@ describe("the Workspace's activity", () => {
     expect(within(feed).getByText("Found the hiring manager.")).toBeInTheDocument();
     const toggle = within(feed).getByRole("button", { name: fold() });
     expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(within(feed).queryByText(msg("applications-feed-priority"))).toBeNull();
+    expect(seen(feed, msg("applications-feed-priority"))).toBe(false);
 
     await userEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
-    expect(within(feed).getByText(msg("applications-feed-moved", { stage: "Applied" }))).toBeInTheDocument();
-    expect(within(feed).getByText(msg("applications-feed-priority"))).toBeInTheDocument();
+    expect(seen(feed, msg("applications-feed-moved", { stage: "Applied" }))).toBe(true);
+    expect(seen(feed, msg("applications-feed-priority"))).toBe(true);
 
     await userEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(within(feed).queryByText(msg("applications-feed-priority"))).toBeNull();
+    expect(seen(feed, msg("applications-feed-priority"))).toBe(false);
+  });
+
+  it("keeps a folded run's changes where the browser's find reaches them, and opens the run on a match", async () => {
+    await withHiddenSearch(true, async () => {
+      renderWorkspace();
+      const feed = activity();
+      const toggle = within(feed).getByRole("button", { name: fold() });
+      const folded = within(feed).getByText(msg("applications-feed-priority")).closest("ol")!;
+      expect(folded, "on the page, hidden but searchable").toHaveAttribute("hidden", "until-found");
+
+      act(() => { folded.dispatchEvent(new Event("beforematch")); });
+      expect(toggle, "the run a match is found in opens").toHaveAttribute("aria-expanded", "true");
+      expect(folded).not.toHaveAttribute("hidden");
+
+      await userEvent.click(toggle);
+      expect(folded, "folding again hides it the same way").toHaveAttribute("hidden", "until-found");
+    });
+  });
+
+  it("leaves a folded run's changes out where the browser cannot search hidden text", async () => {
+    await withHiddenSearch(false, async () => {
+      renderWorkspace();
+      const feed = activity();
+      expect(within(feed).queryByText(msg("applications-feed-priority"))).toBeNull();
+      await userEvent.click(within(feed).getByRole("button", { name: fold() }));
+      expect(seen(feed, msg("applications-feed-priority"))).toBe(true);
+    });
   });
 
   it("offers Comment only once there is a word to post, and posts it, then clears the field", async () => {
@@ -455,6 +500,47 @@ describe("saving once", () => {
 
     expect(handlers.onAddStep).toHaveBeenCalledTimes(1);
     await act(async () => answer(true));
+  });
+
+  it("keeps a next step typed while the one before it saves", async () => {
+    let answer: (saved: boolean) => void = () => {};
+    handlers.onAddStep = vi.fn(() => new Promise<boolean>((resolve) => { answer = resolve; }));
+    renderWorkspace();
+    const field = screen.getByRole("textbox", { name: msg("applications-ws-next-add") });
+    await userEvent.type(field, "Write to the hiring manager{Enter}");
+    await userEvent.clear(field);
+    await userEvent.type(field, "Ask Sam about the team");
+
+    await act(async () => answer(true));
+
+    expect(field).toHaveValue("Ask Sam about the team");
+  });
+
+  it("clears the add line once its step is saved, when nothing more was typed", async () => {
+    renderWorkspace();
+    const field = screen.getByRole("textbox", { name: msg("applications-ws-next-add") });
+    await userEvent.type(field, "Write to the hiring manager{Enter}");
+    await waitFor(() => expect(field).toHaveValue(""));
+  });
+
+  it("leaves another step's edit open when an edit left before its save landed comes back", async () => {
+    const first = stepFixture({ id: 11, text: "Send the portfolio", due: null });
+    const second = stepFixture({ id: 12, text: "Ask Sam about the team", due: null });
+    let answer: (saved: boolean) => void = () => {};
+    handlers.onEditStep = vi.fn(() => new Promise<boolean>((resolve) => { answer = resolve; }));
+    renderWorkspace({ steps: [first, second] });
+    const edit = (step: string) => screen.getByRole("button", { name: msg("applications-ws-next-edit", { step }) });
+    await userEvent.click(edit(first.text));
+    await userEvent.type(screen.getByRole("textbox", { name: msg("applications-ws-next-edit", { step: first.text }) }), " today{Enter}");
+    await userEvent.click(screen.getByRole("button", { name: msg("applications-interview-cancel") }));
+    await userEvent.click(edit(second.text));
+    const draft = screen.getByRole("textbox", { name: msg("applications-ws-next-edit", { step: second.text }) });
+    await userEvent.type(draft, " and pay");
+
+    await act(async () => answer(true));
+
+    expect(screen.getByRole("textbox", { name: msg("applications-ws-next-edit", { step: second.text }) }))
+      .toHaveValue("Ask Sam about the team and pay");
   });
 
   it("posts a comment once when Enter lands twice before the first post is back", async () => {

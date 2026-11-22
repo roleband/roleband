@@ -18654,7 +18654,7 @@
     "additionalProperties": false,
     "properties": {
      "if_revision": {
-      "description": "The pursuit's revision you read (pursuits.get); 0 when the role has no pursuit yet. A pursuit that moved since is not changed.",
+      "description": "The pursuit's revision you read (pursuits.get). A pursuit that moved since is not changed.",
       "minimum": 1,
       "title": "If Revision",
       "type": "integer"
@@ -19028,7 +19028,7 @@
       "title": "Due"
      },
      "if_revision": {
-      "description": "The pursuit's revision you read (pursuits.get); 0 when the role has no pursuit yet. A pursuit that moved since is not changed.",
+      "description": "The pursuit's revision you read (pursuits.get). A pursuit that moved since is not changed.",
       "minimum": 1,
       "title": "If Revision",
       "type": "integer"
@@ -19396,7 +19396,7 @@
     "additionalProperties": false,
     "properties": {
      "if_revision": {
-      "description": "The pursuit's revision you read (pursuits.get); 0 when the role has no pursuit yet. A pursuit that moved since is not changed.",
+      "description": "The pursuit's revision you read (pursuits.get). A pursuit that moved since is not changed.",
       "minimum": 1,
       "title": "If Revision",
       "type": "integer"

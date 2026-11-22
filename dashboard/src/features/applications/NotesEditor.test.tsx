@@ -150,4 +150,45 @@ describe("a save that fails", () => {
     expect(page()).toHaveTextContent("Rewritten elsewhere");
     expect(onSave).toHaveBeenCalledTimes(2);
   });
+
+  it("saves words put back to the saved ones while another save is out, so the server ends with the page", async () => {
+    const user = userEvent.setup();
+    let land!: (saved: boolean) => void;
+    const onSave = vi.fn<(notes: string) => Promise<boolean>>()
+      .mockImplementationOnce(() => new Promise((resolve) => { land = resolve; }))
+      .mockResolvedValue(true);
+    render(<NotesEditor notes={"Met Sam"} onSave={onSave} />);
+    await act(async () => page().focus());
+    await user.keyboard(" and Pat");
+    await act(async () => page().blur());
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+
+    await act(async () => page().focus());
+    await user.keyboard("{Backspace>8/}");
+    await act(async () => page().blur());
+    await act(async () => land(true));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(2));
+    expect(onSave.mock.calls[1][0]).toBe("Met Sam");
+  });
+
+  it("says a page longer than can be kept is not saved, and saves it once it is short enough", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn(async (_notes: string) => true);
+    render(<NotesEditor notes={"x".repeat(19_995)} onSave={onSave} />);
+    await act(async () => page().focus());
+    await user.keyboard("abcdefghijklmn");
+
+    // The pause that would save it says it is not saved.
+    expect(await screen.findByRole("alert", undefined, { timeout: 2000 }))
+      .toHaveTextContent(msg("applications-notes-too-long", { over: 9 }));
+    expect(onSave).not.toHaveBeenCalled();
+
+    await user.keyboard("{Backspace>9/}");
+    await act(async () => page().blur());
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0]).toHaveLength(20_000);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
 });

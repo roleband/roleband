@@ -11,7 +11,7 @@ step to put it on is refused. A reminder rings once per overdue step.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 
 import pytest
@@ -433,6 +433,31 @@ async def test_an_agent_edit_lists_the_words_and_day_before_and_after(api_client
     assert [(c["field"], c["before"], c["after"]) for c in row.changes] == [
         ("step_text", "Ask Sam", "Ask Sam about pay")
     ]
+
+
+async def test_an_agent_edit_of_a_ticked_step_lists_its_new_words_and_day(api_client, db_session, roles):
+    job, _ = roles
+    ids = await _three(api_client, job)
+    step = ids["Ask Sam"]
+    revision = (await api_client.get(f"{PREFIX}/pursuits/{job}")).json()["data"]["revision"]
+    status, done = await _agent(api_client, "POST", f"/{job}/steps/{step}/done", {"if_revision": revision}, 1)
+    assert status == 200, done
+    due = datetime(2030, 3, 4, 9, tzinfo=timezone(timedelta(hours=2)))
+
+    status, edited = await _agent(
+        api_client, "PATCH", f"/{job}/steps/{step}",
+        {"if_revision": done["data"]["revision"], "text": "Asked Sam about pay", "due": due.isoformat()}, 2,
+    )
+
+    assert status == 200, edited
+    assert step not in [s["id"] for s in edited["data"]["steps"]]
+    async with _fresh(db_session) as session:
+        row = await session.scalar(select(AgentActivity).where(AgentActivity.operation == "steps.edit"))
+    assert row is not None
+    changes = {c["field"]: (c["before"], c["after"]) for c in row.changes}
+    assert changes["step_text"] == ("Ask Sam", "Asked Sam about pay")
+    assert _at(changes["step_due"][1]) == datetime(2030, 3, 4, 7, tzinfo=UTC)
+    assert row.subject["step"] == "Asked Sam about pay"
 
 
 async def test_a_step_patch_that_names_nothing_is_refused_as_invalid_input(api_client, db_session, roles):

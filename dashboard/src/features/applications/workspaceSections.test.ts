@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { readHiddenSections, readSectionOrder, writeHiddenSections, writeSectionOrder } from "./workspaceSections";
+import { applicationCardFixture } from "../../test/fixtures";
+import { readHiddenSections, readSectionOrder, workspaceStage, writeHiddenSections, writeSectionOrder } from "./workspaceSections";
 
 /* What the person did to a stage's Workspace (blocks moved, blocks hidden)
  * comes back on the next visit, for that stage only, and never leaves a
@@ -8,6 +9,17 @@ import { readHiddenSections, readSectionOrder, writeHiddenSections, writeSection
 const ORDER_KEY = "roleband.pipeline-workspace-order";
 
 beforeEach(() => localStorage.clear());
+
+describe("a stage's blocks", () => {
+  it("keep the next steps for an accepted offer, which still owes some, and drop them for any other ending", () => {
+    const accepted = workspaceStage(applicationCardFixture({ stage: "accepted" }));
+    expect(readSectionOrder(accepted)).toContain("next");
+    expect(readSectionOrder(accepted)[0], "how it ended leads").toBe("outcome");
+    for (const stage of ["rejected", "withdrawn", "declined", "role_closed"] as const) {
+      expect(readSectionOrder(workspaceStage(applicationCardFixture({ stage }))), stage).not.toContain("next");
+    }
+  });
+});
 
 describe("a stage's block order", () => {
   it("is the stage's own until the person moves a block", () => {

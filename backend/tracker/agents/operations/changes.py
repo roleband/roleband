@@ -157,7 +157,10 @@ _EVENTS, _RUNS, _DUE, _PLUGIN_RUNS = 0, 1, 2, 3
 #: A window's phases: history from before positions, positioned rows, derived due times.
 _HISTORY, _POSITIONED, _DERIVED = 0, 1, 2
 
-_FORMAT = 1
+#: What a position's numbers mean. A due position names a next step's id;
+#: under format 1 it named a pursuit's, which a step id cannot be compared
+#: with, so a format 1 position is refused as `expired` with where to resume.
+_FORMAT = 2
 
 
 class ChangesListInput(Shape):

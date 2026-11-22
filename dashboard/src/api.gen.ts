@@ -17795,7 +17795,7 @@ export interface operations {
                     due?: string | null;
                     /**
                      * If Revision
-                     * @description The pursuit's revision you read (pursuits.get); 0 when the role has no pursuit yet. A pursuit that moved since is not changed.
+                     * @description The pursuit's revision you read (pursuits.get). A pursuit that moved since is not changed.
                      */
                     if_revision: number;
                     /**
@@ -17837,7 +17837,7 @@ export interface operations {
                 "application/json": {
                     /**
                      * If Revision
-                     * @description The pursuit's revision you read (pursuits.get); 0 when the role has no pursuit yet. A pursuit that moved since is not changed.
+                     * @description The pursuit's revision you read (pursuits.get). A pursuit that moved since is not changed.
                      */
                     if_revision: number;
                 };
@@ -17874,7 +17874,7 @@ export interface operations {
                 "application/json": {
                     /**
                      * If Revision
-                     * @description The pursuit's revision you read (pursuits.get); 0 when the role has no pursuit yet. A pursuit that moved since is not changed.
+                     * @description The pursuit's revision you read (pursuits.get). A pursuit that moved since is not changed.
                      */
                     if_revision: number;
                 };

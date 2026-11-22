@@ -612,7 +612,8 @@
   font-size: var(--app-type-meta);
 }
 
-.app-interview-error {
+.app-interview-error,
+.app-notes-over {
   margin: var(--app-space-1) 0 0;
   color: var(--app-danger);
   font-size: var(--app-type-meta);
@@ -1574,6 +1575,12 @@
 
 .app-event-changes {
   padding: 0 0 var(--app-space-2) calc(12px + var(--app-space-2));
+}
+
+/* Folded but searchable: the browser skips its content and keeps its box, so
+   the box takes no room. */
+.app-event-changes[hidden] {
+  padding: 0;
 }
 
 .app-feed-list > .app-event {

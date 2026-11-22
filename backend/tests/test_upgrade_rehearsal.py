@@ -338,6 +338,9 @@ def test_a_downgrade_past_pursuit_steps_runs_when_it_loses_nothing(baseline_data
 
     assert result.returncode == 0, (result.stderr + result.stdout)[-2000:]
     assert run_psql(dsn, bin_dir, "select to_regclass('pursuit_steps') is null") == "t"
+    # The step, written without its columns, is in them once the table is gone.
+    assert run_psql(dsn, bin_dir, "select count(*) from pursuits where next_action is distinct from 'Only'") == "0"
+    assert run_psql(dsn, bin_dir, "select count(*) from pursuits") != "0"
 
 
 def test_keep_scanning_starts_off_and_a_downgrade_keeps_the_choice_once_made(baseline_database):

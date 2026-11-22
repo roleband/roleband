@@ -26,6 +26,12 @@ describe("a quick filter", () => {
     expect(matchesQuick(applicationCardFixture({ stage: "applied", next_action: "Chase", next_action_due: day(0) }), "overdue", NOW)).toBe(false);
   });
 
+  it("finds an overdue next step behind a round that comes before it", () => {
+    const round = { id: 9, label: "Screen", scheduled_at: new Date(NOW.getTime() - 2 * 86_400_000 - 3 * 3_600_000).toISOString(), all_day: false, format: null, link: null };
+    const card = applicationCardFixture({ stage: "interviewing", next_action: "Chase", next_action_due: day(-2), next_interview: round });
+    expect(matchesQuick(card, "overdue", NOW)).toBe(true);
+  });
+
   it("counts what falls due within seven days, not what is already overdue or further out", () => {
     const due = (at: string) => applicationCardFixture({ stage: "applied", next_action: "Chase", next_action_due: at });
     expect(matchesQuick(due(day(3)), "due_week", NOW)).toBe(true);

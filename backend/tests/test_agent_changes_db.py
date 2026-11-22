@@ -744,6 +744,8 @@ async def test_a_since_that_cannot_continue_is_refused_with_a_lookup_never_reset
     # The cluster that gave it is gone: a restore into a new one.
     hint = await _refused(api_client, "expired", since=_rewrite(since, c="1"))
     assert datetime.fromisoformat(hint["start_time"]) <= datetime.now(UTC)
+    # A position whose due times named pursuits, not steps.
+    assert await _refused(api_client, "expired", since=_rewrite(since, f=1)) == hint
     assert await _refused(api_client, "malformed", since=_rewrite(since, lo=10**15)) == {}
     # A window that ends past the snapshot, or before it starts, is not one a read gave.
     lo = json.loads(base64.urlsafe_b64decode(since + "=" * (-len(since) % 4)))["lo"]

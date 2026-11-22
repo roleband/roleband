@@ -18,6 +18,7 @@ import {
   applicationsNotesBlocks,
   applicationsNotesCheck,
   applicationsNotesLabel,
+  applicationsNotesTooLong,
   applicationsWsNotesHint,
 } from "../../copy/gen/applications";
 
@@ -27,7 +28,7 @@ const SAVE_AFTER_MS = 800;
  *  is still not the server's. */
 export const RETRY_AFTER_MS = 5_000;
 /** The longest note the server keeps, in Markdown characters. */
-export const NOTES_MAX = 20_000;
+const NOTES_MAX = 20_000;
 
 /** A kind of block the "/" menu puts in place of the line being typed. The
  *  mark is what the person may type instead, at the start of a line. */
@@ -81,6 +82,9 @@ interface Slash {
  *  that lands meanwhile. */
 export default function NotesEditor({ notes, onSave }: { notes: string | null; onSave: (notes: string) => Promise<boolean> }) {
   const [slash, setSlash] = useState<Slash | null>(null);
+  // Characters past what the server keeps, from the last save tried: such a
+  // page is not sent, and says so.
+  const [over, setOver] = useState(0);
   const slashNow = useRef<Slash | null>(null);
   slashNow.current = slash;
   // The text the server holds as far as this page knows: what it was given,
@@ -96,7 +100,10 @@ export default function NotesEditor({ notes, onSave }: { notes: string | null; o
     if (timer.current != null) window.clearTimeout(timer.current);
     timer.current = null;
     const value = editor.getMarkdown();
-    if (value === sent.current || value === inFlight.current || value.length > NOTES_MAX) return;
+    setOver(Math.max(0, value.length - NOTES_MAX));
+    // Compared with what the server holds once the save in flight lands: text
+    // put back to the last saved words while another save is out still goes.
+    if (value === (inFlight.current ?? sent.current) || value.length > NOTES_MAX) return;
     inFlight.current = value;
     void save.current(value)
       .catch(() => false)
@@ -240,6 +247,7 @@ export default function NotesEditor({ notes, onSave }: { notes: string | null; o
   return (
     <>
       <EditorContent editor={editor} className="app-notes" />
+      {over > 0 && <p className="app-notes-over" role="alert">{applicationsNotesTooLong({ over })}</p>}
       {/* Beside the page, not at the document's root: a role opened over a
           list is a dialog, and what stands outside it takes no pointer. */}
       {slash && <SlashMenu id={menuId} slash={slash} onChoose={(chosen) => setSlash({ ...slash, chosen })} />}
