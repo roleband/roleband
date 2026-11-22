@@ -148,7 +148,7 @@ it("gives every Spanish count its millions form, which takes \"de\"", () => {
   // counts something, and "1.000.000 de imágenes" needs its own branch.
   const dir = join(__dirname, "es");
   const missing = readdirSync(dir).filter((file) => file.endsWith(".ftl")).flatMap((file) =>
-    [...readFileSync(join(dir, file), "utf8").matchAll(/^([\w-]+) =[^\n]*\{ *\$(\w+) *->((?:\n +[^\n]*)+?)\n *\}/gm)]
+    [...readFileSync(join(dir, file), "utf8").matchAll(/^([\w-]+) =[^\n]*\{ *\$(\w+) *->((?:\n [^\n]*)+?)\n *\}/gm)]
       .filter(([, , variable, body]) => variable !== "num" && body.includes("[one]") && !body.includes("[many]"))
       .map(([, key]) => `${file}: ${key}`));
   expect(missing).toEqual([]);

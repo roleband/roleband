@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, mockGet, test } from "./fixtures";
+import { expect, mockGet, test, viewChoices } from "./fixtures";
 import { msg } from "../../src/test/msg";
 import type { Page } from "./fixtures";
 import type { Request } from "@playwright/test";
@@ -32,6 +32,7 @@ test.beforeEach(async ({ page }) => {
     throw new Error(`Unmocked usage-consent API request: ${route.request().method()} ${route.request().url()}`);
   });
   // The page-level guard outranks the context fixtures: repeat the bootstrap reads.
+  await viewChoices(page);
   await page.route("/api/companies/names", (route) => route.fulfill({ json: { names: {} } }));
   await page.route("/api/compare-selection**", (route) => route.fulfill({ json: { job_ids: [] } }));
   await page.route("/api/settings/locale", (route) => route.fulfill({ json: { language: "en", region: null } }));
