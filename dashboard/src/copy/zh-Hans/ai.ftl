@@ -18,34 +18,15 @@ ai-aim-line-add-your-aim = { $choice ->
 }
 
 ## features/intelligence/AssistantsCard.tsx
-ai-assistants-card-mcp-server = 助手应用（MCP）
-ai-assistants-card-allowed-read-only = { $choice ->
-    [yes] 已允许 · 可读取和更新
-   *[no] 已允许 · 只读
-}
-ai-assistants-card-not-allowed-nothing-is-shared = 未允许 · 不共享内容
-ai-assistants-card-what-will-be-shared = 将共享的内容
-ai-assistants-card-what-will-not-be-shared = 不会共享的内容
-ai-assistants-card-set-up = 设置
+ai-assistants-card-assistant-apps = 助手应用
 ai-assistants-card-allow-assistant-apps-to-connect = 允许助手应用连接
-ai-assistants-card-allow-assistant-apps-to-update = 允许助手应用更新进度
-ai-assistants-card-stage-notes-next-action-audited = 阶段 · 备注 · 下一步 · 规则草稿 · 有记录
-ai-assistants-card-it-can-then-read-what = 之后它可以读取这张卡片列出的内容，仅此而已。
 ai-assistants-card-run-this-once-in-a = 在终端中运行一次，然后重启应用。
-ai-assistants-card-most-apps-that-speak-mcp = 大多数 MCP 应用都能使用这段配置。把它添加到应用的 MCP 设置中，然后重启应用。
-ai-assistants-card-add-this-to-the-app = 把它添加到应用的设置中，然后重启应用。
+ai-assistants-card-let-the-app-run-commands = 允许该应用运行命令，然后让它运行这条命令。
 ai-assistants-card-done = 完成
 ai-assistants-card-anthropic = Anthropic
-ai-assistants-card-set-up-the-claude-app = 设置 Claude 应用
 ai-assistants-card-openai = OpenAI
-ai-assistants-card-set-up-the-codex-app = 设置 Codex 应用
-ai-assistants-card-any-client-that-speaks-mcp = 任何支持 MCP 的应用
-ai-assistants-card-set-up-another-mcp-app = 设置其他 MCP 应用
-ai-assistants-card-mcp-server-2 = 助手应用
-ai-assistants-card-not-allowed-to-connect = { $choice ->
-    [yes] · 可以设置
-   *[no] · 未允许连接
-}
+ai-assistants-card-any-app-that-can-run-commands = 任何能运行命令的应用
+ai-assistants-card-assistant-apps-2 = 助手应用
 ai-assistants-card-allow-assistant-apps-to-connect-2 = 先允许助手应用连接
 ai-assistants-card-off-nothing-leaves-this-computer = { $choice ->
     [yes] 开启 · 仅与你连接的应用共享
@@ -71,7 +52,7 @@ ai-capabilities-card-ready = 就绪
 ai-capabilities-card-online-model-services = AI 提供商
 ai-capabilities-card-none-connected = 未添加 ·
 ai-capabilities-card-add = 添加
-ai-capabilities-card-send-postings-to-online-services = 发送{ -posting(num: "other") }
+ai-capabilities-card-send-postings-to-online-services = 允许使用 AI 提供商
 ai-capabilities-card-the-example-says = 示例为
 ai-capabilities-card-it-found = 它找到
 ai-capabilities-card-found-pay = { $band } · { $basis ->
@@ -111,11 +92,11 @@ ai-capabilities-card-test = { $choice ->
 }
 ai-capabilities-card-nothing-is-sent = { $choice ->
     [yes] 添加提供商后允许发送
-   *[no] 不发送任何内容
+   *[no] 不会有任何内容离开这台电脑
 }
 ai-capabilities-card-off-nothing-is-sent = { $choice ->
-    [yes] 开启 · 你开启的提供商会收到{ -posting(num: "other") }
-   *[no] 关闭 · 不发送任何内容
+    [yes] 开启 · 只使用你开启的提供商
+   *[no] 关闭 · 不会有任何内容离开这台电脑
 }
 ai-capabilities-card-no-pay-range-found = { $choice ->
     [v1] 测试失败
@@ -127,12 +108,12 @@ ai-capabilities-card-no-pay-range-found = { $choice ->
 ai-capabilities-card-on-device = 在这台电脑上
 ai-capabilities-card-allow-sending-postings-to-online = { $choice ->
     [yes] 开启 { $name } 后即可使用
-   *[no] 请先开启“发送{ -posting(num: "other") }”
+   *[no] 请先允许使用 AI 提供商
 }
 ai-capabilities-card-blocked-online-services-are-switched = { $choice ->
-    [v1] 使用中
+    [v1] 已允许
     [v2] 关闭
-   *[v3] 已阻止 · 发送已关闭
+   *[v3] 已阻止 · AI 提供商已关闭
 }
 ai-capabilities-card-connection-ready-ms = 连接就绪 · { $latency_ms } ms
 ai-capabilities-card-use = 使用 { $name }
@@ -144,7 +125,7 @@ ai-capabilities-card-test-2 = 测试 { $name }
 ai-capabilities-card-configure = 配置 { $name }
 
 ## features/intelligence/CloudDialog.tsx
-ai-cloud-dialog-a-direct-api-connection-billed = 使用你自己的 API 密钥，与任何 ChatGPT 或 Claude 订阅分开计费。只有在 { $b } 开启时才会发送{ -posting(num: "other") }。
+ai-cloud-dialog-a-direct-api-connection-billed = 使用你自己的 API 密钥，与任何 ChatGPT 或 Claude 订阅分开计费。仅在 { $b } 开启期间使用。
 ai-cloud-dialog-name = 名称
 ai-cloud-dialog-provider = 提供商
 ai-cloud-dialog-server-address-https = 服务器地址（HTTPS）
@@ -303,17 +284,55 @@ ai-origin-badge-cloud-connected = { $choice ->
 }
 
 ## features/intelligence/AssistantsCard.tsx（手工添加）
-ai-assistants-card-shares-role-titles-companies-locations-and-link = { -role(num: "other") }名称、{ -company(num: "other") }、地点和链接
-ai-assistants-card-shares-pay-level-and-how-long-the-role-has-been = 薪酬、级别，以及{ -role(num: "one") }已开放多久
-ai-assistants-card-shares-the-full-posting-when-they-open-one = 它们打开的{ -posting(num: "one") }全文
-ai-assistants-card-shares-your-progress-on-roles-stage-priority-no = 你在各{ -role(num: "other") }上的进度：阶段、优先级、备注、下一步
-ai-assistants-card-shares-public-pages-it-asks-roleband-to-open = 它请求从这台电脑打开的公开网页
-ai-assistants-card-never-your-profile-and-intent-statement = 你的个人资料和目标
-ai-assistants-card-never-your-own-salary-or-contacts = 你的薪资或联系人
-ai-assistants-card-never-anything-from-your-other-apps = 其他应用的任何内容
-ai-assistants-card-app-claude-app = Claude 应用
+ai-assistants-card-app-claude-code = Claude Code
 ai-assistants-card-app-codex-app = Codex 应用
 ai-assistants-card-app-other-app = 其他应用
+ai-assistants-card-what-apps-do = 它们会读取你的职位、薪酬、备注、录用条件和个人资料，并随时更新你的进度。
+ai-assistants-card-up-to-the-app = 应用如何处理它读取的内容，取决于该应用及其使用的模型。
+ai-assistants-card-everything-shared = 开启后会共享全部内容。
+ai-assistants-card-not-shared = 不共享：{ $list }。
+ai-assistants-card-local-only = 仅限这台电脑上的模型：{ $list }。
+ai-assistants-card-changes-off = 已关闭的更改：{ $list }。
+ai-assistants-card-read-only = 应用只能读取。
+ai-assistants-card-customize = 自定义
+ai-assistants-card-activity = 活动记录
+ai-assistants-card-connect = 连接
+ai-assistants-card-update = 更新
+ai-assistants-card-connect-claude-code = 连接 Claude Code
+ai-assistants-card-connect-the-codex-app = 连接 Codex 应用
+ai-assistants-card-connect-another-app = 连接其他应用
+ai-assistants-card-app-state = { $state ->
+    [connected] { $service } · 已连接
+    [used] { $service } · { $age }使用过
+    [outdated] { $service } · 有可用更新
+    [rule-missing] { $service } · 每条命令前都会询问
+    [read-only] { $service } · 被只读模式阻止
+   *[none] { $service }
+}
+ai-assistants-card-other-used = { $age }使用过
+ai-assistants-card-connected = 已连接
+ai-assistants-card-app-activity = { $app } 的活动记录
+ai-access-dialog-title = 自定义应用可获取的内容
+ai-access-dialog-apply-at-once = 更改会立即生效。
+ai-access-dialog-data = 应用读取的数据
+ai-access-dialog-changes = 应用可做的更改
+ai-access-dialog-any-model = 任何模型
+ai-access-dialog-local-only = 仅限本地
+ai-access-dialog-local-only-tip = 仅限这台电脑上的模型。已连接的应用会将其视为不共享。
+ai-access-dialog-not-shared = 不共享
+ai-access-dialog-on = 开启
+ai-access-dialog-off = 关闭
+ai-access-dialog-postings = 招聘信息
+ai-access-dialog-market-statistics = 市场统计
+ai-access-dialog-progress-and-notes = 进度和备注
+ai-access-dialog-offer = 录用条件
+ai-access-dialog-profile = 个人资料
+ai-access-dialog-tracking-progress = 跟踪进度
+ai-access-dialog-keeping-findings = 保存发现
+ai-access-dialog-tuning-the-radar = 调整雷达
+ai-access-dialog-controlling-collection = 控制收集
+ai-access-dialog-cell = { $row }：{ $column }
+ai-access-dialog-share-everything = 重新共享全部
 
 ## 默认连接名称（手工添加）
 ai-local-model-dialog-default-name = 你自己的模型
@@ -330,7 +349,7 @@ ai-availability-device-ineligible = 这台电脑不支持 Apple Intelligence。
 ai-availability-model-not-ready = 尚未就绪，可能仍在下载。
 ai-availability-not-configured = 尚未配置任何模型。请在 设置 › AI 中添加一个。
 ai-availability-server-unreachable = 本地 AI 服务器没有响应。请启动它，然后再次测试。
-ai-availability-egress-not-permitted = 向 AI 提供商发送{ -posting(num: "other") }的功能已关闭。请在 设置 › AI 中开启。
+ai-availability-egress-not-permitted = AI 提供商已关闭。请在 设置 › AI 中开启。
 ai-origin-none = 未运行任何模型
 ai-origin-on-device = 在这台电脑上：Apple Intelligence
 ai-origin-this-mac = 在这台电脑上：你自己的模型
@@ -350,10 +369,9 @@ ai-capabilities-card-running = 运行中
 ## 读取失败时的说明。
 ai-intelligence-section-matches-load-failed = 无法加载最契合你的职位
 ai-intelligence-section-band-load-failed = 无法加载此等级的职位
-ai-egress-title = 允许发送到 AI 提供商？
-ai-egress-detail = { -posting(num: "other") }中的文本只会发送到你开启的 AI 提供商，包括你以后添加或开启的提供商。
+ai-egress-title = 允许使用 AI 提供商？
 ai-egress-destinations = 已保存的提供商
-ai-egress-empty = 尚未添加 AI 提供商。添加并开启一个提供商后才会发送内容。
+ai-egress-empty = 尚未添加 AI 提供商。添加并开启一个提供商之前，不会有任何内容离开这台电脑。
 ai-egress-allow = 允许
 
 ai-capabilities-card-apple-off = 关闭

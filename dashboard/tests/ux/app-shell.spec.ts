@@ -164,6 +164,8 @@ test("every route offers exactly one main landmark", async ({ page }) => {
    label. Each route gets one three windows down, so the check does not depend on
    how long a fixture happens to make the page. */
 test("a hidden label far down a screen cannot make the window scroll", async ({ page, isMobile }) => {
+  // Seven screens, each loaded, filled and scrolled to its end.
+  test.slow();
   await installEveryRoute(page);
   for (const path of ["/", "/pipeline/list", "/statistics", "/company", "/review", "/notifications", "/settings"]) {
     await page.goto(path);
@@ -451,7 +453,7 @@ test("the bell caps the same count the same way", async ({ page, isMobile }) => 
 });
 
 /* The top bar's counts are readable in every shape and state. Two of
- * the four chips are <button>s, and a button's user-agent colour is black: a
+ * the three chips are <button>s, and a button's user-agent colour is black: a
  * chip that does not inherit its ink paints its count black on the dark glass.
  * Pinned in the browser, because a stylesheet gate cannot see what a
  * UA default paints over. */
@@ -478,15 +480,9 @@ test("every count in the top bar wears the bar's ink, chosen or not, and its uni
     msg("shell-stat-open-aria", { count: 2004 }),
     msg("shell-stat-new-aria", { count: 873 }),
     msg("shell-stat-reposted-aria", { count: 49 }),
-    msg("shell-stat-saved-aria", { count: 4 }),
   ]);
-  // The count is every starred role, and the Board is where they all are.
-  await expect(page.getByRole("link", { name: msg("shell-stat-saved-aria", { count: 4 }) }))
-    .toHaveAttribute("href", "/pipeline/board");
-  // No chip paints its number in the UA's black; the reposted button reads
-  // exactly like the saved link beside it.
+  // No chip paints its number in the UA's black.
   for (const c of at_rest) expect(c.n, c.label!).not.toBe("rgb(0, 0, 0)");
-  expect(at_rest[2].n).toBe(at_rest[3].n);
   for (const c of at_rest) {
     expect(c.unitPx, c.label!).toBeGreaterThanOrEqual(9);
     expect(c.numeralWeight, c.label!).toBeLessThanOrEqual(600);
@@ -504,7 +500,8 @@ test("every count in the top bar wears the bar's ink, chosen or not, and its uni
   expect((await read())[0].n).toBe(chosen[2].n);
 });
 
-test("a running matching-model switch shows in the top bar and leads to Settings > AI", async ({ page }) => {
+test("a running matching-model switch shows in the top bar and leads to Settings > AI", async ({ page, isMobile }) => {
+  test.skip(isMobile, "phones are not supported: the compact bar leaves out the top bar's chips");
   await mockGet(page, "/api/status", (route) => route.fulfill({ json: { ...statusFixture, matching_switch: "converting" } }));
   await page.goto("/");
   const chip = page.getByRole("link", { name: msg("shell-model-switch-aria", { phase: "converting" }) });

@@ -1,8 +1,9 @@
-import { Suspense, lazy, useEffect, useState, type ReactNode } from "react";
+import { Suspense, lazy, useCallback, useEffect, useState, type ReactNode } from "react";
 import type { ApplicationInterview, InterviewWrite, Job } from "../../api";
 import type { StageSlug } from "../../copy/vocabulary";
 import { PipelineSection } from "./PipelineSection";
 import { PostingStage } from "./PostingStage";
+import type { RoleTab } from "./roleLink";
 import { usePostingApplication } from "./usePostingApplication";
 import { usePostingWorkspace } from "./usePostingWorkspace";
 
@@ -12,8 +13,6 @@ const PostingWorkspace = lazy(() => import("./PostingWorkspace"));
 /** The stages before the person has applied: the employer's page is still
  *  where they apply. */
 const BEFORE_APPLYING: ReadonlySet<StageSlug> = new Set(["saved", "researching", "networking"]);
-
-export type PostingTab = "posting" | "workspace";
 
 /** What the posting shows of its role's place in the pipeline. */
 export interface PostingPipeline {
@@ -25,12 +24,20 @@ export interface PostingPipeline {
   applied: boolean;
   /** The tab on screen for a role in the pipeline; null for one outside it,
    *  which has no tabs. */
-  tab: PostingTab | null;
+  tab: RoleTab | null;
   /** The Workspace, the main column's while its tab is on screen. */
   workspace: ReactNode;
 }
 
 type Asking = { kind: "add" } | { kind: "edit"; interview: ApplicationInterview };
+
+/** State that belongs to one role: it reads as unset for any other, so a
+ *  dialog or menu opened on one role never carries over to the next. */
+function useStateForJob<T>(jobId: number | null): [T | null, (value: T | null) => void] {
+  const [held, setHeld] = useState<{ jobId: number | null; value: T } | null>(null);
+  const set = useCallback((value: T | null) => setHeld(value == null ? null : { jobId, value }), [jobId]);
+  return [held && held.jobId === jobId ? held.value : null, set];
+}
 
 /** A typed key belongs to the field it is typed into, and while a dialog is
  *  open over the posting the keyboard is the dialog's. The posting itself is
@@ -70,16 +77,19 @@ export function usePostingPipeline(
     /** The side column the section sits in, for its history to open across. */
     column: HTMLElement | null;
     /** The tab the address asks for. */
-    tab: PostingTab | null;
-    onTab: (tab: PostingTab) => void;
+    tab: RoleTab | null;
+    onTab: (tab: RoleTab) => void;
   },
 ): PostingPipeline {
   const application = usePostingApplication(job, { showSaved, paintPosting, rereadPosting });
   const { card, history, detail } = application;
-  const tab: PostingTab | null = card ? asked ?? "posting" : null;
-  const actions = usePostingWorkspace(application, { showing: tab === "workspace", paintNotes, rereadPosting });
-  const [stageOpen, setStageOpen] = useState(false);
-  const [asking, setAsking] = useState<Asking | null>(null);
+  const tab: RoleTab | null = card ? asked ?? "posting" : null;
+  const actions = usePostingWorkspace(application, { showing: tab === "workspace", paintNotes });
+  const jobId = job?.id ?? null;
+  const [stageOpenFor, setStageOpenFor] = useStateForJob<true>(jobId);
+  const stageOpen = stageOpenFor === true;
+  const setStageOpen = useCallback((open: boolean) => setStageOpenFor(open ? true : null), [setStageOpenFor]);
+  const [asking, setAsking] = useStateForJob<Asking>(jobId);
 
   const onBoard = card != null;
   useEffect(() => {
@@ -97,7 +107,7 @@ export function usePostingPipeline(
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onBoard]);
+  }, [onBoard, setStageOpen, setAsking]);
 
   // The form waits for its save and closes only once it has landed.
   const submitInterview = async (interview: InterviewWrite) => {
@@ -121,12 +131,15 @@ export function usePostingPipeline(
           notes={job.pursuit?.notes ?? null}
           activity={actions.activity}
           now={now}
-          onSetNext={actions.setNextStep}
+          onAddStep={actions.addStep}
+          onEditStep={actions.editStep}
           onFinishStep={actions.finishStep}
+          onRemoveStep={actions.removeStep}
           onSaveNotes={actions.saveNotes}
           onAddInterview={() => setAsking({ kind: "add" })}
           onEditInterview={(interview) => setAsking({ kind: "edit", interview })}
           onOutcome={actions.setOutcome}
+          onAddComment={actions.addComment}
           onEditComment={actions.editComment}
           onDeleteComment={actions.deleteComment}
         />

@@ -4,6 +4,7 @@
  * where they meet. */
 
 import type { ApplicationDetail, JobDetail } from "../../api";
+import { DAY } from "./board";
 
 export type CrossingKind = "closed" | "reopened" | "pay";
 
@@ -14,8 +15,6 @@ export interface Crossing {
   /** Whole days between applying and the change. */
   days: number;
 }
-
-const DAY = 86_400_000;
 
 /** The latest crossing, or null. Only a change after the person applied
  *  counts: before it, the posting they applied to already said so. */
@@ -41,18 +40,6 @@ export function latestCrossing(
     }
   }
   return latest;
-}
-
-/** Whether the posting's pay changed after the person applied. */
-export function payChangedSinceApplied(
-  lifecycle: JobDetail["lifecycle"],
-  reached: ApplicationDetail["stages_reached"],
-): boolean {
-  const applied = reached.find((step) => step.stage === "applied");
-  if (!applied) return false;
-  const from = new Date(applied.at).getTime();
-  return lifecycle.some((entry) =>
-    entry.event_type === "changed" && "disclosed_base" in entry.detail && new Date(entry.at).getTime() > from);
 }
 
 const DISMISSED_KEY = "roleband.pipeline-crossings-dismissed";

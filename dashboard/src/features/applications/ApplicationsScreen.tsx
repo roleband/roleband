@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { STAGE_LABEL, type StageSlug } from "../../copy/vocabulary";
 import { PageHeader } from "../../patterns/PageHeader";
@@ -60,8 +60,10 @@ function PipelineView() {
       : applicationsMoved({ title, stage: STAGE_LABEL[stage] });
   }, []);
   const board = useBoardController({ said });
-  // One clock per render, so every view measures from the same instant.
-  const now = new Date();
+  // One clock for every view, to the minute: a keystroke's render keeps the
+  // same instant, so what the views derive from it is not computed again.
+  const minute = Math.floor(Date.now() / 60_000);
+  const now = useMemo(() => new Date(minute * 60_000), [minute]);
 
   return (
     <main className="main app-main" data-design-system="app" data-view={tab}>

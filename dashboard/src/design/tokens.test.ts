@@ -661,9 +661,9 @@ describe("the material registry", () => {
 /* The shell chrome.
  *
  * `--tb-*` (topbar) and `--rail-*` (nav rail) are a SECOND colour vocabulary,
- * declared in `shell.css` rather than `tokens.css`, deliberately: the rail is
- * dark in both themes and the topbar sits on translucent glass, so neither
- * takes the app palette. The two surfaces present on EVERY screen are checked
+ * declared in `shell.css` rather than `tokens.css`, deliberately: the rail has
+ * its own palette per theme and the topbar sits on translucent glass, so
+ * neither takes the app palette. The two surfaces present on EVERY screen are checked
  * here because the material check above reads only tokens.css and the
  * materials, and these are tokens somewhere else.
  *
@@ -676,6 +676,7 @@ const shellCss = readFileSync(join(HERE, "..", "shell.css"), "utf8");
 const tbLight = tokensIn(block(shellCss, ".topbar {"), "tb");
 const tbDark = tokensIn(block(shellCss, '[data-theme="dark"] .topbar {'), "tb");
 const railTokens = tokensIn(block(shellCss, ".nav-rail {"), "rail");
+const railLight = tokensIn(block(shellCss, '[data-theme="light"] .nav-rail {'), "rail");
 
 const CHROME_TEXT = ["text", "text-muted", "text-faint", "accent-text", "good", "warn", "danger"];
 
@@ -698,9 +699,15 @@ const CHROME: {
     names: CHROME_TEXT.map((n) => `--tb-${n}`),
   },
   {
-    label: "nav rail",
+    label: "nav rail dark",
     tokens: railTokens,
     ground: railTokens.get("--rail-canvas")!,
+    names: ["--rail-text", "--rail-strong", "--rail-muted", "--rail-faint", "--rail-accent-text"],
+  },
+  {
+    label: "nav rail light",
+    tokens: new Map([...railTokens, ...railLight]),
+    ground: railLight.get("--rail-canvas")!,
     names: ["--rail-text", "--rail-strong", "--rail-muted", "--rail-faint", "--rail-accent-text"],
   },
 ];

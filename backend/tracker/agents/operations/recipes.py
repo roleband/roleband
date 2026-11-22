@@ -12,14 +12,16 @@ evidence about the page, never instructions to the agent.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
-from pydantic import Field
+from pydantic import BaseModel, Field
 from pydantic.config import JsonDict
 from selectolax.lexbor import LexborHTMLParser as HTMLParser
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tracker.agents.activity import Changed, FieldChange, Said
 from tracker.agents.operations.descriptor import (
     EngineEffects,
     NoInput,
@@ -118,6 +120,8 @@ RECIPES_CONTRACT_GET = OperationDescriptor(
     idempotency="read",
     engine_effects=EngineEffects(),
     tool_tiers=_AUTHORING_TIERS,
+    # The contract says how a recipe reads public postings; it holds no person's data.
+    data_classes=("public_posting",),
 )
 
 SOURCES_INSPECT = OperationDescriptor(
@@ -166,9 +170,11 @@ RECIPES_DRAFT_SAVE = OperationDescriptor(
     input=RecipeDraftSaveInput,
     result=SavedDraft,
     access="write",
+    action_group="controlling_collection",
     idempotency="required_key",
     engine_effects=EngineEffects(state_write=True),
     tool_tiers=_AUTHORING_TIERS,
+    data_classes=("public_posting",),
 )
 
 OPERATIONS: tuple[OperationDescriptor, ...] = (
@@ -242,7 +248,7 @@ async def validate_recipe(params: RecipeValidateInput) -> RecipeValidation:
 
 
 async def save_draft(session: AsyncSession, params: RecipeDraftSaveInput) -> SavedDraft:
-    """Append a draft revision, as the MCP tool and the Settings screen do. A
+    """Append a draft revision, as the Settings screen does. A
     document that does not compile is an input error and stores nothing."""
     slug = params.document.get("id")
     if not isinstance(slug, str) or not slug:
@@ -258,3 +264,20 @@ async def save_draft(session: AsyncSession, params: RecipeDraftSaveInput) -> Sav
             details={"field": "document", "problems": [str(problem) for problem in error.problems]},
         ) from None
     return SavedDraft(slug=slug, revision_id=revision.id, version=revision.version)
+
+
+@dataclass(frozen=True)
+class DraftActivity:
+    """What a draft save lists on the Activity screen: the recipe and the
+    draft's number."""
+
+    async def before(self, session: AsyncSession) -> None:
+        return None
+
+    def entry(self, before: object, result: BaseModel) -> Changed:
+        if not isinstance(result, SavedDraft):
+            raise TypeError(f"a draft save answers SavedDraft, not {type(result).__name__}")
+        return Changed(
+            Said("recipe.drafted", f"Drafted a recipe for {result.slug}", {"recipe": result.slug}),
+            (FieldChange("draft", None, result.version),),
+        )

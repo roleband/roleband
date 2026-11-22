@@ -66,6 +66,12 @@ internal sealed class TrayApp
     private string? settingsError;
     private DateTimeOffset nextAutomaticCheck = DateTimeOffset.MinValue;
 
+    // The update window: the person's switch and Laters, a release an automatic check found that waits to be shown, and
+    // the window while it is open.
+    private UpdateWindowRecord windowRecord = new();
+    private string? foundRelease;
+    private UpdateWindow? updateWindow;
+
     // A source run's simulated press waits for the engine as a person would, and leaves a failure on screen a moment.
     private static readonly TimeSpan SimulatedReadyPatience = TimeSpan.FromMinutes(2), SimulatedPoll = TimeSpan.FromMilliseconds(500),
                                      SimulatedLook = TimeSpan.FromSeconds(4);
@@ -135,6 +141,7 @@ internal sealed class TrayApp
             statePath = configuration.State;
             alerts = new Alerts(EngineAlerts.Folder(configuration.State));
             setup = SetupStore.Read(configuration.State);
+            windowRecord = UpdateWindowStore.Read(configuration.State);
             Render(engine.Snapshot);
             // A simulated update is looked at in Settings, which opens with it.
             if (simulation is not null) OpenSettings();
@@ -269,6 +276,75 @@ internal sealed class TrayApp
         var view = Surfaces().Flyout;
         tray?.Show(view.Badge, view.Tooltip);
         flyout.Render(view, controlMessage is null ? null : copy[controlMessage]);
+        RenderUpdateWindow();
+    }
+
+    /// <summary>Opens a found release's window once nothing holds it back, keeps an open one current, and closes it once it
+    /// has nothing to show or its switch is turned off.</summary>
+    private void RenderUpdateWindow()
+    {
+        if (closed) return;
+        var state = State();
+        if (updateWindow is { } open)
+        {
+            if (UpdateWindowRules.Stale(copy, state, windowRecord)) open.Close();
+            else if (UpdateWindowRules.View(copy, state) is { } current) open.Render(current);
+            return;
+        }
+        if (foundRelease is not { } found) return;
+        var decision = UpdateWindowRules.Decide(state, windowRecord, found, setupWindow is not null);
+        if (decision == UpdateWindowDecision.Hold) return;
+        foundRelease = null;
+        if (decision == UpdateWindowDecision.Open && UpdateWindowRules.View(copy, state) is { } view) ShowUpdateWindow(view);
+    }
+
+    private void ShowUpdateWindow(UpdateWindowView view)
+    {
+        // The window is a notice: one Windows cannot build or refuses to show must not take the tray and the engine with it.
+        UpdateWindow window;
+        try { window = new UpdateWindow(copy); }
+        catch (Exception error)
+        {
+            Debug.WriteLine(error);
+            return;
+        }
+        window.Later += () =>
+        {
+            // Later sets aside the version the window acts on, which a failed older update may name.
+            if (UpdateWindowRules.View(copy, State()) is { } shown) SaveWindowRecord(windowRecord.Later(shown.Version, DateTimeOffset.Now));
+            window.Close();
+        };
+        window.Update += async () => await UpdateNowAsync();
+        window.Cancel += CancelUpdate;
+        window.Notes += () =>
+        {
+            if (UpdateWindowRules.View(copy, State())?.Page is { } page) Launch(page);
+        };
+        window.Closed += (_, _) =>
+        {
+            if (updateWindow == window) updateWindow = null;
+        };
+        updateWindow = window;
+        try
+        {
+            window.Render(view);
+            window.Present();
+        }
+        catch (Exception error)
+        {
+            Debug.WriteLine(error);
+            updateWindow = null;
+            try { window.Close(); }
+            catch (Exception closing) { Debug.WriteLine(closing); }
+        }
+    }
+
+    private void SaveWindowRecord(UpdateWindowRecord record)
+    {
+        windowRecord = record;
+        if (statePath is null) return;
+        try { UpdateWindowStore.Write(statePath, record); }
+        catch (Exception error) { Debug.WriteLine(error); }
     }
 
     // Settings.
@@ -292,6 +368,12 @@ internal sealed class TrayApp
             window.UpdateNow += async () => await UpdateNowAsync();
             window.CancelUpdate += CancelUpdate;
             window.AutomaticChanged += async automatic => await ChooseAutomaticAsync(automatic);
+            window.WindowChanged += shows =>
+            {
+                SaveWindowRecord(windowRecord with { Shows = shows });
+                RenderSettings();
+                RenderUpdateWindow();
+            };
             window.LoginChanged += async enabled => await SetLoginAsync(enabled);
             window.Open += async route => await OpenRadarAsync(route);
             window.Closed += (_, _) => settings = null;
@@ -322,7 +404,8 @@ internal sealed class TrayApp
             settingsLoginError,
             snapshot is not null && TrayModel.For(snapshot).CanOpenRadar,
             updateChoosing,
-            settingsError is null ? null : copy[settingsError]));
+            settingsError is null ? null : copy[settingsError],
+            windowRecord.Shows));
     }
 
     private async Task SetLoginAsync(bool enabled)
@@ -366,6 +449,7 @@ internal sealed class TrayApp
         {
             var (facts, status) = await updates.CheckNowAsync(manual);
             update = update with { Facts = facts, LastResult = status is "up-to-date" or "offered" or "failed" or "rate-limited" ? status : update.LastResult };
+            if (UpdateWindowRules.Found(manual, status, facts) is { } found) foundRelease = found;
         }
         catch (Exception error)
         {
@@ -374,6 +458,7 @@ internal sealed class TrayApp
         }
         update = update with { Checking = false };
         RenderSettings();
+        RenderUpdateWindow();
     }
 
     private async Task ChooseAutomaticAsync(bool automatic)
@@ -573,6 +658,8 @@ internal sealed class TrayApp
             {
                 setupWindow = null;
                 if (engine is not null) SaveSetup(SetupFlow.Close(setup, engine.Snapshot));
+                // A release found while setup was open waited for it.
+                RenderUpdateWindow();
             };
             setupWindow = window;
         }
@@ -885,6 +972,7 @@ internal sealed class TrayApp
         clock.Stop();
         setupWindow?.Close();
         settings?.Close();
+        updateWindow?.Close();
         tray?.Dispose();
         tray = null;
         sessionEnd?.Dispose();

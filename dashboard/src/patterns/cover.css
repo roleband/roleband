@@ -5,7 +5,9 @@
  * A full-viewport ground-painter: it takes the system's page light (canvas +
  * ambient wash, viewport-anchored) and covers the rail, because a cover is
  * modal — one way out, nothing else tabbable (ui/Overlay owns that contract
- * when it is opened from a list). What it does NOT decide is the occupant's
+ * when it is opened from a list). A role opened from a Pipeline view is the
+ * one exception: it starts where the rail ends (`.cover-beside`), and the rail
+ * stays live beside it. What it does NOT decide is the occupant's
  * container: a reading cover keeps its measure (`.jd-container`), a columnar
  * cover runs full-bleed. */
 
@@ -19,6 +21,13 @@
   background-image: var(--app-ambient-image);
   background-attachment: fixed;
   animation: cover-in var(--app-duration-medium) var(--app-ease);
+}
+
+/* Beside the rail: Cover.tsx keeps --cover-left on the rail's edge. Both
+   boxes are fixed to the window, so both take the edge. */
+.ui-overlay-full.cover-beside,
+.cover-beside > .cover {
+  left: var(--cover-left, 0px);
 }
 
 @keyframes cover-in {

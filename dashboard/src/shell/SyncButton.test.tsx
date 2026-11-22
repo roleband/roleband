@@ -1,5 +1,5 @@
 import { msg } from "../test/msg";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -65,7 +65,17 @@ function renderButton({ toasts = false }: { toasts?: boolean } = {}) {
   return render(<MemoryRouter>{toasts ? <ToastProvider>{button}</ToastProvider> : button}</MemoryRouter>);
 }
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
+
+// While a run is live the status poll reads every 3 s. A test that needs the
+// next read installs a clock that otherwise follows real time, then jumps it
+// to that read instead of waiting it out, which a loaded host stretches past
+// the test's time limit.
+const followRealTime = () => vi.useFakeTimers({ shouldAdvanceTime: true });
+const nextPoll = () => act(() => vi.advanceTimersByTimeAsync(3_000));
 
 describe("SyncButton", () => {
   it("renders an idle, enabled Sync control when nothing is running", async () => {
@@ -113,6 +123,7 @@ describe("SyncButton", () => {
   });
 
   it("a start that never landed does not silence the next run's result", async () => {
+    followRealTime();
     let current = status({ running: false });
     vi.spyOn(api, "status").mockImplementation(async () => current);
     vi.spyOn(api, "sync")
@@ -130,10 +141,12 @@ describe("SyncButton", () => {
     await userEvent.click(screen.getByRole("button", { name: "Scan now" }));
     await screen.findByRole("button", { name: "Stop scan" });
     current = status({ running: false, last_run_new: 2 });
-    expect(await screen.findByText("+2 new", {}, { timeout: 6_000 })).toBeInTheDocument();
+    await nextPoll();
+    expect(await screen.findByText("+2 new")).toBeInTheDocument();
   });
 
   it("says it is updating estimates after the scan, and reports the result only once they moved", async () => {
+    followRealTime();
     // Sync is done when the estimates it moved are written,
     // not when the scan ends. The re-estimate runs after the pipeline, so the
     // button holds "Updating estimates…" until `/api/status` says none are left.
@@ -151,7 +164,8 @@ describe("SyncButton", () => {
     expect(busy).toHaveAttribute("aria-busy", "true");
     expect(screen.queryByText("+3 new")).toBeNull();
     // The poll stays fast while estimates move, so the result lands promptly.
-    expect(await screen.findByText("+3 new", {}, { timeout: 6_000 })).toBeInTheDocument();
+    await nextPoll();
+    expect(await screen.findByText("+3 new")).toBeInTheDocument();
   });
 
   it("reflects an in-progress run reported by /api/status", async () => {
@@ -524,6 +538,7 @@ describe("SyncButton", () => {
   });
 
   it("a stopped run still reported for another poll reads Stopped when it goes", async () => {
+    followRealTime();
     let current = status({ running: true, manual_sync_running: true, last_run_new: 4 });
     vi.spyOn(api, "status").mockImplementation(async () => current);
     const cancelSpy = vi.spyOn(api, "cancelSync")
@@ -534,7 +549,8 @@ describe("SyncButton", () => {
     await waitFor(() => expect(cancelSpy).toHaveBeenCalledTimes(1));
     current = status({ running: false, last_run_new: 4 });
 
-    const idle = await screen.findByRole("button", { name: "Scan now" }, { timeout: 6_000 });
+    await nextPoll();
+    const idle = await screen.findByRole("button", { name: "Scan now" });
     await waitFor(() => expect(idle).toHaveTextContent("Stopped"));
     expect(screen.queryByText("+4 new")).toBeNull();
   });
@@ -561,13 +577,15 @@ describe("SyncButton", () => {
   });
 
   it("a new run never shows the last run's result on its stop control", async () => {
+    followRealTime();
     let current = status({ running: true, manual_sync_running: true, last_run_new: 0 });
     vi.spyOn(api, "status").mockImplementation(async () => current);
     vi.spyOn(api, "sync").mockResolvedValue({ status: "started", companies: [], queued: [] });
     renderButton();
     await screen.findByRole("button", { name: "Stop scan" });
     current = status({ running: false, last_run_new: 2 });
-    expect(await screen.findByText("+2 new", {}, { timeout: 6_000 })).toBeInTheDocument();
+    await nextPoll();
+    expect(await screen.findByText("+2 new")).toBeInTheDocument();
 
     current = status({ running: true, manual_sync_running: true });
     await userEvent.click(screen.getByRole("button", { name: "Scan now" }));

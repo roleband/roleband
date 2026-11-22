@@ -89,9 +89,31 @@ jobs:
         working-directory: dashboard
       # One test at a time keeps the three-core hosted Mac predictable, and the step limit ends
       # a stalled run early. Local runs stay parallel, where concurrency faults show up.
+      # The tests write to a pipe in blocks, so a stalled run would hide the test it stalled in;
+      # `script` gives them a terminal, which they write to a line at a time, and exits with their
+      # status. A run still going after STALL_SECONDS is stalled (a whole run takes about a
+      # minute): the step prints every thread of the test process, then ends the run, so the
+      # log names the test and the wait it is stuck in.
       - name: Native behavior tests
         timeout-minutes: 10
-        run: launcher/macos/test-core.sh --no-parallel
+        env:
+          STALL_SECONDS: 420
+        run: |
+          script -q /dev/null launcher/macos/test-core.sh --no-parallel &
+          tests=$!
+          for _ in $(seq "$STALL_SECONDS"); do kill -0 "$tests" 2>/dev/null || break; sleep 1; done
+          if kill -0 "$tests" 2>/dev/null; then
+            echo "::error::The native tests stalled for ${STALL_SECONDS} s; the test process's threads follow."
+            for pid in $(pgrep -f swiftpm-testing-helper); do
+              sample "$pid" 3 -mayDie -file "$RUNNER_TEMP/stalled-$pid.txt" >/dev/null 2>&1 || true
+              cat "$RUNNER_TEMP/stalled-$pid.txt" || true
+            done
+            pkill -f swiftpm-testing-helper || true
+            kill "$tests" 2>/dev/null || true
+            wait "$tests" || true
+            exit 1
+          fi
+          wait "$tests"
       - name: Install pinned packaging tools
         run: |
           python3 -m venv "$RUNNER_TEMP/roleband-packaging"

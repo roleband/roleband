@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from pydantic import Field
+from pydantic.experimental.missing_sentinel import MISSING
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,15 +31,18 @@ _EVERY_TIER: tuple[ToolTier, ...] = ("small", "standard", "full")
 
 
 class RadarSummary(Shape):
+    """The pursuit counts are absent when the person does not share their
+    pursuits with assistants."""
+
     #: Open, in-scope postings at the companies on the Board, one per place set.
     open_opportunities: int = Field(ge=0)
-    saved_opportunities: int = Field(ge=0)
+    saved_opportunities: int | MISSING = Field(default=MISSING, ge=0)
     #: Every pursuit, at any stage.
-    active_pursuits: int = Field(ge=0)
+    active_pursuits: int | MISSING = Field(default=MISSING, ge=0)
     #: Pursuits whose next action fell due and is not done.
-    overdue_next_actions: int = Field(ge=0)
+    overdue_next_actions: int | MISSING = Field(default=MISSING, ge=0)
     #: Only the stages that hold a pursuit.
-    pursuits_by_stage: dict[PursuitStage, int]
+    pursuits_by_stage: dict[PursuitStage, int] | MISSING = MISSING
 
 
 RADAR_SUMMARY = OperationDescriptor(
@@ -56,8 +60,11 @@ RADAR_SUMMARY = OperationDescriptor(
 OPERATIONS: tuple[OperationDescriptor, ...] = (RADAR_SUMMARY,)
 
 
-async def radar_summary(session: AsyncSession, *, now: datetime) -> RadarSummary:
+async def radar_summary(session: AsyncSession, *, now: datetime, pursuits: bool = True) -> RadarSummary:
+    """The counts; with `pursuits` false, only the open roles are counted."""
     open_count = await session.scalar(open_in_scope_count_stmt(await off_board_company_slugs(session)))
+    if not pursuits:
+        return RadarSummary(open_opportunities=open_count or 0)
     saved_count = await session.scalar(select(func.count(Favorite.id)))
     pursuit_count = await session.scalar(select(func.count(Pursuit.id)))
     overdue_count = await session.scalar(select(func.count(Pursuit.id)).where(overdue_pursuit_clause(now)))

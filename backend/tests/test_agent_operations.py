@@ -9,9 +9,11 @@ session. The routes run over real ASGI on the scratch database.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import re
 from dataclasses import dataclass
+from typing import get_args
 
 import pytest
 from fastapi.routing import APIRoute
@@ -21,9 +23,17 @@ from sqlalchemy import select
 from scripts.export_agent_operations import COMMITTED, render
 from tracker.agents.config import AgentAccessConfig, set_agent_access
 from tracker.agents.operations import meta
-from tracker.agents.operations.catalog import CATALOG, REGISTERED, Catalog, bundled_index
+from tracker.agents.operations.catalog import (
+    CATALOG,
+    REGISTERED,
+    RESOURCES,
+    Catalog,
+    bundled_index,
+    resources,
+)
 from tracker.agents.operations.descriptor import (
     OPERATION_ID,
+    ActionGroup,
     Availability,
     EngineEffects,
     NoInput,
@@ -32,7 +42,14 @@ from tracker.agents.operations.descriptor import (
 )
 from tracker.agents.operations.envelope import OperationError
 from tracker.agents.operations.outcomes import CONTRACT_VERSION, OUTCOMES, compatible, outcome
-from tracker.agents.operations.policy import admit, availability
+from tracker.agents.operations.policy import (
+    GROUP_NAMES,
+    acts,
+    admit,
+    availability,
+    shared,
+    withheld,
+)
 from tracker.agents.operations.workspace import ensure_workspace_id, get_workspace_id
 from tracker.api.agent_operations import PREFIX, REQUEST_ID_HEADER, AgentRoute
 from tracker.db.models import WorkspaceIdentity
@@ -59,6 +76,7 @@ CONTRACT_EXITS = {
     "workspace_mismatch": 3,
     "access_disabled": 4,
     "writes_disabled": 4,
+    "category_disabled": 4,
     "not_found": 5,
     "revision_conflict": 6,
     "idempotency_conflict": 6,
@@ -94,6 +112,7 @@ def test_an_error_with_a_code_outside_the_table_cannot_be_raised():
 def test_refusals_are_never_retryable_and_unavailability_is():
     assert not outcome("access_disabled").retryable
     assert not outcome("writes_disabled").retryable
+    assert not outcome("category_disabled").retryable
     assert outcome("engine_unavailable").retryable
     # Unverified transport stops automatic retry.
     assert not outcome("transport_unverified").retryable
@@ -131,7 +150,8 @@ def _descriptor(**overrides) -> OperationDescriptor:
 
 def test_a_well_formed_descriptor_is_accepted():
     assert _descriptor().required_scopes == ("agent_access.enabled",)
-    write = _descriptor(access="write", idempotency="required_key", engine_effects=EngineEffects(state_write=True))
+    write = _descriptor(access="write", idempotency="required_key", engine_effects=EngineEffects(state_write=True),
+                        action_group="tracking_progress")
     assert write.required_scopes == ("agent_access.enabled", "agent_access.allow_writes")
 
 
@@ -143,7 +163,9 @@ def test_a_well_formed_descriptor_is_accepted():
         ({"id": "widgets/list"}, "lowercase"),
         ({"engine_effects": EngineEffects(state_write=True)}, "needs write access"),
         ({"engine_effects": EngineEffects(external_action=True)}, "needs write access"),
-        ({"access": "write", "idempotency": "read"}, "declares its idempotency key"),
+        ({"access": "write", "idempotency": "read", "action_group": "tracking_progress"}, "declares its idempotency key"),
+        ({"access": "write", "idempotency": "required_key"}, "belongs to one action group"),
+        ({"action_group": "tracking_progress"}, "belongs to one action group"),
         ({"idempotency": "required_key"}, "idempotent as a read"),
         ({"tool_tiers": ()}, "at least one tool tier"),
         ({"tool_tiers": ("small", "small")}, "repeats"),
@@ -255,11 +277,13 @@ def test_the_describe_input_takes_only_an_operation_id():
 class Switches:
     enabled: bool
     allow_writes: bool
+    categories: dict[str, str] = dataclasses.field(default_factory=dict)
+    groups: dict[str, str] = dataclasses.field(default_factory=dict)
 
 
 READ = _descriptor()
 WRITE = _descriptor(id="widgets.save", access="write", idempotency="required_key",
-                    engine_effects=EngineEffects(state_write=True))
+                    engine_effects=EngineEffects(state_write=True), action_group="tracking_progress")
 
 
 @pytest.mark.parametrize(
@@ -283,6 +307,78 @@ def test_reads_need_enabled_and_writes_need_allow_writes(switches, read, write):
             assert caught.value.code == refusal
             assert outcome(refusal).exit_status == 4
             assert availability(descriptor, switches) == Availability("unavailable", refusal)
+
+
+POSTINGS_AND_PURSUITS = _descriptor(id="widgets.list", data_classes=("public_posting", "private_pursuit"))
+
+
+@pytest.mark.parametrize("choice", ["not_shared", "local_only"])
+def test_a_read_whose_primary_category_is_not_shared_is_refused_with_its_own_code(choice):
+    switches = Switches(True, True, {"public_posting": choice})
+    with pytest.raises(OperationError) as caught:
+        admit(POSTINGS_AND_PURSUITS, switches)
+    assert caught.value.code == "category_disabled"
+    assert caught.value.details == {
+        "category": "public_posting", "setting": "agent_access.categories.public_posting",
+    }
+    assert outcome("category_disabled").exit_status == 4
+    assert outcome("category_disabled").http_status == 403
+    assert availability(POSTINGS_AND_PURSUITS, switches) == Availability("unavailable", "category_disabled")
+
+
+def test_a_secondary_category_switched_off_admits_the_operation_and_is_withheld():
+    switches = Switches(True, False, {"private_pursuit": "not_shared"})
+    admit(POSTINGS_AND_PURSUITS, switches)
+    assert withheld(POSTINGS_AND_PURSUITS, switches) == {"private_pursuit"}
+    assert shared(switches, "public_posting") and not shared(switches, "private_pursuit")
+
+
+def test_a_category_with_no_choice_is_shared_and_enabled_off_shares_nothing():
+    assert shared(Switches(True, False), "offer")
+    assert shared(Switches(True, False, {"offer": "any_model"}), "offer")
+    everything_open = Switches(False, False, {"public_posting": "any_model"})
+    assert not shared(everything_open, "public_posting")
+    with pytest.raises(OperationError) as caught:
+        admit(POSTINGS_AND_PURSUITS, everything_open)
+    assert caught.value.code == "access_disabled"
+
+
+def test_a_write_whose_group_is_off_is_refused_naming_the_group():
+    switches = Switches(True, True, groups={"tracking_progress": "off"})
+    with pytest.raises(OperationError) as caught:
+        admit(WRITE, switches)
+    assert caught.value.code == "writes_disabled"
+    assert caught.value.details == {
+        "group": "tracking_progress", "setting": "agent_access.groups.tracking_progress",
+    }
+    assert "tracking progress" in caught.value.message
+    assert availability(WRITE, switches) == Availability("unavailable", "writes_disabled")
+    # Reads are not changes: a group switched off leaves them alone.
+    admit(READ, switches)
+
+
+def test_a_group_with_no_choice_or_another_group_off_acts():
+    admit(WRITE, Switches(True, True))
+    admit(WRITE, Switches(True, True, groups={"tracking_progress": "on"}))
+    admit(WRITE, Switches(True, True, groups={"tuning_radar": "off", "controlling_collection": "off"}))
+    assert acts(Switches(True, True), "keeping_findings")
+
+
+def test_allow_writes_off_turns_every_group_off_and_names_the_master_switch():
+    switches = Switches(True, False, groups={"tracking_progress": "on"})
+    assert not acts(switches, "tracking_progress")
+    assert not acts(Switches(False, True), "tracking_progress")
+    with pytest.raises(OperationError) as caught:
+        admit(WRITE, switches)
+    assert caught.value.details == {"setting": "agent_access.allow_writes"}
+
+
+def test_every_registered_write_belongs_to_a_named_group():
+    writes = [descriptor for descriptor in CATALOG if descriptor.access == "write"]
+    assert writes
+    for descriptor in writes:
+        assert descriptor.action_group in GROUP_NAMES, descriptor.id
+    assert set(GROUP_NAMES) == set(get_args(ActionGroup))
 
 
 # --------------------------------------------------------------------------- #
@@ -413,9 +509,10 @@ async def test_a_request_id_is_echoed_only_when_it_is_a_plain_token(api_client, 
 @pytest.mark.asyncio
 async def test_capabilities_lists_each_operation_with_live_availability(api_client, db_session):
     await _enable(db_session)
-    body = (await api_client.get(f"{PREFIX}/capabilities")).json()
+    body = (await api_client.get(f"{PREFIX}/capabilities", params={"view": "full"})).json()
     _assert_envelope(body, operation="capabilities", ok=True)
     data = body["data"]
+    assert data["view"] == "full"
     assert data["metadata_source"] == "engine"
     assert data["engine_version"]
     assert data["supported_contract_versions"] == [CONTRACT_VERSION]
@@ -431,16 +528,85 @@ async def test_capabilities_lists_each_operation_with_live_availability(api_clie
         assert set(entry["engine_effects"]) == {"state_write", "outbound_network", "model_egress", "external_action"}
 
 
+#: The most one discovery answer may take: the capability index budget of the
+#: standard tool tier, 1,500 tokens at four bytes each.
+DISCOVERY_BUDGET = 1_500 * 4
+#: The most the default index may take, with room under the budget for the
+#: operations still to come.
+INDEX_BUDGET = 1_000 * 4
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("allow_writes", [False, True])
+async def test_the_capability_index_groups_operation_ids_by_resource_within_its_budget(
+    api_client, db_session, allow_writes,
+):
+    """What every trial reads first: what each resource is for and the
+    operations under it, what more than reading each does, and what the
+    person's switches turn off."""
+    await _enable(db_session, allow_writes=allow_writes)
+    response = await api_client.get(f"{PREFIX}/capabilities")
+    assert len(response.content) <= INDEX_BUDGET
+    body = response.json()
+    _assert_envelope(body, operation="capabilities", ok=True)
+    data = body["data"]
+    assert data["view"] == "summary"
+    assert data["resources"]["opportunities"]["summary"] == RESOURCES["opportunities"]
+    assert [operation for resource in data["resources"].values() for operation in resource["operations"]] == [
+        descriptor.id for descriptor in CATALOG
+    ]
+    assert all(operation.split(".")[0] == name
+               for name, resource in data["resources"].items() for operation in resource["operations"])
+    # An operation's own summary is left to describe, so the index grows by an id per operation.
+    for descriptor in CATALOG:
+        assert descriptor.summary not in response.text, descriptor.id
+    # Only what a call does beyond reading the engine is listed.
+    assert data["effects"]["pursuits.patch"] == ["state_write"]
+    assert data["effects"]["sources.inspect"] == ["outbound_network"]
+    assert data["effects"]["capabilities"] == ["file_write"]
+    assert "opportunities.search" not in data["effects"]
+    writes = sorted(descriptor.id for descriptor in CATALOG if descriptor.access == "write")
+    assert data["unavailable"] == ({} if allow_writes else dict.fromkeys(writes, "writes_disabled"))
+    assert data["continue_with"] == [{"operation": "capabilities", "arguments": {"view": "full"}}]
+
+
+@pytest.mark.asyncio
+async def test_a_category_kept_back_shows_in_the_index_with_its_reason(api_client, db_session):
+    await set_agent_access(db_session, AgentAccessConfig(
+        enabled=True, allow_writes=True, categories={"offer": "not_shared"}))
+    await ensure_workspace_id(db_session)
+    await db_session.commit()
+    data = (await api_client.get(f"{PREFIX}/capabilities")).json()["data"]
+    assert data["unavailable"] == {"offer.get": "category_disabled"}
+
+
+def test_every_resource_has_a_one_line_summary_and_every_summary_a_resource():
+    names = {descriptor.id.split(".")[0] for descriptor in CATALOG}
+    assert set(RESOURCES) == names
+    for name, summary in RESOURCES.items():
+        assert summary.endswith(".") and len(summary) <= 100, name
+    with pytest.raises(ValueError, match="widgets"):
+        resources(Catalog([*REGISTERED, dataclasses.replace(REGISTERED[0], id="widgets.list")]))
+
+
 @pytest.mark.asyncio
 async def test_capabilities_filters_by_tier_and_refuses_unknown_input(api_client, db_session):
     await _enable(db_session)
-    small = (await api_client.get(f"{PREFIX}/capabilities", params={"tier": "small"})).json()
+    small = (await api_client.get(f"{PREFIX}/capabilities", params={"tier": "small", "view": "full"})).json()
     assert {entry["operation"] for entry in small["data"]["operations"]} == {
         descriptor.id for descriptor in CATALOG if "small" in descriptor.tool_tiers
     }
     assert "recipes.contract.get" not in {entry["operation"] for entry in small["data"]["operations"]}
+    index = (await api_client.get(f"{PREFIX}/capabilities", params={"tier": "small"})).json()["data"]
+    assert {operation for resource in index["resources"].values() for operation in resource["operations"]} == {
+        descriptor.id for descriptor in CATALOG if "small" in descriptor.tool_tiers
+    }
+    # A resource with no operation in the tier is not listed.
+    assert "recipes" not in index["resources"] and "sources" not in index["resources"]
+    # The full view of the same list keeps the tier.
+    assert index["continue_with"] == [{"operation": "capabilities", "arguments": {"view": "full", "tier": "small"}}]
 
-    for params, field in (({"tier": "huge"}, "tier"), ({"verbose": "1"}, "verbose")):
+    for params, field in (({"tier": "huge"}, "tier"), ({"verbose": "1"}, "verbose"), ({"view": "all"}, "view")):
         response = await api_client.get(f"{PREFIX}/capabilities", params=params)
         body = response.json()
         assert response.status_code == 422
@@ -451,18 +617,79 @@ async def test_capabilities_filters_by_tier_and_refuses_unknown_input(api_client
         assert "huge" not in json.dumps(body)
 
 
+def _titled(schema: object) -> bool:
+    """Whether a schema node anywhere in `schema` has a `title` keyword. The
+    keys of `properties` and `$defs` are names, so a field named title is not one."""
+    if isinstance(schema, list):
+        return any(_titled(item) for item in schema)
+    if not isinstance(schema, dict):
+        return False
+    return "title" in schema or any(
+        any(_titled(item) for item in value.values()) if key in ("properties", "$defs") else _titled(value)
+        for key, value in schema.items() if key not in ("default", "examples", "const", "enum")
+    )
+
+
+def test_a_brief_input_schema_drops_title_keywords_and_keeps_fields_named_title():
+    from tracker.agents.operations.index import describe_view
+
+    schema = {
+        "title": "Input", "type": "object",
+        "properties": {"title": {"title": "Title", "type": "string"},
+                       "sort": {"enum": ["title", "pay"], "title": "Sort"},
+                       "role": {"type": "object", "title": "Role", "default": {"title": "Engineer"},
+                                "examples": [{"title": "Lead"}], "const": {"title": "Engineer"}}},
+        "$defs": {"title": {"title": "Title", "type": "string"}},
+    }
+    entry = {"operation": "widgets.list", "input_schema": schema, "output_schema": {}, "output_schema_ref": "#/x"}
+    brief = describe_view(entry, "summary")["input_schema"]
+    assert brief == {
+        "type": "object",
+        "properties": {"title": {"type": "string"}, "sort": {"enum": ["title", "pay"]},
+                       # A default, an example or a constant is data: its title stays.
+                       "role": {"type": "object", "default": {"title": "Engineer"},
+                                "examples": [{"title": "Lead"}], "const": {"title": "Engineer"}}},
+        "$defs": {"title": {"type": "string"}},
+    }
+    assert _titled(schema) and not _titled(brief)
+    assert describe_view(entry, "full")["input_schema"] == schema
+
+
+@pytest.mark.asyncio
+async def test_describe_says_how_to_call_an_operation_within_the_budget(api_client, db_session):
+    await _enable(db_session)
+    for descriptor in CATALOG:
+        response = await api_client.get(f"{PREFIX}/operations/{descriptor.id}")
+        assert len(response.content) <= DISCOVERY_BUDGET, descriptor.id
+        data = response.json()["data"]
+        assert data["view"] == "summary" and data["summary"] == descriptor.summary
+        assert "output_schema" not in data and "output_schema_ref" not in data
+        assert data["continue_with"] == [
+            {"operation": "describe", "arguments": {"operation": descriptor.id, "view": "full"}}
+        ]
+        # The input schema is whole but for the titles derived from field names.
+        schema = descriptor.input.model_json_schema()
+        assert set(data["input_schema"].get("properties", {})) == set(schema.get("properties", {}))
+        assert data["input_schema"].get("required") == schema.get("required")
+        assert not _titled(data["input_schema"]), descriptor.id
+    described = (await api_client.get(f"{PREFIX}/operations/opportunities.get")).json()["data"]
+    assert described["input_schema"]["properties"]["view"]["enum"] == ["summary", "detail", "evidence"]
+    assert described["input_schema"]["additionalProperties"] is False
+
+
 @pytest.mark.asyncio
 async def test_describe_returns_one_operation_in_full_from_the_engine(api_client, db_session):
     await _enable(db_session)
-    body = (await api_client.get(f"{PREFIX}/operations/capabilities")).json()
+    body = (await api_client.get(f"{PREFIX}/operations/capabilities", params={"view": "full"})).json()
     _assert_envelope(body, operation="describe", ok=True)
     data = body["data"]
+    assert data["view"] == "full"
     assert data["operation"] == "capabilities"
     assert data["metadata_source"] == "engine"
     assert data["availability"] == {"state": "available", "reason": None}
     assert data["input_schema"]["additionalProperties"] is False
     assert "tier" in data["input_schema"]["properties"]
-    assert data["output_schema"]["title"] == "CapabilitiesResult"
+    assert data["output_schema"] == meta.CapabilitiesResult.model_json_schema()
     # The reference is a JSON pointer into the described operation itself.
     pointer = data["output_schema_ref"]
     assert pointer.startswith("#/")
@@ -484,6 +711,25 @@ async def test_describe_of_an_unknown_operation_points_at_capabilities(api_clien
     assert body["error"]["next_actions"] == [{"operation": "capabilities", "arguments": {}}]
     # Admitted, so the workspace is named even on a failure.
     assert WORKSPACE.fullmatch(body["workspace_id"])
+
+
+@pytest.mark.asyncio
+async def test_describe_of_a_resource_name_lists_the_operations_under_it(api_client, db_session):
+    await _enable(db_session)
+    body = (await api_client.get(f"{PREFIX}/operations/opportunities")).json()
+    assert body["error"]["code"] == "unknown_operation"
+    under = sorted(descriptor.id for descriptor in CATALOG if descriptor.id.startswith("opportunities."))
+    assert len(under) >= 3, "the catalog must have opportunities operations, or this proves nothing"
+    assert body["error"]["details"]["candidates"] == under
+    assert body["error"]["next_actions"] == [
+        *({"operation": "describe", "arguments": {"operation": name}} for name in under),
+        {"operation": "capabilities", "arguments": {}},
+    ]
+    # A partial id names what it starts; a name that starts nothing names nothing.
+    partial = (await api_client.get(f"{PREFIX}/operations/opportunities.ge")).json()
+    assert partial["error"]["details"]["candidates"] == ["opportunities.get", "opportunities.get_many"]
+    none = (await api_client.get(f"{PREFIX}/operations/widgets")).json()
+    assert none["error"]["details"]["candidates"] == []
 
 
 @pytest.mark.asyncio

@@ -2,9 +2,13 @@ import Foundation
 import LauncherCore
 import SwiftUI
 
+/// `undecided` is an install that never chose: it checks daily like `daily`, but records no
+/// choice, so only turning the switch off or on writes one. `declined`, which stored preferences
+/// can hold, allows explicit checks only.
 enum UpdateConsent: String {
     case undecided, daily, manual, declined
-    var permitsRequests: Bool { self == .daily || self == .manual }
+    var permitsRequests: Bool { self != .declined }
+    var checksDaily: Bool { self == .daily || self == .undecided }
 }
 
 @MainActor
@@ -14,9 +18,9 @@ final class LauncherUpdates: ObservableObject {
     @Published private(set) var checking = false
     @Published private(set) var messageKey: String?
     @Published private(set) var lastSuccess: Date?
-    @Published var notificationsDenied = false
-    /// Unset until the person turns notices on or off; until then notices follow automatic checks.
-    @Published private var noticeChoice: Bool?
+    /// The About switch for the update window. It is stored under the key the desktop notices
+    /// switch used, so a person who turned those off keeps the window off.
+    @Published private(set) var showsWindow: Bool
     /// A version that was rolled back is not offered again on its own; Check now can still find it.
     @Published private(set) var suppressedVersion: String?
     private let preferences: UserDefaults
@@ -24,13 +28,13 @@ final class LauncherUpdates: ObservableObject {
     /// Checks a version's signed metadata against this app's release keys and returns its signed notice;
     /// throws `ArtifactProblem` when it fails.
     private let authenticate: @Sendable (String) async throws -> String?
+    /// Whether a version's listed important mark is signed by this app's release keys.
+    private let important: @Sendable (String) async -> Bool
     private let repository: UpdateRepository?
     private let now: @Sendable () -> Date
     private let copy: LauncherCopy
     private let automaticInterval: TimeInterval
-    var automaticChoiceChanged: ((Bool) -> Void)?
     var didCheck: ((OfferedRelease, Bool) -> Void)?
-    var noticesChanged: ((Bool) -> Void)?
     private var task: Task<Void, Never>?
     private var timer: Timer?
     private var generation = 0
@@ -40,38 +44,58 @@ final class LauncherUpdates: ObservableObject {
          repository: UpdateRepository? = UpdateRepository.stamped(),
          authenticate: @escaping @Sendable (String) async throws -> String? = {
              try await UpdateDownloader.authenticate(version: $0).beforeYouUpdate
-         }) {
+         },
+         important: @escaping @Sendable (String) async -> Bool = { await UpdateDownloader.important(version: $0) }) {
         self.preferences = preferences
         self.repository = repository
         self.copy = copy
         self.fetch = fetch
         self.authenticate = authenticate
+        self.important = important
         self.now = now
         self.automaticInterval = max(1, automaticInterval)
         consent = UpdateConsent(rawValue: preferences.string(forKey: "updateConsent") ?? "") ?? .undecided
         offered = repository.flatMap { repository in
             preferences.data(forKey: "offeredRelease").flatMap { try? OfferedRelease.decode($0, from: repository) }
-                .map { $0.signed(notice: preferences.string(forKey: "offeredNotice")) }
+                .map { $0.signed(notice: preferences.string(forKey: "offeredNotice"), important: preferences.bool(forKey: "offeredImportant")) }
         }
         lastSuccess = preferences.object(forKey: "updateLastSuccess") as? Date
-        noticeChoice = preferences.object(forKey: "updateNotices") as? Bool
+        showsWindow = preferences.object(forKey: "updateNotices") as? Bool ?? true
         suppressedVersion = preferences.string(forKey: "updateSuppressedVersion")
     }
-    var notices: Bool { noticeChoice ?? automatic }
-    func setNotices(_ enabled: Bool) {
-        guard enabled != notices || noticeChoice == nil else { return }
-        noticeChoice = enabled
+    func setShowsWindow(_ enabled: Bool) {
+        showsWindow = enabled
         preferences.set(enabled, forKey: "updateNotices")
-        if enabled { noticesChanged?(true) }
+    }
+    /// How long Later keeps the update window away, and how many Laters it takes for a version to
+    /// leave it to the menu-bar badge alone. An important release comes back after a day, after any
+    /// number of Laters.
+    static let laterInterval: TimeInterval = 3 * 86400
+    static let importantLaterInterval: TimeInterval = 86400
+    static let laterLimit = 3
+    /// Later on the update window. A newer version starts its own count.
+    func later(_ version: String) {
+        let count = preferences.string(forKey: "updateLaterVersion") == version ? preferences.integer(forKey: "updateLaterCount") : 0
+        preferences.set(version, forKey: "updateLaterVersion")
+        preferences.set(count + 1, forKey: "updateLaterCount")
+        preferences.set(now().addingTimeInterval(Self.laterInterval), forKey: "updateLaterUntil")
+    }
+    /// Whether the person's Laters still let the window open for this version. The wait is measured
+    /// from the last Later, so a mark that arrives during a three-day wait shortens it to a day.
+    func windowAllows(_ version: String, important: Bool = false) -> Bool {
+        guard preferences.string(forKey: "updateLaterVersion") == version else { return true }
+        guard let until = preferences.object(forKey: "updateLaterUntil") as? Date else { return true }
+        if important { return now() >= until.addingTimeInterval(Self.importantLaterInterval - Self.laterInterval) }
+        guard preferences.integer(forKey: "updateLaterCount") < Self.laterLimit else { return false }
+        return now() >= until
     }
     func suppress(_ version: String) {
         suppressedVersion = version
         preferences.set(version, forKey: "updateSuppressedVersion")
     }
     func text(_ key: String) -> String { copy.text(key) }
-    var needsChoice: Bool { consent == .undecided }
-    var automatic: Bool { consent == .daily }
-    func choose(_ choice: UpdateConsent, requestNotifications: Bool = true) {
+    var automatic: Bool { consent.checksDaily }
+    func choose(_ choice: UpdateConsent) {
         guard choice != .undecided, choice != consent else { return }
         let wording = text("update-automatic")
         stop()
@@ -81,15 +105,14 @@ final class LauncherUpdates: ObservableObject {
         preferences.set(wording, forKey: "updateConsentText")
         preferences.set("en", forKey: "updateConsentLocale")
         preferences.set(now(), forKey: "updateConsentAt")
-        if requestNotifications { automaticChoiceChanged?(choice == .daily && notices) }
-        if choice == .daily { start() }
+        if automatic { start() }
     }
-    func setAutomaticChecks(_ enabled: Bool, requestNotifications: Bool = true) {
-        choose(enabled ? .daily : .manual, requestNotifications: requestNotifications)
+    func setAutomaticChecks(_ enabled: Bool) {
+        choose(enabled ? .daily : .manual)
     }
     func checkManually() { check(explicitlyRequested: true) }
     func start() {
-        guard consent == .daily else { return }
+        guard automatic else { return }
         check(automatic: true)
     }
     func stop() {
@@ -110,7 +133,7 @@ final class LauncherUpdates: ObservableObject {
         return max(attempt, blocked)
     }
     func check(automatic: Bool = false, explicitlyRequested: Bool = false) {
-        guard consent.permitsRequests || explicitlyRequested, !checking, !automatic || consent == .daily else { return }
+        guard consent.permitsRequests || explicitlyRequested, !checking, !automatic || self.automatic else { return }
         timer?.invalidate()
         let blocked = preferences.object(forKey: "updateBlockedUntil") as? Date ?? .distantPast
         guard now() >= blocked else { messageKey = "update-rate-limited"; schedule(); return }
@@ -135,7 +158,14 @@ final class LauncherUpdates: ObservableObject {
                 // one that fails is treated as no release at all, while a network failure fails the check.
                 let signed: OfferedRelease?
                 if release.filesReady {
-                    do { signed = release.signed(notice: try await authenticate(release.version)) } catch is ArtifactProblem { signed = nil }
+                    do {
+                        let notice = try await authenticate(release.version)
+                        // A mark cannot be withdrawn, so one this version already showed stays when a
+                        // later read of it fails; a newer version starts unmarked.
+                        let kept = offered.map { $0.version == release.version && $0.important } ?? false
+                        let marked = release.markListed ? await important(release.version) : false
+                        signed = release.signed(notice: notice, important: marked || kept)
+                    } catch is ArtifactProblem { signed = nil }
                 } else { signed = nil }
                 try Task.checkCancellation()
                 guard generation == token, consent.permitsRequests || explicitlyRequested else { return }
@@ -145,6 +175,7 @@ final class LauncherUpdates: ObservableObject {
                         offered = signed
                         preferences.set(data, forKey: "offeredRelease")
                         preferences.set(signed.beforeYouUpdate, forKey: "offeredNotice")
+                        preferences.set(signed.important, forKey: "offeredImportant")
                     }
                     if explicitlyRequested && release.version == suppressedVersion {
                         suppressedVersion = nil
@@ -167,7 +198,7 @@ final class LauncherUpdates: ObservableObject {
     }
     private func schedule() {
         timer?.invalidate()
-        guard consent == .daily else { return }
+        guard automatic else { return }
         let next = Timer(timeInterval: max(1, nextAutomatic.timeIntervalSince(now())), repeats: false) { [weak self] _ in
             Task { @MainActor in self?.start() }
         }

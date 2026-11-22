@@ -373,6 +373,13 @@ class PostingPage:
 #: that the next is not yet due, failed).
 PostingPageOutcome = Literal["read", "already_read", "not_available", "failed"]
 
+#: What reading a posting's text because someone opened it came to, in the
+#: same spelling: `read` (stored now), `already_read` (the row had text, no
+#: request), `not_available` (nothing may read this posting on open) or
+#: `failed` (this read, or a recent one the next is not yet due after, found
+#: no text).
+PostingTextOutcome = Literal["read", "already_read", "not_available", "failed"]
+
 
 #: Bumped only when the persisted shape changes in a way a reader must branch on.
 SOURCE_FACTS_SCHEMA_VERSION = 1

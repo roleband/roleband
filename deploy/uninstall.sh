@@ -45,7 +45,7 @@ fi
 
 # The embedded server deliberately outlives the processes that use it, so
 # nothing stops it automatically. It is stopped only when nothing else is
-# connected to it (an MCP server, a CLI, another checkout): stopping it then
+# connected to it (the engine of another checkout, a script): stopping it then
 # would fail their next query.
 if [ -x "$PY" ]; then
   ( cd "$ROOT/backend" && "$PY" - <<'PYEOF'

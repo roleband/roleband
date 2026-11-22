@@ -5,6 +5,7 @@
 import { expect, mockApi, mockGet, test } from "./fixtures";
 import type { CloudLLMState, LocalLLMState, LocalLLMTestResult, LocalServerControlResult, LocalServerStatus } from "../../src/api";
 import {
+  agentAccessFixture,
   cloudModelProfileFixture,
   jobFixture,
   jobListFixture,
@@ -14,6 +15,8 @@ import {
 } from "../../src/test/fixtures";
 import { installSettingsRoutes, intelligence, intelligenceFit, otherLocalModelProfile } from "./settingsHarness";
 import { msg } from "../../src/test/msg";
+import { bootPseudo } from "./pseudoScan";
+import { expectFullyVisible, hiddenEdges, laidOut, overlapping } from "./geometry";
 
 test.beforeEach(async ({ page }) => {
   await installSettingsRoutes(page);
@@ -24,7 +27,7 @@ test("intelligence states where each capability runs, up front", async ({ page }
 
   // Three cards, each an instrument — no Advanced drawer, no Experimental pen.
   const ranking = page.getByRole("region", { name: "Fit ranking" });
-  const assistants = page.getByRole("region", { name: msg("ai-assistants-card-mcp-server-2") });
+  const assistants = page.getByRole("region", { name: msg("ai-assistants-card-assistant-apps-2") });
   const capabilities = page.getByRole("region", { name: "Extended capabilities" });
   await expect(ranking).toBeVisible();
   await expect(assistants).toBeVisible();
@@ -299,89 +302,170 @@ test("a switch that stopped halfway says so instead of looking finished", async 
   await expect.poll(() => resumed).toBe(true);
 });
 
-test("assistants: the data sheet gates setup behind one conscious switch", async ({
+test("assistants: one switch lets apps connect, and Customize holds back the rest", async ({
   page,
   isMobile,
 }) => {
   await page.goto("/settings/intelligence");
-  const assistants = page.getByRole("region", { name: msg("ai-assistants-card-mcp-server-2") });
+  const assistants = page.getByRole("region", { name: msg("ai-assistants-card-assistant-apps-2") });
 
-  // What will be seen is stated before anything can connect.
-  await expect(assistants.getByText("What will be shared")).toBeVisible();
-  await expect(assistants.getByText("What will not be shared")).toBeVisible();
-  await expect(assistants.getByText(/full posting/)).toBeVisible();
-  // A connected app can make this computer open pages, so the sheet says so.
-  await expect(assistants.getByText("Public web pages it asks to open from this computer")).toBeVisible();
-  await expect(assistants.getByText(msg("ai-assistants-card-never-your-profile-and-intent-statement"))).toBeVisible();
+  // Before anything can connect, the card says what apps get and that turning
+  // it on shares everything.
+  await expect(assistants.getByText(msg("ai-assistants-card-what-apps-do"))).toBeVisible();
+  await expect(assistants.getByText(msg("ai-assistants-card-everything-shared"))).toBeVisible();
 
-  // Nothing is reachable until the gate is on — and that holds for every
-  // tile, the open door included.
-  const setup = assistants.getByRole("button", { name: "Set up" });
+  // Nothing is reachable until the gate is on, and that holds for every tile,
+  // the open door included.
+  const setup = assistants.getByRole("button", { name: msg("ai-assistants-card-connect") });
   await expect(setup).toHaveCount(3);
   for (let i = 0; i < 3; i++) {
     await expect(setup.nth(i)).toBeDisabled();
     // An unavailable action names what would make it available.
     await expect(setup.nth(i)).toHaveAttribute("title", "Allow assistant apps to connect first");
   }
-  // And the tiles say it in text, not by fading — a faded tile fades the app's
-  // own name, and its opacity compounded with the disabled button inside it.
-  await expect(assistants.getByText(/Anthropic · not allowed to connect/)).toBeVisible();
-
-  // The write grant gates nothing while nothing may connect, so it is absent
-  // rather than rendered disabled and greyed beside the gate.
-  await expect(
-    assistants.getByLabel("Allow assistant apps to update your progress"),
-  ).toHaveCount(0);
+  // One consent: there is no second switch for changes.
+  await expect(assistants.getByRole("checkbox")).toHaveCount(1);
 
   await assistants.getByLabel("Allow assistant apps to connect").click();
   await expect(assistants.getByLabel("Allow assistant apps to connect")).toBeChecked();
   await expect(setup.first()).toBeEnabled();
+  await expect(assistants.getByText(msg("ai-assistants-card-off-nothing-leaves-this-computer", { choice: "yes" }))).toBeVisible();
+  // With nothing held back, the last line says nothing.
+  await expect(assistants.getByText(msg("ai-assistants-card-everything-shared"))).toHaveCount(0);
+  await expect(assistants.getByText(msg("ai-assistants-card-what-apps-do"))).toHaveCount(0);
 
-  // The gate describes what it opens, not the two clients we ship a recipe
-  // for. Naming vendors here would contradict the third tile, which exists
-  // precisely because MCP is a protocol and any client can speak it.
-  const note = assistants.locator(".intel-gate-note");
-  await expect(note).toHaveText(msg("ai-assistants-card-off-nothing-leaves-this-computer", { choice: "yes" }));
-  expect(await note.textContent()).not.toMatch(/Anthropic|OpenAI|Claude|Codex/);
-  // ...and at desktop width it stays a clause on the gate's own line. The note
-  // is `margin-left: auto` in a wrapping flex row, so a longer string silently
-  // drops to a second line and the two grants stop lining up. The wrap is
-  // correct on a narrow screen,
-  // so this is a desktop-only claim.
+  // Customize: every choice is a column heading said once, and each radio is
+  // named by its row and column.
+  const cell = (row: string, column: string) => msg("ai-access-dialog-cell", { row, column });
+  const offerKept = cell(msg("ai-access-dialog-offer"), msg("ai-access-dialog-not-shared"));
+  await assistants.getByRole("button", { name: msg("ai-assistants-card-customize") }).click();
+  const customize = page.getByRole("dialog", { name: msg("ai-access-dialog-title") });
+  await expect(customize).toBeVisible();
+  await expect(customize.getByRole("radio")).toHaveCount(23);
+  await expect(customize.getByRole("columnheader", { name: msg("ai-access-dialog-any-model") })).toHaveCount(1);
   if (!isMobile) {
-    const noteBox = (await note.boundingBox())!;
-    const labelBox = (await assistants.getByText("Allow assistant apps to connect").boundingBox())!;
-    expect(Math.abs(noteBox.y - labelBox.y)).toBeLessThan(6);
+    // A choice sits under its heading, and both grids put their first choice
+    // in the same column, so the two read as one form.
+    const centre = async (box: Promise<{ x: number; width: number } | null>) => {
+      const b = (await box)!;
+      return b.x + b.width / 2;
+    };
+    const heading = await centre(customize.getByRole("columnheader", { name: msg("ai-access-dialog-not-shared") }).boundingBox());
+    const offer = await centre(customize.getByRole("radio", { name: offerKept }).boundingBox());
+    expect(Math.abs(heading - offer)).toBeLessThan(3);
+    const postings = await centre(customize.getByRole("radio", { name: cell(msg("ai-access-dialog-postings"), msg("ai-access-dialog-any-model")) }).boundingBox());
+    const tracking = await centre(customize.getByRole("radio", { name: cell(msg("ai-access-dialog-tracking-progress"), msg("ai-access-dialog-on")) }).boundingBox());
+    expect(Math.abs(postings - tracking)).toBeLessThan(3);
   }
 
-  // Once the gate is open both grants live in one frame: the write switch is a
-  // narrower grant of what the gate opened, not a neighbouring setting.
-  const grants = assistants.locator(".intel-grants");
-  await expect(grants.getByLabel("Allow assistant apps to connect")).toHaveCount(1);
-  await expect(grants.getByLabel("Allow assistant apps to update your progress")).toHaveCount(1);
+  const saved = page.waitForRequest((request) => request.method() === "PATCH" && request.url().endsWith("/api/intelligence/agents"));
+  await customize.getByRole("radio", { name: offerKept }).click();
+  expect((await saved).postDataJSON()).toEqual({ categories: { offer: "not_shared" } });
+  await expect(customize.getByRole("radio", { name: offerKept })).toBeChecked();
+  await customize.getByRole("button", { name: "Done" }).click();
+  await expect(customize).toBeHidden();
+  await expect(assistants.getByText(msg("ai-assistants-card-not-shared", { list: msg("ai-access-dialog-offer") }))).toBeVisible();
 
-  // Set up is a dialog carrying the literal snippet.
+  // Connect is a dialog carrying the literal command, run once in a terminal.
   await setup.first().click();
-  const dialog = page.getByRole("dialog", { name: "Set up the Claude app" });
+  const dialog = page.getByRole("dialog", { name: msg("ai-assistants-card-connect-claude-code") });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByText(/mcpServers/)).toBeVisible();
+  await expect(dialog.getByText("roleband connect claude-code --apply", { exact: true })).toBeVisible();
+  await expect(dialog.getByText(msg("ai-assistants-card-run-this-once-in-a"), { exact: false })).toBeVisible();
+  await expect(dialog.getByText(/mcpServers|codex mcp add/)).toHaveCount(0);
   await dialog.getByRole("button", { name: "Done" }).click();
   await expect(dialog).toBeHidden();
 
-  // The open door hands over the SAME standard block, not a second recipe
-  // that could drift from it.
+  // The open door names no host's setup: the app runs `roleband` itself.
   await setup.nth(2).click();
-  const other = page.getByRole("dialog", { name: "Set up another MCP app" });
+  const other = page.getByRole("dialog", { name: msg("ai-assistants-card-connect-another-app") });
   await expect(other).toBeVisible();
-  await expect(other.getByText(msg("ai-assistants-card-most-apps-that-speak-mcp"))).toBeVisible();
-  await expect(other.getByText(/mcpServers/)).toBeVisible();
+  await expect(other.getByText(msg("ai-assistants-card-let-the-app-run-commands"), { exact: false })).toBeVisible();
+  await expect(other.getByText("roleband capabilities", { exact: true })).toBeVisible();
+  await expect(other.getByText(/roleband connect/)).toHaveCount(0);
   await other.getByRole("button", { name: "Done" }).click();
   await expect(other).toBeHidden();
+});
 
-  // Updates stay a second, separate choice.
-  await assistants.getByLabel("Allow assistant apps to update your progress").click();
-  await expect(assistants.getByLabel("Allow assistant apps to update your progress")).toBeChecked();
-  await expect(assistants.getByText(msg("ai-assistants-card-stage-notes-next-action-audited"))).toBeVisible();
+test("assistants: a connected app shows its last call, and its Activity and gear sit in line", async ({
+  page,
+  isMobile,
+}) => {
+  const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+  await mockApi(page, ["GET", "PUT"], "/api/intelligence/agents", (route) => route.fulfill({
+    json: {
+      ...agentAccessFixture,
+      enabled: true,
+      allow_writes: true,
+      apps: [
+        // Mid-bucket, so the page's own clock reads the same "3h ago".
+        { app: "claude-code", connection: "connected", last_call_at: minutesAgo(180) },
+        { app: "codex", connection: "connected", last_call_at: null },
+        { app: "other", connection: null, last_call_at: null },
+      ],
+    },
+  }));
+  const requests: URL[] = [];
+  await mockGet(page, "/api/agent-activity?**", (route) => {
+    requests.push(new URL(route.request().url()));
+    return route.fulfill({ json: { items: [], next_cursor: null } });
+  });
+  await page.goto("/settings/intelligence");
+  const assistants = page.getByRole("region", { name: msg("ai-assistants-card-assistant-apps-2") });
+  const tile = (name: string) => assistants.locator(".intel-tile").filter({ hasText: name });
+  const claude = tile(msg("ai-assistants-card-app-claude-code"));
+  const codex = tile(msg("ai-assistants-card-app-codex-app"));
+  const other = tile(msg("ai-assistants-card-app-other-app"));
+
+  await expect(claude.getByText(msg("ai-assistants-card-app-state", {
+    state: "used", service: msg("ai-assistants-card-anthropic"), age: "3h ago",
+  }))).toBeVisible();
+  await expect(claude.getByRole("img", { name: msg("ai-assistants-card-connected") })).toBeVisible();
+  await expect(other.getByRole("img", { name: msg("ai-assistants-card-connected") })).toHaveCount(0);
+  // One Connect left on the card: the app that has nothing to show.
+  await expect(assistants.getByRole("button", { name: msg("ai-assistants-card-connect") })).toHaveCount(1);
+
+  const configure = (name: string) => msg("ai-capabilities-card-configure", { name });
+  for (const [box, name] of [[claude, msg("ai-assistants-card-app-claude-code")], [codex, msg("ai-assistants-card-app-codex-app")]] as const) {
+    const activity = box.getByRole("link", { name: msg("ai-assistants-card-app-activity", { app: name }) });
+    const gear = box.getByRole("button", { name: configure(name) });
+    await expect(activity).toBeVisible();
+    await expect(gear).toBeEnabled();
+    const [tileBox, textBox, activityBox, gearBox, checkBox, markBox] = await Promise.all([
+      box.boundingBox(),
+      box.locator(".intel-tile-state").boundingBox(),
+      activity.boundingBox(),
+      gear.boundingBox(),
+      box.getByRole("img", { name: msg("ai-assistants-card-connected") }).boundingBox(),
+      box.locator(".intel-tile-mark").boundingBox(),
+    ]);
+    // Both controls inside the tile, after its text, Activity before the gear,
+    // one height and one centre line: a pair, as Test and the gear are.
+    expect(activityBox!.x).toBeGreaterThanOrEqual(textBox!.x + textBox!.width - 0.5);
+    expect(gearBox!.x).toBeGreaterThanOrEqual(activityBox!.x + activityBox!.width);
+    expect(gearBox!.x + gearBox!.width).toBeLessThanOrEqual(tileBox!.x + tileBox!.width);
+    expect(Math.abs(activityBox!.height - gearBox!.height)).toBeLessThan(1);
+    expect(Math.abs(activityBox!.y + activityBox!.height / 2 - (gearBox!.y + gearBox!.height / 2))).toBeLessThan(1);
+    // The check sits on the mark's corner, inside the tile.
+    expect(checkBox!.x + checkBox!.width).toBeGreaterThan(markBox!.x + markBox!.width);
+    expect(checkBox!.y + checkBox!.height).toBeGreaterThan(markBox!.y + markBox!.height);
+    expect(checkBox!.x + checkBox!.width).toBeLessThan(tileBox!.x + tileBox!.width);
+  }
+  if (!isMobile) {
+    // The tiles keep one height whatever each one shows.
+    const heights = await Promise.all([claude, codex, other].map(async (box) => (await box.boundingBox())!.height));
+    expect(Math.max(...heights) - Math.min(...heights)).toBeLessThan(1);
+  }
+
+  // The gear reopens the command; Activity opens the list on this app alone.
+  await claude.getByRole("button", { name: configure(msg("ai-assistants-card-app-claude-code")) }).click();
+  const dialog = page.getByRole("dialog", { name: msg("ai-assistants-card-connect-claude-code") });
+  await expect(dialog.getByText("roleband connect claude-code --apply", { exact: true })).toBeVisible();
+  await dialog.getByRole("button", { name: "Done" }).click();
+  await claude.getByRole("link", { name: msg("ai-assistants-card-app-activity", { app: msg("ai-assistants-card-app-claude-code") }) }).click();
+  await expect(page).toHaveURL(/\/settings\/intelligence\/activity\?app=claude-code$/);
+  await expect(page.getByRole("button", { name: msg("ai-assistants-card-app-claude-code") })).toBeVisible();
+  await expect.poll(() => requests.at(-1)?.searchParams.get("host")).toBe("claude-code");
 });
 
 test("your own model: the probe decides the action, configuration is a dialog", async ({ page }) => {
@@ -604,7 +688,7 @@ test("the standing permission is confirmed before connecting an online service",
   const capabilities = page.getByRole("region", { name: "Extended capabilities" });
 
   // No service yet, but the gate is a standing permission — answerable now,
-  // like the MCP connect gate — so every row keeps the same shape AND the
+  // like the assistant card's connect gate, so every row keeps the same shape AND the
   // switch actually works.
   await expect(capabilities.getByText(msg("ai-capabilities-card-online-model-services"))).toBeVisible();
   await expect(capabilities.getByText(msg("ai-capabilities-card-none-connected"), { exact: false })).toBeVisible();
@@ -646,7 +730,7 @@ test("a saved online service brings the egress switch and its own row", async ({
 
   await expect(capabilities.getByLabel(msg("ai-capabilities-card-send-postings-to-online-services"))).not.toBeChecked();
   // The gate exists but is off, and the row says what that means: nothing leaves.
-  await expect(capabilities.getByText(/off · nothing is sent/)).toBeVisible();
+  await expect(capabilities.getByText(msg("ai-capabilities-card-off-nothing-is-sent", { choice: "no" }))).toBeVisible();
   await expect(capabilities.getByLabel("Use OpenAI production")).toBeChecked();
 
   // The service's own switch is on, the permission above it is not, and the
@@ -662,6 +746,140 @@ test("a saved online service brings the egress switch and its own row", async ({
   await expect(
     capabilities.getByRole("button", { name: "Configure OpenAI production" }),
   ).toBeEnabled();
+});
+
+/* What a capability row is made of, as a person sees it: the switch, the mark,
+   the name and its line, each button, and the badge saying where it runs. */
+const CAPABILITY_PARTS = ".ui-switch-track, .intel-cap-mark, .intel-cap-name, .intel-cap-sub, button, .intel-origin";
+
+// Every kind of row at once: your own model (Stop and the gear), Apple
+// Intelligence (Test), the permission row (Add) and a saved service (Test and
+// the gear). The pseudo locale lengthens every label, as a translation does.
+for (const longest of [false, true]) {
+  test(`every capability row keeps its controls apart and in line${longest ? ", in the longest words" : ""}`, async ({
+    page,
+    isMobile,
+  }) => {
+    if (longest) await bootPseudo(page);
+    await mockGet(page, "/api/intelligence/cloud-models", (route) => route.fulfill({
+      json: { profiles: [{ ...cloudModelProfileFixture, id: "cloud-openai", name: "OpenAI production", enabled: true }] } satisfies CloudLLMState,
+    }));
+    await page.goto("/settings/intelligence");
+    const rows = page.locator(".intel-cap");
+    await expect(rows).toHaveCount(4);
+    await expect(rows.locator(".ui-btn-icon")).toHaveCount(2);
+
+    for (let i = 0; i < 4; i++) {
+      const row = rows.nth(i);
+      const parts = await laidOut(row, CAPABILITY_PARTS);
+      expect(overlapping(parts), `row ${i + 1}: parts on top of each other`).toEqual([]);
+      const box = (await row.boundingBox())!;
+      for (const part of parts) {
+        expect(part.left, `row ${i + 1}: ${part.what} starts inside the row`).toBeGreaterThanOrEqual(box.x - 0.5);
+        expect(part.right, `row ${i + 1}: ${part.what} ends inside the row`).toBeLessThanOrEqual(box.x + box.width + 0.5);
+      }
+    }
+
+    // On a desktop the rows read as one table: each kind of control keeps one
+    // place, whichever controls a row has.
+    if (isMobile) return;
+    const card = page.locator(".intel-card").filter({ has: rows.first() });
+    const edges = async (selector: string, edge: "left" | "right" | "centre") =>
+      (await laidOut(card, selector)).map((b) =>
+        Math.round(edge === "left" ? b.left : edge === "right" ? b.right : (b.left + b.right) / 2),
+      );
+    const one = (xs: number[], what: string) => expect(new Set(xs).size, `${what}: ${xs.join(", ")}`).toBe(1);
+    one(await edges(".intel-cap .ui-btn-strong", "right"), "text buttons end on one line");
+    one(await edges(".intel-cap .ui-btn-icon", "centre"), "gears stand in one column");
+    one(await edges(".intel-cap .intel-origin", "right"), "badges end on one line");
+    one(await edges(".intel-cap .intel-cap-name", "left"), "names start on one line");
+  });
+}
+
+test("an information tip near a dialog's edge is shown whole, and goes when the pointer leaves", async ({ page }) => {
+  await mockGet(page, "/api/intelligence/agents", (route) => route.fulfill({
+    json: { ...agentAccessFixture, enabled: true, allow_writes: true },
+  }));
+  await page.goto("/settings/intelligence");
+  await page.getByRole("button", { name: msg("ai-assistants-card-customize") }).click();
+  const customize = page.getByRole("dialog", { name: msg("ai-access-dialog-title") });
+  await expect(customize).toBeVisible();
+
+  const trigger = customize.getByRole("columnheader", { name: msg("ai-access-dialog-local-only") }).getByRole("button");
+  const tip = page.getByRole("tooltip").filter({ hasText: msg("ai-access-dialog-local-only-tip") });
+
+  await trigger.hover();
+  await expectFullyVisible(tip, "the Local only tip on hover");
+  // It still belongs to its mark: just below or above it, across its column.
+  const mark = (await trigger.boundingBox())!;
+  const shown = (await tip.boundingBox())!;
+  expect(shown.x).toBeLessThanOrEqual(mark.x + mark.width);
+  expect(shown.x + shown.width).toBeGreaterThanOrEqual(mark.x);
+  expect(Math.min(Math.abs(shown.y - (mark.y + mark.height)), Math.abs(mark.y - (shown.y + shown.height)))).toBeLessThan(12);
+
+  await customize.getByRole("heading", { name: msg("ai-access-dialog-title") }).hover();
+  await expect(tip).toBeHidden();
+
+  // The keyboard gets the same tip, as whole.
+  await trigger.focus();
+  await expectFullyVisible(tip, "the Local only tip on focus");
+  await customize.getByRole("button", { name: "Done" }).focus();
+  await expect(tip).toBeHidden();
+});
+
+test("the clipping check sees a box that cuts a child off, and what escapes it", async ({ page }) => {
+  await page.setContent(`
+    <div style="position:relative;width:200px;height:100px;overflow:auto;backdrop-filter:blur(1px)">
+      <span id="cut" style="position:absolute;left:150px;top:10px;width:100px;height:20px">cut</span>
+      <span id="top-layer" popover="manual" style="position:fixed;inset:auto;margin:0;left:150px;top:10px;width:100px;height:20px">top</span>
+    </div>
+    <div style="position:relative;width:200px;height:100px">
+      <div style="overflow:hidden;width:200px;height:100px">
+        <span id="placed-outside" style="position:absolute;left:150px;width:100px">out</span>
+      </div>
+    </div>`);
+  await page.locator("#top-layer").evaluate((el) => (el as HTMLElement).showPopover());
+  expect(await hiddenEdges(page.locator("#cut"))).toEqual({ left: 0, right: 50, top: 0, bottom: 0 });
+  expect(await hiddenEdges(page.locator("#top-layer"))).toEqual({ left: 0, right: 0, top: 0, bottom: 0 });
+  expect(await hiddenEdges(page.locator("#placed-outside"))).toEqual({ left: 0, right: 0, top: 0, bottom: 0 });
+});
+
+test("the clipping check measures a scaled box as painted, and a body that clips", async ({ page }) => {
+  // 200px scaled to half from its left edge paints 100px wide; a 200px child
+  // starting 50px in paints 100px from 25px in, so 25 painted pixels fall outside.
+  await page.setContent(`
+    <div style="position:relative;width:200px;height:100px;overflow:hidden;transform:scale(0.5);transform-origin:0 0">
+      <span id="scaled" style="position:absolute;left:50px;top:0;width:150px;height:20px">scaled</span>
+    </div>
+    <div style="position:relative;width:200px;height:100px;overflow:hidden">
+      <span id="unscaled" style="position:absolute;left:50px;top:0;width:200px;height:20px">unscaled</span>
+    </div>`);
+  expect(await hiddenEdges(page.locator("#scaled"))).toEqual({ left: 0, right: 0, top: 0, bottom: 0 });
+  await page.locator("#scaled").evaluate((el) => ((el as HTMLElement).style.width = "200px"));
+  expect(await hiddenEdges(page.locator("#scaled"))).toEqual({ left: 0, right: 25, top: 0, bottom: 0 });
+  expect(await hiddenEdges(page.locator("#unscaled"))).toEqual({ left: 0, right: 50, top: 0, bottom: 0 });
+
+  // `scale: 1` changes nothing on screen but holds a fixed child, as `transform`
+  // does; with `scale: none` the same child is placed against the window.
+  await page.setContent(`
+    <div id="holder" style="width:100px;height:40px;overflow:hidden;scale:1">
+      <span id="fixed" style="position:fixed;left:80px;top:0;width:40px;height:20px">fixed</span>
+    </div>`);
+  expect(await hiddenEdges(page.locator("#fixed"))).toEqual({ left: 0, right: 20, top: 0, bottom: 0 });
+  await page.locator("#holder").evaluate((el) => ((el as HTMLElement).style.scale = "none"));
+  expect(await hiddenEdges(page.locator("#fixed"))).toEqual({ left: 0, right: 0, top: 0, bottom: 0 });
+
+  // With the root's overflow hidden, the body's own does not reach the viewport.
+  // Without a doctype the page is in quirks mode, where the body reports the
+  // window's client width.
+  await page.setContent(`<!doctype html>
+    <style>html{overflow:hidden}body{margin:0;width:200px;overflow:hidden}</style>
+    <div id="wide" style="width:300px;height:20px">wide</div>`);
+  expect(await hiddenEdges(page.locator("#wide"))).toEqual({ left: 0, right: 100, top: 0, bottom: 0 });
+  await page.addStyleTag({ content: "html{overflow:visible}" });
+  expect(await hiddenEdges(page.locator("#wide")), "the body's overflow is the viewport's").toEqual({
+    left: 0, right: 0, top: 0, bottom: 0,
+  });
 });
 
 test("Intelligence types by rank: same-rank text never differs in colour or weight", async ({
@@ -692,26 +910,12 @@ test("Intelligence types by rank: same-rank text never differs in colour or weig
   expect(names.map((n) => n.text)).toContain(msg("ai-capabilities-card-online-model-services"));
   expect(distinct(names)).toHaveLength(1);
 
-  // Both halves of the data sheet are one rank: what an app will see, and what
-  // it never will. The second is the half a person needs in order to trust the
-  // first, so it may not be the quieter of the two.
-  const sheet = await typeOf(".intel-sheet li");
-  expect(sheet.length).toBeGreaterThan(4);
-  expect(distinct(sheet)).toHaveLength(1);
-
-  // The two grants sit in one frame that exists to say they are one decision,
-  // so on screen together they are one type. While the gate is shut the second
-  // gates nothing and is not on screen at all, so the card never renders one
-  // rank in two colours.
+  // The gate's two sentences are one rank, whichever state the gate is in.
   const gate = page.getByLabel("Allow assistant apps to connect");
   await expect(gate).not.toBeChecked();
-  expect(await typeOf(".intel-grant-name")).toHaveLength(1);
-
-  await gate.click();
-  await expect(page.getByLabel("Allow assistant apps to update your progress")).toBeEnabled();
-  const both = await typeOf(".intel-grant-name");
-  expect(both).toHaveLength(2);
-  expect(distinct(both)).toHaveLength(1);
+  const notes = await typeOf(".intel-access-gate-note");
+  expect(notes).toHaveLength(2);
+  expect(distinct(notes)).toHaveLength(1);
 });
 
 test("Apple Intelligence is an experiment: labelled, local, testable only when on", async ({ page }) => {

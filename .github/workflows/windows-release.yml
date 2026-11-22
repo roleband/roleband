@@ -181,6 +181,7 @@ jobs:
           $certificate = Join-Path $env:RUNNER_TEMP 'tagged/launcher/windows/RoleBand.cer'
           $secret = Join-Path $env:RUNNER_TEMP 'signing'
           New-Item -ItemType Directory $secret | Out-Null
+          $signing = $null
           try {
             [IO.File]::WriteAllBytes((Join-Path $secret 'RoleBand-signing.pfx'), [Convert]::FromBase64String($env:SIGNING_PFX))
             [IO.File]::WriteAllText((Join-Path $secret 'release-key.pem'), $env:RELEASE_KEY)
@@ -192,9 +193,21 @@ jobs:
             $setup = Join-Path $env:RUNNER_TEMP 'unsigned/RoleBand-Setup.exe'
             $trusted = [IO.File]::ReadAllBytes($certificate)
             $publisher = (Get-Content -Raw $identity | ConvertFrom-Json).publisher
+            # The passphrase opens the certificate in this process, and signtool finds it in the user's store by
+            # thumbprint: no secret is ever an argument of another program. The store's key cannot be exported.
+            # The store opens before the key is imported, so a store that cannot open leaves no key behind.
+            $flags = [Security.Cryptography.X509Certificates.X509KeyStorageFlags]'UserKeySet, PersistKeySet'
+            $store = [Security.Cryptography.X509Certificates.X509Store]::new('My', 'CurrentUser')
+            $store.Open('ReadWrite')
+            try {
+              $signing = [Security.Cryptography.X509Certificates.X509Certificate2]::new(
+                [Convert]::FromBase64String($env:SIGNING_PFX), $env:SIGNING_PASSPHRASE, $flags)
+              if (-not $signing.HasPrivateKey) { throw 'The signing certificate carries no private key' }
+              $store.Add($signing)
+            } finally { $store.Close() }
             foreach ($file in @($package, $setup)) {
               # Not timestamped: that would need an outside time server; the certificate lasts 25 years instead.
-              & (Join-Path $kits 'signtool.exe') sign /fd SHA256 /f (Join-Path $secret 'RoleBand-signing.pfx') /p $env:SIGNING_PASSPHRASE $file
+              & (Join-Path $kits 'signtool.exe') sign /fd SHA256 /s My /sha1 $signing.Thumbprint $file
               if ($LASTEXITCODE) { throw "Signing $file failed" }
               $signer = (Get-AuthenticodeSignature $file).SignerCertificate
               if ($null -eq $signer -or [Convert]::ToBase64String($signer.RawData) -cne [Convert]::ToBase64String($trusted)) {
@@ -207,6 +220,9 @@ jobs:
               --commit $env:COMMIT --version $env:VERSION --passphrase-env SIGNING_PASSPHRASE
             if ($LASTEXITCODE) { exit $LASTEXITCODE }
           } finally {
+            if ($signing) {
+              Remove-Item -LiteralPath "Cert:\CurrentUser\My\$($signing.Thumbprint)" -DeleteKey -ErrorAction SilentlyContinue
+            }
             Remove-Item -LiteralPath $secret -Recurse -Force -ErrorAction SilentlyContinue
           }
           python launcher/windows/Tools/release.py verify --directory (Join-Path $env:RUNNER_TEMP 'release') `

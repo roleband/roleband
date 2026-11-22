@@ -372,8 +372,11 @@ describe("the ring clears 3:1 wherever it lands", () => {
     }
   });
 
-  it("--rail-accent on the rail, in both themes (the rail is dark in both)", () => {
-    const b = block(shell, ".nav-rail {");
+  it.each([
+    ["dark", ".nav-rail {"],
+    ["light", '[data-theme="light"] .nav-rail {'],
+  ])("--rail-accent on the rail's own ground (%s)", (_, start) => {
+    const b = block(shell, start);
     expect(ratio(hex(b, "--rail-accent")!, hex(b, "--rail-canvas")!)).toBeGreaterThanOrEqual(3);
   });
 });

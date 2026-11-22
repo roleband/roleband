@@ -3,8 +3,9 @@
  * quiet. Pure functions of the cards and a clock, so the tests hold the
  * rules without a screen. */
 
-import type { ApplicationCard } from "../../api";
+import type { ApplicationCard, ApplicationStep } from "../../api";
 import type { StageSlug } from "../../copy/vocabulary";
+import { interviewEnds } from "./interviewWords";
 
 export type ColumnId =
   | "saved" | "researching" | "applied" | "interviewing" | "offer" | "decided" | "closed";
@@ -36,9 +37,9 @@ export function boardStage(stage: StageSlug): StageSlug {
   return stage === "networking" ? "researching" : stage;
 }
 
-const DAY = 86_400_000;
-/** A due date this close reads as urgent. */
-const SOON = 2 * DAY;
+export const DAY = 86_400_000;
+/** A due date this many calendar days away or fewer reads as urgent. */
+const SOON_DAYS = 2;
 
 /** Days without movement after which a card in this stage has gone quiet.
  *  Considering and the endings never go quiet: nothing is expected of them. */
@@ -62,11 +63,48 @@ export interface Due {
 
 export type DueState = "set" | "soon" | "overdue";
 
-/** The next step's date, as the board's pill reads it. */
-export function stepDue(card: ApplicationCard): Due | null {
-  if (!card.next_action_due) return null;
-  const on = new Date(card.next_action_due);
+/** A step's day as a due date; none for a step with no day. */
+export function dueOfStep(step: Pick<ApplicationStep, "due">): Due | null {
+  if (!step.due) return null;
+  const on = new Date(step.due);
   return { kind: "step", at: on, on };
+}
+
+type StepFields = Pick<ApplicationCard, "steps" | "next_action" | "next_action_due">;
+
+/** The server's order of open steps: due ascending, a step with no day last,
+ *  then id. */
+function byDueThenId(a: ApplicationStep, b: ApplicationStep): number {
+  if (a.due && b.due) {
+    const apart = new Date(a.due).getTime() - new Date(b.due).getTime();
+    if (apart !== 0) return apart;
+  } else if (a.due || b.due) {
+    return a.due ? -1 : 1;
+  }
+  return a.id - b.id;
+}
+
+/** The steps in the server's order, with the card's next step (the soonest)
+ *  derived from them. */
+function settled(steps: readonly ApplicationStep[]): StepFields {
+  const ordered = [...steps].sort(byDueThenId);
+  return { steps: ordered, next_action: ordered[0]?.text ?? null, next_action_due: ordered[0]?.due ?? null };
+}
+
+/** The card once one step has left its open steps (ticked or removed): the
+ *  soonest of the rest is its next step. */
+export function withoutStep(card: ApplicationCard, stepId: number): StepFields {
+  return settled(card.steps.filter((step) => step.id !== stepId));
+}
+
+/** The card once a step is changed or added: the step takes its place in the
+ *  server's order and the next step follows from it. */
+export function withStep(card: ApplicationCard, step: ApplicationStep): StepFields {
+  return settled([...card.steps.filter((one) => one.id !== step.id), step]);
+}
+
+export function stepDue(card: ApplicationCard): Due | null {
+  return dueOfStep({ due: card.next_action_due });
 }
 
 export function dueOf(card: ApplicationCard): Due | null {
@@ -74,26 +112,11 @@ export function dueOf(card: ApplicationCard): Due | null {
   const options: Due[] = [];
   if (interview) {
     const on = new Date(interview.scheduled_at);
-    // The next local midnight, which a clock change puts 23 or 25 hours on.
-    const at = interview.all_day ? new Date(on.getFullYear(), on.getMonth(), on.getDate() + 1) : on;
-    options.push({ kind: "interview", at, on });
+    options.push({ kind: "interview", at: interviewEnds(interview), on });
   }
   const step = stepDue(card);
   if (step) options.push(step);
   return options.sort((a, b) => a.at.getTime() - b.at.getTime())[0] ?? null;
-}
-
-/** An interview is never overdue: once it has started it is today's, and its
- *  outcome is the person's to record. A step past its date is overdue. */
-export function dueState(due: Due, now: Date): DueState {
-  const left = due.at.getTime() - now.getTime();
-  if (left < 0 && due.kind === "step") return "overdue";
-  return left <= SOON ? "soon" : "set";
-}
-
-/** Whole days a step is past its date, at least one. */
-export function daysOverdue(due: Due, now: Date): number {
-  return Math.max(1, Math.floor((now.getTime() - due.at.getTime()) / DAY));
 }
 
 /** The reader's calendar day a date falls on, relative to today: 0 today,
@@ -101,6 +124,20 @@ export function daysOverdue(due: Due, now: Date): number {
 export function dayOffset(date: Date, now: Date): number {
   const start = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
   return Math.round((start(date) - start(now)) / DAY);
+}
+
+/** An interview is never overdue: once it has started it is today's, and its
+ *  outcome is the person's to record. A step on a day before today is
+ *  overdue. Both read the calendar day, as the day headings do. */
+export function dueState(due: Due, now: Date): DueState {
+  const offset = dayOffset(due.on, now);
+  if (offset < 0 && due.kind === "step") return "overdue";
+  return offset <= SOON_DAYS ? "soon" : "set";
+}
+
+/** Calendar days a step is past its day, at least one. */
+export function daysOverdue(due: Due, now: Date): number {
+  return Math.max(1, -dayOffset(due.on, now));
 }
 
 /** Whole days since the card reached its stage; null when no date says. */
@@ -193,7 +230,18 @@ export function movedCard(card: ApplicationCard, stage: StageSlug, at: string): 
   return { ...card, stage, stage_since: at, last_activity_at: at, ended_at_stage: endedAt };
 }
 
-/** Past Considering and still moving, with neither a next step nor an
+/** The endings that owe nothing, as the follow-up reminders hold them
+ *  (`TERMINAL_STAGES` in `tracker/notifications/pursuit_due.py`). An accepted
+ *  offer is not one: signing and a start date still carry dates. */
+const OWES_NOTHING: ReadonlySet<StageSlug> = new Set(["declined", "withdrawn", "rejected", "role_closed"]);
+
+/** The application has ended in a way that expects nothing more of the
+ *  person: Up next lists none of its dates, and no quick filter matches it. */
+export function owesNothing(card: Pick<ApplicationCard, "stage">): boolean {
+  return OWES_NOTHING.has(card.stage);
+}
+
+/** Past Considering and not ended, with neither a next step nor an
  *  interview booked. */
 export function needsNextStep(card: ApplicationCard): boolean {
   return isMoving(card) && card.stage !== "saved" && !card.next_action && !card.next_interview;

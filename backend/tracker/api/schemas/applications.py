@@ -1,7 +1,7 @@
 """Response contracts for the application pipeline's routes.
 
 `GET /api/applications`, `GET /api/applications/{job_id}`, its activity, and the
-comment and interview writes under `/api/jobs/{job_id}/pursuit/`. An
+comment, interview and next-step writes under `/api/jobs/{job_id}/pursuit/`. An
 application is keyed by its job id: a star with no pursuit row is a card at
 Considering whose `pursuit_id` is null.
 """
@@ -13,6 +13,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
+from tracker.agents.pursuits import StepAction
 from tracker.api.schemas.base import Built
 from tracker.api.schemas.jobs import PursuitStage
 from tracker.api.schemas.text_class import text
@@ -34,6 +35,18 @@ class ApplicationCardInterview(Built):
     link: str | None = Field(json_schema_extra=text("identifier"))
 
 
+class ApplicationStep(Built):
+    """One next step the person owes."""
+
+    id: int
+    text: str = Field(json_schema_extra=text("content"))
+    #: The day it is due by; none for a step with no day.
+    due: datetime | None
+    created_at: datetime
+    #: When it was ticked done; none while it is open.
+    done_at: datetime | None
+
+
 class ApplicationCard(Built):
     """One application as the board shows it."""
 
@@ -51,8 +64,11 @@ class ApplicationCard(Built):
     title: str = Field(json_schema_extra=text("content"))
     level_band: str | None = Field(json_schema_extra=text("code"))
     posting_status: str = Field(json_schema_extra=text("code"))
+    #: The first of `steps`, for a reader that shows one step.
     next_action: str | None = Field(json_schema_extra=text("content"))
     next_action_due: datetime | None
+    #: Every open next step, soonest first; steps with no day last, in the order added.
+    steps: list[ApplicationStep]
     #: The soonest round with no outcome, until twelve hours after it began.
     next_interview: ApplicationCardInterview | None
     #: The latest round that has taken place with no outcome given: a timed
@@ -110,6 +126,14 @@ class ApplicationComment(Built):
     edited_at: datetime | None
 
 
+class EventStep(Built):
+    id: int
+    action: StepAction
+    #: The step's words and day after the write; before it, for a removed step.
+    text: str = Field(json_schema_extra=text("content"))
+    due: datetime | None
+
+
 class ApplicationEvent(Built):
     kind: Literal["event"] = "event"
     id: int
@@ -119,8 +143,10 @@ class ApplicationEvent(Built):
     event_type: str = Field(json_schema_extra=text("code"))
     from_stage: PursuitStage | None
     to_stage: PursuitStage
-    #: The fields this write changed, by name.
+    #: The fields this write changed, by name; `steps` when it wrote a next step.
     changed: list[str]
+    #: The next step this write added, changed, ticked, opened again or removed.
+    step: EventStep | None = None
 
 
 ActivityItem = Annotated[ApplicationComment | ApplicationEvent, Field(discriminator="kind")]
@@ -139,6 +165,10 @@ class ApplicationCommentResponse(Built):
 
 class ApplicationInterviewResponse(Built):
     interview: ApplicationInterview
+
+
+class ApplicationStepResponse(Built):
+    step: ApplicationStep
 
 
 class ApplicationDeleted(Built):
@@ -161,6 +191,7 @@ class CalendarInterview(Built):
 class CalendarStep(Built):
     kind: Literal["step"] = "step"
     job_id: int
+    step_id: int
     #: The day the step is due by.
     at: datetime
     step: str = Field(json_schema_extra=text("content"))

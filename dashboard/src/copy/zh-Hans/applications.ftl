@@ -381,9 +381,35 @@ applications-feed-priority = 优先级已更改
 applications-feed-notes = 备注已编辑
 
 applications-feed-next-step = 下一步已更改
+# kind=status note="A recorded change: a next step was added; $step is the step, as the person wrote it"
+applications-feed-step-added = 已添加下一步：{ $step }
+# kind=status note="A recorded change: a next step's words or day changed; $step is the step after the change"
+applications-feed-step-edited = 已更改下一步：{ $step }
+# kind=status note="A recorded change: a next step was ticked done; $step is the step"
+applications-feed-step-done = 已完成：{ $step }
+# kind=status note="A recorded change: a next step ticked done was opened again; $step is the step"
+applications-feed-step-reopened = 已重新打开下一步：{ $step }
+# kind=status note="A recorded change: a next step was removed; $step is the step"
+applications-feed-step-removed = 已移除下一步：{ $step }
 
 applications-feed-updated = 已更新
 
+
+applications-feed-jump-label = 跳转到
+
+applications-feed-jump-month = { $month }，跳转到其他时间点
+
+applications-feed-jump-recent = 最新
+
+applications-feed-jump-applied = 你申请时
+
+applications-feed-jump-interview = 第一次面试
+
+applications-feed-jump-offer = 录用通知
+
+applications-feed-jump-beginning = 最初
+
+applications-feed-jump-comments = { $count } 条评论
 
 applications-comment-label = 评论
 
@@ -491,18 +517,35 @@ applications-posting-history-now = { $stage }，{ $days } 天
 
 applications-ws-next = 下一步
 
-applications-ws-history = 历史
 
-applications-ws-sections = 版块
-
-applications-ws-sections-label = 此阶段显示的版块
 
 applications-ws-next-add = 添加下一步
 
 applications-ws-next-edit = 编辑下一步：{ $step }
 
-applications-ws-next-due = 截止日
+applications-ws-next-due = 截止
+# kind=button note="In a next step's edit, takes the step off the list with nothing kept, for one added by mistake"
+applications-ws-next-remove = 移除
 
-applications-ws-notes-hint = 写下你已知的、要了解的，以及你见过的人。
+applications-ws-notes-hint = 写下你已知的情况和见过的人。输入 / 可添加标题、列表和清单。
+applications-notes-blocks = 区块
+applications-notes-block-text = 文本
+applications-notes-block-heading = 标题 { $level }
+applications-notes-block-bullets = 项目符号列表
+applications-notes-block-numbers = 编号列表
+applications-notes-block-checklist = 清单
+applications-notes-block-quote = 引用
+applications-notes-block-divider = 分隔线
+applications-notes-block-none = 没有这个名称的区块。
+applications-notes-check = { $checked ->
+    [yes] 已完成：{ $line }
+   *[no] 待办：{ $line }
+}
 
 applications-ws-ask-outcome = 结果如何？
+
+applications-feed-title = 动态
+applications-feed-empty = 还没有评论或更改。
+applications-feed-fold = { $count } 条更新：{ $changes }
+applications-comment-placeholder = 记下发生了什么
+applications-comment-submit = 发表评论

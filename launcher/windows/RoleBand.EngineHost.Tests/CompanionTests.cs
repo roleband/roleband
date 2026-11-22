@@ -129,6 +129,23 @@ public sealed class CompanionTests
     }
 
     [TestMethod]
+    public void AnOfferMarksTheIdleIconAndEveryScanEngineAndSetupBadgeKeepsItsPlace()
+    {
+        FlyoutView With(FlyoutUpdate update, EngineSnapshot? engine = null, ScanStatus? status = null, bool setupComplete = true) =>
+            Companion.View(English, engine ?? Ready, status ?? Status(Reply()), null, null, setupComplete, Now, update);
+        Assert.AreEqual(TrayBadge.Update, With(Offer).Badge);
+        Assert.AreEqual(TrayBadge.None, View(Ready, Status(Reply())).Badge, "no offer, no mark");
+        Assert.AreEqual(TrayBadge.Scanning, With(Offer, status: Scanning(5)).Badge, "a running scan keeps its badge");
+        Assert.AreEqual(TrayBadge.Attention, With(Offer, setupComplete: false).Badge, "unfinished setup keeps its badge");
+        Assert.AreEqual(TrayBadge.Stopped, With(Offer, new EngineSnapshot(EngineState.Stopped)).Badge, "a stopped engine keeps its badge");
+        var downloading = new FlyoutUpdate("Downloading 0.1.12", null, null, "0.1.12", true, false, false, 40, Cancel: true);
+        var paused = new FlyoutUpdate("Download paused", null, null, "0.1.12", false, false, false, Cancel: true);
+        var failed = new FlyoutUpdate("Couldn't download 0.1.12", null, "Try again", "0.1.12", false, true, false);
+        foreach (var update in new[] { downloading, paused, failed })
+            Assert.AreEqual(TrayBadge.None, With(update).Badge, $"{update.Title}: only a waiting offer marks the icon");
+    }
+
+    [TestMethod]
     public void TheMenuOffersTheUpdateByItsVersionButNotWhileItDownloads()
     {
         MenuEntry[] Menu(FlyoutUpdate? update) =>

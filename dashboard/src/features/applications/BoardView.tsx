@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { ApplicationCard } from "../../api";
 import { STAGE_LABEL } from "../../copy/vocabulary";
 import { AsyncBoundary, Button, Icon, Menu, MenuGroup, MenuItem } from "../../ui";
@@ -79,7 +79,8 @@ export function BoardView({ board, now }: {
   const { cards, resource, move, remove } = board;
   const [filter, setFilter] = useViewFilter("board");
   const [hidden, setHiddenState] = useState<ColumnId[]>(readHiddenColumns);
-  const groups = byStage(cards, now);
+  const groups = useMemo(() => byStage(cards, now), [cards, now]);
+  const counts = useMemo(() => quickCounts(cards, now, VIEW_FILTERS.board), [cards, now]);
   const filtering = isFiltering(filter);
   const highlight = filter.mode === "highlight";
   /** Cards that do not match leave the board, rather than fade. */
@@ -154,7 +155,7 @@ export function BoardView({ board, now }: {
       <PipelineToolbar
         filter={filter}
         onFilter={setFilter}
-        quickCounts={quickCounts(cards, now, VIEW_FILTERS.board)}
+        quickCounts={counts}
         columns={{
           all: COLUMNS.map((column) => ({ id: column.id, name: columnName(column.id), count: columnTotal(column) })),
           hidden,

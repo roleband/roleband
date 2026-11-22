@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import type { ApplicationBoard, ApplicationCalendarItem, ApplicationCard, ApplicationCardInterview } from "../../api";
+import type { ApplicationBoard, ApplicationCalendarItem, ApplicationCard, ApplicationCardInterview, ApplicationStep } from "../../api";
 import { date as formatDate, time as formatTime } from "../../copy/format";
 import { companyName } from "../../format";
 import type { AsyncResource } from "../../hooks/useAsyncResource";
@@ -24,7 +24,7 @@ import {
 import { useRoleLink } from "./roleLink";
 import { NoMatches, PipelineEmpty } from "./PipelineEmpty";
 import { DueBadge } from "./DueBadge";
-import { upNext, type UpNextDay, type UpNextItem } from "./dueByDay";
+import { upNext, type UpNextItem } from "./dueByDay";
 import { FORMAT_LABEL, OUTCOME_LABEL } from "./interviewWords";
 import { VIEW_FILTERS, isFiltering, matches, quickCounts } from "./filters";
 import { dayKey } from "./monthGrid";
@@ -34,16 +34,18 @@ import { useViewFilter } from "./useViewFilter";
 
 /** The key a calendar item and an Up next row share when they are one thing. */
 const itemKey = (item: UpNextItem) =>
-  item.kind === "step" ? `step-${item.card.job_id}` : `interview-${item.interview.id}`;
+  item.kind === "step" ? `step-${item.step.id}` : `interview-${item.interview.id}`;
 const calendarKey = (item: ApplicationCalendarItem) =>
-  item.kind === "interview" ? `interview-${item.interview_id}` : `step-${item.job_id}`;
+  item.kind === "interview" ? `interview-${item.interview_id}` : `step-${item.step_id}`;
+
+const NO_CARDS: readonly ApplicationCard[] = [];
 
 type Outcome = keyof typeof OUTCOME_LABEL;
 
 /** What Up next can do to a row in place; the page lends it the board's own
  *  writes. */
 export interface UpNextActions {
-  onFinishStep: (card: ApplicationCard) => void;
+  onFinishStep: (card: ApplicationCard, step: ApplicationStep) => void;
   onSetOutcome: (card: ApplicationCard, interview: ApplicationCardInterview, outcome: Outcome) => void;
 }
 
@@ -96,7 +98,7 @@ function ItemRow({ item, now, match, picked, actions }: {
   const role = useRoleLink();
   const { card } = item;
   const company = companyName(card.company);
-  const step = card.next_action ?? "";
+  const step = item.kind === "step" ? item.step.text : "";
   return (
     <li
       className="app-upnext-item"
@@ -111,7 +113,7 @@ function ItemRow({ item, now, match, picked, actions }: {
           size="sm"
           className="ui-btn-tick app-upnext-tick"
           aria-label={applicationsUpnextDoneLabel({ step })}
-          onClick={() => actions.onFinishStep(card)}
+          onClick={() => item.kind === "step" && actions.onFinishStep(card, item.step)}
         >
           <Icon name="check" size={14} />
         </Button>
@@ -153,8 +155,23 @@ export function UpNext({ resource, now, actions }: {
   const filtering = isFiltering(filter);
   const highlight = filtering && filter.mode === "highlight";
   const hits = (item: UpNextItem) => matches(item.card, filter, now);
+  // Read once per (applications, clock): the list, its counts and the month's
+  // marks all come from this one grouping.
+  const cards = resource.data?.applications ?? NO_CARDS;
+  const all = useMemo(() => upNext(cards, now), [cards, now]);
   // The quick filters count the applications that have a row here.
-  const due = upNext(resource.data?.applications ?? [], now).flatMap((day) => day.items.map((item) => item.card));
+  const counts = useMemo(
+    () => quickCounts([...new Set(all.flatMap((day) => day.items.map((item) => item.card)))], now, VIEW_FILTERS.up_next),
+    [all, now],
+  );
+  const days = useMemo(
+    () => filtering && !highlight
+      ? all.map((day) => ({ ...day, items: day.items.filter((item) => matches(item.card, filter, now)) })).filter((day) => day.items.length > 0)
+      : all,
+    [all, filter, filtering, highlight, now],
+  );
+  const listed = useMemo(() => new Set(days.flatMap((day) => day.items.map(itemKey))), [days]);
+  const inAgenda = useCallback((item: ApplicationCalendarItem) => listed.has(calendarKey(item)), [listed]);
   const keep = (card: ApplicationCard) => {
     if (!filtering) return { shown: true };
     const hit = matches(card, filter, now);
@@ -162,33 +179,26 @@ export function UpNext({ resource, now, actions }: {
   };
   // The day picked in the month, and how many times a pick asked to be
   // scrolled to: picking the same day again brings it back into view.
-  const [picked, setPicked] = useState<{ day: string; scrolls: number } | null>(null);
+  const [picked, setPicked] = useState({ day: dayKey(now), scrolls: 0 });
   const agendaRef = useRef<HTMLDivElement>(null);
   // The month and a picked day's heading sit under the docked toolbar.
   const toolbar = useRef<HTMLDivElement>(null);
   const split = useRef<HTMLDivElement>(null);
   useMeasuredCssSize({ rootRef: split, elementRef: toolbar, property: "--app-upnext-toolbar-h" });
   useEffect(() => {
-    if (!picked?.scrolls) return;
+    if (!picked.scrolls) return;
     const row = agendaRef.current?.querySelector<HTMLElement>(".app-upnext-item[data-picked]");
     row?.closest("section")?.scrollIntoView({
       block: "start",
       behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
     });
-  }, [picked?.scrolls]);
+  }, [picked.scrolls]);
   const pickDay = (day: Date, { scroll }: { scroll: boolean }) =>
-    setPicked((was) => ({ day: dayKey(day), scrolls: (was?.scrolls ?? 0) + (scroll ? 1 : 0) }));
-
-  const shownDays = (board: ApplicationBoard): UpNextDay[] => {
-    const all = upNext(board.applications, now);
-    return filtering && !highlight
-      ? all.map((day) => ({ ...day, items: day.items.filter(hits) })).filter((day) => day.items.length > 0)
-      : all;
-  };
+    setPicked((was) => ({ day: dayKey(day), scrolls: was.scrolls + (scroll ? 1 : 0) }));
 
   return (
     <>
-      <PipelineToolbar toolbarRef={toolbar} filter={filter} onFilter={setFilter} quickCounts={quickCounts([...new Set(due)], now, VIEW_FILTERS.up_next)} />
+      <PipelineToolbar toolbarRef={toolbar} filter={filter} onFilter={setFilter} quickCounts={counts} />
       <AsyncBoundary
         resource={resource}
         failed={applicationsBoardLoadFailed()}
@@ -197,12 +207,13 @@ export function UpNext({ resource, now, actions }: {
       >
         {(board) => (
           <div className="app-upnext-split" ref={split}>
-            <div className="app-upnext-list" ref={agendaRef}>{agenda(board)}</div>
+            <div className="app-upnext-list" ref={agendaRef}>{agenda()}</div>
             <UpNextMonth
               cards={board.applications}
               now={now}
+              picked={picked.day}
               keep={keep}
-              inAgenda={inAgenda(board)}
+              inAgenda={inAgenda}
               onPickDay={pickDay}
             />
           </div>
@@ -211,16 +222,10 @@ export function UpNext({ resource, now, actions }: {
     </>
   );
 
-  function inAgenda(board: ApplicationBoard) {
-    const listed = new Set(shownDays(board).flatMap((day) => day.items.map(itemKey)));
-    return (item: ApplicationCalendarItem) => listed.has(calendarKey(item));
-  }
-
-  function agenda(board: ApplicationBoard) {
-    if (upNext(board.applications, now).length === 0) {
+  function agenda() {
+    if (all.length === 0) {
       return <p className="app-column-empty app-upnext-empty">{applicationsUpnextEmpty()}</p>;
     }
-    const days = shownDays(board);
     if (days.length === 0) return <NoMatches />;
     return (
       <div className="app-upnext" data-highlight={highlight ? "" : undefined}>
@@ -238,12 +243,12 @@ export function UpNext({ resource, now, actions }: {
               <ul>
                 {day.items.map((item) => (
                   <ItemRow
-                    key={`${item.kind}-${item.card.job_id}`}
+                    key={itemKey(item)}
                     item={item}
                     now={now}
                     actions={actions}
                     match={highlight ? hits(item) : undefined}
-                    picked={picked?.day === dayKey(item.at)}
+                    picked={picked.day === dayKey(item.at)}
                   />
                 ))}
               </ul>

@@ -407,6 +407,18 @@ textarea {
   font-weight: var(--app-weight-name);
 }
 
+/* A tab with a screen under it is the way back to the tab. */
+.route-breadcrumb a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.route-breadcrumb a:hover {
+  color: var(--tb-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .route-slash {
   color: var(--tb-text-faint);
   font-family: var(--app-font-mono);
@@ -862,9 +874,9 @@ html[data-ground="plain"] body {
 }
 
 .nav-rail {
-  /* A FIXED-DARK surface: the rail keeps the dark palette in both themes, so
-     it cannot consume theme-flipping tokens — and must not, or the register
-     material's body-level override would recolor it per route. These
+  /* The rail's own palette, dark here and white in the light theme (the block
+     below). It cannot consume theme-flipping tokens, and must not, or the
+     register material's body-level override would recolor it per route. These
      constants mirror design/tokens.css's dark block (the accent trio IS
      --app-action/-ink/-text dark); update them together. Same shape as the
      ambient-wash literals in settings.css: copied, deliberately not aliased. */
@@ -885,9 +897,10 @@ html[data-ground="plain"] body {
   --rail-accent-soft: rgba(219, 203, 144, 0.12);
   --rail-accent-line: rgba(219, 203, 144, 0.18);
   --rail-accent-glow: rgba(219, 203, 144, 0.6);
-  /* The well the Pipeline's views drop into. */
-  --rail-well: rgba(255, 255, 255, 0.03);
-  --rail-well-line: rgba(230, 233, 240, 0.13);
+  /* The rail's edge against the page, and the collapse button's ground. */
+  --rail-edge: rgba(230, 233, 240, 0.08);
+  --rail-raise: rgba(255, 255, 255, 0.02);
+  --rail-raise-hover: rgba(255, 255, 255, 0.05);
   position: relative;
   z-index: 25;
   min-width: 0;
@@ -897,7 +910,31 @@ html[data-ground="plain"] body {
   justify-content: space-between;
   background: var(--rail-canvas);
   color: var(--rail-text);
-  border-right: 1px solid rgba(230, 233, 240, 0.08);
+  border-right: 1px solid var(--rail-edge);
+}
+
+/* In the light theme the rail is one more white surface, like the cards and
+   panels it frames, rather than the darkest mass on the page. It takes the
+   top bar's ink and the light action trio (--app-action/-ink/-text light) for
+   the chosen view; the brand mark keeps its own gold. */
+[data-theme="light"] .nav-rail {
+  --rail-canvas: #ffffff;
+  --rail-text: #2c2e33;
+  --rail-strong: #191a1c;
+  --rail-muted: #5c5e64;
+  --rail-faint: #6a6c74;
+  --rail-line: rgba(24, 26, 32, 0.11);
+  --rail-line-strong: rgba(24, 26, 32, 0.22);
+  --rail-hover: rgba(22, 24, 30, 0.06);
+  --rail-accent: #0969da;
+  --rail-accent-ink: #ffffff;
+  --rail-accent-text: #0757b8;
+  --rail-accent-soft: rgba(9, 105, 218, 0.1);
+  --rail-accent-line: rgba(9, 105, 218, 0.34);
+  --rail-accent-glow: rgba(9, 105, 218, 0.3);
+  --rail-edge: rgba(24, 26, 32, 0.11);
+  --rail-raise: rgba(24, 26, 32, 0.02);
+  --rail-raise-hover: rgba(24, 26, 32, 0.05);
 }
 
 .app.nav-expanded .nav-rail {
@@ -965,7 +1002,7 @@ html[data-ground="plain"] body {
   align-items: center;
   justify-content: center;
   gap: var(--app-space-2);
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--rail-raise);
   color: var(--rail-muted);
   transition:
     color var(--app-duration-fast),
@@ -975,7 +1012,7 @@ html[data-ground="plain"] body {
 
 .rail-toggle:hover {
   color: var(--rail-text);
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--rail-raise-hover);
   border-color: var(--rail-line-strong);
 }
 
@@ -1116,117 +1153,92 @@ html[data-ground="plain"] body {
 
 /* ---- the Pipeline and its views (shell/PipelineRailGroup.tsx) ------------- */
 
-/* The star is the parent and outweighs what it holds: a full rail entry in
-   gold, the views smaller and dimmer inside a narrower well that hangs from
-   it. At rest it is drawn as any other entry. Everything stays on the rail's
-   centre line. */
+/* The star is the parent: a full rail entry in gold. In the expanded rail the
+   views hang under it, smaller and dimmer, on a line set in from it. */
 .rail-family {
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
-/* The star the person presses on a role, gold wherever it stands for the
-   Pipeline. Its tile is opaque and above the well, so the well's top passes
-   under it: whatever state tints the tile is laid on the rail's own canvas. */
+.app.nav-expanded .rail-family {
+  align-items: stretch;
+}
+
 .rail-family-star svg {
   color: var(--rail-accent);
   fill: currentColor;
 }
 
-.rail-family .rail-family-star {
-  z-index: 1;
-  background-color: var(--rail-canvas);
-}
-
-.rail-family .rail-family-star:hover,
-.rail-family:not(.is-within).open .rail-family-star {
-  background-image: linear-gradient(var(--rail-hover), var(--rail-hover));
-}
-
 /* In the Pipeline the star is chosen as any rail entry is, and the view on
-   screen is chosen inside the well, so both levels say where the person is. */
+   screen is chosen under it, so both levels say where the person is. */
 .rail-family .rail-item[aria-current="true"] {
   color: var(--rail-accent-text);
   background-image: linear-gradient(var(--rail-accent-soft), var(--rail-accent-soft));
   border-color: var(--rail-accent-line);
 }
 
-/* A ring of the rail's canvas around the star while its views show: the
-   well's sides end at the ring and read as passing behind the star. */
-.rail-family.open .rail-family-star {
-  box-shadow: 0 0 0 3px var(--rail-canvas);
-}
-
 .rail-well {
-  display: none;
-}
-
-/* The well is a U open toward the star: its top is tucked under the star's
-   tile, so only its sides and rounded foot show, and the views read as held
-   by the star rather than as a box of their own. */
-.rail-family.open .rail-well {
   position: relative;
-  width: 36px;
-  box-sizing: border-box;
-  margin-top: -12px;
-  padding: 18px 2px 2px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  border: 1px solid var(--rail-well-line);
-  border-top: 0;
-  border-radius: 0 0 11px 11px;
-  background: var(--rail-well);
-  animation: rail-well-in var(--app-duration-medium) ease-out;
+  gap: 2px;
+  margin: 2px 0 4px 19px;
+  padding-left: 9px;
 }
 
-@keyframes rail-well-in {
-  from {
-    opacity: 0;
-    transform: translateY(-6px);
-  }
+/* As the rail widens the line grows down from the star and the views drop
+   onto it one after another, so they read as coming out of the star. */
+.rail-well::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  background: var(--rail-line-strong);
+  transform-origin: top;
+  animation: rail-line-down var(--app-duration-slow) var(--app-ease) both;
 }
 
 .rail-sub {
-  width: 30px;
-  min-height: 30px;
-  border-radius: 8px;
-  color: var(--rail-faint);
-}
-
-.rail-sub[aria-current="page"]::before {
-  content: none;
-}
-
-/* Expanded: the views drop in named, on a line set in from the star. */
-.app.nav-expanded .rail-family {
-  align-items: stretch;
-}
-
-.app.nav-expanded .rail-family.open .rail-well {
-  width: auto;
-  margin: 2px 0 4px 19px;
-  padding: 0 0 0 9px;
-  align-items: stretch;
-  gap: 2px;
-  border: 0;
-  border-left: 1px solid var(--rail-line-strong);
-  border-radius: 0;
-  background: none;
-}
-
-.app.nav-expanded .rail-sub {
   min-height: 36px;
+  border-radius: 8px;
+  animation: rail-sub-drop var(--app-duration-medium) var(--app-ease-travel) both;
 }
 
-.app.nav-expanded .rail-sub:not(:hover, [aria-current="page"]) {
+.rail-sub:nth-child(2) {
+  animation-delay: 60ms;
+}
+
+.rail-sub:nth-child(3) {
+  animation-delay: 120ms;
+}
+
+.rail-sub:not(:hover, [aria-current]) {
   color: var(--rail-muted);
 }
 
+.rail-sub[aria-current]::before {
+  content: none;
+}
+
+@keyframes rail-line-down {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+@keyframes rail-sub-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .rail-family.open .rail-well {
+  .rail-well::before,
+  .rail-sub {
     animation: none;
   }
 }
@@ -1618,31 +1630,24 @@ html[data-ground="plain"] body {
     display: none;
   }
 
-  .rail-well,
-  .rail-family.open .rail-well,
-  .app.nav-expanded .rail-family.open .rail-well {
-    width: auto;
+  .rail-well {
     margin: 0;
     padding: 0;
-    display: flex;
     flex-direction: row;
     gap: 2px;
-    border: 0;
-    background: none;
-    animation: none;
   }
 
-  .rail-sub,
-  .app.nav-expanded .rail-sub {
-    width: auto;
-    min-height: 0;
+  .rail-well::before {
+    content: none;
   }
 
   .rail-sub {
+    min-height: 0;
     color: var(--rail-muted);
+    animation: none;
   }
 
-  .rail-sub[aria-current="page"]::before {
+  .rail-sub[aria-current]::before {
     content: "";
   }
 }

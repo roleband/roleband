@@ -11,6 +11,7 @@ public static class TrayArt
             TrayBadge.Paused => "paused",
             TrayBadge.Attention => "attention",
             TrayBadge.Stopped => "stopped",
+            TrayBadge.Update => "update",
             _ => "ready",
         }}.ico";
 

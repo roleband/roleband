@@ -62,9 +62,12 @@ function DayItem({ item, card, match }: { item: ApplicationCalendarItem; card: A
  *  past round, a later round of the same role) is listed under the grid. It
  *  reads its own span; a role is named from the board's cards, so an item
  *  whose application the board does not show is not drawn. */
-export function UpNextMonth({ cards, now, keep, inAgenda, onPickDay }: {
+export function UpNextMonth({ cards, now, picked, keep, inAgenda, onPickDay }: {
   cards: readonly ApplicationCard[];
   now: Date;
+  /** The picked day, "YYYY-MM-DD": the caller owns it, as it owns what the
+   *  pick brings into view. */
+  picked: string;
   /** The view's filter: false drops the item's application, undefined keeps
    *  every item, true or false on a highlight dims the ones that miss. */
   keep: (card: ApplicationCard) => { shown: boolean; match?: boolean };
@@ -76,7 +79,6 @@ export function UpNextMonth({ cards, now, keep, inAgenda, onPickDay }: {
 }) {
   const today = dayKey(now);
   const [month, setMonth] = useState(() => monthOf(now));
-  const [picked, setPicked] = useState(today);
   const grid = useRef<HTMLTableElement>(null);
   const titleId = useId();
   // The day an arrow moved to, focused once its month has rendered.
@@ -103,7 +105,6 @@ export function UpNextMonth({ cards, now, keep, inAgenda, onPickDay }: {
 
   const pick = (day: Date, { scroll = true, focus = false } = {}) => {
     const key = dayKey(day);
-    setPicked(key);
     if (day.getMonth() !== month.getMonth() || day.getFullYear() !== month.getFullYear()) setMonth(monthOf(day));
     onPickDay(day, { scroll });
     if (focus) focusDay.current = key;
@@ -220,7 +221,7 @@ export function UpNextMonth({ cards, now, keep, inAgenda, onPickDay }: {
                 const card = byJob.get(item.job_id)!;
                 return (
                   <DayItem
-                    key={item.kind === "interview" ? `i-${item.interview_id}` : `s-${item.job_id}`}
+                    key={item.kind === "interview" ? `i-${item.interview_id}` : `s-${item.step_id}`}
                     item={item}
                     card={card}
                     match={keep(card).match}

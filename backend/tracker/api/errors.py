@@ -7,7 +7,7 @@ a router never sends English for a person to read. It raises
     raise api_error(404, ErrorCode.JOB_NOT_FOUND, "job not found")
 
 which answers `{"detail": {"code": "job-not-found", "params": {}, "message": "job not found"}}`.
-`message` is English for logs and the MCP server; `params` carries what a
+`message` is English for logs and agent clients; `params` carries what a
 message needs (slugs, never display names: the client names them). The codes
 reach the dashboard through `openapi.json` (`ErrorDetail`), where a test fails
 on a code with no catalog message.
@@ -32,6 +32,7 @@ class ErrorCode(StrEnum):
     LOCAL_MODEL_NOT_FOUND = "local-model-not-found"
     CLOUD_MODEL_NOT_FOUND = "cloud-model-not-found"
     NOTIFICATION_NOT_FOUND = "notification-not-found"
+    ACTIVITY_ENTRY_NOT_FOUND = "activity-entry-not-found"
     LINK_NOT_FOUND = "link-not-found"
     SUGGESTION_NOT_FOUND = "suggestion-not-found"
     RECIPE_NOT_FOUND = "recipe-not-found"
@@ -42,6 +43,7 @@ class ErrorCode(StrEnum):
     APPLICATION_NOT_FOUND = "application-not-found"
     COMMENT_NOT_FOUND = "comment-not-found"
     INTERVIEW_NOT_FOUND = "interview-not-found"
+    STEP_NOT_FOUND = "step-not-found"
     PLUGIN_NOT_FOUND = "plugin-not-found"
     # The request itself is malformed: a client defect, said generically.
     INVALID_INPUT = "invalid-input"
@@ -104,7 +106,7 @@ class ErrorDetail(BaseModel):
 
     code: ErrorCode
     params: dict[str, str | int | list[str]]
-    #: English, for logs and the MCP server. Never shown to a person.
+    #: English, for logs and agent clients. Never shown to a person.
     message: str = Field(json_schema_extra=text("diagnostic"))
 
 

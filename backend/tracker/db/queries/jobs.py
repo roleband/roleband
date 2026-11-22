@@ -17,11 +17,30 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal, TypedDict, cast, get_args
 
-from sqlalchemy import Select, and_, case, exists, false, func, not_, nullslast, or_, select, text
+from sqlalchemy import (
+    Select,
+    and_,
+    case,
+    exists,
+    false,
+    func,
+    not_,
+    null,
+    nullslast,
+    or_,
+    select,
+    text,
+    union_all,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, defer
 
-from tracker.analytics.posting_reality import NEW_LISTING_WINDOW, ListingEvidence, role_age
+from tracker.analytics.posting_reality import (
+    NEW_LISTING_WINDOW,
+    ListingEvidence,
+    PostingFacts,
+    role_age,
+)
 from tracker.db.models import (
     Favorite,
     Job,
@@ -83,7 +102,7 @@ def exclude_hidden(stmt: Select, hidden: list[str], column=Job.company) -> Selec
 def open_in_scope_count_stmt(hidden: list[str] | None = None, *narrowed) -> Select:
     """How many open, in-scope postings a visible board holds.
 
-    One statement for every caller: the statistics routes and the MCP radar
+    One statement for every caller: the statistics routes and the agent radar
     summary. An INNER JOIN on `TrackedCompany.visible` would also drop any
     posting whose company has no roster row.
     """
@@ -394,7 +413,7 @@ _LISTED_FOR = (
     func.coalesce(case((Job.status != "open", Job.closed_at)), func.now()) - _LISTED_SINCE
 )
 
-def base_pay(entity=Job):
+def base_pay(entity=Job, *, estimates: bool = True):
     """The yearly base in US dollars a list row shows, as one comparable
     figure: the posting's own base range from its low end, else the estimated
     base. Which posted range the row shows is the serializer's `posted_base`,
@@ -402,7 +421,8 @@ def base_pay(entity=Job):
     this is that rule in SQL. A posted range shown per hour or month, or in
     another currency, and an estimate in another currency, compare with nothing
     (the filters are yearly dollars), and a shown range never falls back to the
-    estimate the row does not show."""
+    estimate the row does not show. Without `estimates` only a posted range
+    counts, for a reader that may not learn the estimate."""
     J = entity
     low = func.coalesce(J.disclosed_base_min, J.disclosed_base_max)
     high = func.coalesce(J.disclosed_base_max, J.disclosed_base_min)
@@ -423,7 +443,7 @@ def base_pay(entity=Job):
     return case(
         (and_(shown, yearly, J.disclosed_currency == "USD"), low),
         (shown, None),
-        (J.comp_currency == "USD", J.comp_base_median),
+        *([(J.comp_currency == "USD", J.comp_base_median)] if estimates else []),
         else_=None,
     )
 
@@ -534,10 +554,11 @@ def posting_conds(params: dict, entity=Job) -> list:
         conds.append(shown_pay >= params["comp_min"])
     if params.get("comp_max") is not None:
         conds.append(shown_pay <= params["comp_max"])
+    pay = base_pay(J, estimates=not params.get("posted_pay_only"))
     if params.get("base_min") is not None:
-        conds.append(base_pay(J) >= params["base_min"])
+        conds.append(pay >= params["base_min"])
     if params.get("base_max") is not None:
-        conds.append(base_pay(J) <= params["base_max"])
+        conds.append(pay <= params["base_max"])
     if params.get("posted_within_days") is not None:
         cutoff = datetime.now(UTC) - timedelta(days=params["posted_within_days"])
         # The same start the row's age shows: a posting listed 90
@@ -614,10 +635,17 @@ def structured_conds(
     # job the user later dismissed must still show in the pipeline and Compare.
     # Not for me is the role's: marking any member of a place set
     # hides every member, so no filter brings it back through a sibling.
+    # `keep_dismissed` lists them like any other role, for a reader that may
+    # not learn what the person dismissed.
     dismissed_ids = select(JobFeedback.job_id).where(JobFeedback.verdict == "dismissed")
     if params.get("dismissed_only"):
         conds.append(Job.id.in_(dismissed_ids))
-    elif browse_visibility and not params.get("ids") and not params.get("favorites_only"):
+    elif (
+        browse_visibility
+        and not params.get("ids")
+        and not params.get("favorites_only")
+        and not params.get("keep_dismissed")
+    ):
         conds.append(not_(place_set_member_in(dismissed_ids)))
     if params.get("ids"):
         conds.append(Job.id.in_(params["ids"]))
@@ -821,24 +849,29 @@ async def row_context(
     `JobRow` elsewhere does not carry the sign, so its two reads are skipped.
     """
     ids = [job.id for job in jobs]
-    # Stars and pursuits in one read: a row can have either without the other.
+    # Stars and pursuits in one round trip, each side filtered by its own
+    # indexed job id: a row can have either without the other, and a join over
+    # both could use neither index. A star's row has no stage; a pursuit's
+    # always has one.
     starred_or_pursued = (
-        await session.execute(
-            select(Favorite.job_id, Pursuit.job_id, Pursuit.stage)
-            .select_from(Favorite)
-            .join(Pursuit, Pursuit.job_id == Favorite.job_id, full=True)
-            .where(or_(Favorite.job_id.in_(ids), Pursuit.job_id.in_(ids)))
-        )
-    ).tuples().all() if ids else []
-    fav_ids = {starred for starred, _, _ in starred_or_pursued if starred is not None}
+        (
+            await session.execute(
+                union_all(
+                    select(Favorite.job_id, null().label("stage")).where(Favorite.job_id.in_(ids)),
+                    select(Pursuit.job_id, Pursuit.stage).where(Pursuit.job_id.in_(ids)),
+                )
+            )
+        ).tuples().all()
+        if ids
+        else []
+    )
+    fav_ids = {job_id for job_id, stage in starred_or_pursued if stage is None}
     # The board's own rule: a star with no pursuit is at Considering, and a
     # pursuit still at Considering whose star was taken away is off it.
-    pipeline_stages: dict[int, str] = {}
-    for starred, pursued, stage in starred_or_pursued:
-        if pursued is not None and (starred is not None or stage != "saved"):
-            pipeline_stages[pursued] = stage
-        elif starred is not None:
-            pipeline_stages[starred] = "saved"
+    pipeline_stages: dict[int, str] = dict.fromkeys(fav_ids, "saved")
+    for job_id, stage in starred_or_pursued:
+        if stage is not None and (job_id in fav_ids or stage != "saved"):
+            pipeline_stages[job_id] = stage
     dis_ids = set(
         (await session.scalars(select(JobFeedback.job_id).where(JobFeedback.job_id.in_(ids)))).all()
     ) if ids else set()
@@ -870,6 +903,34 @@ async def row_context(
             else await unfollowed_among(session, {job.company for job in jobs})
         ),
     }
+
+
+def standing_facts(
+    job: Job,
+    *,
+    lineage_meta: dict[int, JobLineage],
+    role_starts: dict[int, datetime],
+    reopened_ids: set[int],
+    place_counts: dict[int, PlaceSetCounts],
+) -> PostingFacts | None:
+    """What the standing-posting verdict (`posting_reality.classify`) reads for
+    one posting, from a `row_context` built with `standing`; None for a
+    posting never sighted, which has no verdict."""
+    if not job.first_seen:
+        return None
+    lineage = lineage_meta.get(job.lineage_id) if job.lineage_id is not None else None
+    counts = place_counts.get(job.id)
+    return PostingFacts(
+        status=job.status,
+        posted_at=job.posted_at,
+        first_posted_at=job.first_posted_at,
+        first_seen=job.first_seen,
+        role_since=role_starts.get(job.lineage_id) if job.lineage_id is not None else None,
+        lineage_size=lineage.size if lineage is not None else None,
+        repost_count=job.repost_count or 0,
+        listed_here=counts.here if counts is not None else 0,
+        reopened=job.id in reopened_ids,
+    )
 
 
 async def unfollowed_among(session: AsyncSession, companies: set[str]) -> set[str]:

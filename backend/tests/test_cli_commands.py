@@ -3,7 +3,8 @@
 No operation has code of its own in the client. These hold that each catalog
 operation comes out as a command with its fields as arguments, that a bundle
 the client cannot lay out is refused rather than half-built, that a command
-sends exactly the input it was given (flags or `--input`, never both), and
+sends exactly the input it was given (`--input`, with flags adding only the
+fields it leaves out), and
 that help reads the bundle without loading the engine's models or an HTTP
 library. The search and vocabulary commands also run end to end against a
 real engine on a seeded scratch database.
@@ -176,10 +177,104 @@ def test_input_from_a_file_sends_the_same_request(home, tmp_path):
     assert _query(stub.requests[0]) == {"company": ["acme", "Big Co"], "saved_only": ["true"], "limit": ["5"]}
 
 
+def _piped(home, *args: str, stdin) -> test_cli.Result:
+    """The command with `stdin` as its standard input: bytes in a pipe that
+    then closes, `subprocess.DEVNULL`, or `open` for a pipe nothing writes to
+    and that stays open until the command has ended."""
+    command = [sys.executable, "-m", "tracker.cli", *args]
+    if stdin == "open":
+        process = subprocess.Popen(command, cwd=home.root, env=test_cli._env(home), stdin=subprocess.PIPE,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            process.wait(timeout=30)
+        finally:
+            process.stdin.close()
+        out, err = process.stdout.read(), process.stderr.read()
+        process.stdout.close()
+        process.stderr.close()
+        return test_cli.Result(process.returncode, out.decode(), err.decode())
+    pipe = {"input": stdin} if isinstance(stdin, bytes) else {"stdin": stdin}
+    done = subprocess.run(command, cwd=home.root, env=test_cli._env(home), capture_output=True, timeout=30, **pipe)
+    return test_cli.Result(done.returncode, done.stdout.decode(), done.stderr.decode())
+
+
+@pytest.mark.parametrize("args", [
+    ("opportunities", "search", "--json"),
+    ("opportunities", "get", "--json"),
+])
+@pytest.mark.parametrize("lead", [b"", b" " * 9000], ids=["at-once", "after-whitespace"])
+def test_data_piped_without_input_dash_is_refused_and_asks_no_engine(home, args, lead):
+    """`echo '{...}' | roleband opportunities search` would otherwise answer every
+    role, the filters silently dropped; a piped id would fail as a missing argument.
+    Whitespace longer than one read before the data is still read past."""
+    piped = lead + b'{"location": ["New York, NY"], "opportunity_id": 3}\n'
+    with Stub(Reply(200, _envelope("opportunities.search", data=_PAGE))) as stub:
+        home.contexts(current="dev", dev={"url": stub.url})
+        refused = _piped(home, *args, stdin=piped)
+    assert refused.status == 2, refused
+    error = refused.envelope["error"]
+    assert error["code"] == "invalid_arguments"
+    assert "add --input - to read it" in error["message"]
+    assert stub.requests == []
+
+
+def test_blank_input_past_the_input_limit_is_refused_undecided(home, tmp_path):
+    """The scan is bounded; a redirected file whose data starts after more
+    blank bytes than any --input accepts is refused, never run unfiltered."""
+    from tracker.cli.commands import MAX_INPUT_BYTES
+
+    redirected = tmp_path / "padded.json"
+    redirected.write_bytes(b" " * (MAX_INPUT_BYTES + 8192) + b'{"location": ["New York, NY"]}')
+    with Stub(Reply(200, _envelope("opportunities.search", data=_PAGE))) as stub, redirected.open("rb") as handle:
+        home.contexts(current="dev", dev={"url": stub.url})
+        refused = _piped(home, "opportunities", "search", "--json", stdin=handle)
+    assert refused.status == 2, refused
+    assert refused.envelope["error"]["code"] == "invalid_arguments"
+    assert stub.requests == []
+
+
+@pytest.mark.parametrize("stdin", [b"", b"\n  \n", subprocess.DEVNULL, "open"],
+                         ids=["empty-pipe", "blank-lines", "dev-null", "open-pipe-never-written"])
+def test_a_standard_input_with_no_data_runs_the_command(home, stdin):
+    """Agent hosts start commands with each of these; none holds input, so the search runs."""
+    with Stub(Reply(200, _envelope("opportunities.search", data=_PAGE))) as stub:
+        home.contexts(current="dev", dev={"url": stub.url})
+        ran = _piped(home, "opportunities", "search", "--company", "acme", "--json", stdin=stdin)
+    assert ran.status == 0, ran
+    assert len(stub.requests) == 1 and _query(stub.requests[0]) == {"company": ["acme"]}
+
+
+def test_data_piped_with_input_dash_is_the_input(home):
+    with Stub(Reply(200, _envelope("opportunities.search", data=_PAGE))) as stub:
+        home.contexts(current="dev", dev={"url": stub.url})
+        ran = _piped(home, "opportunities", "search", "--input", "-", "--json", stdin=b'{"company": ["acme"]}')
+    assert ran.status == 0, ran
+    assert _query(stub.requests[0]) == {"company": ["acme"]}
+
+
+def test_flags_add_the_fields_input_leaves_out_and_a_field_given_twice_is_refused(home, tmp_path):
+    document = tmp_path / "search.json"
+    document.write_text(json.dumps({"company": ["acme"], "limit": 5}))
+    with Stub(Reply(200, _envelope("opportunities.search", data=_PAGE))) as stub:
+        home.contexts(current="dev", dev={"url": stub.url})
+        merged = cli(home, "opportunities", "search", "--input", f"@{document}", "--saved-only", "--json")
+        overlapping = cli(home, "opportunities", "search", "--input", f"@{document}", "--company", "Big Co", "--json")
+        # The same value twice is refused too: which one counts is never a question the caller has to ask.
+        repeated = cli(home, "opportunities", "search", "--limit", "5", "--input", f"@{document}", "--json")
+    assert merged.status == 0, merged
+    assert _query(stub.requests[0]) == {"company": ["acme"], "limit": ["5"], "saved_only": ["true"]}
+    for refused, field in ((overlapping, "company"), (repeated, "limit")):
+        assert refused.status == 2, refused
+        error = refused.envelope["error"]
+        assert error["code"] == "invalid_arguments"
+        assert f"--{field} and --input both give {field}" in error["message"]
+        assert error["details"]["fields"] == [field]
+    assert len(stub.requests) == 1
+
+
 @pytest.mark.parametrize(
     ("args", "message"),
     [
-        (("opportunities", "search", "--input", "-", "--company", "acme"), "both give input"),
         (("opportunities", "search", "--input", "search.json"), "@FILE"),
         (("opportunities", "search", "--limit", "many"), "invalid int"),
         (("opportunities", "search", "--sort", "relevance"), "invalid choice"),
@@ -187,7 +282,7 @@ def test_input_from_a_file_sends_the_same_request(home, tmp_path):
         (("vocabulary", "list"), "--kind is required"),
         (("opportunities",), "Name a command after 'opportunities'"),
     ],
-    ids=["input-and-flag", "input-without-at", "not-an-int", "unknown-sort", "unknown-flag", "missing-kind", "group-only"],
+    ids=["input-without-at", "not-an-int", "unknown-sort", "unknown-flag", "missing-kind", "group-only"],
 )
 def test_a_command_refused_before_sending_asks_no_engine(home, args, message):
     with Stub(Reply(200, _envelope("opportunities.search", data=_PAGE))) as stub:
@@ -524,3 +619,305 @@ def test_a_keyed_write_runs_once_under_its_key_against_a_real_engine(home, seede
     receipt = cli(home, "receipts", "get", "--operation", "pursuits.save", "--key", key, "--json")
     assert receipt.status == 0, receipt
     assert receipt.envelope["operation"] == "receipts.get"
+
+
+def test_the_documented_patch_call_clears_a_due_date_with_input_and_control_flags(home, seeded_engine, tmp_path):
+    """The command contract's own call, `pursuits patch ID --input @FILE
+    --if-revision N --idempotency-key KEY --format json`: the file's explicit
+    null clears the due date, every field it leaves out stays put, the call
+    written all in JSON works the same, and a flag naming a field the file
+    also gives is refused before anything is sent."""
+    home.contexts(current="dev", dev={"url": seeded_engine.url})
+
+    def run(*args: str) -> dict:
+        result = cli(home, *args)
+        assert result.status == 0, result
+        return result.envelope
+
+    target = run("pursuits", "list", "--limit", "1", "--json")["data"]["items"][0]["opportunity_id"]
+    revision = run("pursuits", "get", str(target), "--json")["data"]["revision"]
+    due = "2026-12-01T09:00:00+00:00"
+    run("pursuits", "patch", str(target), "--if-revision", str(revision), "--next-action", "Call the recruiter",
+        "--next-action-due", due, "--notes", "Met at the meetup", "--json")
+    before = run("pursuits", "get", str(target), "--json")["data"]
+    assert before["next_action_due"] is not None and before["next_action"] == "Call the recruiter"
+
+    follow_up = tmp_path / "follow-up.json"
+    follow_up.write_text(json.dumps({"next_action_due": None}))
+    documented = ("pursuits", "patch", str(target), "--input", f"@{follow_up}", "--if-revision",
+                  str(before["revision"]), "--idempotency-key", "run-42-followup", "--format", "json")
+    cleared = run(*documented)
+    assert cleared["meta"]["idempotency_key"] == "run-42-followup"
+    after = run("pursuits", "get", str(target), "--json")["data"]
+    assert after["next_action_due"] is None
+    assert {key: after[key] for key in ("next_action", "notes", "stage", "priority")} == {
+        key: before[key] for key in ("next_action", "notes", "stage", "priority")
+    }
+    assert after["revision"] == before["revision"] + 1
+
+    # A retry of the same call under its key replays: it writes nothing more.
+    again = run(*documented)
+    assert again["meta"]["replayed"] is True
+    assert run("pursuits", "get", str(target), "--json")["data"]["revision"] == after["revision"]
+
+    # The same kind of call with the revision inside the file.
+    whole = tmp_path / "whole.json"
+    whole.write_text(json.dumps({"if_revision": after["revision"], "next_action": None}))
+    run("pursuits", "patch", str(target), "--input", f"@{whole}", "--idempotency-key", "run-42-whole", "--json")
+    latest = run("pursuits", "get", str(target), "--json")["data"]
+    assert latest["next_action"] is None and latest["notes"] == "Met at the meetup"
+
+    # The revision in the file and as a flag: refused, naming the field, and nothing is written.
+    overlap = tmp_path / "overlap.json"
+    overlap.write_text(json.dumps({"if_revision": latest["revision"], "notes": None}))
+    refused = cli(home, "pursuits", "patch", str(target), "--input", f"@{overlap}", "--if-revision",
+                  str(latest["revision"]), "--idempotency-key", "run-42-overlap", "--json")
+    assert refused.status == 2, refused
+    assert refused.envelope["error"]["code"] == "invalid_arguments"
+    assert "if_revision" in refused.envelope["error"]["message"]
+    unchanged = run("pursuits", "get", str(target), "--json")["data"]
+    assert unchanged["notes"] == "Met at the meetup" and unchanged["revision"] == latest["revision"]
+    lookup = cli(home, "receipts", "get", "--operation", "pursuits.patch", "--key", "run-42-overlap", "--json")
+    assert lookup.envelope["ok"] is False, lookup
+
+
+# --------------------------------------------------------------------------- #
+# --output writes a document to a file
+# --------------------------------------------------------------------------- #
+
+
+def _packet_reply(packet: str, *, sha: str | None = None, chars: int | None = None) -> Reply:
+    import hashlib
+
+    manifest = {
+        "format": 1, "opportunity_id": 7, "packet_sha256": sha or hashlib.sha256(packet.encode()).hexdigest(),
+        "packet_bytes": len(packet.encode()), "packet_chars": len(packet) if chars is None else chars,
+        "components": [], "left_out": [],
+    }
+    data = {"manifest": manifest, "packet_offset": 0, "packet": packet, "continue_with": []}
+    return Reply(200, _envelope("context.export", data=data))
+
+
+@pytest.fixture
+def out(tmp_path):
+    """A folder of its own for the files a test writes, apart from the scratch home."""
+    folder = tmp_path / "out"
+    folder.mkdir()
+    return folder
+
+
+def test_output_writes_the_packet_and_answers_with_its_path_size_and_hash(home, out):
+    import hashlib
+
+    packet = '{"posting":{"title":"Staff engineer, Zürich"}}'
+    target = out / "role-7.json"
+    with Stub(_packet_reply(packet)) as stub:
+        home.contexts(current="dev", dev={"url": stub.url})
+        written = cli(home, "context", "export", "7", "--output", str(target), "--json")
+    assert written.status == 0, written
+    assert target.read_bytes() == packet.encode()
+    data = written.envelope["data"]
+    assert data["path"] == str(target.resolve())
+    assert data["bytes"] == len(packet.encode()) and data["sha256"] == hashlib.sha256(packet.encode()).hexdigest()
+    assert data["manifest"]["packet_sha256"] == data["sha256"]
+    assert "packet" not in data, "the text stays in the file, out of the caller's context"
+    if os.name == "posix":
+        assert target.stat().st_mode & 0o077 == 0, "the packet holds the person's records: owner only"
+    assert [entry.name for entry in out.iterdir()] == ["role-7.json"]
+
+
+def test_output_refuses_a_file_that_is_there_and_asks_no_engine_unless_told_to_overwrite(home, out):
+    target = out / "role-7.json"
+    target.write_text("kept")
+    with Stub(_packet_reply("{}")) as stub:
+        home.contexts(current="dev", dev={"url": stub.url})
+        refused = cli(home, "context", "export", "7", "--output", str(target), "--json")
+        asked = list(stub.requests)
+        replaced = cli(home, "context", "export", "7", "--output", str(target), "--overwrite", "--json")
+    assert refused.status == 2, refused
+    assert refused.envelope["error"]["details"] == {"path": str(target), "reason": "exists"}
+    assert "--overwrite" in refused.envelope["error"]["message"]
+    assert asked == []
+    assert replaced.status == 0, replaced
+    assert target.read_text() == "{}"
+
+
+@pytest.mark.parametrize(("args", "message"), [
+    (("--overwrite",), "--overwrite only goes with --output"),
+    (("--output", "{missing}/role.json"), "folder that does not exist"),
+    (("--output", "{folder}"), "names a folder"),
+    (("--output", "{folder}/role.json", "--packet-from", "10", "--packet-sha256", "a" * 64), "leave out packet_from"),
+])
+def test_output_refusals_ask_no_engine(home, out, args, message):
+    filled = [arg.format(missing=out / "nowhere", folder=out) for arg in args]
+    with Stub(_packet_reply("{}")) as stub:
+        home.contexts(current="dev", dev={"url": stub.url})
+        refused = cli(home, "context", "export", "7", *filled, "--json")
+    assert refused.status == 2, refused
+    assert message in refused.envelope["error"]["message"]
+    assert stub.requests == []
+    assert list(out.iterdir()) == []
+
+
+@pytest.mark.parametrize("damage", [{"sha": "0" * 64}, {"chars": 3}], ids=["other-hash", "other-length"])
+def test_a_packet_that_does_not_match_its_manifest_is_not_written(home, out, damage):
+    target = out / "role-7.json"
+    with Stub(_packet_reply('{"posting":{}}', **damage)) as stub:
+        home.contexts(current="dev", dev={"url": stub.url})
+        refused = cli(home, "context", "export", "7", "--output", str(target), "--json")
+    assert refused.status == 1, refused
+    assert refused.envelope["error"]["code"] == "internal_error"
+    assert list(out.iterdir()) == []
+
+
+def test_only_an_operation_that_writes_a_file_takes_output(home, tmp_path):
+    refused = cli(home, "opportunities", "search", "--output", str(tmp_path / "x.json"), "--json")
+    assert refused.status == 2, refused
+    assert "--output" in refused.envelope["error"]["message"]
+
+
+def test_a_bundle_whose_file_writing_operation_the_client_cannot_lay_out_is_refused():
+    bundle = _with(_bundle(), "widgets.list", {"method": "GET", "path": "/api/agent/v1/widgets"},
+                   client_effects=["file_write"])
+    with pytest.raises(ValueError, match="cannot lay its answer out"):
+        commands.build(bundle)
+
+
+def test_the_atomic_write_refuses_a_file_that_appeared_and_leaves_nothing_behind(out):
+    """A file that appears after the first check, between the check and the
+    write, is still never replaced."""
+    from tracker.cli import output
+
+    target = out / "role.json"
+    output.write_atomically(target, b"first", overwrite=False)
+    assert target.read_bytes() == b"first"
+    with pytest.raises(ClientError) as refused:
+        output.write_atomically(target, b"second", overwrite=False)
+    assert refused.value.details["reason"] == "exists"
+    assert target.read_bytes() == b"first"
+    output.write_atomically(target, b"third", overwrite=True)
+    assert target.read_bytes() == b"third"
+    assert [entry.name for entry in out.iterdir()] == ["role.json"]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows renames without replacing, with no hard link")
+def test_a_file_system_without_hard_links_refuses_a_new_file_rather_than_show_it_empty(out, monkeypatch):
+    from tracker.cli import output
+
+    def no_link(source, target):
+        raise PermissionError("no hard links here")
+
+    monkeypatch.setattr(output.os, "link", no_link)
+    target = out / "role.json"
+    with pytest.raises(ClientError) as refused:
+        output.write_atomically(target, b"first", overwrite=False)
+    assert "--overwrite" in refused.value.message
+    assert list(out.iterdir()) == []
+    output.write_atomically(target, b"first", overwrite=True)
+    assert [entry.name for entry in out.iterdir()] == ["role.json"] and target.read_bytes() == b"first"
+
+
+def _part(packet: str, offset: int, sha: str, *, following: list | None = None) -> dict:
+    manifest = {"format": 1, "opportunity_id": 7, "packet_sha256": sha, "packet_bytes": 0, "packet_chars": 6,
+                "components": [], "left_out": []}
+    return {"manifest": manifest, "packet_offset": offset, "packet": packet, "continue_with": following or []}
+
+
+def _next(offset: int, sha: str) -> list:
+    return [{"operation": "context.export", "arguments": {"opportunity_id": 7, "packet_from": offset,
+                                                          "packet_sha256": sha}}]
+
+
+_SHA = __import__("hashlib").sha256(b"abcdef").hexdigest()
+_REFUSED = {"ok": False, "operation": "context.export",
+            "error": {"code": "revision_conflict", "message": "The packet changed."}}
+
+
+@pytest.mark.parametrize(("later", "outcome"), [
+    ({"ok": True, "operation": "context.export", "data": _part("def", 3, _SHA)}, "written"),
+    (_REFUSED, "refused"),
+    ({"ok": True, "operation": "context.export", "data": _part("def", 2, _SHA)}, "internal_error"),
+    ({"ok": True, "operation": "context.export", "data": _part("def", 3, "1" * 64)}, "internal_error"),
+    ({"ok": True, "operation": "context.export", "data": _part("", 3, _SHA, following=_next(3, _SHA))},
+     "internal_error"),
+    ({"ok": True, "operation": "context.export", "data": _part("def", 3, _SHA, following=_next(6, _SHA) * 2)},
+     "contract_incompatible"),
+], ids=["joined", "later-part-refused", "other-offset", "other-packet", "empty-part-going-on", "two-ways-on"])
+def test_a_later_part_that_does_not_continue_the_packet_writes_nothing(out, later, outcome):
+    from tracker.cli import output
+
+    asked: list[dict] = []
+
+    def follow(arguments: dict) -> dict:
+        asked.append(arguments)
+        return later
+
+    first = {"ok": True, "operation": "context.export", "data": _part("abc", 0, _SHA, following=_next(3, _SHA))}
+    target = out / "role-7.json"
+    try:
+        answer = output.write(first, target, overwrite=False, follow=follow)
+    except ClientError as error:
+        assert error.code == outcome
+        assert not target.exists()
+    else:
+        if outcome == "refused":
+            assert answer is _REFUSED and not target.exists()
+        else:
+            assert outcome == "written" and target.read_bytes() == b"abcdef"
+    assert asked == [_next(3, _SHA)[0]["arguments"]]
+    assert [entry.name for entry in out.iterdir()] == (["role-7.json"] if outcome == "written" else [])
+
+
+def test_a_folder_that_cannot_be_written_is_a_client_error_not_a_traceback(out, monkeypatch):
+    from tracker.cli import output
+
+    def refused(**_: object) -> tuple[int, str]:
+        raise PermissionError("read-only folder")
+
+    monkeypatch.setattr(output.tempfile, "mkstemp", refused)
+    with pytest.raises(ClientError) as error:
+        output.write_atomically(out / "role-7.json", b"{}", overwrite=False)
+    assert error.value.code == "invalid_arguments"
+    assert error.value.details == {"path": str(out / "role-7.json"), "reason": "PermissionError"}
+    assert list(out.iterdir()) == []
+
+
+def test_output_reads_every_part_of_a_real_engines_packet(home, seeded_engine, out):
+    """At the small tier a long packet comes in parts; the file is all of them, joined."""
+    import hashlib
+
+    from tracker.db.models import Job
+
+    home.contexts(current="dev", dev={"url": seeded_engine.url})
+    parted = cli(home, "opportunities", "search", "--limit", "1", "--json").envelope["data"]["rows"][0][0]
+
+    async def lengthen() -> None:
+        database = create_async_engine(seeded_engine.database_url)
+        try:
+            async with AsyncSession(database) as session:
+                job = await session.get(Job, parted)
+                job.description_text = "Build the radar, end to end. Zürich or remote. " * 400
+                await session.commit()
+        finally:
+            await database.dispose()
+
+    asyncio.run(lengthen())
+    first = cli(home, "context", "export", str(parted), "--json")
+    assert first.status == 0, first
+    parts = [first.envelope["data"]]
+    while parts[-1]["continue_with"]:
+        [action] = parts[-1]["continue_with"]
+        arguments = action["arguments"]
+        result = cli(home, "context", "export", str(parted), "--packet-from", str(arguments["packet_from"]),
+                     "--packet-sha256", arguments["packet_sha256"], "--json")
+        parts.append(result.envelope["data"])
+    joined = "".join(part["packet"] for part in parts)
+
+    target = out / "packet.json"
+    written = cli(home, "context", "export", str(parted), "--output", str(target), "--json")
+
+    assert written.status == 0, written
+    assert target.read_text(encoding="utf-8") == joined
+    assert written.envelope["data"]["sha256"] == hashlib.sha256(joined.encode()).hexdigest()
+    assert written.envelope["data"]["manifest"]["packet_sha256"] == parts[0]["manifest"]["packet_sha256"]
+    assert len(parts) > 1

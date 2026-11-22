@@ -13,7 +13,7 @@ shown, and report any check you skipped with its reason.
 | Any change | From the repository root: `python backend/scripts/check_comment_hygiene.py` and `python backend/scripts/check_project_name.py` (standard library only, seconds) |
 | Docs only (`*.md`, `docs/images/`) | From `backend/`: `.venv/bin/python -m pytest -m reads_docs`, the tests CI runs for such a change; the link check runs in CI |
 | Any backend change (`backend/`) | `.venv/bin/ruff check tracker tests scripts ../sdk/python ../examples`, `.venv/bin/lint-imports`, `.venv/bin/mypy`, `.venv/bin/python -m pytest`; a new module meant to be typed goes in `[tool.mypy] files` |
-| Native Mac launcher | From the root: `launcher/macos/test-core.sh`, `node dashboard/scripts/export-launcher-copy.mjs --check`, and `launcher/macos/build-app.sh`, then `python3 launcher/macos/test-transport.py` with the built app's `Contents/MacOS/RoleBandLauncher` to test its HTTP client. Installer changes also run `python3 -m unittest discover -s launcher/macos/Tools -p 'test_*.py'`, and from `backend/` `.venv/bin/ruff check ../launcher/macos/Tools ../launcher/macos/test-transport.py`, and build/mount/verify the disk image with its pinned packaging tools. Source installation and release tests replace external commands, use scratch app folders, and never register launchd or contact GitHub. Update staging, transaction and helper tests use scratch app folders and stopped Postgres clusters; a release trial still needs the persistent signing identity and a previous release's real data. Run the deploy and CI workflow contracts for installer/workflow changes. Test first open, login approval and return from Settings, Escape, browser reopening and sleep/wake on a real Mac. |
+| Native Mac launcher | From the root: `launcher/macos/test-core.sh`, `node dashboard/scripts/export-launcher-copy.mjs --check`, and `launcher/macos/build-app.sh`, then `python3 launcher/macos/test-transport.py` with the built app's `Contents/MacOS/RoleBandLauncher` to test its HTTP client. Installer changes also run `python3 -m unittest discover -s launcher/macos/Tools -p 'test_*.py'`, and from `backend/` `.venv/bin/ruff check ../launcher/macos/Tools ../launcher/macos/test-transport.py`, and build/mount/verify the disk image with its pinned packaging tools. Source installation and release tests replace external commands, use scratch app folders, and never register launchd or contact GitHub. Update staging, transaction and helper tests use scratch app folders and stopped Postgres clusters; a release trial still needs the persistent signing identity and a previous release's real data. Run the deploy and CI workflow contracts for installer/workflow changes. Test first open, login approval and return from Settings, Escape, browser reopening, sleep/wake, and the update window while typing in another app and over a full-screen app on a real Mac. |
 | Standalone Mac bundle | Build the dashboard with `deploy/build_dashboard.sh`, install `zstd`, then use `launcher/macos/build-bundle.sh` to build a candidate without private keys. A change to the backend requirements or constraints regenerates `launcher/macos/runtime-lock.txt` with `Tools/lock_runtime.py`. Move its Swift build folder aside, make the app read-only, then run the app executable with `--check-copy` and `--check-engine` plus a new scratch directory. The probe refuses an external database, writes only its own state and verifies unchanged bundle hashes. It runs the bundled interpreter in isolation, checks native imports, starts a scratch database with vector and pg_trgm and installs the SDK wheels offline; it never starts setup or owns a source installation. Use `Tools/release.py candidate` to package it. Locally, `Tools/signing.py seal` copies the candidate into a new app signed with a scratch keychain and release public key; `Tools/release.py prepare` verifies nested signatures, release provenance, the image checksum and Ed25519 signature. A separately trusted public key is required for verification and local attachment. The release identity comes from `generate --spare-directory`, which asks for the release-key passphrase and the certificate password; `import` asks for the certificate password and `prepare` for the passphrase when used. |
 | Pre-launch installation guide | Also run `node launcher/macos/Tools/test_guide.mjs` after installing the dashboard dependencies and Playwright Chromium/WebKit. It tests offline file navigation, language persistence, the no-warning branch, recovery, keyboard controls, responsive themes and the no-JavaScript fallback. Verify the Settings link with real Safari and Chrome; WebKit engine tests alone do not prove Safari's external-protocol handling. |
 | API route or response model | The backend checks; `.venv/bin/python -m scripts.export_openapi`, then `npm run gen:api` and `npm run build`; commit both generated files. A route added or removed also runs `.venv/bin/python -m scripts.freeze_route_table` |
@@ -50,11 +50,17 @@ package, a switch Windows refuses is resumed as never happened, an update or und
 while the engine stops records and installs nothing, an update this version left applying
 goes to Windows' deployment log first, even with updates unavailable, while a status that
 cannot be read settles nothing, and the new version settles the update by its preparation;
-the real package switch needs an installed trial. Build the actual
+the real package switch needs an installed trial. `UpdateWindowTests` hold when the update window
+opens, waits for setup or an update, or lets a release go; Later's three days and its third Later;
+an important release's day after any Later and its recommended line;
+what it shows from the offer to Windows' install; and a real window that takes neither the
+foreground nor a click's activation, and shows on top wherever the desktop lets any window be
+topmost (a hosted runner does not). Build the actual
 app with `dotnet build launcher/windows/RoleBand.App -p:Platform=x64` and
 check on Windows: the icon's flyout opens by the icon and closes on a second click, Esc or a click
-elsewhere; the right-click menu's bold default, pause and Quit; Settings and setup; Quit stops the
-engine. A source run started with `--simulate-update <scenario>` plays the update commands and
+elsewhere; the right-click menu's bold default, pause and Quit; Settings and setup; the update window
+while typing in another app, which stays on top and keeps the keyboard while its buttons answer the first click; Quit
+stops the engine. A source run started with `--simulate-update <scenario>` plays the update commands and
 Windows' installer instead of the real ones, opens Settings and presses what the scenario follows,
 so each update state (a download, a pause, a full disk, Windows' install, a failed update, an Undo
 and its refusals, the next open's result) can be looked at without a signed build;
@@ -119,7 +125,8 @@ refuses a certificate that is not the committed one, lacks its private key, name
 another subject or expires within a year; a failed `generate` leaves both folders
 empty, and on Windows .NET opens the signing file with its key, as `signtool` does.
 `release.py prepare` refuses a release package that keeps the trial's folder or name,
-and a release key whose passphrase is missing or wrong, with a reason. Its `resources.pri` step, which lets Windows find
+and a release key whose passphrase is missing or wrong, with a reason; `release.py important` attaches a mark only
+with the release key, to a published release with all four Windows files, once. Its `resources.pri` step, which lets Windows find
 the sized icons and keeps the app's own resources, is checked by dumping the file with `makepri`. MSIX packing alone does not prove installation, retention or package recovery.
 
 `launcher/windows/Tools/PackageContextProbe` exercises the native package-policy
@@ -392,6 +399,20 @@ a process unless it is named there, and a test module that can reach one without
 its reason matches `OPTIONAL_SKIPS` in `backend/tests/skip_policy.py`. A new,
 legitimate skip is added there with the reason it may stay a skip.
 
+**Clusters that outlive their run.** The embedded server stays up after the
+last process that opened it exits, as the app needs, and each running cluster
+holds a shared memory segment: macOS allows 32 (`kern.sysv.shmmni`), after
+which every `initdb` fails. So a test run stops the cluster its database tests
+used once its workers have let go of it, if it sits in a temporary folder or
+`~/.cache` and no other process holds it. A cluster another process holds, an
+app's, and a development database elsewhere stay up. A killed run, or any
+other command run with a throwaway
+`ROLEBAND_PGDATA`, can still leave one behind. From `backend/`,
+`.venv/bin/python -m scripts.stray_clusters` lists every cluster this account
+runs with its data directory and the processes holding it, and `--stop` stops
+the strays: clusters in those throwaway places whose recorded holders have all
+exited. It keeps their data; the next command that opens one starts it again.
+
 **Real-cluster tests.** `backend/tests/test_embedded_db.py` starts a
 throwaway embedded cluster and checks the extensions, the pinned locale, the
 Postgres features the code uses, and that every migration applies with
@@ -489,9 +510,12 @@ against `httpx.MockTransport` and recorded fixtures; a test that builds a real
 adapter takes `no_escape` and mocks `make_tier_client`. Live confidence comes
 from smoke commands run by hand from `backend/`: one adapter with
 `.venv/bin/python -m scripts.smoke_adapters <company> 5`, catalog board tokens
-with `.venv/bin/python -m scripts.check_catalog_tokens`, and a capped pipeline
+with `.venv/bin/python -m scripts.check_catalog_tokens`, a capped pipeline
 run (which never closes postings) with
-`.venv/bin/python -m tracker.daily --max-list 150 --no-hydrate -v`.
+`.venv/bin/python -m tracker.daily --max-list 150 --no-hydrate -v`, and one
+tool-calling round trip against a model server on your own computer with
+`.venv/bin/python -m scripts.smoke_model_tools --model <model>` (the server's key,
+if it needs one, in `ROLEBAND_SMOKE_LOCAL_API_KEY`).
 
 ## Benchmarks carry negative controls
 

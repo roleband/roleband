@@ -1,5 +1,5 @@
 import { msg } from "../../test/msg";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -251,17 +251,21 @@ describe("CompensationPanel", () => {
     expect(screen.queryByRole("combobox")).toBeNull();
   });
 
+  // The table is its own read, started by an effect once the hero knows the
+  // country and level. The headline paints before that effect runs, so a check
+  // waits for the call instead of reading it after the headline.
   const asked = () => {
     const calls = vi.mocked(api.payTable).mock.calls;
-    return calls[calls.length - 1].slice(0, 3);
+    return calls[calls.length - 1]?.slice(0, 3);
   };
+  const expectAsked = (want: (string | null)[]) => waitFor(() => expect(asked()).toEqual(want));
 
   it("asks the table for the picked level, country and skill", async () => {
     mock(base());
     show({}, "/statistics/compensation?skill=python");
     await headline();
 
-    expect(asked()).toEqual(["US", "principal", "python"]);
+    await expectAsked(["US", "principal", "python"]);
   });
 
   it.each([
@@ -272,11 +276,10 @@ describe("CompensationPanel", () => {
     const user = userEvent.setup();
     show({}, "/statistics/compensation?skill=python");
     await headline();
-    expect(asked()).toEqual(["US", "principal", "python"]);
+    await expectAsked(["US", "principal", "python"]);
 
     await user.selectOptions(screen.getByRole("combobox", { name: picker }), value);
-    await headline();
-    expect(asked()).toEqual(want);
+    await expectAsked(want);
   });
 
   it("says the company table could not be read, with a way to try again", async () => {

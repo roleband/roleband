@@ -80,6 +80,19 @@ describe("FreshnessBadge", () => {
     expect(badge).toHaveClass("fresh");
   });
 
+  // The badge's words already start with "Last scan"; the spoken name wraps the
+  // bare age, so a screen reader hears it once, not "Last scan: Last scan".
+  it("says Last scan once to a screen reader", async () => {
+    vi.spyOn(api, "status").mockResolvedValue(status({ last_success_age_hours: 2, last_scan_age_hours: 2, stale: false }));
+    renderBadge();
+    const age = msg("format-age-hours", { count: 2 });
+    const badge = await screen.findByRole("status", { name: msg("shell-freshness-aria", { state: age }) });
+    const name = badge.getAttribute("aria-label") ?? "";
+    const label = msg("shell-freshness-label");
+    expect(name.split(label).length - 1).toBe(1);
+    expect(name).not.toContain(msg("shell-freshness-checked", { age }));
+  });
+
   it("shows only the wider market's progress, with the scan's words one hover away", async () => {
     vi.spyOn(api, "status").mockResolvedValue(status({
       wider_market: { checked: 6610, to_check: 12500, with_roles: 42, waiting_for_power: false },

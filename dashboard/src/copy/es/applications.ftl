@@ -403,9 +403,39 @@ applications-feed-priority = Prioridad cambiada
 applications-feed-notes = Notas editadas
 
 applications-feed-next-step = Siguiente paso cambiado
+# kind=status note="A recorded change: a next step was added; $step is the step, as the person wrote it"
+applications-feed-step-added = Siguiente paso añadido: { $step }
+# kind=status note="A recorded change: a next step's words or day changed; $step is the step after the change"
+applications-feed-step-edited = Siguiente paso cambiado: { $step }
+# kind=status note="A recorded change: a next step was ticked done; $step is the step"
+applications-feed-step-done = Hecho: { $step }
+# kind=status note="A recorded change: a next step ticked done was opened again; $step is the step"
+applications-feed-step-reopened = Siguiente paso abierto de nuevo: { $step }
+# kind=status note="A recorded change: a next step was removed; $step is the step"
+applications-feed-step-removed = Siguiente paso quitado: { $step }
 
 applications-feed-updated = Actualizado
 
+
+applications-feed-jump-label = Ir a
+
+applications-feed-jump-month = { $month }, ir a otro momento
+
+applications-feed-jump-recent = Lo más reciente
+
+applications-feed-jump-applied = Cuando te postulaste
+
+applications-feed-jump-interview = Primera entrevista
+
+applications-feed-jump-offer = La oferta
+
+applications-feed-jump-beginning = El principio
+
+applications-feed-jump-comments = { $count ->
+    [one] 1 comentario
+    [many] { $count } de comentarios
+   *[other] { $count } comentarios
+}
 
 applications-comment-label = Comentario
 
@@ -519,20 +549,41 @@ applications-posting-history-now = { $days ->
 
 
 
-applications-ws-next = Siguiente paso
+applications-ws-next = Siguientes pasos
 
-applications-ws-history = Historial
 
-applications-ws-sections = Secciones
-
-applications-ws-sections-label = Secciones visibles en esta etapa
 
 applications-ws-next-add = Añadir un siguiente paso
 
 applications-ws-next-edit = Editar el siguiente paso: { $step }
 
-applications-ws-next-due = Día límite
+applications-ws-next-due = Vence
+# kind=button note="In a next step's edit, takes the step off the list with nothing kept, for one added by mistake"
+applications-ws-next-remove = Quitar
 
-applications-ws-notes-hint = Escribe lo que sabes, lo que falta averiguar y a quién conociste.
+applications-ws-notes-hint = Escribe lo que sabes y a quién conociste. Escribe / para títulos, listas y listas de tareas.
+applications-notes-blocks = Bloques
+applications-notes-block-text = Texto
+applications-notes-block-heading = Título { $level }
+applications-notes-block-bullets = Lista con viñetas
+applications-notes-block-numbers = Lista numerada
+applications-notes-block-checklist = Lista de tareas
+applications-notes-block-quote = Cita
+applications-notes-block-divider = Separador
+applications-notes-block-none = Ningún bloque con ese nombre.
+applications-notes-check = { $checked ->
+    [yes] Hecho: { $line }
+   *[no] Pendiente: { $line }
+}
 
 applications-ws-ask-outcome = ¿Cómo te fue?
+
+applications-feed-title = Actividad
+applications-feed-empty = Aún no hay comentarios ni cambios.
+applications-feed-fold = { $count ->
+    [one] { $count } actualización: { $changes }
+    [many] { $count } de actualizaciones: { $changes }
+   *[other] { $count } actualizaciones: { $changes }
+}
+applications-comment-placeholder = Escribe lo que pasó
+applications-comment-submit = Comentar

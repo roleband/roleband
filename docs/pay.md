@@ -235,7 +235,7 @@ own data (the dataset, the seed pay and our stored rows) is US pay
 plugin's rung is for the `country` it states; one that states none prices no
 posting. Readers match a row to the posting by country (`pay_level_index`,
 `package_rows`, `comp_package.country_rows`); the company page shows US rows
-(`api/routers/companies.py`), and so does the estimate in Insights' company
+(`profiles/read.py`), and so does the estimate in Insights' company
 table ([the company table at one level](#the-company-table-at-one-level)).
 Posted pay on Insights is read per country instead
 ([Posted pay on Insights](#posted-pay-on-insights)).
@@ -384,9 +384,11 @@ refuses a figure the shape cannot hold (negative, not finite, a schedule over
 100% or longer than four years) and stores nothing; a stored row the current
 shape cannot read comes back as nothing, never as other figures. At most
 `MAX_VALUATIONS` companies are kept. None of these routes is a usage action
-(`api/usage_counter.py` lists them as not counted), so nothing about an offer,
-not even that one was saved, leaves the computer. Why the database and not the
-browser: `docs/decisions/0003-offer-in-local-database.md`.
+(`api/usage_counter.py` lists them as not counted), so no usage event says
+anything about an offer, not even that one was saved. With agent access on, the
+person's assistant reads both through `offer.get`, unless the person keeps the
+offer from assistants ([0019](decisions/0019-assistants-read-the-offer.md)). Why the
+database and not the browser: `docs/decisions/0003-offer-in-local-database.md`.
 
 ## A role list's Base column
 

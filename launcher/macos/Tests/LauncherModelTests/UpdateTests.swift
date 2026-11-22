@@ -11,6 +11,8 @@ private actor UpdateTransport {
     var suspend = false
     var uploaded = 4
     var notes = "New release notes."
+    var marked = false
+    func set(marked: Bool) { self.marked = marked }
     func set(version: String) { self.version = version }
     func set(notes: String) { self.notes = notes }
     func set(uploaded: Int) { self.uploaded = uploaded }
@@ -21,7 +23,8 @@ private actor UpdateTransport {
         try JSONSerialization.data(withJSONObject: ["tag_name": "v" + version,
             "html_url": "https://github.com/roleband/roleband/releases/tag/v" + version,
             "body": notes, "draft": false, "prerelease": false,
-            "assets": ReleaseFiles.all(version).sorted().prefix(uploaded).map { ["name": $0, "state": "uploaded"] }])
+            "assets": (ReleaseFiles.all(version).sorted().prefix(uploaded) + (marked ? [ReleaseFiles.important(version)] : []))
+                .map { ["name": $0, "state": "uploaded"] }])
     }
     func fetch() async throws -> Data {
         calls += 1
@@ -48,11 +51,29 @@ private final class UpdateClock: @unchecked Sendable {
     try await body(updates, transport, clock, preferences)
 }
 
-@MainActor @Test func unansweredAndDeclinedChoicesNeverSendUpdateRequestsEvenWhenAskedOrStarted() async throws {
+@MainActor @Test func anInstallThatNeverChoseChecksOnceADayWithoutRecordingAChoice() async throws {
+    try await withUpdates { updates, transport, clock, preferences in
+        #expect(updates.consent == .undecided && updates.automatic)
+        await updates.checkAndWait(automatic: true)
+        #expect(await transport.calls == 1)
+        #expect(updates.offered?.version == "0.2.0")
+        clock.advance(86399)
+        let restored = LauncherUpdates(preferences: preferences, fetch: { try await transport.fetch() }, now: { clock.now() }, authenticate: { _ in nil })
+        defer { restored.stop() }
+        await restored.checkAndWait(automatic: true)
+        #expect(await transport.calls == 1)
+        clock.advance(1)
+        await restored.checkAndWait(automatic: true)
+        #expect(await transport.calls == 2)
+        #expect(restored.consent == .undecided)
+        #expect(preferences.string(forKey: "updateConsent") == nil)
+        #expect(preferences.string(forKey: "updateConsentText") == nil)
+        #expect(preferences.object(forKey: "updateConsentAt") == nil)
+    }
+}
+
+@MainActor @Test func aDeclinedChoiceNeverSendsUpdateRequestsEvenWhenAskedOrStarted() async throws {
     try await withUpdates { updates, transport, _, preferences in
-        updates.start()
-        await updates.checkAndWait()
-        #expect(await transport.calls == 0)
         updates.choose(.declined)
         updates.start()
         await updates.checkAndWait()
@@ -201,12 +222,11 @@ private final class UpdateClock: @unchecked Sendable {
         defer { restored.stop() }
         restored.start()
         await restored.checkAndWait()
-        #expect(!restored.needsChoice && !restored.automatic)
+        #expect(restored.consent == .declined && !restored.automatic)
         #expect(await transport.calls == 0)
         #expect(preferences.string(forKey: "updateConsentText") == "Previously displayed wording")
         await restored.checkManuallyAndWait()
-        #expect(!restored.needsChoice && !restored.automatic)
-        #expect(restored.consent == .declined)
+        #expect(restored.consent == .declined && !restored.automatic)
         #expect(await transport.calls == 1)
         #expect(preferences.string(forKey: "updateConsentText") == "Previously displayed wording")
     }
@@ -214,9 +234,9 @@ private final class UpdateClock: @unchecked Sendable {
 
 @MainActor @Test func turningTheSetupToggleOffKeepsAutomaticChecksOffWithoutBlockingALaterExplicitCheck() async throws {
     try await withUpdates { updates, transport, clock, preferences in
-        #expect(updates.needsChoice)
+        #expect(updates.consent == .undecided && updates.automatic)
         updates.setAutomaticChecks(false)
-        #expect(!updates.needsChoice && !updates.automatic)
+        #expect(updates.consent == .manual && !updates.automatic)
         #expect(preferences.string(forKey: "updateConsentText") == updates.text("update-automatic"))
         updates.start()
         await updates.checkAndWait(automatic: true)
@@ -226,22 +246,22 @@ private final class UpdateClock: @unchecked Sendable {
         let restored = LauncherUpdates(preferences: preferences, fetch: { try await transport.fetch() }, now: { clock.now() }, authenticate: { _ in nil })
         defer { restored.stop() }
         restored.start()
-        #expect(!restored.needsChoice && !restored.automatic)
+        #expect(restored.consent == .manual && !restored.automatic)
         #expect(await transport.calls == 1)
     }
 }
 
-@MainActor @Test func checkNowIsAnExplicitOneOffRequestWithoutEnablingAutomaticChecksOrCreatingAPrivacyReceipt() async throws {
+@MainActor @Test func checkNowRecordsNoChoiceAndCountsAsTheDaysCheck() async throws {
     try await withUpdates { updates, transport, clock, preferences in
-        #expect(updates.needsChoice && !updates.automatic)
-        #expect(await transport.calls == 0)
         await updates.checkManuallyAndWait()
         #expect(await transport.calls == 1)
-        #expect(updates.needsChoice && !updates.automatic)
+        #expect(updates.consent == .undecided && updates.automatic)
         #expect(preferences.string(forKey: "updateConsentText") == nil)
-        clock.advance(86401)
-        updates.start()
+        await updates.checkAndWait(automatic: true)
         #expect(await transport.calls == 1)
+        clock.advance(86400)
+        await updates.checkAndWait(automatic: true)
+        #expect(await transport.calls == 2)
     }
 }
 
@@ -249,7 +269,7 @@ private final class UpdateClock: @unchecked Sendable {
     try await withUpdates { updates, transport, clock, preferences in
         updates.setAutomaticChecks(true)
         await updates.checkAndWait(automatic: true)
-        #expect(updates.automatic && !updates.needsChoice)
+        #expect(updates.automatic && updates.consent == .daily)
         let wording = updates.text("update-automatic")
         updates.setAutomaticChecks(false)
         #expect(!updates.automatic)
@@ -261,7 +281,7 @@ private final class UpdateClock: @unchecked Sendable {
         let restored = LauncherUpdates(preferences: preferences, fetch: { try await transport.fetch() }, now: { clock.now() }, authenticate: { _ in nil })
         defer { restored.stop() }
         restored.start()
-        #expect(!restored.automatic && !restored.needsChoice)
+        #expect(!restored.automatic && restored.consent == .manual)
         #expect(preferences.string(forKey: "updateConsentText") == wording)
     }
 }
@@ -271,12 +291,10 @@ private final class UpdateClock: @unchecked Sendable {
         let updates = LauncherUpdates(preferences: preferences, fetch: { try await transport.fetch() },
                                       now: { clock.now() }, automaticInterval: 15, authenticate: { _ in nil })
         defer { updates.stop() }
-        var choices: [Bool] = []
         var discoveries: [Bool] = []
-        updates.automaticChoiceChanged = { choices.append($0) }
         updates.didCheck = { _, automatic in discoveries.append(automatic) }
         await updates.checkManuallyAndWait()
-        #expect(discoveries == [false] && choices.isEmpty)
+        #expect(discoveries == [false])
         updates.setAutomaticChecks(true)
         await updates.checkAndWait(automatic: true)
         #expect(await transport.calls == 1)
@@ -287,7 +305,6 @@ private final class UpdateClock: @unchecked Sendable {
         clock.advance(16)
         await updates.checkAndWait(automatic: true)
         #expect(await transport.calls == 2)
-        #expect(choices == [true, false])
     }
 }
 
@@ -367,6 +384,11 @@ private actor ReleaseSignatures {
     func forge(_ version: String) { forged.insert(version) }
     func set(offline: Bool) { self.offline = offline }
     func sign(_ version: String, notice: String) { notices[version] = notice }
+    var marks: Set<String> = []
+    var marksRead: [String] = []
+    func mark(_ version: String) { marks.insert(version) }
+    func unmark(_ version: String) { marks.remove(version) }
+    func important(_ version: String) -> Bool { marksRead.append(version); return marks.contains(version) }
     func check(_ version: String) throws -> String? {
         asked.append(version)
         if offline { throw URLError(.notConnectedToInternet) }
@@ -454,4 +476,49 @@ private actor ReleaseSignatures {
     let again = LauncherUpdates(preferences: preferences, fetch: { try await transport.fetch() },
                                 authenticate: { try await signatures.check($0) })
     #expect(again.offered?.beforeYouUpdate == nil)
+}
+
+/// An important mark counts only once its signature verifies, is read only when the listing names it,
+/// and stays with its offer across a restart. A newer release without one clears it.
+@MainActor @Test func theOffersImportantMarkIsReadOnlyWhenListedAndOnlyTrustedWhenSigned() async throws {
+    let preferences = UserDefaults.scratch("update-important")
+    let transport = UpdateTransport()
+    let signatures = ReleaseSignatures()
+    func launcher() -> LauncherUpdates {
+        LauncherUpdates(preferences: preferences, fetch: { try await transport.fetch() },
+                        authenticate: { try await signatures.check($0) }, important: { await signatures.important($0) })
+    }
+    let updates = launcher()
+    defer { updates.stop() }
+    updates.choose(.manual)
+
+    // Signed, but not listed: never read.
+    await signatures.mark("0.2.0")
+    await updates.checkManuallyAndWait()
+    #expect(updates.offered?.version == "0.2.0" && updates.offered?.important == false)
+    #expect(await signatures.marksRead.isEmpty)
+
+    // Listed, but its signature fails: no mark.
+    await transport.set(version: "0.3.0")
+    await transport.set(marked: true)
+    await updates.checkManuallyAndWait()
+    #expect(updates.offered?.version == "0.3.0" && updates.offered?.important == false)
+
+    // The mark may be attached after the release: the next check of the same version picks it up.
+    await signatures.mark("0.3.0")
+    await updates.checkManuallyAndWait()
+    #expect(updates.offered?.important == true)
+    #expect(await signatures.marksRead == ["0.3.0", "0.3.0"])
+    #expect(launcher().offered?.important == true)
+
+    // A later check that cannot read the mark keeps it for this version.
+    await signatures.unmark("0.3.0")
+    await updates.checkManuallyAndWait()
+    #expect(updates.offered?.important == true && launcher().offered?.important == true)
+
+    await transport.set(version: "0.4.0")
+    await transport.set(marked: false)
+    await updates.checkManuallyAndWait()
+    #expect(updates.offered?.version == "0.4.0" && updates.offered?.important == false)
+    #expect(launcher().offered?.important == false)
 }

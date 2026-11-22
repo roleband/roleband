@@ -12,8 +12,8 @@ import { ApplicationsScreen } from "./ApplicationsScreen";
 /* The List's contracts: it is the backlog, one row per role still in
  * Considering and none past it, in the board's order, each with its
  * posting's facts beside it; a move starts work on a role and takes it off
- * the List; its last cell holds Radar's row actions, which take the role off
- * the pipeline, and a menu with the moves a card's menu holds; a header sorts
+ * the List; its last cell keeps Compare and the star, which takes the role off
+ * the pipeline, in reach, and a menu with every move, Not for me among them; a header sorts
  * and the sort lives in the address; a header moves, by its menu or a drag,
  * and hides, and the layout stays; its filter is its own; and a postings
  * read that fails leaves the roles on screen. */
@@ -35,6 +35,7 @@ vi.mock("../../api", async (importOriginal) => ({
 const appState = {
   openJob: vi.fn(),
   refreshStats: vi.fn(),
+  savedChanged: vi.fn(() => { appState.favVersion += 1; }),
   favVersion: 0,
   viewedIds: new Set<number>(),
   compareIds: new Set<number>(),
@@ -230,14 +231,13 @@ describe("moving from a row", () => {
     expect(rowOf(considering)).not.toBeNull();
   });
 
-  it("removes a starred role from the pipeline from its menu", async () => {
+  it("offers Not for me in its menu, and leaves taking the role off the pipeline to the star", async () => {
     render(at());
     await loaded();
 
     const menu = await openMoves(considering);
-    await userEvent.click(within(menu).getByRole("button", { name: msg("applications-menu-remove") }));
-
-    await waitFor(() => expect(api.setFavorite).toHaveBeenCalledWith(1, false));
+    expect(within(menu).getByRole("button", { name: msg("shared-not-for-me") })).toBeInTheDocument();
+    expect(within(menu).queryByRole("button", { name: msg("applications-menu-remove") })).toBeNull();
   });
 });
 
@@ -274,10 +274,10 @@ describe("the List's columns", () => {
     return screen.findByRole("dialog", { name: msg("applications-column-menu", { column: name }) });
   };
 
-  it("hides priority, days in stage and last activity at first, and remembers what a reader hides", async () => {
+  it("hides the next step, priority and last activity at first, and remembers what a reader hides", async () => {
     const { unmount } = render(at());
     await loaded();
-    expect(headers()).toEqual(["role", "pay", "location", "level", "next", "posting"]);
+    expect(headers()).toEqual(["role", "pay", "location", "level", "posting", "saved"]);
 
     const columns = await openColumns();
     await userEvent.click(within(columns).getByRole("checkbox", { name: msg("jobs-head-location") }));
@@ -309,16 +309,16 @@ describe("the List's columns", () => {
     expect(within(menu).getByRole("button", { name: msg("applications-list-column-left") })).toBeDisabled();
     await userEvent.keyboard("{Escape}");
 
-    // Posting is the last shown; Right steps past nothing it could land beside.
-    menu = await menuOf(msg("applications-facts-posting"));
+    // Saved is the last shown; Right steps past nothing it could land beside.
+    menu = await menuOf(msg("applications-fact-starred"));
     expect(within(menu).getByRole("button", { name: msg("applications-list-column-right") })).toBeDisabled();
     await userEvent.click(within(menu).getByRole("button", { name: msg("applications-column-hide") }));
-    expect(headers()).not.toContain("posting");
+    expect(headers()).not.toContain("saved");
     unmount();
 
     render(at());
     await loaded();
-    expect(headers()).toEqual(["role", "level", "pay", "location", "next"]);
+    expect(headers()).toEqual(["role", "level", "pay", "location", "posting"]);
   });
 
   it("never offers to hide the role, which names the row", async () => {
@@ -372,7 +372,7 @@ describe("the List's columns", () => {
     expect(within(rowOf(considering)).getByRole("link", { name: considering.title })).toBeInTheDocument();
 
     await userEvent.click(reset);
-    expect(headers()).toEqual(["role", "pay", "location", "level", "next", "posting"]);
+    expect(headers()).toEqual(["role", "pay", "location", "level", "posting", "saved"]);
     expect(reset).toBeDisabled();
   });
 });
@@ -380,13 +380,12 @@ describe("the List's columns", () => {
 describe("a row's actions", () => {
   const actionsOf = (card: ApplicationCard) => within(rowOf(card).querySelector<HTMLElement>(".app-list-actions")!);
 
-  it("holds Radar's three, in Radar's order, then the row's moves: Not for me, Compare, the star, the menu", async () => {
+  it("keeps Compare and the star in reach, then the menu that holds every move, Not for me among them", async () => {
     render(at());
     await loaded();
     const names = actionsOf(considering).getAllByRole("button").map((button) => button.getAttribute("aria-label"));
     expect(names).toEqual([
-      msg("shared-not-for-me"), msg("jobs-compare"), msg("jobs-save"),
-      msg("applications-card-actions", { title: considering.title }),
+      msg("jobs-compare"), msg("jobs-save"), msg("applications-card-actions", { title: considering.title }),
     ]);
     expect(actionsOf(considering).getByRole("button", { name: msg("jobs-save") })).toHaveAttribute("aria-pressed", "true");
   });
@@ -406,7 +405,7 @@ describe("a row's actions", () => {
     render(at());
     await loaded();
 
-    await userEvent.click(actionsOf(considering).getByRole("button", { name: msg("shared-not-for-me") }));
+    await userEvent.click(within(await openMoves(considering)).getByRole("button", { name: msg("shared-not-for-me") }));
     expect(rowOf(considering)).toBeNull();
     await waitFor(() => expect(api.setFavorite).toHaveBeenCalledWith(1, false));
     expect(api.dismissJob).toHaveBeenCalledWith(1);
@@ -422,8 +421,8 @@ describe("a row's actions", () => {
     render(at());
     await loaded();
 
-    await userEvent.click(actionsOf(considering).getByRole("button", { name: msg("shared-not-for-me") }));
-    expect(await screen.findByText(msg("applications-remove-failed", { title: considering.title }))).toBeInTheDocument();
+    await userEvent.click(within(await openMoves(considering)).getByRole("button", { name: msg("shared-not-for-me") }));
+    expect(await screen.findByText(msg("applications-change-failed", { title: considering.title }))).toBeInTheDocument();
     await waitFor(() => expect(api.undismissJob).toHaveBeenCalledWith(1));
     await waitFor(() => expect(rowOf(considering)).not.toBeNull());
   });
@@ -455,7 +454,7 @@ describe("the List's filter", () => {
 
     await userEvent.click(screen.getByRole("tab", { name: msg("shell-tab-pipeline-board") }));
     expect(search()).toHaveValue("");
-    expect(await screen.findByText("Head of Platform")).toBeInTheDocument();
+    expect(await screen.findByText(applied.title)).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("tab", { name: msg("shell-tab-pipeline-list") }));
     expect(search()).toHaveValue("stripe");
@@ -474,7 +473,7 @@ describe("keeping the keyboard's place in the List", () => {
     const [first, second] = rowOrder();
     const cardOf = (id: number) => [considering, waiting].find((card) => card.job_id === id)!;
 
-    await userEvent.click(within(rowOf(cardOf(first))).getByRole("button", { name: msg("shared-not-for-me") }));
+    await userEvent.click(within(await openMoves(cardOf(first))).getByRole("button", { name: msg("shared-not-for-me") }));
     await waitFor(() => expect(titleLink(cardOf(second))).toHaveFocus());
 
     await userEvent.click(within(await openMoves(cardOf(second))).getByRole("button", { name: "Researching" }));

@@ -104,7 +104,7 @@ const EXCEPTIONS = [
     file: "shell.css",
     selector: /\.rail-item\[aria-current="(?:page|true)"\]/,
     tokens: /^--rail-accent(?:-[a-z]+)?$/,
-    why: "the rail is fixed-dark in both themes, so it paints the chosen grammar from its own dark copy of the set",
+    why: "the rail keeps its own palette in each theme, so it paints the chosen grammar from its own copy of the set",
   },
   {
     file: "features/scope/walk/walk.css",

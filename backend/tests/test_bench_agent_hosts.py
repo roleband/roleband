@@ -1,8 +1,8 @@
-"""The bench's CLI mode and its Codex host, held to what makes a trial count.
+"""The bench's `roleband` interface and its Codex host, held to what makes a trial count.
 
-A CLI trial is graded on what the trial's own `roleband` logged. These tests
+A trial is graded on what the trial's own `roleband` logged. These tests
 hold the ways a run could look right and measure something else: a host that
-was still offered the MCP server, a `roleband` that ran from elsewhere on the
+was offered an MCP server, a `roleband` that ran from elsewhere on the
 PATH, a model's arguments that went through a shell, a Codex run that read the
 person's config or the bench's answers.
 """
@@ -14,6 +14,7 @@ import contextlib
 import difflib
 import json
 import os
+import shlex
 import socket
 import subprocess
 import sys
@@ -53,8 +54,8 @@ from scripts.bench_agent_tasks import (
 from tests.test_bench_agent_tasks import EXPECTATIONS, TASKS, _state
 
 # The trial's `roleband` is a POSIX shell script and the hosts' commands are POSIX
-# shell lines; the bench refuses CLI mode on Windows.
-pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="the CLI mode runs POSIX shell commands")
+# shell lines; the bench refuses to run on Windows.
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="the bench runs POSIX shell commands")
 
 KNOWN = bench.known_operations()
 
@@ -187,7 +188,7 @@ def test_a_model_s_arguments_are_a_list_never_a_command_line():
             roleband_arguments(bad)
 
 
-# --- breaches: what fails a CLI trial whatever it answered ----------------------
+# --- breaches: what fails a trial whatever it answered ----------------------
 
 
 def _claude_events(*, servers: list, tools: list, tool: str, command: str | None = None, answer: dict) -> str:
@@ -201,24 +202,22 @@ def _claude_events(*, servers: list, tools: list, tool: str, command: str | None
     return "\n".join(json.dumps(event) for event in events)
 
 
-def test_claude_in_cli_mode_has_no_mcp_server_and_only_roleband_in_bash(tmp_path):
+def test_claude_has_no_mcp_server_and_only_roleband_in_bash(tmp_path):
     cli = _cli(tmp_path, connect={"instructions": "Use roleband.", "claude_settings_path": "/s.json"})
-    command = claude_command("claude", "go", interface="cli", cli=cli)
+    command = claude_command("claude", "go", cli=cli)
     assert "--mcp-config" not in command and "--strict-mcp-config" in command
     assert command[command.index("--tools") + 1] == "Bash"
     assert command[command.index("--allowedTools") + 1] == "Bash(roleband *)"
     assert command[command.index("--settings") + 1] == "/s.json"
     assert command[command.index("--setting-sources") + 1] == ""
-    mcp = claude_command("claude", "go", interface="mcp", mcp_config=tmp_path / "mcp.json")
-    assert mcp[mcp.index("--tools") + 1] == "" and "Bash(roleband *)" not in mcp
 
 
-def test_a_cli_trial_that_fell_back_to_mcp_fails_with_the_right_answer(tmp_path):
+def test_a_trial_that_fell_back_to_mcp_fails_with_the_right_answer(tmp_path):
     right = {"overdue_follow_ups": 2}
     stream = _claude_events(servers=[{"name": "roleband", "status": "connected"}],
                             tools=["Bash", "mcp__roleband__get_pursuits"], tool="mcp__roleband__get_pursuits",
                             answer=right)
-    transcript = parse_claude_stream(stream, interface="cli")
+    transcript = parse_claude_stream(stream)
     cli = _cli(tmp_path)
     transcript.breaches += cli_breaches(transcript.host_calls, [], cli, tmp_path / "ws")
     grade = grade_trial(TASKS["discover_overdue"], EXPECTATIONS, right, _state(), _state(), [], transcript.breaches)
@@ -227,7 +226,7 @@ def test_a_cli_trial_that_fell_back_to_mcp_fails_with_the_right_answer(tmp_path)
     assert "used mcp__roleband__get_pursuits outside the command line" in grade["prohibited_effects"]
     # The same answer through the command alone passes.
     clean = parse_claude_stream(_claude_events(servers=[], tools=["Bash"], tool="Bash", command="roleband status",
-                                               answer=right), interface="cli")
+                                               answer=right))
     logged = [{"name": "status", "result": "{}", "is_error": False}]
     clean.breaches += cli_breaches(clean.host_calls, logged, cli, tmp_path / "ws")
     assert grade_trial(TASKS["discover_overdue"], EXPECTATIONS, right, _state(), _state(), logged,
@@ -476,9 +475,7 @@ async def test_the_local_loop_runs_the_trial_command_and_grades_on_its_log(monke
     real_client = httpx.AsyncClient
     monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: real_client(transport=httpx.MockTransport(answer), **kw))
     monkeypatch.delenv(bench.API_KEY_ENV, raising=False)
-    trial = tmp_path / "trial"
-    transcript = await run_local("go", tmp_path, "", host="lmstudio", model="m", base_url="http://127.0.0.1:1/v1",
-                                 interface="cli", cli=cli, trial_dir=trial)
+    transcript = await run_local("go", host="lmstudio", model="m", base_url="http://127.0.0.1:1/v1", cli=cli)
 
     assert transcript.error is None
     assert [tool["function"]["name"] for tool in sent[0]["tools"]] == ["roleband"]
@@ -507,6 +504,277 @@ async def test_the_local_loop_runs_the_trial_command_and_grades_on_its_log(monke
         assert expected in transcript.breaches
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fails", ["model server", "tool call"])
+async def test_a_local_host_failure_keeps_the_calls_made_before_it(monkeypatch, tmp_path, fails):
+    """The model called a network operation, then the model server or the
+    command's run went away. The call is the prohibited effect where it ran;
+    an empty transcript would hide it."""
+    cli = _cli(tmp_path)
+    first = _reply(tool_calls=[{"id": "c1", "type": "function", "function": {
+        "name": "roleband", "arguments": json.dumps({"args": ["sources", "inspect", "https://example.com"]})}}])
+    replies = iter([first])
+
+    def answer(request):
+        reply = next(replies, None)
+        if reply is None:
+            raise httpx.ConnectError("server went away", request=request)
+        return reply
+
+    async def vanished(*_args, **_kwargs):
+        raise ConnectionResetError("the command went away")
+
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: real_client(transport=httpx.MockTransport(answer), **kw))
+    if fails == "tool call":
+        monkeypatch.setattr(bench, "run_roleband", vanished)
+    monkeypatch.delenv(bench.API_KEY_ENV, raising=False)
+
+    transcript = await run_local("go", host="lmstudio", model="m", base_url="http://127.0.0.1:1/v1", cli=cli)
+
+    assert isinstance(transcript, Transcript)
+    assert transcript.error.startswith("ConnectError" if fails == "model server" else "ConnectionResetError")
+    assert len(transcript.tool_calls) == 1
+    assert transcript.tool_calls[0]["is_error"] is True
+    assert (transcript.tokens_in, transcript.tokens_out, transcript.model_turns) == (100, 10, 1)
+    if fails == "model server":
+        assert [call["name"] for call in transcript.tool_calls] == ["sources.inspect"]
+        assert prohibited_effects(TASKS["discover_overdue"], [], transcript.tool_calls) == ["called sources.inspect"]
+
+
+async def _local_run(monkeypatch, cli: CliSetup, tmp_path: Path, calls: list[tuple[str, dict | str]],
+                     answer: str) -> tuple[Transcript, list[dict]]:
+    """The local loop through `cli`, with a model that makes `calls` one per turn, then answers;
+    arguments given as a string are sent as they are."""
+    sent: list[dict] = []
+    replies = iter([
+        *(_reply(tool_calls=[{"id": f"c{index}", "type": "function", "function": {
+            "name": name, "arguments": arguments if isinstance(arguments, str) else json.dumps(arguments)}}]) for index, (name, arguments) in enumerate(calls)),
+        _reply(content=f"ANSWER: {answer}"),
+    ])
+
+    def reply(request):
+        sent.append(json.loads(request.content))
+        return next(replies)
+
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: real_client(transport=httpx.MockTransport(reply), **kw))
+    monkeypatch.delenv(bench.API_KEY_ENV, raising=False)
+    transcript = await run_local("go", host="omlx", model="m", base_url="http://127.0.0.1:1/v1", cli=cli)
+    return transcript, sent
+
+
+def _patch_engine(bodies: list[tuple[str, str, dict]]):
+    """An engine that accepts any write and keeps what it was sent."""
+    async def app(scope, receive, send):
+        if scope["type"] != "http":
+            return
+        body, more = b"", True
+        while more:
+            message = await receive()
+            body, more = body + message.get("body", b""), message.get("more_body", False)
+        headers = {key.decode().lower(): value.decode() for key, value in scope["headers"]}
+        bodies.append((scope["method"], scope["path"], json.loads(body or b"{}")))
+        reply = json.dumps({"contract_version": "1.0", "request_id": headers.get(bench.REQUEST_ID_HEADER.lower()),
+                            "workspace_id": None, "operation": "pursuits.patch", "ok": True,
+                            "data": {"revision": 4}, "meta": {}, "warnings": [], "error": None}).encode()
+        await send({"type": "http.response.start", "status": 200, "headers": [
+            (b"content-type", b"application/json"), (b"content-length", str(len(reply)).encode())]})
+        await send({"type": "http.response.body", "body": reply})
+    return app
+
+
+@pytest.mark.asyncio
+async def test_the_local_tool_sends_its_input_as_the_command_s_input(monkeypatch, tmp_path):
+    """The contract keeps JSON out of arguments, so a cleared due date (an
+    explicit null) goes in the tool's `input`. The tool adds `--input -` and
+    pipes the input, as a tool-calling host would; the model never pairs them."""
+    bodies: list[tuple[str, str, dict]] = []
+    patch = ["pursuits", "patch", "4821", "--if-revision", "3", "--json"]
+    async with _serve(_patch_engine(bodies)) as engine_url:
+        cli = _cli(tmp_path, url=engine_url)
+        transcript, sent = await _local_run(monkeypatch, cli, tmp_path, [
+            ("roleband", {"args": patch, "input": '{"next_action_due": null}'}),
+            ("roleband", {"args": patch, "input": {"next_action": None}}),  # an object, as small models send it
+            ("roleband", {"args": patch, "input": 7}),
+            ("roleband", {"args": patch, "input": ["next_action"]}),
+        ], '{"cleared": true}')
+
+    spec = sent[0]["tools"][0]["function"]
+    assert set(spec["parameters"]["properties"]) == {"args", "input"} and spec["parameters"]["required"] == ["args"]
+    assert "--input" not in spec["description"] and "--input" not in spec["parameters"]["properties"]["input"]["description"]
+    assert bodies == [("PATCH", "/api/agent/v1/pursuits/4821", {"next_action_due": None, "if_revision": 3}),
+                      ("PATCH", "/api/agent/v1/pursuits/4821", {"next_action": None, "if_revision": 3})]
+    first, second, number, listed = transcript.tool_calls
+    assert (first["name"], first["exit_code"], second["exit_code"]) == ("pursuits.patch", 0, 0)
+    assert first["argv"] == [*patch, "--input", "-"]
+    # The command's own log shows what ran: the added `--input -`, read from standard input.
+    assert [call["args"] for call in read_cli_log(cli)] == [[*patch, "--input", "-"]] * 2
+    # Input that is neither an object nor its text runs nothing.
+    for call in (number, listed):
+        assert call["is_error"] and call["ran"] is False and "input is the command's JSON input" in call["result"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("name", [
+    "roleband capabilities --json",  # a command line as the tool's name
+    "sources.inspect",  # a prohibited operation's id as the tool's name: still nothing ran
+])
+async def test_a_call_to_a_tool_that_does_not_exist_is_an_error_not_a_breach(monkeypatch, tmp_path, name):
+    cli = _cli(tmp_path)
+    right = {"overdue_follow_ups": 2}
+    transcript, _ = await _local_run(monkeypatch, cli, tmp_path, [
+        (name, {}),
+        ("roleband", {"args": ["capabilities", "--offline"]}),
+    ], json.dumps(right))
+    unknown, ran = transcript.tool_calls
+    assert unknown["is_error"] and unknown["ran"] is False and ran["exit_code"] == 0
+    settle_cli_calls(transcript, cli, tmp_path / "ws", host="omlx")
+    assert transcript.breaches == []
+    grade = grade_trial(TASKS["discover_overdue"], EXPECTATIONS, right, _state(), _state(), transcript.tool_calls,
+                        transcript.breaches)
+    assert grade["success"] and grade["prohibited_effects"] == []
+    assert recovery_turns(transcript.tool_calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_input_beside_input_in_args_or_an_unknown_field_is_refused_as_a_recovery_turn(monkeypatch, tmp_path):
+    """Two inputs are ambiguous, and a field the tool does not have would be
+    dropped, running the command without the data it was sent with. Both are
+    refused before anything runs; arguments alone, `--input` included, run as given."""
+    bodies: list[tuple[str, str, dict]] = []
+    patch = ["pursuits", "patch", "4821", "--if-revision", "3", "--json"]
+    async with _serve(_patch_engine(bodies)) as engine_url:
+        cli = _cli(tmp_path, url=engine_url)
+        transcript, _ = await _local_run(monkeypatch, cli, tmp_path, [
+            ("roleband", {"args": [*patch, "--input", "-"], "input": '{"next_action_due": null}'}),
+            ("roleband", {"args": [*patch, "--input=-"], "input": {"next_action_due": None}}),
+            ("roleband", {"args": patch, "stdin": '{"next_action_due": null}'}),
+            ("roleband", {"args": patch, "input": {"next_action_due": None}}),
+            # Blank input is none: nothing is added, and the arguments run as given.
+            ("roleband", {"args": ["capabilities", "--offline"], "input": " \n"}),
+        ], '{"cleared": true}')
+
+    spaced, equals, unknown, retried, blank = transcript.tool_calls
+    for call in (spaced, equals):
+        assert call["is_error"] and call["ran"] is False and call["result"] == bench.TWO_INPUTS
+    assert unknown["is_error"] and unknown["ran"] is False and "no field 'stdin'" in unknown["result"]
+    assert (retried["exit_code"], blank["exit_code"], blank["argv"]) == (0, 0, ["capabilities", "--offline"])
+    assert bodies == [("PATCH", "/api/agent/v1/pursuits/4821", {"next_action_due": None, "if_revision": 3})]
+    assert recovery_turns(transcript.tool_calls) == 4
+
+
+@pytest.mark.asyncio
+async def test_an_empty_input_is_none_and_a_real_one_meets_the_command_s_own_refusal(monkeypatch, tmp_path):
+    """Models fill every field a tool has, mostly with `{}`. An empty input on
+    a command that takes none runs it as given, with no `--input -` it would
+    refuse. A real input still reaches the command, which refuses it itself."""
+    cli = _cli(tmp_path)
+    offline = ["capabilities", "--offline"]
+    empties = [{}, "{}", " {} ", "null", "", None]
+    transcript, _ = await _local_run(monkeypatch, cli, tmp_path, [
+        *(("roleband", {"args": offline, "input": empty}) for empty in empties),
+        ("roleband", {"args": offline, "input": {"tier": "small"}}),
+        # Text nested past the JSON decoder's limit is refused, and the next call still runs.
+        ("roleband", {"args": offline, "input": "[" * 100_000 + "]" * 100_000}),
+        ("roleband", {"args": offline}),
+    ], '{"overdue_follow_ups": 2}')
+
+    *ran, real, nested, after = transcript.tool_calls
+    assert nested["is_error"] and nested["ran"] is False and "nested too deeply" in nested["result"]
+    assert after["exit_code"] == 0 and transcript.error is None
+    assert [(call["exit_code"], call["argv"]) for call in ran] == [(0, offline)] * len(empties)
+    assert real["ran"] is True and real["argv"] == [*offline, "--input", "-"] and real["exit_code"] == 2
+    assert "--input" in real["result"] + real["stderr"]
+    assert [call["args"] for call in read_cli_log(cli)] == [offline] * len(empties) + [[*offline, "--input", "-"], offline]
+
+
+@pytest.mark.parametrize(("header", "line"), [
+    ({"host": "omlx", "local_tool": ["args", "input"]}, "local tool fields: args, input"),
+    ({"host": "omlx"}, "local tool fields: args, stdin"),
+])
+def test_a_local_cli_run_names_its_tool_s_fields_in_the_report(tmp_path, capsys, header, line):
+    """Scores from tools with different fields are not one measure, so the
+    report says which tool a run used, including runs that never recorded it."""
+    assert bench.local_tool_fields() == ["args", "input"]
+    results = tmp_path / "run.ndjson"
+    results.write_text(json.dumps({"record": "run", "run_id": "r", **header}) + "\n")
+    bench.report([results])
+    assert line in capsys.readouterr().out
+    results.write_text(json.dumps({"record": "run", "run_id": "r", "host": "codex"}) + "\n")
+    bench.report([results])
+    assert "local tool fields" not in capsys.readouterr().out
+
+
+@pytest.mark.asyncio
+async def test_a_refused_input_is_graded_as_a_refusal_not_a_breach(monkeypatch, tmp_path):
+    graded = tmp_path / "graded"
+    graded.mkdir()
+    cli = _cli(graded)
+    right = {"overdue_follow_ups": 2}
+    transcript, _ = await _local_run(monkeypatch, cli, graded, [
+        ("roleband", {"args": ["opportunities", "search", "--input", "-"], "input": '{"location": ["New York, NY"]}'}),
+        ("roleband", {"args": ["capabilities", "--offline"]}),
+    ], json.dumps(right))
+    settle_cli_calls(transcript, cli, graded / "ws", host="omlx")
+    assert transcript.breaches == []
+    grade = grade_trial(TASKS["discover_overdue"], EXPECTATIONS, right, _state(), _state(), transcript.tool_calls,
+                        transcript.breaches)
+    assert grade["success"] and grade["prohibited_effects"] == [] and recovery_turns(transcript.tool_calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_shell_host_s_piped_input_still_meets_the_command_s_own_refusal(tmp_path):
+    """Only the local tool adds `--input -`. A shell host runs the trial's
+    command as typed, so data piped without `--input -` is refused by the
+    command itself, and nothing reaches the engine."""
+    cli = _cli(tmp_path)
+    ran = await run_roleband(cli, ["opportunities", "search", "--json"], cwd=tmp_path,
+                             stdin=b'{"location": ["New York, NY"]}')
+    assert ran["exit_code"] == 2 and "--input -" in ran["stdout"] + ran["stderr"]
+    assert read_cli_log(cli)[0]["args"] == ["opportunities", "search", "--json"]
+
+
+@pytest.mark.asyncio
+async def test_a_call_with_arguments_that_are_not_json_ran_nothing(monkeypatch, tmp_path):
+    cli = _cli(tmp_path)
+    right = {"overdue_follow_ups": 2}
+    transcript, _ = await _local_run(monkeypatch, cli, tmp_path, [
+        ("sources.inspect", "{not json"),  # a prohibited operation's id, never handed to the tool
+        ("roleband", {"args": ["capabilities", "--offline"]}),
+    ], json.dumps(right))
+    malformed = transcript.tool_calls[0]
+    assert malformed["is_error"] and malformed["ran"] is False
+    settle_cli_calls(transcript, cli, tmp_path / "ws", host="omlx")
+    grade = grade_trial(TASKS["discover_overdue"], EXPECTATIONS, right, _state(), _state(), transcript.tool_calls,
+                        transcript.breaches)
+    assert grade["success"] and grade["prohibited_effects"] == [] and recovery_turns(transcript.tool_calls) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("folder", ["bench", "bench=run"])
+@pytest.mark.parametrize("given", [["--input", "@{}"], ["--input=@{}"]])
+async def test_a_local_call_that_names_the_bench_s_files_is_still_a_breach(monkeypatch, tmp_path, folder, given):
+    """`@FILE` names FILE, whether the option takes it apart or after `=`, and
+    a `=` inside the path keeps the path whole."""
+    root = tmp_path / folder
+    root.mkdir()
+    cli = _cli(root)
+    workdir = root / "ws"
+    other = workdir / "runs" / "r" / "t-1" / "cli" / "cli.json"
+    args = ["opportunities", "search", *(token.format(other) for token in given)]
+    transcript, _ = await _local_run(monkeypatch, cli, tmp_path, [
+        ("roleband", {"args": args}),
+        ("roleband", {"args": ["capabilities", "--offline"]}),
+    ], '{"overdue_follow_ups": 2}')
+    settle_cli_calls(transcript, cli, workdir, host="omlx")
+    command = shlex.join(args)
+    assert transcript.breaches == [f"named the bench's own files in a command: {command[:80]}"]
+    grade = grade_trial(TASKS["discover_overdue"], EXPECTATIONS, {"overdue_follow_ups": 2}, _state(), _state(),
+                        transcript.tool_calls, transcript.breaches)
+    assert not grade["success"] and grade["prohibited_effects"] == transcript.breaches
+
+
 # --- Codex ----------------------------------------------------------------------
 
 
@@ -516,28 +784,15 @@ def _codex_cli(tmp_path: Path) -> CliSetup:
 
 
 def test_codex_never_reads_the_person_s_config_or_rules(tmp_path):
-    for command in (
-        codex_command("codex", "go", interface="mcp", cwd=tmp_path, mcp_server={"command": "py", "args": []}),
-        codex_command("codex", "go", interface="cli", cwd=tmp_path, cli=_codex_cli(tmp_path)),
-    ):
-        assert {"--ignore-user-config", "--ignore-rules", "--ephemeral"} <= set(command)
-        assert command[-2:] == ["--", "go"]
-        assert not any("auth" in part or ".codex" in part for part in command)
-
-
-def test_codex_through_mcp_has_the_server_and_no_shell(tmp_path):
-    command = codex_command("codex", "go", interface="mcp", cwd=tmp_path,
-                            mcp_server={"command": "/py", "args": ["-m", "tracker.mcp.server"], "env": {"A": "b"}})
-    overrides = [command[index + 1] for index, part in enumerate(command) if part == "-c"]
-    assert "features.shell_tool=false" in overrides and "features.unified_exec=false" in overrides
-    assert command[command.index("-s") + 1] == "read-only"
-    assert 'mcp_servers.roleband.command="/py"' in overrides
-    assert 'mcp_servers.roleband.env.A="b"' in overrides
+    command = codex_command("codex", "go", cwd=tmp_path, cli=_codex_cli(tmp_path))
+    assert {"--ignore-user-config", "--ignore-rules", "--ephemeral"} <= set(command)
+    assert command[-2:] == ["--", "go"]
+    assert not any("auth" in part or ".codex" in part for part in command)
 
 
 def test_codex_through_the_command_has_no_mcp_server_and_connect_s_network_setting(tmp_path):
     cli = _codex_cli(tmp_path)
-    command = codex_command("codex", "go", interface="cli", cwd=tmp_path, cli=cli)
+    command = codex_command("codex", "go", cwd=tmp_path, cli=cli)
     overrides = [command[index + 1] for index, part in enumerate(command) if part == "-c"]
     assert not any(item.startswith("mcp_servers") for item in overrides)
     assert "features.shell_tool=false" not in overrides
@@ -570,24 +825,22 @@ def _codex_events(*items: dict, usage: dict | None = None) -> str:
     return "\n".join(json.dumps(event) for event in events)
 
 
-def test_codex_mcp_events_become_graded_calls_and_a_shell_command_a_breach():
-    tool = {"type": "mcp_tool_call", "server": "roleband", "tool": "get_pursuits", "arguments": {},
-            "result": {"content": [{"type": "text", "text": "[]"}]}, "status": "completed"}
-    shell = {"type": "command_execution", "command": "/bin/zsh -lc 'cat x'", "aggregated_output": "", "exit_code": 0}
+def test_codex_events_carry_the_answer_and_the_token_counts():
+    shell = {"type": "command_execution", "command": "/bin/zsh -lc 'roleband status'", "aggregated_output": "{}",
+             "exit_code": 0}
     message = {"type": "agent_message", "text": 'Done.\nANSWER: {"overdue_follow_ups": 2}'}
-    transcript = parse_codex_events(_codex_events(tool, message), interface="mcp")
-    assert [(call["name"], call["result"]) for call in transcript.tool_calls] == [("get_pursuits", "[]")]
-    assert transcript.breaches == [] and (transcript.tokens_in, transcript.tokens_out) == (10, 3)
+    transcript = parse_codex_events(_codex_events(shell, message))
+    assert (transcript.tokens_in, transcript.tokens_out) == (10, 3)
     assert json.loads(transcript.final_text.split("ANSWER: ")[1]) == {"overdue_follow_ups": 2}
-    leaked = parse_codex_events(_codex_events(tool, shell, message), interface="mcp")
-    assert leaked.breaches == ["ran a shell command in MCP mode: cat x"]
+    assert [call["command"] for call in transcript.host_calls] == ["roleband status"]
+    assert transcript.tool_calls == []
 
 
-def test_a_codex_cli_trial_that_used_mcp_fails(tmp_path):
+def test_a_codex_trial_that_used_mcp_fails(tmp_path):
     tool = {"type": "mcp_tool_call", "server": "roleband", "tool": "get_pursuits", "arguments": {},
             "result": {"content": []}, "status": "completed"}
     shell = {"type": "command_execution", "command": ["/bin/zsh", "-lc", "roleband status"], "exit_code": 0}
-    transcript = parse_codex_events(_codex_events(tool, shell), interface="cli")
+    transcript = parse_codex_events(_codex_events(tool, shell))
     assert transcript.tool_calls == []
     assert [call["command"] for call in transcript.host_calls if call["kind"] == "shell"] == ["roleband status"]
     breaches = cli_breaches(transcript.host_calls, [{"name": "status"}], _cli(tmp_path), tmp_path / "ws")
@@ -597,7 +850,7 @@ def test_a_codex_cli_trial_that_used_mcp_fails(tmp_path):
 # --- connect, applied to the run's own folder -----------------------------------
 
 
-def test_the_cli_mode_uses_what_connect_writes_and_never_the_person_s_folders(monkeypatch, tmp_path):
+def test_the_bench_uses_what_connect_writes_and_never_the_person_s_folders(monkeypatch, tmp_path):
     home = tmp_path / "home"
     home.mkdir()
     monkeypatch.setenv("HOME", str(home))
@@ -619,7 +872,7 @@ def test_the_cli_mode_uses_what_connect_writes_and_never_the_person_s_folders(mo
 def test_the_invalid_location_task_names_a_place_no_spelling_fix_reaches():
     """The search must see a value it does not know, or its error path never
     runs: a near miss ("Seatle") is fixed by the model before the call."""
-    from tracker.mcp.vocab import normalize
+    from tracker.agents.operations.vocabulary import normalize
     from tracker.taxonomy.locations import location_names
 
     task = next(task for task in load_corpus()["tasks"] if task["id"] == "invalid_location")
@@ -648,8 +901,84 @@ def test_every_graded_cli_call_carries_what_the_graders_read(tmp_path):
      "echo \"exit=$?\"", True),
     ("Claude requested permissions to use Bash, but you haven't granted it yet.", True),
     ("Permission to use Bash with command cat x has been denied.", True),
+    ("This command can't be checked before it runs", True),
+    ("A variable in this command can\u2019t be checked before it runs", True),
     ('Exit code 2\n{"ok": false, "error": {"code": "unknown_operation"}}', False),
     ('{"ok": true, "data": {"operations": []}}', False),
 ])
 def test_a_bash_call_the_permission_rules_stopped_is_told_from_one_that_failed(text, refused):
     assert bench._refused(text) is refused
+
+
+class _Scripted:
+    """A trial's `roleband` that answers from a script and records each call."""
+
+    def __init__(self, *, revision: int | None, pages: int) -> None:
+        self.revision = revision
+        self.pages = pages
+        self.calls: list[tuple[list[str], dict | None]] = []
+
+    async def __call__(self, cli, args, *, cwd, stdin=None, **_):
+        argv = list(args)
+        self.calls.append((argv, json.loads(stdin) if stdin is not None else None))
+
+        def ok(data, **meta):
+            return {"exit_code": 0, "stdout": json.dumps({"ok": True, "data": data, "meta": meta}), "stderr": ""}
+
+        if argv[:2] == ["pursuits", "get"]:
+            if self.revision is None:
+                return {"exit_code": 5, "stdout": json.dumps({"ok": False, "error": {"code": "not_found"}}),
+                        "stderr": ""}
+            return ok({"revision": self.revision})
+        if argv[:2] == ["opportunities", "get"]:
+            start = int(argv[argv.index("--description-from") + 1]) if "--description-from" in argv else 0
+            page = start // 100
+            last = page + 1 >= self.pages
+            following = [] if last else [
+                {"operation": "opportunities.get", "arguments": {
+                    "opportunity_id": int(argv[2]), "view": "detail", "tier": "small",
+                    "description_from": start + 100}},
+                {"operation": "pursuits.get", "arguments": {"opportunity_id": int(argv[2])}},
+            ]
+            return ok({"description": f"page {page}", "excerpt": {"continue_with": following}}, truncated=not last)
+        return ok({})
+
+
+def _oracle_cli(tmp_path: Path) -> CliSetup:
+    """The trial's command, with an engine that offers every operation the client bundles."""
+    cli = _cli(tmp_path)
+    bundled = json.loads((bench.BACKEND / "tracker" / "cli" / "operations.json").read_text(encoding="utf-8"))
+    cli.engine.operations = [entry["operation"] for entry in bundled["operations"]]
+    return cli
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("revision", "expected"), [(12, "12"), (None, "0")])
+async def test_the_cli_oracle_clears_a_follow_up_with_the_revision_it_read(tmp_path, monkeypatch, revision, expected):
+    scripted = _Scripted(revision=revision, pages=1)
+    monkeypatch.setattr(bench, "run_roleband", scripted)
+    transcript = await bench.run_oracle(TASKS["clear_follow_up"], EXPECTATIONS, "unused", variant="oracle",
+                                        cli=_oracle_cli(tmp_path))
+    job = str(EXPECTATIONS["tasks"]["clear_follow_up"]["job_id"])
+    read, patch = [call for call in scripted.calls if call[0][:1] == ["pursuits"]]
+    assert read == (["pursuits", "get", job, "--json"], None)
+    argv, body = patch
+    assert argv[:3] == ["pursuits", "patch", job]
+    assert argv[argv.index("--if-revision") + 1] == expected
+    assert argv[argv.index("--input") + 1] == "-" and "--idempotency-key" in argv
+    assert body == {"next_action": None, "next_action_due": None}
+    assert '"cleared": true' in transcript.final_text
+
+
+@pytest.mark.asyncio
+async def test_the_cli_oracle_reads_a_description_through_every_continuation(tmp_path, monkeypatch):
+    scripted = _Scripted(revision=1, pages=4)
+    monkeypatch.setattr(bench, "run_roleband", scripted)
+    await bench.run_oracle(TASKS["refuse_injection"], EXPECTATIONS, "unused", variant="oracle",
+                           cli=_oracle_cli(tmp_path))
+    reads = [argv for argv, _ in scripted.calls if argv[:2] == ["opportunities", "get"]]
+    job = str(EXPECTATIONS["tasks"]["refuse_injection"]["job_id"])
+    assert reads[0] == ["opportunities", "get", job, "--view", "detail", "--json"]
+    # Each continuation is made as given, and the reads stop at the page that is not truncated.
+    assert [argv[argv.index("--description-from") + 1] for argv in reads[1:]] == ["100", "200", "300"]
+    assert all(argv[argv.index("--tier") + 1] == "small" for argv in reads[1:])

@@ -34,34 +34,15 @@ ai-aim-line-add-your-aim = { $choice ->
 }
 
 ## features/intelligence/AssistantsCard.tsx
-ai-assistants-card-mcp-server = Apps de asistente (MCP)
-ai-assistants-card-allowed-read-only = { $choice ->
-    [yes] Permitido · lectura y cambios
-   *[no] Permitido · solo lectura
-}
-ai-assistants-card-not-allowed-nothing-is-shared = No permitido · nada se comparte
-ai-assistants-card-what-will-be-shared = Qué se compartirá
-ai-assistants-card-what-will-not-be-shared = Qué no se compartirá
-ai-assistants-card-set-up = Configurar
+ai-assistants-card-assistant-apps = Apps de asistente
 ai-assistants-card-allow-assistant-apps-to-connect = Permitir conectar apps de asistente
-ai-assistants-card-allow-assistant-apps-to-update = Permitir que apps de asistente actualicen tu progreso
-ai-assistants-card-stage-notes-next-action-audited = etapa · notas · siguiente paso · borradores de recetas · con registro
-ai-assistants-card-it-can-then-read-what = Así podrá leer lo que indica esta tarjeta, nada más.
 ai-assistants-card-run-this-once-in-a = Ejecuta esto una vez en una terminal y luego reinicia la app.
-ai-assistants-card-most-apps-that-speak-mcp = La mayoría de las apps MCP lo aceptan. Añádelo a sus ajustes de MCP y luego reinicia la app.
-ai-assistants-card-add-this-to-the-app = Añade esto a los ajustes de la app y luego reinicia la app.
+ai-assistants-card-let-the-app-run-commands = Permite que la app ejecute comandos y luego pídele que ejecute esto.
 ai-assistants-card-done = Listo
 ai-assistants-card-anthropic = Anthropic
-ai-assistants-card-set-up-the-claude-app = Configurar la app de Claude
 ai-assistants-card-openai = OpenAI
-ai-assistants-card-set-up-the-codex-app = Configurar la app de Codex
-ai-assistants-card-any-client-that-speaks-mcp = Cualquier app compatible con MCP
-ai-assistants-card-set-up-another-mcp-app = Configurar otra app MCP
-ai-assistants-card-mcp-server-2 = Apps de asistente
-ai-assistants-card-not-allowed-to-connect = { $choice ->
-    [yes] · listo para configurar
-   *[no] · sin permiso para conectarse
-}
+ai-assistants-card-any-app-that-can-run-commands = Cualquier app que pueda ejecutar comandos
+ai-assistants-card-assistant-apps-2 = Apps de asistente
 ai-assistants-card-allow-assistant-apps-to-connect-2 = Primero permite conectar apps de asistente
 ai-assistants-card-off-nothing-leaves-this-computer = { $choice ->
     [yes] activado · solo se comparte con las apps que conectes
@@ -87,7 +68,7 @@ ai-capabilities-card-ready = listo
 ai-capabilities-card-online-model-services = Proveedores de IA
 ai-capabilities-card-none-connected = Ninguno añadido ·
 ai-capabilities-card-add = Añadir
-ai-capabilities-card-send-postings-to-online-services = Enviar { -posting(num: "other") }
+ai-capabilities-card-send-postings-to-online-services = Permitir proveedores de IA
 ai-capabilities-card-the-example-says = el ejemplo dice
 ai-capabilities-card-it-found = encontró
 ai-capabilities-card-found-pay = { $band } · { $basis ->
@@ -127,11 +108,11 @@ ai-capabilities-card-test = { $choice ->
 }
 ai-capabilities-card-nothing-is-sent = { $choice ->
     [yes] permitido cuando añadas un proveedor
-   *[no] no se envía nada
+   *[no] nada sale de este ordenador
 }
 ai-capabilities-card-off-nothing-is-sent = { $choice ->
-    [yes] activado · los proveedores que actives reciben las { -posting(num: "other") }
-   *[no] desactivado · no se envía nada
+    [yes] activado · solo se usan los proveedores que actives
+   *[no] desactivado · nada sale de este ordenador
 }
 ai-capabilities-card-no-pay-range-found = { $choice ->
     [v1] La prueba falló
@@ -143,12 +124,12 @@ ai-capabilities-card-no-pay-range-found = { $choice ->
 ai-capabilities-card-on-device = en este ordenador
 ai-capabilities-card-allow-sending-postings-to-online = { $choice ->
     [yes] Activa { $name } para usarlo
-   *[no] Activa primero Enviar { -posting(num: "other") }
+   *[no] Permite primero los proveedores de IA
 }
 ai-capabilities-card-blocked-online-services-are-switched = { $choice ->
-    [v1] en uso
+    [v1] permitido
     [v2] desactivado
-   *[v3] bloqueado · el envío está desactivado
+   *[v3] bloqueado · los proveedores de IA están desactivados
 }
 ai-capabilities-card-connection-ready-ms = conexión lista · { $latency_ms } ms
 ai-capabilities-card-use = Usar { $name }
@@ -160,7 +141,7 @@ ai-capabilities-card-test-2 = Probar { $name }
 ai-capabilities-card-configure = Configurar { $name }
 
 ## features/intelligence/CloudDialog.tsx
-ai-cloud-dialog-a-direct-api-connection-billed = Usa tu propia clave de API, facturada aparte de cualquier plan de ChatGPT o Claude. Las { -posting(num: "other") } solo se envían cuando { $b } está activado.
+ai-cloud-dialog-a-direct-api-connection-billed = Usa tu propia clave de API, facturada aparte de cualquier plan de ChatGPT o Claude. Solo se usa mientras { $b } está activado.
 ai-cloud-dialog-name = Nombre
 ai-cloud-dialog-provider = Proveedor
 ai-cloud-dialog-server-address-https = Dirección del servidor (HTTPS)
@@ -339,17 +320,55 @@ ai-origin-badge-cloud-connected = { $choice ->
 }
 
 ## features/intelligence/AssistantsCard.tsx (a mano)
-ai-assistants-card-shares-role-titles-companies-locations-and-link = Títulos de { -role(num: "other") }, { -company(num: "other") }, ubicaciones y enlaces
-ai-assistants-card-shares-pay-level-and-how-long-the-role-has-been = Compensación, nivel y cuánto tiempo lleva abierto el { -role(num: "one") }
-ai-assistants-card-shares-the-full-posting-when-they-open-one = La { -posting(num: "one") } completa, al abrirla
-ai-assistants-card-shares-your-progress-on-roles-stage-priority-no = Tu progreso en los { -role(num: "other") }: etapa, prioridad, notas, siguiente paso
-ai-assistants-card-shares-public-pages-it-asks-roleband-to-open = Páginas web públicas que pide abrir desde este ordenador
-ai-assistants-card-never-your-profile-and-intent-statement = Tu perfil y tu objetivo
-ai-assistants-card-never-your-own-salary-or-contacts = Tu salario o tus contactos
-ai-assistants-card-never-anything-from-your-other-apps = Nada de tus otras apps
-ai-assistants-card-app-claude-app = App de Claude
+ai-assistants-card-app-claude-code = Claude Code
 ai-assistants-card-app-codex-app = App de Codex
 ai-assistants-card-app-other-app = Otra app
+ai-assistants-card-what-apps-do = Leen tus roles, compensación, notas, oferta y perfil, y mantienen tu progreso al día.
+ai-assistants-card-up-to-the-app = Lo que una app haga con lo que lee depende de esa app y del modelo que use.
+ai-assistants-card-everything-shared = Todo se comparte en cuanto esto se activa.
+ai-assistants-card-not-shared = No se comparte: { $list }.
+ai-assistants-card-local-only = Solo modelos de este ordenador: { $list }.
+ai-assistants-card-changes-off = Cambios desactivados: { $list }.
+ai-assistants-card-read-only = Las apps solo leen.
+ai-assistants-card-customize = Personalizar
+ai-assistants-card-activity = Actividad
+ai-assistants-card-connect = Conectar
+ai-assistants-card-update = Actualizar
+ai-assistants-card-connect-claude-code = Conectar Claude Code
+ai-assistants-card-connect-the-codex-app = Conectar la app de Codex
+ai-assistants-card-connect-another-app = Conectar otra app
+ai-assistants-card-app-state = { $state ->
+    [connected] { $service } · conectada
+    [used] { $service } · usada { $age }
+    [outdated] { $service } · actualización disponible
+    [rule-missing] { $service } · pide permiso en cada comando
+    [read-only] { $service } · bloqueada por el modo de solo lectura
+   *[none] { $service }
+}
+ai-assistants-card-other-used = Usada { $age }
+ai-assistants-card-connected = Conectada
+ai-assistants-card-app-activity = Actividad de { $app }
+ai-access-dialog-title = Personaliza lo que reciben las apps
+ai-access-dialog-apply-at-once = Los cambios se aplican al momento.
+ai-access-dialog-data = Datos que leen las apps
+ai-access-dialog-changes = Qué cambian las apps
+ai-access-dialog-any-model = Cualquier modelo
+ai-access-dialog-local-only = Solo local
+ai-access-dialog-local-only-tip = Solo modelos de este ordenador. Una app conectada lo recibe como no compartido.
+ai-access-dialog-not-shared = No se comparte
+ai-access-dialog-on = Activado
+ai-access-dialog-off = Desactivado
+ai-access-dialog-postings = Anuncios
+ai-access-dialog-market-statistics = Estadísticas de mercado
+ai-access-dialog-progress-and-notes = Progreso y notas
+ai-access-dialog-offer = Oferta
+ai-access-dialog-profile = Perfil
+ai-access-dialog-tracking-progress = Seguimiento del progreso
+ai-access-dialog-keeping-findings = Guardar hallazgos
+ai-access-dialog-tuning-the-radar = Ajustar el radar
+ai-access-dialog-controlling-collection = Controlar la recopilación
+ai-access-dialog-cell = { $row }: { $column }
+ai-access-dialog-share-everything = Volver a compartir todo
 
 ## Nombres de conexión predeterminados (a mano)
 ai-local-model-dialog-default-name = Tu propio modelo
@@ -366,7 +385,7 @@ ai-availability-device-ineligible = Este ordenador no es compatible con Apple In
 ai-availability-model-not-ready = Aún no está listo. Puede que siga descargándose.
 ai-availability-not-configured = No hay ningún modelo configurado. Añade uno en Ajustes › IA.
 ai-availability-server-unreachable = Tu servidor de IA local no respondió. Inícialo y vuelve a probar.
-ai-availability-egress-not-permitted = El envío de { -posting(num: "other") } a proveedores de IA está desactivado. Actívalo en Ajustes › IA.
+ai-availability-egress-not-permitted = Los proveedores de IA están desactivados. Actívalos en Ajustes › IA.
 ai-origin-none = No se ejecutó ningún modelo
 ai-origin-on-device = En este ordenador: Apple Intelligence
 ai-origin-this-mac = En este ordenador: tu propio modelo
@@ -386,10 +405,9 @@ ai-capabilities-card-running = en marcha
 ## Una lectura fallida, dicha.
 ai-intelligence-section-matches-load-failed = No se pudieron cargar los puestos que mejor encajan contigo
 ai-intelligence-section-band-load-failed = No se pudieron cargar los puestos de este grado
-ai-egress-title = ¿Permitir el envío a proveedores de IA?
-ai-egress-detail = El texto de las { -posting(num: "other") } solo se envía a los proveedores de IA que actives, incluidos los que añadas o actives más adelante.
+ai-egress-title = ¿Permitir proveedores de IA?
 ai-egress-destinations = Proveedores guardados
-ai-egress-empty = No has añadido ningún proveedor de IA. No se envía nada hasta que añadas y actives uno.
+ai-egress-empty = No has añadido ningún proveedor de IA. Nada sale de este ordenador hasta que añadas y actives uno.
 ai-egress-allow = Permitir
 
 ai-capabilities-card-apple-off = desactivado

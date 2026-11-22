@@ -86,10 +86,13 @@ The Radar and the ranking pictures come from a real install.</sub>
 - **Any company, one link.** Paste a careers link, and its roles join your
   radar.
 - **Alerts that matter.** Save a role, and hear when it closes.
+- **A CLI for your AI assistant.** Claude Code, Codex or your own scripts use
+  the `roleband` CLI to search roles, read pay and market data, and save roles
+  and notes for you. Turn it on in **Settings › AI**, and see what it did under
+  Activity. [The `roleband` CLI](docs/cli.md)
 
-**And more:** works with Claude and Codex · equity in real money · a pay floor
-· side-by-side comparison · duplicates grouped · your own AI model or Apple
-Intelligence · open pay data.
+**And more:** equity in real money · a pay floor · side-by-side comparison ·
+duplicates grouped · your own AI model or Apple Intelligence · open pay data.
 
 ## Roadmap
 
@@ -289,8 +292,8 @@ The launcher and the background engine have separate login settings; quitting
 the launcher keeps RoleBand running. It reopens the browser at the registered
 address, including a configured port.
 
-The final setup step offers optional update checks, also available in Launcher
-preferences. Automatic checks start off; enable the toggle to check automatically.
+The final setup step shows the automatic update check, also available in Launcher
+preferences. It checks once a day unless you turn the toggle off.
 Check now always runs a single check without changing that setting.
 An available release opens a notes preview with instructions for updating the
 checkout and rebuilding the launcher; only the downloaded app installs its own

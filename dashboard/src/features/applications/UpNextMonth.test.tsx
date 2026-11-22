@@ -1,10 +1,12 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api, type ApplicationCalendarItem, type ApplicationCard } from "../../api";
 import { applicationCardFixture } from "../../test/fixtures";
 import { msg } from "../../test/msg";
+import { dayKey } from "./monthGrid";
 import { UpNextMonth } from "./UpNextMonth";
 
 /* The month beside Up next: a day says what falls on it; picking it tells Up
@@ -31,8 +33,8 @@ const interview = (jobId: number, at: Date, label: string, outcome: "passed" | n
   kind: "interview", job_id: jobId, at: at.toISOString(), interview_id: at.getTime() % 100000, label,
   all_day: false, format: "video", link: null, outcome,
 });
-const step = (jobId: number, at: Date, text: string): ApplicationCalendarItem => ({
-  kind: "step", job_id: jobId, at: at.toISOString(), step: text,
+const step = (jobId: number, at: Date, text: string, id = at.getTime() % 100000): ApplicationCalendarItem => ({
+  kind: "step", job_id: jobId, at: at.toISOString(), step: text, step_id: id,
 });
 
 const items = [
@@ -48,9 +50,26 @@ function renderMonth(
   inAgenda: (item: ApplicationCalendarItem) => boolean = () => false,
 ) {
   const onPickDay = vi.fn();
+  // Up next owns the picked day; this stands in for it.
+  const Owner = ({ shown }: { shown: readonly ApplicationCard[] }) => {
+    const [picked, setPicked] = useState(dayKey(now));
+    return (
+      <UpNextMonth
+        cards={shown}
+        now={now}
+        picked={picked}
+        keep={keep}
+        inAgenda={inAgenda}
+        onPickDay={(day, how) => {
+          setPicked(dayKey(day));
+          onPickDay(day, how);
+        }}
+      />
+    );
+  };
   const view = (shown: readonly ApplicationCard[]) => (
     <MemoryRouter>
-      <UpNextMonth cards={shown} now={now} keep={keep} inAgenda={inAgenda} onPickDay={onPickDay} />
+      <Owner shown={shown} />
     </MemoryRouter>
   );
   const { rerender } = render(view(cards));
@@ -186,6 +205,28 @@ describe("UpNextMonth", () => {
     expect(day(/^Fri, Nov 6: /)).toBeInTheDocument();
     answer({ items: [] });
     await waitFor(() => expect(day(/^Fri, Nov 6$/)).toBeInTheDocument());
+  });
+
+  it("lists two steps of one role on one day, each its own row", async () => {
+    const user = userEvent.setup();
+    const at = new Date(2026, 10, 7, 23, 59);
+    calendar.mockResolvedValue({
+      items: [
+        step(1, at, "Send references", 31),
+        step(1, at, "Book the flight", 32),
+      ],
+    });
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    renderMonth();
+    await waitFor(() => expect(day(/^Sat, Nov 7: /)).toBeInTheDocument());
+
+    await user.click(day(/^Sat, Nov 7: /));
+
+    const list = within(picked());
+    expect(list.getByText(msg("applications-upnext-step", { step: "Send references" }))).toBeInTheDocument();
+    expect(list.getByText(msg("applications-upnext-step", { step: "Book the flight" }))).toBeInTheDocument();
+    expect(errors.mock.calls.flat().join(" ")).not.toMatch(/same key/);
+    errors.mockRestore();
   });
 
   it("says so when the month cannot load, and keeps its grid", async () => {

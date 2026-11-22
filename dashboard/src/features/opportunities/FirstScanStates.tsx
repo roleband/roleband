@@ -39,12 +39,11 @@ import { useEffect, useRef } from "react";
 import { api, type CompanyDirectoryStatus } from "../../api";
 import { roundCount } from "../../counts";
 import { useAsyncResource } from "../../hooks/useAsyncResource";
-import { Link } from "react-router-dom";
 import { useSyncActions, useSyncStatus } from "../../context/SyncState";
 import { number as copyNumber, time } from "../../copy/format";
 import { useInstallSetUp } from "../../routing/installSetUp";
 import { SETUP_PATH } from "../../routing/setupMode";
-import { Button, EmptyState, Msg } from "../../ui";
+import { Button, EmptyState, Msg, RouterLink } from "../../ui";
 import { firstScan, nothingFitsYet, type FirstScan, type FirstScanWhen } from "./firstScan";
 
 /* The board's words for the first scan: the empty board, the line over a
@@ -104,9 +103,9 @@ export function OpenBoardEmpty({ narrowed, onClear }: { narrowed: boolean; onCle
     </p>
   );
   const finish = setUp === false && (
-    <Link className="ui-btn ui-btn-link board-first-scan-finish" to={SETUP_PATH}>{radarEmptyFirstScanFinish()}</Link>
+    <RouterLink variant="link" className="board-first-scan-finish" to={SETUP_PATH}>{radarEmptyFirstScanFinish()}</RouterLink>
   );
-  const lookingFor = <Link className="ui-btn ui-btn-link" to={LOOKING_FOR_PATH}>{radarFirstScanLookingFor()}</Link>;
+  const lookingFor = <RouterLink variant="link" to={LOOKING_FOR_PATH}>{radarFirstScanLookingFor()}</RouterLink>;
 
   let title: React.ReactNode;
   let body: React.ReactNode;
@@ -116,7 +115,7 @@ export function OpenBoardEmpty({ narrowed, onClear }: { narrowed: boolean; onCle
       body = (
         <>
           <p>{radarFirstScanNone()}</p>
-          <Link className="ui-btn ui-btn-link board-first-scan-finish" to={COMPANIES_PATH}>{radarFirstScanFollow()}</Link>
+          <RouterLink variant="link" className="board-first-scan-finish" to={COMPANIES_PATH}>{radarFirstScanFollow()}</RouterLink>
         </>
       );
       break;
@@ -184,7 +183,7 @@ function useDirectory(): CompanyDirectoryStatus | null {
   return useAsyncResource(api.companyDirectoryStatus, [], { keep: "companies/directory-status" }).data ?? null;
 }
 
-const changeLink = () => <Link className="ui-btn ui-btn-link" to={LOOKING_FOR_PATH}>{radarEmptyChangeLookingFor()}</Link>;
+const changeLink = () => <RouterLink variant="link" to={LOOKING_FOR_PATH}>{radarEmptyChangeLookingFor()}</RouterLink>;
 
 function FitEmpty() {
   const { status } = useSyncStatus();
@@ -208,7 +207,7 @@ function FitEmpty() {
     <EmptyState title={radarEmptyFewTitle({ count: followed })}>
       <p>{radarEmptyFew({ choice: more > 0 ? "counted" : "other", more: more > 0 ? copyNumber(roundCount(more)) : "" })}</p>
       <p className="board-empty-actions">
-        <Link className="ui-btn ui-btn-link" to={COMPANIES_PATH}>{radarEmptyFollowMore()}</Link>
+        <RouterLink variant="link" to={COMPANIES_PATH}>{radarEmptyFollowMore()}</RouterLink>
         {changeLink()}
       </p>
     </EmptyState>
@@ -221,8 +220,8 @@ function ReachNote() {
   if (directory?.following) return <Msg of={radarEndFit} elems={{ change: changeLink() }} />;
   return (
     <Msg of={radarEndFew} elems={{
-      follow: <Link className="ui-btn ui-btn-link" to={COMPANIES_PATH}>{radarEmptyFollowMore()}</Link>,
-      change: <Link className="ui-btn ui-btn-link" to={LOOKING_FOR_PATH}>{radarEndChangeLookingFor()}</Link>,
+      follow: <RouterLink variant="link" to={COMPANIES_PATH}>{radarEmptyFollowMore()}</RouterLink>,
+      change: <RouterLink variant="link" to={LOOKING_FOR_PATH}>{radarEndChangeLookingFor()}</RouterLink>,
     }} />
   );
 }

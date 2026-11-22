@@ -2,6 +2,7 @@ import {
   AgentAccessState,
   ApplicationCard,
   ApplicationDetail,
+  ApplicationStep,
   CloudLLMProfile,
   CloudLLMTestResult,
   CompanyCard,
@@ -142,6 +143,8 @@ export function jobDetailFixture(overrides: Partial<JobDetail> = {}): JobDetail 
     // Null until the posting's own page has been read.
     application_form: null,
     application_form_readable: false,
+    // It has its text, so there is nothing to read on open.
+    description_readable: false,
     // A posting with no earlier posting of its role that counts.
     role_since: null,
     role_days: null,
@@ -195,6 +198,8 @@ export function duplicateProposalFixture(overrides: Partial<DuplicateProposal> =
     said: [{ code: "descriptions_alike", params: { pct: 90 } }],
     decision: null,
     decision_changes: 0,
+    decided_by: null,
+    decision_note: null,
     reviewed_at: null,
     ...overrides,
   };
@@ -218,6 +223,8 @@ export function twinProposalFixture(overrides: Partial<TwinProposal> = {}): Twin
     said: [{ code: "titles_alike", params: { pct: 90 } }],
     decision: null,
     decision_changes: 0,
+    decided_by: null,
+    decision_note: null,
     reviewed_at: null,
     description_diff: null,
     ...overrides,
@@ -357,9 +364,20 @@ export const jobFixture: Job & Pick<JobList["items"][number], "posting_reality">
   lifecycle: [],
 };
 
+/** One open next step. */
+export function stepFixture(overrides: Partial<ApplicationStep> = {}): ApplicationStep {
+  return { id: 1, text: "Follow up with the recruiter", due: null, created_at: "2026-11-01T09:00:00Z", done_at: null, ...overrides };
+}
+
 /** One application on the board: a role in Considering, starred, with no
- *  pursuit yet, and nothing due. */
+ *  pursuit yet, and nothing due. A card given a next step and no list of
+ *  steps lists that one, as the server's card always does: its next step is
+ *  the first of its steps. */
 export function applicationCardFixture(overrides: Partial<ApplicationCard> = {}): ApplicationCard {
+  const jobId = overrides.job_id ?? 101;
+  const steps = overrides.steps ?? (overrides.next_action
+    ? [stepFixture({ id: jobId * 10 + 1, text: overrides.next_action, due: overrides.next_action_due ?? null })]
+    : []);
   return {
     job_id: 101,
     pursuit_id: null,
@@ -371,8 +389,8 @@ export function applicationCardFixture(overrides: Partial<ApplicationCard> = {})
     title: "Staff Product Manager, API",
     level_band: "staff",
     posting_status: "open",
-    next_action: null,
-    next_action_due: null,
+    next_action: steps[0]?.text ?? null,
+    next_action_due: steps[0]?.due ?? null,
     next_interview: null,
     awaiting_outcome: null,
     comment_count: 0,
@@ -380,6 +398,7 @@ export function applicationCardFixture(overrides: Partial<ApplicationCard> = {})
     last_activity_at: "2026-11-01T09:00:00Z",
     ended_at_stage: null,
     ...overrides,
+    steps,
   };
 }
 
@@ -731,21 +750,29 @@ export const intelligenceFitFixture: IntelligenceFit = {
 export const agentAccessFixture: AgentAccessState = {
   enabled: false,
   allow_writes: false,
-  transport: "stdio",
-  command: "/repo/backend/.venv/bin/python",
-  args: ["-m", "tracker.mcp.server"],
-  cwd: "/repo/backend",
-  tools: [
-    { name: "search_opportunities", access: "read" },
-    { name: "update_pursuit", access: "write" },
-  ],
-  codex_command: "codex mcp add roleband -- /repo/backend/.venv/bin/python -m tracker.mcp.server",
-  claude_json: {
-    mcpServers: {
-      roleband: { command: "/repo/backend/.venv/bin/python", args: ["-m", "tracker.mcp.server"], cwd: "/repo/backend" },
-    },
+  categories: {
+    public_posting: "any_model",
+    market_statistic: "any_model",
+    private_pursuit: "any_model",
+    offer: "any_model",
+    candidate: "any_model",
   },
-  
+  groups: {
+    tracking_progress: "on",
+    keeping_findings: "on",
+    tuning_radar: "on",
+    controlling_collection: "on",
+  },
+  connect: [
+    { host: "claude-code", command: "roleband connect claude-code --apply" },
+    { host: "codex", command: "roleband connect codex --apply" },
+  ],
+  // Never connected and never called: every tile offers Connect.
+  apps: [
+    { app: "claude-code", connection: null, last_call_at: null },
+    { app: "codex", connection: null, last_call_at: null },
+    { app: "other", connection: null, last_call_at: null },
+  ],
 };
 
 /** A saved oMLX connection as the local-model routes serve it: the default

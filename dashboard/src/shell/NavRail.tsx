@@ -14,13 +14,14 @@ import {
   shellThemeLight,
   shellThemeTitle,
 } from "../copy/gen/shell";
-import { NavLink } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import { NAV_TABS } from "../navigation";
+import { pipelineViewUnder } from "../routing/paths";
 import { countBadge } from "../format";
 import { useMissionStats } from "../context/MissionState";
 import { Icon } from "../ui/Icon";
 import { BrandMark } from "../ui/BrandMark";
-import { BEHIND_COVER } from "../ui/Overlay";
+import { BEHIND_COVER, BESIDE_COVER } from "../ui/Overlay";
 import { CountBadge } from "../ui/CountBadge";
 import { PipelineRailGroup } from "./PipelineRailGroup";
 
@@ -35,6 +36,9 @@ export function NavRail({ expanded, onToggleExpanded, theme, onToggleTheme }: Pr
   const stats = useMissionStats();
   const primary = NAV_TABS.filter((t) => t.path !== "/settings");
   const settings = NAV_TABS.find((t) => t.path === "/settings");
+  // A role open beside the rail belongs to the Pipeline view under it, though
+  // its address sits under its company: no other entry is the place then.
+  const besideRole = pipelineViewUnder(useLocation()) != null;
 
   /* Each count carries the noun that says what it counts, because the number
      leaves the badge: it is spoken and shown as "Review, 342 pending". */
@@ -47,7 +51,7 @@ export function NavRail({ expanded, onToggleExpanded, theme, onToggleTheme }: Pr
   };
 
   return (
-    <nav className={`nav-rail ${expanded ? "expanded" : "collapsed"}`} data-design-system="app" data-selection="chrome" aria-label={shellRailAria()} {...{ [BEHIND_COVER]: "" }}>
+    <nav className={`nav-rail ${expanded ? "expanded" : "collapsed"}`} data-design-system="app" data-selection="chrome" aria-label={shellRailAria()} {...{ [BEHIND_COVER]: "", [BESIDE_COVER]: "" }}>
       <div className="rail-top">
         <div className="rail-brand">
           <span className="brand-mark"><BrandMark /></span>
@@ -77,21 +81,17 @@ export function NavRail({ expanded, onToggleExpanded, theme, onToggleTheme }: Pr
                this is where its count is. */
             const name = count ? shellRailItemCount({ label: t.label, badge: count.label }) : t.label;
             const badgeClass = count?.dot ? "rail-badge rail-badge-dot" : "rail-badge";
-            return (
-              <NavLink
-                key={t.path}
-                to={t.path}
-                end={t.end}
-                className="rail-item"
-                aria-label={name}
-                data-tip={name}
-                title={name}
-              >
-                <Icon name={t.icon} size={18} />
-                <span className="rail-label">{t.label}</span>
-                {count && <CountBadge className={badgeClass}>{count.text}</CountBadge>}
-              </NavLink>
-            );
+            const entry = {
+              to: t.path, className: "rail-item", "aria-label": name, "data-tip": name, title: name,
+              children: (
+                <>
+                  <Icon name={t.icon} size={18} />
+                  <span className="rail-label">{t.label}</span>
+                  {count && <CountBadge className={badgeClass}>{count.text}</CountBadge>}
+                </>
+              ),
+            };
+            return besideRole ? <Link key={t.path} {...entry} /> : <NavLink key={t.path} {...entry} end={t.end} />;
           })}
         </div>
       </div>

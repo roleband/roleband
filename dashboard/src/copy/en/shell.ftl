@@ -70,6 +70,8 @@ shell-tab-settings-privacy = Privacy
 shell-route-welcome = Welcome
 # kind=label
 shell-route-compare = Compare
+# kind=label note="The breadcrumb's last segment on Settings › AI › Activity, the list of what assistant apps did"
+shell-route-activity = Activity
 # kind=label
 shell-route-dashboard = RoleBand
 # kind=label

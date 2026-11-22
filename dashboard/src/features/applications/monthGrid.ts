@@ -16,6 +16,13 @@ export function fromDayKey(key: string): Date {
   return new Date(+key.slice(0, 4), +key.slice(5, 7) - 1, +key.slice(8, 10));
 }
 
+/** A due date picked as a day is due by that day's end in the reader's own
+ *  zone: a step due today is not overdue this morning. */
+export function dueFromDay(key: string): string {
+  const day = fromDayKey(key);
+  return new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59).toISOString();
+}
+
 /** The first day of the month `at` falls in. */
 export function monthOf(at: Date): Date {
   return new Date(at.getFullYear(), at.getMonth(), 1);

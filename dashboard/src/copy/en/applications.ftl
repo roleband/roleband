@@ -389,8 +389,39 @@ applications-feed-priority = Priority changed
 applications-feed-notes = Notes edited
 # kind=status
 applications-feed-next-step = Next step changed
+# kind=status note="A recorded change: a next step was added; $step is the step, as the person wrote it"
+applications-feed-step-added = Next step added: { $step }
+# kind=status note="A recorded change: a next step's words or day changed; $step is the step after the change"
+applications-feed-step-edited = Next step changed: { $step }
+# kind=status note="A recorded change: a next step was ticked done; $step is the step"
+applications-feed-step-done = Done: { $step }
+# kind=status note="A recorded change: a next step ticked done was opened again; $step is the step"
+applications-feed-step-reopened = Next step opened again: { $step }
+# kind=status note="A recorded change: a next step was removed; $step is the step"
+applications-feed-step-removed = Next step removed: { $step }
 # kind=status note="A recorded change with no field this page names"
 applications-feed-updated = Updated
+# kind=label note="After a recorded change an agent made"
+applications-feed-by-agent = by an assistant app
+# kind=aria note="Names the menu a month divider opens, which moves the feed to another point in the application's history"
+applications-feed-jump-label = Jump to
+# kind=aria note="A month divider in the feed. $month is the month's name, already formatted"
+applications-feed-jump-month = { $month }, jump to another point
+# kind=label note="Jump menu: the newest entry of the feed"
+applications-feed-jump-recent = Most recent
+# kind=label note="Jump menu: the entry nearest the day the application moved to Applied"
+applications-feed-jump-applied = When you applied
+# kind=label note="Jump menu: the entry nearest the first interview that took place"
+applications-feed-jump-interview = First interview
+# kind=label note="Jump menu: the entry nearest the day the application moved to Offer"
+applications-feed-jump-offer = The offer
+# kind=label note="Jump menu: the oldest entry of the feed"
+applications-feed-jump-beginning = The beginning
+# kind=status note="Beside a month in the jump menu: how many comments it holds"
+applications-feed-jump-comments = { $count ->
+        [one] 1 comment
+       *[other] { $count } comments
+    }
 # kind=aria
 applications-comment-label = Comment
 # kind=label
@@ -481,20 +512,75 @@ applications-posting-history-now = { $days ->
 ## The role page: its tabs, title and side column
 ## The workspace: the stage's fixed sections and the free notes page
 # kind=heading
-applications-ws-next = Next step
-# kind=heading
-applications-ws-history = History
-# kind=button note="Shows and hides this stage's fixed sections"
-applications-ws-sections = Sections
-# kind=aria
-applications-ws-sections-label = Sections shown at this stage
+applications-ws-next = Next steps
 # kind=label note="The empty next step: an input the person types the step into"
 applications-ws-next-add = Add a next step
 # kind=aria note="Edits the next step's words in place; $step is the step"
 applications-ws-next-edit = Edit the next step: { $step }
-# kind=aria
-applications-ws-next-due = Due day
-# kind=sentence note="The notes field's hint while it is empty"
-applications-ws-notes-hint = Write what you know, what to find out and who you met.
+# kind=label same-as=applications-posting-due note="Before the next step's day field"
+applications-ws-next-due = Due
+# kind=button note="In a next step's edit, takes the step off the list with nothing kept, for one added by mistake"
+applications-ws-next-remove = Remove
+# kind=sentence note="The notes page's hint while it is empty; / opens the menu of headings, lists and checklists"
+applications-ws-notes-hint = Write what you know and who you met. Type / for headings, lists and checklists.
+# kind=aria note="The menu a / in the notes opens: the kinds of block it can put on the page"
+applications-notes-blocks = Blocks
+# kind=label note="A notes block: plain text"
+applications-notes-block-text = Text
+# kind=label note="A notes block: a heading; $level is 1, 2 or 3, its size"
+applications-notes-block-heading = Heading { $level }
+# kind=label note="A notes block: a list with a dot before each line"
+applications-notes-block-bullets = Bulleted list
+# kind=label note="A notes block: a list numbered 1, 2, 3"
+applications-notes-block-numbers = Numbered list
+# kind=label note="A notes block: a list of lines each with a box to tick"
+applications-notes-block-checklist = Checklist
+# kind=label note="A notes block: a quotation set in from the text"
+applications-notes-block-quote = Quote
+# kind=label note="A notes block: a line across the page"
+applications-notes-block-divider = Divider
+# kind=aria note="A checklist line's box in the notes; $line is the line's words, $checked yes when it is ticked"
+applications-notes-check = { $checked ->
+    [yes] Done: { $line }
+   *[no] To do: { $line }
+}
+# kind=sentence note="The / menu when what was typed after the / names no block"
+applications-notes-block-none = No block by that name.
 # kind=label same-as=applications-card-ask-outcome note="Opens the three outcomes of a past round"
 applications-ws-ask-outcome = How did it go?
+# kind=aria note="The eye beside a block's caption: takes the block off this stage's Workspace. $section is the block's name"
+applications-ws-hide = Hide { $section }
+# kind=aria same-as=applications-menu-label note="The grip beside a block: dragged, it moves the block; pressed, it opens Move up and Move down. $section is the block's name"
+applications-ws-move = Move { $section }
+# kind=label
+applications-ws-move-up = Move up
+# kind=label
+applications-ws-move-down = Move down
+# kind=toast note="The toast after a block is hidden, beside Undo. $section is the block's name"
+applications-ws-hidden = { $section } hidden
+# kind=aria note="The plus under the last block: offers the hidden blocks"
+applications-ws-add = Add a section
+# kind=tooltip note="What the Interviews block holds, under its name in the add menu"
+applications-ws-about-interviews = Rounds, their days and how each went
+# kind=tooltip note="What the Next step block holds, under its name in the add menu"
+applications-ws-about-next = What you do next, and by when
+# kind=tooltip note="What the Notes block holds, under its name in the add menu"
+applications-ws-about-notes = What you know and who you met
+# kind=tooltip note="What the Outcome block holds, under its name in the add menu"
+applications-ws-about-outcome = How the application ended
+# kind=tooltip note="What the Activity block holds, under its name in the add menu"
+applications-ws-about-activity = Comments and what changed
+
+# kind=heading
+applications-feed-title = Activity
+# kind=empty
+applications-feed-empty = No comments or changes yet.
+# kind=button note="A folded run of recorded changes. $changes lists what changed, already joined"
+applications-feed-fold = { $count ->
+        [one] 1 update: { $changes }
+       *[other] { $count } updates: { $changes }
+    }
+# kind=label
+applications-comment-placeholder = Write what happened
+# kind=button
+applications-comment-submit = Comment

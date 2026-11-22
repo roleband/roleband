@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -377,3 +378,24 @@ async def test_a_closed_posting_is_not_read(api_client, db_session, board):
 @pytest.mark.asyncio
 async def test_an_unknown_posting_is_a_404(api_client, board):
     assert (await api_client.post("/api/jobs/999999/posting-page")).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_two_first_opens_build_one_reader(api_client, board, monkeypatch):
+    """The process holds one `OpenPageReads` however its first opens
+    interleave: two would each let a read of the same posting through."""
+    built = []
+    real_init = posting_pages.OpenPageReads.__init__
+
+    def slow_init(self):
+        built.append(self)
+        time.sleep(0.2)  # the window between finding none and storing one
+        real_init(self)
+
+    monkeypatch.setattr(posting_pages.OpenPageReads, "__init__", slow_init)
+    answers = await asyncio.gather(
+        api_client.post("/api/jobs/999998/posting-page"), api_client.post("/api/jobs/999999/posting-page")
+    )
+
+    assert [answer.status_code for answer in answers] == [404, 404]
+    assert len(built) == 1

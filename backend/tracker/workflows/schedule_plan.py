@@ -32,7 +32,7 @@ This module imports neither the dispatcher nor the router: `scheduler.py` and
 from __future__ import annotations
 
 import math
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, timedelta
 from statistics import median
@@ -43,6 +43,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.config import Settings
+from tracker.connectors.recipes.outcome import RETRYABLE, SourceOutcome
 from tracker.db.models import MachineAwakeSample, SchedulePlanRun, ScrapeSourceRun
 from tracker.platform import power as host_power
 from tracker.platform.local_zone import local_zone
@@ -311,6 +312,12 @@ READY_GRACE = timedelta(hours=3)
 #: With a ready-by time the daily full scan follows it, so the 20 h rule only
 #: backstops a day the ready-by scan did not happen.
 READY_FULL_AFTER = timedelta(hours=30)
+
+
+def longest_full_read(settings: Settings) -> timedelta:
+    """The longest a full read stays current (`PlanRules.daily_full_after`),
+    with or without a ready-by time."""
+    return max(timedelta(hours=settings.schedule_plan_full_after_hours), READY_FULL_AFTER)
 
 
 @dataclass(frozen=True)
@@ -701,23 +708,72 @@ async def close_unfinished_runs(session: AsyncSession, *, now: datetime) -> int:
     return int(getattr(result, "rowcount", 0) or 0)
 
 
-async def read_since(session: AsyncSession, since: datetime) -> set[int]:
-    """Bindings with a full read since `since`, whatever it found: a site's
-    failure is its answer, and only a company its lane never started
-    (`deferred_reason`) is still unread."""
-    return set(
-        (
-            await session.scalars(
-                select(ScrapeSourceRun.binding_id)
-                .where(
-                    ScrapeSourceRun.finished_at >= since,
-                    ScrapeSourceRun.scan_mode == "reconcile",
-                    ~ScrapeSourceRun.stats.has_key("deferred_reason"),
-                )
-                .distinct()
+#: Reads another try may improve on: `RETRYABLE` without `unattempted`. A
+#: company its lane never started has no read at all and is taken at once; one
+#: a policy or a missing adapter refused answers the same an hour later.
+RETRY_OUTCOMES = frozenset(outcome.value for outcome in RETRYABLE - {SourceOutcome.UNATTEMPTED})
+
+
+@dataclass(frozen=True)
+class LeftToRead:
+    """What the current full read owes, from the reads since it began.
+
+    `waiting`: companies it owes nothing now. Each was read, or answered in a
+    way another try would not change, or failed and is inside the gap before
+    its next try. `retries`: failed companies whose next try has come. A
+    company in neither has no read since the full read began."""
+
+    waiting: frozenset[int]
+    retries: frozenset[int]
+
+
+async def left_to_read(
+    session: AsyncSession, since: datetime, *, now: datetime, not_before: Mapping[int, datetime]
+) -> LeftToRead:
+    """Sort the companies read since `since` into done for now and due again.
+
+    A read whose site failed is asked again while the full read is current,
+    so a site that had a bad minute costs its company half an hour, not a day.
+    The first try comes `FAILED_RETRY` after the failed read ended and each
+    further gap is twice the last, so a site that stays down is asked a
+    handful of times a day, never on every tick; a provider in cooldown is
+    kept out of the roster meanwhile (`planned_roster`). Never before the
+    company's own next deadline (`not_before`): a retry records no plan run,
+    so when its run crashes or its process dies, that deadline is what keeps
+    the next tick from starting it again (`scheduler._hold_retries`, and
+    `_record_dispatch_failure` for a crash). A board gone from its address
+    answers 404 again (`board_missing`)."""
+    rows = (
+        await session.execute(
+            select(
+                ScrapeSourceRun.binding_id,
+                ScrapeSourceRun.outcome,
+                ScrapeSourceRun.finished_at,
+                ScrapeSourceRun.stats["board_missing"].as_boolean(),
             )
-        ).all()
-    )
+            .where(
+                ScrapeSourceRun.finished_at >= since,
+                ScrapeSourceRun.scan_mode == "reconcile",
+                ~ScrapeSourceRun.stats.has_key("deferred_reason"),
+            )
+            .order_by(ScrapeSourceRun.finished_at)
+        )
+    ).all()
+    tries: dict[int, int] = {}
+    latest: dict[int, tuple[str, datetime, bool]] = {}
+    for binding_id, outcome, finished_at, gone in rows:
+        tries[binding_id] = tries.get(binding_id, 0) + 1
+        latest[binding_id] = (outcome, finished_at, bool(gone) and outcome == SourceOutcome.FAILED.value)
+    waiting: set[int] = set()
+    retries: set[int] = set()
+    for binding_id, (outcome, finished_at, gone) in latest.items():
+        if outcome in RETRY_OUTCOMES and not gone:
+            due = finished_at + FAILED_RETRY * 2 ** (tries[binding_id] - 1)
+            if now >= max(due, not_before.get(binding_id, due)):
+                retries.add(binding_id)
+                continue
+        waiting.add(binding_id)
+    return LeftToRead(frozenset(waiting), frozenset(retries))
 
 
 async def _insert_samples(session: AsyncSession, moments: Iterable[datetime], source: str) -> int:

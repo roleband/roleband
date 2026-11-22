@@ -137,7 +137,7 @@ const PART_SOURCES = ["posted", "company_rule", "measured", "estimated", "mixed"
 // the key that hangs from the header row opens on screen.
 function SourceKey() {
   return (
-    <InfoTip label={insightsStockTrajectoryPanelAboutTheSourceLabels()}>
+    <InfoTip label={insightsStockTrajectoryPanelAboutTheSourceLabels()} hangFrom="tr">
       {PART_SOURCES.map((source) => (
         <span className="traj-split-key" key={source}>
           <b>{insightsStockTrajectoryPanelPartSource({ source })}</b>

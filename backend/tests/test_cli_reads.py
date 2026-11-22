@@ -1,6 +1,6 @@
-"""The reads that replace MCP tools, through the `roleband` command.
+"""The agent reads, through the `roleband` command.
 
-`test_agent_parity_reads.py` holds each read to its MCP tool over HTTP. These
+`test_agent_reads.py` holds each read to its owner over HTTP. These
 run the generated commands as a process against a real engine on a seeded
 scratch database: each command's data is the engine's own answer on the same
 route, so a command that built the wrong request (a field lost, a flag sent
@@ -109,7 +109,7 @@ def test_every_read_answers_through_its_command_as_the_engine_does(home, seeded)
     one = _command(home, "pursuits", "get", str(job_id))
     assert one["operation"] == "pursuits.get"
     assert one["data"] == _engine_data(seeded, f"/pursuits/{job_id}")
-    assert one["data"]["job_id"] == job_id and one["data"]["revision"] >= 1
+    assert one["data"]["opportunity_id"] == job_id and one["data"]["revision"] >= 1
 
     contract = _command(home, "recipes", "contract", "get")
     assert contract["operation"] == "recipes.contract.get"
@@ -171,6 +171,35 @@ def test_an_excerpt_continues_with_commands_that_read_the_whole_description(home
     for page in pages:
         data = json.dumps(page["data"], ensure_ascii=False, separators=(",", ":")).encode()
         assert len(data) <= DETAIL_BUDGET_BYTES["small"]
+
+
+def test_a_summary_names_the_read_that_gives_the_postings_text(home, seeded):
+    """`opportunities get ID` is the facts alone; following its `continue_with`
+    as given reads the description, and a posting with no text names nothing."""
+    home.contexts(current="dev", dev={"url": seeded.url})
+    job_id, other = _db(seeded, _pursued_ids)[:2]
+    text = "Lead the payments platform.\n" * 3
+
+    async def describe(session: AsyncSession) -> None:
+        await session.execute(update(Job).where(Job.id == job_id).values(description_text=text))
+        await session.execute(
+            update(Job).where(Job.id == other).values(description_text=None, description_sections=[])
+        )
+
+    _db(seeded, describe)
+
+    summary = _command(home, "opportunities", "get", str(job_id))["data"]
+    assert summary["view"] == "summary" and "description" not in summary
+    [step] = summary["continue_with"]
+    assert step["operation"] == "opportunities.get"
+    arguments = dict(step["arguments"])
+    argv = [str(arguments.pop("opportunity_id"))]
+    for key, value in arguments.items():
+        argv += [f"--{key.replace('_', '-')}", str(value)]
+    detail = _command(home, "opportunities", "get", *argv)["data"]
+    assert detail["view"] == "detail" and detail["description"] == text
+
+    assert _command(home, "opportunities", "get", str(other))["data"]["continue_with"] == []
 
 
 def test_the_reads_branch_on_their_exit_codes(home, seeded):

@@ -4,6 +4,74 @@
  */
 
 export interface paths {
+    "/api/agent-activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Agent Activity */
+        get: operations["agent_activity_api_agent_activity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent-activity/{entry_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Agent Activity Entry */
+        get: operations["agent_activity_entry_api_agent_activity__entry_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Application Board */
+        get: operations["application_board_api_agent_v1_applications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/applications/calendar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Application Calendar */
+        get: operations["application_calendar_api_agent_v1_applications_calendar_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/v1/capabilities": {
         parameters: {
             query?: never;
@@ -13,6 +81,363 @@ export interface paths {
         };
         /** Capabilities */
         get: operations["capabilities_api_agent_v1_capabilities_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Change List */
+        get: operations["change_list_api_agent_v1_changes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/companies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Company List */
+        get: operations["company_list_api_agent_v1_companies_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/companies/{company}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Company Get */
+        get: operations["company_get_api_agent_v1_companies__company__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/companies/{company}/facts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Company Facts */
+        get: operations["company_facts_api_agent_v1_companies__company__facts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/companies/{company}/prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Company Prices */
+        get: operations["company_prices_api_agent_v1_companies__company__prices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/doctor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Doctor */
+        get: operations["doctor_api_agent_v1_doctor_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/duplicates/queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Duplicate Queue */
+        get: operations["duplicate_queue_api_agent_v1_duplicates_queue_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/duplicates/verdicts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Duplicate Decide */
+        post: operations["duplicate_decide_api_agent_v1_duplicates_verdicts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/insights/compensation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Insights Compensation */
+        get: operations["insights_compensation_api_agent_v1_insights_compensation_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/insights/demand": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Insights Demand */
+        get: operations["insights_demand_api_agent_v1_insights_demand_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/insights/disclosure-trends": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Insights Disclosure Trends */
+        get: operations["insights_disclosure_trends_api_agent_v1_insights_disclosure_trends_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/insights/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Insights History */
+        get: operations["insights_history_api_agent_v1_insights_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/insights/levels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Insights Levels */
+        get: operations["insights_levels_api_agent_v1_insights_levels_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/insights/offer-terms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Insights Offer Terms */
+        get: operations["insights_offer_terms_api_agent_v1_insights_offer_terms_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/insights/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Insights Overview */
+        get: operations["insights_overview_api_agent_v1_insights_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/insights/pay-table": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Insights Pay Table */
+        get: operations["insights_pay_table_api_agent_v1_insights_pay_table_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/insights/pay-trends": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Insights Pay Trends */
+        get: operations["insights_pay_trends_api_agent_v1_insights_pay_trends_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/insights/skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Insights Skills */
+        get: operations["insights_skills_api_agent_v1_insights_skills_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/insights/trajectory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Insights Trajectory */
+        get: operations["insights_trajectory_api_agent_v1_insights_trajectory_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/insights/velocity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Insights Velocity */
+        get: operations["insights_velocity_api_agent_v1_insights_velocity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/offer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Offer Get */
+        get: operations["offer_get_api_agent_v1_offer_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -55,6 +480,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/v1/opportunities/get-many": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Opportunity Get Many */
+        get: operations["opportunity_get_many_api_agent_v1_opportunities_get_many_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/v1/opportunities/{opportunity_id}": {
         parameters: {
             query?: never;
@@ -72,6 +514,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/v1/opportunities/{opportunity_id}/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Context Export */
+        get: operations["context_export_api_agent_v1_opportunities__opportunity_id__context_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/opportunities/{opportunity_id}/duplicates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Opportunity Duplicates */
+        get: operations["opportunity_duplicates_api_agent_v1_opportunities__opportunity_id__duplicates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/v1/opportunities/{opportunity_id}/history": {
         parameters: {
             query?: never;
@@ -81,6 +557,40 @@ export interface paths {
         };
         /** Opportunity History */
         get: operations["opportunity_history_api_agent_v1_opportunities__opportunity_id__history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/opportunities/{opportunity_id}/reality": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Opportunity Reality */
+        get: operations["opportunity_reality_api_agent_v1_opportunities__opportunity_id__reality_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/opportunities/{opportunity_id}/similar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Opportunity Similar */
+        get: operations["opportunity_similar_api_agent_v1_opportunities__opportunity_id__similar_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -123,6 +633,74 @@ export interface paths {
         head?: never;
         /** Pursuit Patch */
         patch: operations["pursuit_patch_api_agent_v1_pursuits__opportunity_id__patch"];
+        trace?: never;
+    };
+    "/api/agent/v1/pursuits/{opportunity_id}/steps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Step Add */
+        post: operations["step_add_api_agent_v1_pursuits__opportunity_id__steps_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/pursuits/{opportunity_id}/steps/{step_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Step Edit */
+        patch: operations["step_edit_api_agent_v1_pursuits__opportunity_id__steps__step_id__patch"];
+        trace?: never;
+    };
+    "/api/agent/v1/pursuits/{opportunity_id}/steps/{step_id}/done": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Step Done */
+        post: operations["step_done_api_agent_v1_pursuits__opportunity_id__steps__step_id__done_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/pursuits/{opportunity_id}/steps/{step_id}/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Step Undo */
+        post: operations["step_undo_api_agent_v1_pursuits__opportunity_id__steps__step_id__undo_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/agent/v1/radar/summary": {
@@ -843,10 +1421,7 @@ export interface paths {
         };
         /**
          * Company Prices
-         * @description Daily OHLC bars for one company's sparkline. Empty (not 404) when a company
-         *     simply has no prices — a private company is a valid, price-less profile. The
-         *     credit names the source of the bars shown, and `feed_configured` says whether
-         *     a price key is set, so an empty chart can say what to do.
+         * @description Daily OHLC bars for one company's sparkline (`profiles.read.profile_prices`).
          */
         get: operations["company_prices_api_company_profiles__slug__prices_get"];
         put?: never;
@@ -1097,7 +1672,8 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Patch Agent Access Ep */
+        patch: operations["patch_agent_access_ep_api_intelligence_agents_patch"];
         trace?: never;
     };
     "/api/intelligence/cloud-models": {
@@ -1163,7 +1739,11 @@ export interface paths {
         get?: never;
         /**
          * Put Ai Egress Ep
-         * @description Allow (or stop) job text leaving this Mac.
+         * @description Allow (or stop) this computer contacting a cloud AI provider.
+         *
+         *     What it admits is the connection test, and search query parsing where that
+         *     is configured; no product task sends job text to a cloud model
+         *     (`tests/test_ai_egress_reach.py`).
          *
          *     Its own endpoint rather than a field on the Apple FM toggle: this is the one
          *     consent that changes what the shipped privacy copy can truthfully say, so it
@@ -1476,6 +2056,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/jobs/{job_id}/description": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read Posting Text On Open
+         * @description Read the posting's text because someone opened it and its row has none.
+         *
+         *     Called by Job detail AFTER it renders, never inside the detail read, so an
+         *     open never waits on the source; the detail's `description_readable` says
+         *     when to call. One paced request at most per posting at a time, within a
+         *     deadline; a repeat answers from storage, and a read that found no text is
+         *     not repeated by another open for a while unless `retry` asks again.
+         *     `OpenTextReads.read_one` owns the transactions: none is held across the
+         *     request.
+         */
+        post: operations["read_posting_text_on_open_api_jobs__job_id__description_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/jobs/{job_id}/favorite": {
         parameters: {
             query?: never;
@@ -1637,8 +2245,8 @@ export interface paths {
         get?: never;
         /**
          * Set Pursuit Ep
-         * @description Create/update the pursuit for one opportunity. Same helper the MCP
-         *     write tool uses (one transaction: current row + append-only event), actor
+         * @description Create/update the pursuit for one opportunity. Same helper the agent
+         *     pursuit writes use (one transaction: current row + append-only event), actor
          *     recorded as `user`. There is deliberately no DELETE: `withdrawn` is a
          *     stage, and history is the point.
          */
@@ -1718,6 +2326,41 @@ export interface paths {
         head?: never;
         /** Update Interview Ep */
         patch: operations["update_interview_ep_api_jobs__job_id__pursuit_interviews__interview_id__patch"];
+        trace?: never;
+    };
+    "/api/jobs/{job_id}/pursuit/steps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Step Ep */
+        post: operations["add_step_ep_api_jobs__job_id__pursuit_steps_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{job_id}/pursuit/steps/{step_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Step Ep */
+        delete: operations["delete_step_ep_api_jobs__job_id__pursuit_steps__step_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Step Ep */
+        patch: operations["update_step_ep_api_jobs__job_id__pursuit_steps__step_id__patch"];
         trace?: never;
     };
     "/api/jobs/{job_id}/similar": {
@@ -3485,6 +4128,59 @@ export interface components {
             /** Revision Id */
             revision_id: number;
         };
+        /** ActivityEntry */
+        ActivityEntry: {
+            /** Action Group */
+            action_group: string | null;
+            /** Categories */
+            categories: string[];
+            /** Changes */
+            changes: components["schemas"]["ActivityFieldChange"][];
+            /** Host */
+            host: ("claude-code" | "codex" | "other") | null;
+            /** Id */
+            id: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "read" | "change" | "refused";
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Operation */
+            operation: string;
+            /** Refusal */
+            refusal: string | null;
+            /** Subject */
+            subject: {
+                [key: string]: unknown;
+            };
+            /** Summary */
+            summary: string;
+        };
+        /**
+         * ActivityFieldChange
+         * @description One field a change touched. A value is JSON as the record stored it;
+         *     `before` is null for a field the record did not have yet.
+         */
+        ActivityFieldChange: {
+            /** After */
+            after: unknown;
+            /** Before */
+            before: unknown;
+            /** Field */
+            field: string;
+        };
+        /** ActivityPageResponse */
+        ActivityPageResponse: {
+            /** Items */
+            items: components["schemas"]["ActivityEntry"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
         /**
          * AdapterCapabilityRow
          * @description One registered adapter's class-level declarations
@@ -3529,6 +4225,17 @@ export interface components {
             /** Name */
             name?: string | null;
         };
+        /** AgentAccessChoices */
+        AgentAccessChoices: {
+            /** Categories */
+            categories?: {
+                [key: string]: "any_model" | "local_only" | "not_shared";
+            };
+            /** Groups */
+            groups?: {
+                [key: string]: "on" | "off";
+            };
+        };
         /** AgentAccessConfig */
         AgentAccessConfig: {
             /**
@@ -3537,36 +4244,84 @@ export interface components {
              */
             allow_writes: boolean;
             /**
+             * Categories
+             * @default {}
+             */
+            categories: {
+                [key: string]: "any_model" | "local_only" | "not_shared";
+            };
+            /**
              * Enabled
              * @default false
              */
             enabled: boolean;
+            /**
+             * Groups
+             * @default {}
+             */
+            groups: {
+                [key: string]: "on" | "off";
+            };
         };
         /**
          * AgentAccessResponse
-         * @description Both gates as saved, and what a client needs to connect over STDIO.
+         * @description Both gates as saved, the choice for every data category and action
+         *     group, the command that connects each agent host, and each app's state.
+         *
+         *     `categories` and `groups` name every category and group, a missing choice
+         *     filled in as open. A group reads as off while the connection is on and
+         *     `allow_writes` is off, since no change is allowed then whatever it says.
          */
         AgentAccessResponse: {
             /** Allow Writes */
             allow_writes: boolean;
-            /** Args */
-            args: string[];
-            claude_json: components["schemas"]["ClaudeDesktopConfig"];
-            /** Codex Command */
-            codex_command: string;
-            /** Command */
-            command: string;
-            /** Cwd */
-            cwd: string;
+            /** Apps */
+            apps: components["schemas"]["AgentAppState"][];
+            /** Categories */
+            categories: {
+                [key: string]: "any_model" | "local_only" | "not_shared";
+            };
+            /** Connect */
+            connect: components["schemas"]["AgentConnectCommand"][];
             /** Enabled */
             enabled: boolean;
-            /** Tools */
-            tools: components["schemas"]["AgentTool"][];
+            /** Groups */
+            groups: {
+                [key: string]: "on" | "off";
+            };
+        };
+        /**
+         * AgentAppState
+         * @description One assistant app as Settings shows it: a host `roleband connect` sets
+         *     up, or `other` for every other caller.
+         *
+         *     `connection` is what the host's own files say (`agent_hosts.connection`):
+         *     null when it was never connected, and always null for `other`, which has
+         *     no files to read. `last_call_at` is the app's most recent recorded call.
+         */
+        AgentAppState: {
             /**
-             * Transport
-             * @constant
+             * App
+             * @enum {string}
              */
-            transport: "stdio";
+            app: "claude-code" | "codex" | "other";
+            /** Connection */
+            connection: ("connected" | "outdated" | "rule_missing" | "read_only") | null;
+            /** Last Call At */
+            last_call_at: string | null;
+        };
+        /**
+         * AgentConnectCommand
+         * @description The command that sets up one agent host to run `roleband`.
+         */
+        AgentConnectCommand: {
+            /** Command */
+            command: string;
+            /**
+             * Host
+             * @enum {string}
+             */
+            host: "claude-code" | "codex";
         };
         /** AgentSwitchState */
         AgentSwitchState: {
@@ -3574,16 +4329,6 @@ export interface components {
             allow_writes: boolean;
             /** Enabled */
             enabled: boolean;
-        };
-        /** AgentTool */
-        AgentTool: {
-            /**
-             * Access
-             * @enum {string}
-             */
-            access: "status" | "read" | "write";
-            /** Name */
-            name: string;
         };
         /**
          * AgreementPayload
@@ -3614,6 +4359,18 @@ export interface components {
             to: number | null;
         };
         /**
+         * Answering
+         * @description Who answers one part of the profile: RoleBand's data or one plugin.
+         */
+        Answering: {
+            /** Covered */
+            covered: boolean;
+            /** Plugin */
+            plugin: string | null;
+            /** Plugin Name */
+            plugin_name: string | null;
+        };
+        /**
          * ApplicationActivityResponse
          * @description `GET /api/applications/{job_id}/activity`: newest first. Pass the
          *     number of items already read as `offset` for the page after it.
@@ -3622,6 +4379,15 @@ export interface components {
             /** Items */
             items: (components["schemas"]["ApplicationComment"] | components["schemas"]["ApplicationEvent"])[];
         };
+        /** ApplicationBoard */
+        ApplicationBoard: {
+            /** Applications */
+            applications: components["schemas"]["BoardCard"][];
+            /** Count */
+            count: number;
+            /** Total */
+            total: number;
+        };
         /**
          * ApplicationBoardResponse
          * @description `GET /api/applications`: every application, in no particular order.
@@ -3629,6 +4395,15 @@ export interface components {
         ApplicationBoardResponse: {
             /** Applications */
             applications: components["schemas"]["ApplicationCard"][];
+        };
+        /** ApplicationCalendar */
+        ApplicationCalendar: {
+            /** Count */
+            count: number;
+            /** Items */
+            items: (components["schemas"]["CalendarInterviewEntry"] | components["schemas"]["CalendarStepEntry"])[];
+            /** Total */
+            total: number;
         };
         /**
          * ApplicationCalendarResponse
@@ -3680,6 +4455,8 @@ export interface components {
             stage_since: string | null;
             /** Starred */
             starred: boolean;
+            /** Steps */
+            steps: components["schemas"]["ApplicationStep"][];
             /** Title */
             title: string;
         };
@@ -3779,6 +4556,7 @@ export interface components {
             kind: "event";
             /** Source */
             source: string;
+            step?: components["schemas"]["EventStep"] | null;
             /**
              * To Stage
              * @enum {string}
@@ -3839,6 +4617,29 @@ export interface components {
         /** ApplicationInterviewResponse */
         ApplicationInterviewResponse: {
             interview: components["schemas"]["ApplicationInterview"];
+        };
+        /**
+         * ApplicationStep
+         * @description One next step the person owes.
+         */
+        ApplicationStep: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Done At */
+            done_at: string | null;
+            /** Due */
+            due: string | null;
+            /** Id */
+            id: number;
+            /** Text */
+            text: string;
+        };
+        /** ApplicationStepResponse */
+        ApplicationStepResponse: {
+            step: components["schemas"]["ApplicationStep"];
         };
         /** AvailabilityShape */
         AvailabilityShape: {
@@ -3948,6 +4749,69 @@ export interface components {
             stale: boolean;
         };
         /**
+         * BoardCard
+         * @description One application as the board shows it, keyed by its opportunity's id.
+         */
+        BoardCard: {
+            awaiting_outcome: components["schemas"]["BoardNextInterview"] | null;
+            /** Comment Count */
+            comment_count: number;
+            /** Company */
+            company?: string;
+            /** Ended At Stage */
+            ended_at_stage: ("saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed") | null;
+            /** Job Id */
+            job_id: number;
+            /** Last Activity At */
+            last_activity_at: string | null;
+            /** Level Band */
+            level_band?: string | null;
+            /** Next Action */
+            next_action: string | null;
+            /** Next Action Due */
+            next_action_due: string | null;
+            next_interview: components["schemas"]["BoardNextInterview"] | null;
+            /** Posting Status */
+            posting_status?: string;
+            /** Priority */
+            priority: number;
+            /** Priority Set */
+            priority_set: boolean;
+            /** Pursuit Id */
+            pursuit_id: number | null;
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed";
+            /** Stage Since */
+            stage_since: string | null;
+            /** Starred */
+            starred: boolean;
+            /** Steps */
+            steps: components["schemas"]["PursuitNextStep"][];
+            /** Title */
+            title?: string;
+        };
+        /** BoardNextInterview */
+        BoardNextInterview: {
+            /** All Day */
+            all_day: boolean;
+            /** Format */
+            format: ("video" | "phone" | "onsite") | null;
+            /** Id */
+            id: number;
+            /** Label */
+            label: string;
+            /** Link */
+            link: string | null;
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
+        };
+        /**
          * BoardRegion
          * @description Which regional deployment of a multi-region ATS holds a tenant's board.
          *
@@ -4025,6 +4889,33 @@ export interface components {
             /** Outcome */
             outcome: ("passed" | "not_passed" | "cancelled") | null;
         };
+        /** CalendarInterviewEntry */
+        CalendarInterviewEntry: {
+            /** All Day */
+            all_day: boolean;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Format */
+            format: ("video" | "phone" | "onsite") | null;
+            /** Interview Id */
+            interview_id: number;
+            /** Job Id */
+            job_id: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "interview";
+            /** Label */
+            label: string;
+            /** Link */
+            link: string | null;
+            /** Outcome */
+            outcome: ("passed" | "not_passed" | "cancelled") | null;
+        };
         /** CalendarStep */
         CalendarStep: {
             /**
@@ -4041,9 +4932,30 @@ export interface components {
             kind: "step";
             /** Step */
             step: string;
+            /** Step Id */
+            step_id: number;
         };
-        /** CapabilitiesResult */
-        CapabilitiesResult: {
+        /** CalendarStepEntry */
+        CalendarStepEntry: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Job Id */
+            job_id: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "step";
+            /** Step */
+            step: string;
+            /** Step Id */
+            step_id: number;
+        };
+        /** CapabilitiesFull */
+        CapabilitiesFull: {
             /** Contract Version */
             contract_version: string;
             /** Engine Version */
@@ -4057,6 +4969,49 @@ export interface components {
             operations: components["schemas"]["OperationSummary"][];
             /** Supported Contract Versions */
             supported_contract_versions: string[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            view: "full";
+        };
+        /**
+         * CapabilitiesResult
+         * @description The operation index in the view asked for; `view` names which.
+         */
+        CapabilitiesResult: components["schemas"]["CapabilitiesSummary"] | components["schemas"]["CapabilitiesFull"];
+        /** CapabilitiesSummary */
+        CapabilitiesSummary: {
+            /** Continue With */
+            continue_with: components["schemas"]["NextAction"][];
+            /** Contract Version */
+            contract_version: string;
+            /** Effects */
+            effects: {
+                [key: string]: string[];
+            };
+            /** Engine Version */
+            engine_version: string | null;
+            /**
+             * Metadata Source
+             * @enum {string}
+             */
+            metadata_source: "bundled" | "engine";
+            /** Resources */
+            resources: {
+                [key: string]: components["schemas"]["ResourceIndex"];
+            };
+            /** Supported Contract Versions */
+            supported_contract_versions: string[];
+            /** Unavailable */
+            unavailable: {
+                [key: string]: string;
+            } | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            view: "summary";
         };
         /** CapabilityView */
         CapabilityView: {
@@ -4070,16 +5025,47 @@ export interface components {
              */
             slot: "pay.levels" | "pay.observations" | "company.facts" | "company.benefits";
         };
-        /**
-         * ClaudeDesktopConfig
-         * @description The `claude_desktop_config.json` fragment, served under its own key names.
-         */
-        ClaudeDesktopConfig: {
-            mcpServers: components["schemas"]["ClaudeMcpServers"];
+        /** ChangeEvent */
+        ChangeEvent: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /**
+             * Basis
+             * @enum {string}
+             */
+            basis: "recorded" | "derived";
+            /** Company */
+            company?: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "new" | "closed" | "reopened" | "reposted" | "stated_pay_changed" | "pursuit_due" | "source_health" | "plugin_source_health";
+            /** Opportunity Id */
+            opportunity_id?: number | null;
+            pay?: components["schemas"]["StatedPayChange"] | null;
+            plugin?: components["schemas"]["PluginHealthChange"] | null;
+            /** Sequence */
+            sequence: string;
+            source?: components["schemas"]["SourceHealthChange"] | null;
         };
-        /** ClaudeMcpServers */
-        ClaudeMcpServers: {
-            roleband: components["schemas"]["McpServerCommand"];
+        /** ChangesPage */
+        ChangesPage: {
+            /** Caught Up */
+            caught_up: boolean;
+            /** Continue With */
+            continue_with?: components["schemas"]["NextAction"][];
+            /** Count */
+            count: number;
+            /** Events */
+            events: components["schemas"]["ChangeEvent"][];
+            /** Next Since */
+            next_since: string;
+            /** Unavailable */
+            unavailable: components["schemas"]["UnavailableKind"][];
         };
         /** CloudLLMProfileInput */
         CloudLLMProfileInput: {
@@ -4420,6 +5406,44 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** CompanyBenefitsPage */
+        CompanyBenefitsPage: {
+            answered_by: components["schemas"]["Answering"];
+            /** Attribution */
+            attribution: string | null;
+            /** Columns */
+            columns: string[];
+            /** Count */
+            count: number;
+            /** Notes */
+            notes: string[];
+            /**
+             * Rows
+             * @description One array per row, its values in the order `columns` names.
+             */
+            rows: [
+                string,
+                string | null,
+                string | null,
+                number | null,
+                string | null,
+                string | null,
+                string,
+                string | null,
+                boolean,
+                number,
+                string
+            ][];
+            /** Slug */
+            slug: string;
+            /** Total */
+            total: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            view: "benefits";
+        };
         /**
          * CompanyCardResponse
          * @description `GET /api/companies/{slug}/card`: the chip's hover card, with or without a profile.
@@ -4627,6 +5651,32 @@ export interface components {
             /** Open Count */
             open_count: number;
         };
+        /** CompanyLocationsPage */
+        CompanyLocationsPage: {
+            /** Columns */
+            columns: string[];
+            /** Count */
+            count: number;
+            /**
+             * Rows
+             * @description One array per row, its values in the order `columns` names.
+             */
+            rows: [
+                string,
+                number,
+                string | null,
+                boolean
+            ][];
+            /** Slug */
+            slug: string;
+            /** Total */
+            total: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            view: "locations";
+        };
         /**
          * CompanyNamesResponse
          * @description `GET /api/companies/names`: every catalog and tracked company's name by
@@ -4702,6 +5752,39 @@ export interface components {
             unsorted: {
                 [key: string]: number;
             };
+        };
+        /** CompanyPage */
+        CompanyPage: {
+            /** Attribution */
+            attribution: string | null;
+            /** Columns */
+            columns: string[];
+            /** Count */
+            count: number;
+            /**
+             * Rows
+             * @description One array per row, its values in the order `columns` names.
+             */
+            rows: [
+                string,
+                string,
+                string | null,
+                boolean | null,
+                string[],
+                boolean,
+                string | null,
+                number | null,
+                number,
+                number,
+                number | null,
+                number | null,
+                string | null,
+                string | null
+            ][];
+            /** Sectors */
+            sectors: string[];
+            /** Total */
+            total: number;
         };
         /**
          * CompanyPricesResponse
@@ -4852,6 +5935,39 @@ export interface components {
             /** Ticker */
             ticker: string | null;
         };
+        /** CompanyProfileView */
+        CompanyProfileView: {
+            /** Attribution */
+            attribution: string | null;
+            /** Benefits */
+            benefits: number;
+            benefits_answered_by: components["schemas"]["Answering"];
+            /** Facts */
+            facts: components["schemas"]["ProfileFact"][];
+            /** Health */
+            health: string | null;
+            /** Name */
+            name: string;
+            /** Needs Review */
+            needs_review: components["schemas"]["ReviewItem"][];
+            /** Open Roles */
+            open_roles: number;
+            pay: components["schemas"]["Pay"];
+            /** Place Count */
+            place_count: number;
+            /** Places */
+            places: components["schemas"]["Place"][];
+            price: components["schemas"]["Quote"] | null;
+            /** Slug */
+            slug: string;
+            /** Unfollowed */
+            unfollowed: boolean;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            view: "profile";
+        };
         /** CompanySelectionPayload */
         CompanySelectionPayload: {
             /**
@@ -4870,6 +5986,11 @@ export interface components {
              */
             unfollow: string[];
         };
+        /**
+         * CompanyView
+         * @description One company in the view the caller asked for; `view` names which.
+         */
+        CompanyView: components["schemas"]["CompanyProfileView"] | components["schemas"]["CompanyBenefitsPage"] | components["schemas"]["CompanyLocationsPage"];
         /**
          * CompareSelectionOut
          * @description What is STORED, which is not always what was asked for.
@@ -4906,6 +6027,75 @@ export interface components {
         CompensationStatsResponse: {
             disclosure: components["schemas"]["DisclosureRates"];
             posted: components["schemas"]["PostedPay"];
+        };
+        /** ContextExport */
+        ContextExport: {
+            /** Continue With */
+            continue_with?: components["schemas"]["NextAction"][];
+            manifest: components["schemas"]["ExportManifest"];
+            /** Packet */
+            packet: string;
+            /** Packet Offset */
+            packet_offset: number;
+        };
+        /**
+         * CoverageHistory
+         * @description How far back the scope's companies have been read whole: no arrival
+         *     before `since` can be dated, so no window reaches further.
+         */
+        CoverageHistory: {
+            /** Days */
+            days: number;
+            /** Since */
+            since: string | null;
+        };
+        /** CoverageWindow */
+        CoverageWindow: {
+            /** Days */
+            days: number;
+            /** Since */
+            since: string | null;
+        };
+        /** Criterion */
+        Criterion: {
+            /**
+             * Key
+             * @enum {string}
+             */
+            key: "long_open" | "relisted" | "redated";
+            /** Met */
+            met: boolean;
+            /** Observed */
+            observed: number | null;
+            /** Threshold */
+            threshold: number;
+            /**
+             * Unit
+             * @enum {string}
+             */
+            unit: "days" | "listings";
+        };
+        /**
+         * DeckLink
+         * @description Why a member is in its deck: the link that placed it and who decided.
+         */
+        DeckLink: {
+            /** Confidence */
+            confidence: string;
+            /** Decision */
+            decision: string | null;
+            /** Gap Days */
+            gap_days: number | null;
+            /** Method */
+            method: string;
+            /** Reasons */
+            reasons: components["schemas"]["Reason"][];
+            /** Relation */
+            relation: string;
+            /** Score */
+            score: number | null;
+            /** Status */
+            status: string;
         };
         /**
          * DecoderCell
@@ -5291,6 +6481,49 @@ export interface components {
             /** Team */
             team: string | null;
         };
+        /** DoctorCheck */
+        DoctorCheck: {
+            /** Check */
+            check: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "ok" | "attention" | "failing";
+            /** Summary */
+            summary: string;
+        };
+        /** DoctorReport */
+        DoctorReport: {
+            /** Checks */
+            checks: components["schemas"]["DoctorCheck"][];
+            /** Continue With */
+            continue_with?: components["schemas"]["NextAction"][];
+            /** Contract Version */
+            contract_version: string;
+            /** Engine Version */
+            engine_version: string;
+            /**
+             * Install
+             * @enum {string}
+             */
+            install: "app" | "source";
+            /** Redacted */
+            redacted: number;
+            /** Settings */
+            settings: components["schemas"]["DoctorSetting"][];
+            /** Settings Left Out */
+            settings_left_out?: string[];
+            /** Settings Shortened */
+            settings_shortened?: string[];
+        };
+        /** DoctorSetting */
+        DoctorSetting: {
+            /** Name */
+            name: string;
+            /** Value */
+            value: boolean | number | string | string[] | null;
+        };
         /** DraftPayload */
         DraftPayload: {
             /** Document */
@@ -5317,6 +6550,36 @@ export interface components {
             /** Summary */
             summary: string;
         };
+        /** DuplicatePair */
+        DuplicatePair: {
+            /** Fields */
+            fields: {
+                [key: string]: unknown;
+            };
+            /** Gap Days */
+            gap_days: number | null;
+            /** Newer */
+            newer: number;
+            /** Older */
+            older: number;
+            /** Pair */
+            pair: string;
+            /**
+             * Proposed
+             * @enum {string}
+             */
+            proposed: "same_opening" | "two_openings";
+            /** Reasons */
+            reasons: components["schemas"]["PairReason"][];
+            /** Score */
+            score: number | null;
+            /**
+             * Step
+             * @enum {string}
+             */
+            step: "yours" | "shown_twice" | "stacked";
+            text: components["schemas"]["PairTextDifference"];
+        };
         /**
          * DuplicateProposal
          * @description A `job_lineage_link` row: the newer posting may be the older one again.
@@ -5324,10 +6587,14 @@ export interface components {
         DuplicateProposal: {
             /** Confidence */
             confidence: string;
+            /** Decided By */
+            decided_by: ("person" | "agent") | null;
             /** Decision */
             decision: string | null;
             /** Decision Changes */
             decision_changes: number;
+            /** Decision Note */
+            decision_note: string | null;
             /** Gap Days */
             gap_days: number | null;
             /** Id */
@@ -5355,6 +6622,24 @@ export interface components {
             score: number | null;
             /** Status */
             status: string;
+        };
+        /** DuplicateQueue */
+        DuplicateQueue: {
+            /** Columns */
+            columns: string[];
+            /** Continue With */
+            continue_with: components["schemas"]["NextAction"][];
+            /** Count */
+            count: number;
+            /** Pairs */
+            pairs: components["schemas"]["DuplicatePair"][];
+            /**
+             * Rows
+             * @description One array per posting, its values in the order `columns` names.
+             */
+            rows: (number | string | null)[][];
+            /** Total */
+            total: number;
         };
         /** DuplicateReviewItem */
         DuplicateReviewItem: {
@@ -5408,6 +6693,27 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** DuplicateVerdictItem */
+        DuplicateVerdictItem: {
+            /** After */
+            after?: string | null;
+            /** Before */
+            before?: string | null;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "decided" | "left_for_person" | "refused";
+            /** Pair */
+            pair: string;
+            /** Refusal */
+            refusal?: string | null;
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "same_opening" | "two_openings" | "different_roles" | "unsure";
+        };
         /**
          * DuplicateVerdictResult
          * @description `POST /api/lineage/links/{link_id}/review`. `twin_link_id` names the twin a
@@ -5432,6 +6738,17 @@ export interface components {
             status: "confirmed" | "rejected" | "pending";
             /** Twin Link Id */
             twin_link_id: number | null;
+        };
+        /** DuplicateVerdictsResult */
+        DuplicateVerdictsResult: {
+            /** Decided */
+            decided: number;
+            /** Left For Person */
+            left_for_person: number;
+            /** Refused */
+            refused: number;
+            /** Results */
+            results: components["schemas"]["DuplicateVerdictItem"][];
         };
         /** EffectsShape */
         EffectsShape: {
@@ -5540,6 +6857,48 @@ export interface components {
             /** Message */
             message: string;
         };
+        /** Envelope[ApplicationBoard] */
+        Envelope_ApplicationBoard_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["ApplicationBoard"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[ApplicationCalendar] */
+        Envelope_ApplicationCalendar_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["ApplicationCalendar"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
         /** Envelope[CapabilitiesResult] */
         Envelope_CapabilitiesResult_: {
             /**
@@ -5548,6 +6907,447 @@ export interface components {
              */
             contract_version: string;
             data: components["schemas"]["CapabilitiesResult"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[ChangesPage] */
+        Envelope_ChangesPage_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["ChangesPage"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[CompanyPage] */
+        Envelope_CompanyPage_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["CompanyPage"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[CompanyView] */
+        Envelope_CompanyView_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["CompanyView"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[ContextExport] */
+        Envelope_ContextExport_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["ContextExport"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[DoctorReport] */
+        Envelope_DoctorReport_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["DoctorReport"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[DuplicateQueue] */
+        Envelope_DuplicateQueue_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["DuplicateQueue"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[DuplicateVerdictsResult] */
+        Envelope_DuplicateVerdictsResult_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["DuplicateVerdictsResult"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[FactsPage] */
+        Envelope_FactsPage_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["FactsPage"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[GetManyPage] */
+        Envelope_GetManyPage_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["GetManyPage"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[InsightsCompensation] */
+        Envelope_InsightsCompensation_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["InsightsCompensation"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[InsightsDemand] */
+        Envelope_InsightsDemand_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["InsightsDemand"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[InsightsDisclosureTrends] */
+        Envelope_InsightsDisclosureTrends_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["InsightsDisclosureTrends"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[InsightsHistory] */
+        Envelope_InsightsHistory_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["InsightsHistory"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[InsightsLevels] */
+        Envelope_InsightsLevels_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["InsightsLevels"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[InsightsOfferTerms] */
+        Envelope_InsightsOfferTerms_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["InsightsOfferTerms"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[InsightsOverview] */
+        Envelope_InsightsOverview_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["InsightsOverview"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[InsightsPayTable] */
+        Envelope_InsightsPayTable_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["InsightsPayTable"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[InsightsPayTrends] */
+        Envelope_InsightsPayTrends_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["InsightsPayTrends"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[InsightsSkills] */
+        Envelope_InsightsSkills_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["InsightsSkills"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[InsightsTrajectory] */
+        Envelope_InsightsTrajectory_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["InsightsTrajectory"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[InsightsVelocity] */
+        Envelope_InsightsVelocity_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["InsightsVelocity"] | null;
             error: components["schemas"]["EnvelopeError"] | null;
             meta: components["schemas"]["EnvelopeMeta"];
             /** Ok */
@@ -5582,14 +7382,35 @@ export interface components {
             /** Workspace Id */
             workspace_id: string | null;
         };
-        /** Envelope[OperationDetail] */
-        Envelope_OperationDetail_: {
+        /** Envelope[OfferRead] */
+        Envelope_OfferRead_: {
             /**
              * Contract Version
              * @default 1.0
              */
             contract_version: string;
-            data: components["schemas"]["OperationDetail"] | null;
+            data: components["schemas"]["OfferRead"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[OperationView] */
+        Envelope_OperationView_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["OperationView"] | null;
             error: components["schemas"]["EnvelopeError"] | null;
             meta: components["schemas"]["EnvelopeMeta"];
             /** Ok */
@@ -5611,6 +7432,69 @@ export interface components {
              */
             contract_version: string;
             data: components["schemas"]["OpportunityView"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[PostingDecks] */
+        Envelope_PostingDecks_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["PostingDecks"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[PostingVerdict] */
+        Envelope_PostingVerdict_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["PostingVerdict"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[PricesPage] */
+        Envelope_PricesPage_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["PricesPage"] | null;
             error: components["schemas"]["EnvelopeError"] | null;
             meta: components["schemas"]["EnvelopeMeta"];
             /** Ok */
@@ -5792,6 +7676,27 @@ export interface components {
             /** Workspace Id */
             workspace_id: string | null;
         };
+        /** Envelope[SimilarRoles] */
+        Envelope_SimilarRoles_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["SimilarRoles"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
         /** Envelope[SourceInspection] */
         Envelope_SourceInspection_: {
             /**
@@ -5859,7 +7764,7 @@ export interface components {
          * ErrorCode
          * @enum {string}
          */
-        ErrorCode: "engine-locked" | "job-not-found" | "company-not-found" | "company-profile-not-found" | "local-model-not-found" | "cloud-model-not-found" | "notification-not-found" | "link-not-found" | "suggestion-not-found" | "recipe-not-found" | "rule-not-found" | "fit-band-not-found" | "schedule-not-found" | "page-not-found" | "application-not-found" | "comment-not-found" | "interview-not-found" | "plugin-not-found" | "invalid-input" | "careers-page-refused" | "careers-page-unreachable" | "company-conflict" | "company-refused" | "consent-required" | "scope-refused" | "schedule-refused" | "scheduling-unavailable" | "discovery-unsupported" | "manual-scan-queued" | "switch-running" | "switch-not-started" | "no-switch-running" | "switch-not-stopped" | "price-key-refused" | "switch-not-managed" | "server-not-managed" | "model-unreachable" | "local-models-off" | "ai-egress-off" | "no-local-model" | "model-profiles-unreadable" | "key-saved-for-another-address" | "plugin-not-runnable" | "plugin-running" | "plugin-approval-stale" | "plugin-still-enabled" | "plugin-confirm-mismatch" | "plugin-estimates-moving" | "field-answered-by-plugin" | "link-to-itself" | "already-linked" | "verdict-decided" | "pair-refused" | "not-a-member" | "suggestion-decided" | "last-world" | "recipe-invalid" | "recipe-conflict" | "usage-catalogue-changed" | "comment-not-yours" | "application-under-way";
+        ErrorCode: "engine-locked" | "job-not-found" | "company-not-found" | "company-profile-not-found" | "local-model-not-found" | "cloud-model-not-found" | "notification-not-found" | "activity-entry-not-found" | "link-not-found" | "suggestion-not-found" | "recipe-not-found" | "rule-not-found" | "fit-band-not-found" | "schedule-not-found" | "page-not-found" | "application-not-found" | "comment-not-found" | "interview-not-found" | "step-not-found" | "plugin-not-found" | "invalid-input" | "careers-page-refused" | "careers-page-unreachable" | "company-conflict" | "company-refused" | "consent-required" | "scope-refused" | "schedule-refused" | "scheduling-unavailable" | "discovery-unsupported" | "manual-scan-queued" | "switch-running" | "switch-not-started" | "no-switch-running" | "switch-not-stopped" | "price-key-refused" | "switch-not-managed" | "server-not-managed" | "model-unreachable" | "local-models-off" | "ai-egress-off" | "no-local-model" | "model-profiles-unreadable" | "key-saved-for-another-address" | "plugin-not-runnable" | "plugin-running" | "plugin-approval-stale" | "plugin-still-enabled" | "plugin-confirm-mismatch" | "plugin-estimates-moving" | "field-answered-by-plugin" | "link-to-itself" | "already-linked" | "verdict-decided" | "pair-refused" | "not-a-member" | "suggestion-decided" | "last-world" | "recipe-invalid" | "recipe-conflict" | "usage-catalogue-changed" | "comment-not-yours" | "application-under-way";
         /**
          * ErrorDetail
          * @description The `detail` of every error the API answers on purpose.
@@ -5923,11 +7828,25 @@ export interface components {
             /** Provenance */
             provenance: string | null;
         };
+        /** EventStep */
+        EventStep: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "added" | "edited" | "done" | "reopened" | "removed";
+            /** Due */
+            due: string | null;
+            /** Id */
+            id: number;
+            /** Text */
+            text: string;
+        };
         /** Evidence */
         Evidence: {
             dates: components["schemas"]["PostingDates"];
             /** Estimate Sources */
-            estimate_sources: components["schemas"]["EstimateSource"][];
+            estimate_sources?: components["schemas"]["EstimateSource"][];
         };
         /**
          * Excerpt
@@ -6001,6 +7920,26 @@ export interface components {
             base_min: number;
             /** Currency */
             currency: string;
+        };
+        /** ExportManifest */
+        ExportManifest: {
+            /** Components */
+            components: components["schemas"]["PacketComponent"][];
+            /**
+             * Format
+             * @constant
+             */
+            format: 1;
+            /** Left Out */
+            left_out: ("public_posting" | "market_statistic" | "private_pursuit" | "offer" | "candidate")[];
+            /** Opportunity Id */
+            opportunity_id: number;
+            /** Packet Bytes */
+            packet_bytes: number;
+            /** Packet Chars */
+            packet_chars: number;
+            /** Packet Sha256 */
+            packet_sha256: string;
         };
         /**
          * ExtractedDisclosedComp
@@ -6113,6 +8052,43 @@ export interface components {
                 [key: string]: components["schemas"]["VocabFacetOption"];
             };
         };
+        /**
+         * FactConflict
+         * @description Another source asserting a materially different value.
+         */
+        FactConflict: {
+            /** Basis */
+            basis: ("official" | "estimated" | "dataset" | "seed" | "inferred" | "human" | "plugin") | null;
+            /** Observed At */
+            observed_at: string | null;
+            /** Source */
+            source: string;
+            /** Value */
+            value: string | number | boolean | null;
+        };
+        /** FactsPage */
+        FactsPage: {
+            /** Columns */
+            columns: string[];
+            /** Count */
+            count: number;
+            /**
+             * Rows
+             * @description One array per row, its values in the order `columns` names.
+             */
+            rows: [
+                string,
+                string | number | boolean | null,
+                string,
+                ("official" | "estimated" | "dataset" | "seed" | "inferred" | "human" | "plugin") | null,
+                number,
+                string | null
+            ][];
+            /** Slug */
+            slug: string;
+            /** Total */
+            total: number;
+        };
         /** FavoriteResponse */
         FavoriteResponse: {
             /** Is Favorite */
@@ -6134,6 +8110,22 @@ export interface components {
         FindBoardPayload: {
             /** Careers Url */
             careers_url?: string | null;
+        };
+        /** GetManyPage */
+        GetManyPage: {
+            /** Columns */
+            columns: string[];
+            /** Continue With */
+            continue_with: components["schemas"]["NextAction"][];
+            /** Count */
+            count: number;
+            /** Not Found */
+            not_found: number[];
+            /**
+             * Rows
+             * @description One array per opportunity found, in the order asked, its values in the order `columns` names.
+             */
+            rows: (number | string | null)[][];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -6257,6 +8249,215 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** InsightsCompPackage */
+        InsightsCompPackage: {
+            /** Base */
+            base: number;
+            /** Bonus */
+            bonus: number;
+            /** Count */
+            count: number;
+            /** Equity */
+            equity: number;
+            /** Equity Pct */
+            equity_pct: number;
+            /** Median Tc */
+            median_tc: number;
+            sources: components["schemas"]["InsightsPartSources"];
+        };
+        /** InsightsCompensation */
+        InsightsCompensation: {
+            coverage: components["schemas"]["InsightsCoverage"];
+            disclosure: components["schemas"]["InsightsDisclosureRates"];
+            page?: components["schemas"]["InsightsPage"] | null;
+            posted: components["schemas"]["InsightsPostedPay"];
+        };
+        /** InsightsCoverage */
+        InsightsCoverage: {
+            /** Companies */
+            companies: string[];
+            /** Families */
+            families: string[];
+            history: components["schemas"]["CoverageHistory"] | null;
+            /** Last Read At */
+            last_read_at: string | null;
+            /** Off Board Companies */
+            off_board_companies: number | null;
+            /** Places */
+            places: string[];
+            /**
+             * Population
+             * @enum {string}
+             */
+            population: "open_roles" | "daily_records" | "source_reads" | "reference";
+            /**
+             * Side
+             * @enum {string}
+             */
+            side: "all" | "yours" | "other";
+            window: components["schemas"]["CoverageWindow"] | null;
+        };
+        /** InsightsDemand */
+        InsightsDemand: {
+            /** Closed */
+            closed: number;
+            /** Companies */
+            companies: components["schemas"]["InsightsHiringCompany"][];
+            coverage: components["schemas"]["InsightsCoverage"];
+            /** Employer Dated Share */
+            employer_dated_share: number | null;
+            /** New */
+            new: number;
+            /** Open Total */
+            open_total: number;
+            page?: components["schemas"]["InsightsPage"] | null;
+            /** Regions */
+            regions: components["schemas"]["InsightsHiringRegion"][];
+            /** Unplaced */
+            unplaced: number;
+        };
+        /** InsightsDisclosedBand */
+        InsightsDisclosedBand: {
+            /** Company */
+            company: string;
+            /** High */
+            high: number;
+            /** Level Band */
+            level_band: string;
+            /** Low */
+            low: number;
+            /** Reqs */
+            reqs: number;
+        };
+        /** InsightsDisclosureCohort */
+        InsightsDisclosureCohort: {
+            /** Companies */
+            companies: number;
+            /** Since */
+            since: string;
+        };
+        /** InsightsDisclosureCounts */
+        InsightsDisclosureCounts: {
+            /** Checked */
+            checked: number;
+            /** Disclosed */
+            disclosed: number;
+            /** Open */
+            open: number;
+            /** Rate */
+            rate: number | null;
+        };
+        /** InsightsDisclosureLevel */
+        InsightsDisclosureLevel: {
+            /** Checked */
+            checked: number;
+            /** Disclosed */
+            disclosed: number;
+            /** Level Band */
+            level_band: string;
+            /** Open */
+            open: number;
+            /** Rate */
+            rate: number | null;
+        };
+        /** InsightsDisclosureRates */
+        InsightsDisclosureRates: {
+            /** By Level */
+            by_level: components["schemas"]["InsightsDisclosureLevel"][];
+            overall: components["schemas"]["InsightsDisclosureCounts"];
+        };
+        /** InsightsDisclosureTrendPoint */
+        InsightsDisclosureTrendPoint: {
+            /** Bands */
+            bands: number;
+            /** Checked */
+            checked: number;
+            /** Date */
+            date: string;
+            /** Disclosed */
+            disclosed: number;
+            /** High P50 */
+            high_p50: number | null;
+            /** Low P50 */
+            low_p50: number | null;
+            /** Open */
+            open: number;
+            /** Rate */
+            rate: number | null;
+            /** Reqs */
+            reqs: number;
+        };
+        /** InsightsDisclosureTrendSeries */
+        InsightsDisclosureTrendSeries: {
+            /** Checked */
+            checked: number;
+            /** Disclosed */
+            disclosed: number;
+            /** Key */
+            key: string;
+            /** Points */
+            points: components["schemas"]["InsightsDisclosureTrendPoint"][];
+        };
+        /** InsightsDisclosureTrends */
+        InsightsDisclosureTrends: {
+            /**
+             * Basis
+             * @constant
+             */
+            basis: "base";
+            cohort: components["schemas"]["InsightsDisclosureCohort"] | null;
+            coverage: components["schemas"]["InsightsCoverage"];
+            /** Dates */
+            dates: string[];
+            /** Days */
+            days: number;
+            /**
+             * Dim
+             * @enum {string}
+             */
+            dim: "overall" | "company" | "level";
+            page?: components["schemas"]["InsightsPage"] | null;
+            /** Series */
+            series: components["schemas"]["InsightsDisclosureTrendSeries"][];
+        };
+        /** InsightsHiringCompany */
+        InsightsHiringCompany: {
+            /** Closed */
+            closed: number;
+            /** Company */
+            company: string;
+            /** New */
+            new: number;
+            /** Open */
+            open: number;
+        };
+        /** InsightsHiringCountry */
+        InsightsHiringCountry: {
+            /** Key */
+            key: string;
+            /** Open */
+            open: number;
+        };
+        /** InsightsHiringRegion */
+        InsightsHiringRegion: {
+            /** Countries */
+            countries: components["schemas"]["InsightsHiringCountry"][];
+            /** Key */
+            key: string;
+            /** Open */
+            open: number;
+            /** Region Wide */
+            region_wide: number;
+        };
+        /** InsightsHistory */
+        InsightsHistory: {
+            coverage: components["schemas"]["InsightsCoverage"];
+            /** Days */
+            days: number;
+            page?: components["schemas"]["InsightsPage"] | null;
+            /** Since */
+            since: string | null;
+        };
         /**
          * InsightsHistoryResponse
          * @description `GET /api/statistics/history`: when the history of the scope's companies
@@ -6267,6 +8468,681 @@ export interface components {
             days: number;
             /** Since */
             since: string | null;
+        };
+        /**
+         * InsightsLevelGuideCell
+         * @description How one company names one level: one entry for every function
+         *     (`company_wide`), or one per track (`per_track`); the other is null.
+         */
+        InsightsLevelGuideCell: {
+            company_wide?: components["schemas"]["InsightsLevelGuideEntry"] | null;
+            /** Per Track */
+            per_track?: {
+                [key: string]: components["schemas"]["InsightsLevelGuideEntry"];
+            } | null;
+        };
+        /** InsightsLevelGuideCompany */
+        InsightsLevelGuideCompany: {
+            /** Flat */
+            flat: boolean;
+            /** Levels */
+            levels: {
+                [key: string]: components["schemas"]["InsightsLevelGuideCell"];
+            };
+            /** Slug */
+            slug: string;
+        };
+        /** InsightsLevelGuideEntry */
+        InsightsLevelGuideEntry: {
+            /** Label */
+            label: string;
+            /** Spellings */
+            spellings: string[];
+        };
+        /** InsightsLevelGuideUnguided */
+        InsightsLevelGuideUnguided: {
+            /** Same As */
+            same_as: string | null;
+            /** Slug */
+            slug: string;
+        };
+        /** InsightsLevels */
+        InsightsLevels: {
+            /** Companies */
+            companies: components["schemas"]["InsightsLevelGuideCompany"][];
+            coverage: components["schemas"]["InsightsCoverage"];
+            page?: components["schemas"]["InsightsPage"] | null;
+            /** Tracks */
+            tracks: {
+                [key: string]: string[];
+            };
+            /** Unguided */
+            unguided: components["schemas"]["InsightsLevelGuideUnguided"][];
+        };
+        /** InsightsOfferQuote */
+        InsightsOfferQuote: {
+            /** As Of */
+            as_of: string;
+            /** Price */
+            price: number;
+        };
+        /** InsightsOfferTerms */
+        InsightsOfferTerms: {
+            /** Companies */
+            companies: components["schemas"]["InsightsOfferTermsCompany"][];
+            coverage: components["schemas"]["InsightsCoverage"];
+            /** Feed Configured */
+            feed_configured: boolean;
+            page?: components["schemas"]["InsightsPage"] | null;
+        };
+        /**
+         * InsightsOfferTermsCompany
+         * @description The terms a company states for an offer; a term it does not state is null.
+         */
+        InsightsOfferTermsCompany: {
+            /** Bonus Rule */
+            bonus_rule: ("pct_of_base" | "none") | null;
+            /** Company */
+            company: string;
+            /** Equity Vehicle */
+            equity_vehicle: string | null;
+            /** Listed */
+            listed: boolean;
+            quote: components["schemas"]["InsightsOfferQuote"] | null;
+            /** Sign On Bridges Vesting */
+            sign_on_bridges_vesting: boolean;
+            /** Ticker */
+            ticker: string | null;
+            /** Vesting */
+            vesting: number[] | null;
+            /** Vesting Stated By */
+            vesting_stated_by: ("employer" | "estimated") | null;
+        };
+        /** InsightsOverview */
+        InsightsOverview: {
+            coverage: components["schemas"]["InsightsCoverage"];
+            /** Days */
+            days: number;
+            kpis: components["schemas"]["InsightsOverviewKpis"];
+            page?: components["schemas"]["InsightsPage"] | null;
+            /** Since */
+            since: string | null;
+            /** Top Skills */
+            top_skills: components["schemas"]["InsightsOverviewSkill"][];
+        };
+        /** InsightsOverviewKpis */
+        InsightsOverviewKpis: {
+            /** Already Listed Count */
+            already_listed_count: number;
+            /** Closed Count */
+            closed_count: number;
+            /** Companies */
+            companies: number;
+            /** New Count */
+            new_count: number;
+            /** Open Total */
+            open_total: number;
+            /** Saved Total */
+            saved_total?: number;
+        };
+        /** InsightsOverviewSkill */
+        InsightsOverviewSkill: {
+            /** Category */
+            category: string;
+            /** Job Count */
+            job_count: number;
+            /** Term */
+            term: string;
+        };
+        /**
+         * InsightsPage
+         * @description Present when this answer holds part of its lists: the tier's budget
+         *     ended it, or it was asked for from a cursor. The lists are read as one
+         *     sequence in the order `lists` names them; `offset` is where this answer
+         *     starts in it.
+         */
+        InsightsPage: {
+            /** Budget Bytes */
+            budget_bytes: number;
+            /** Continue With */
+            continue_with?: components["schemas"]["NextAction"][];
+            /** Lists */
+            lists: string[];
+            /** Offset */
+            offset: number;
+            /** Returned */
+            returned: number;
+            /**
+             * Tier
+             * @enum {string}
+             */
+            tier: "small" | "standard" | "full";
+            /** Total */
+            total: number;
+        };
+        /**
+         * InsightsPartSources
+         * @description Where each part of a package comes from: what a posting states, what
+         *     the company's rule sets, what was measured, or an estimate.
+         */
+        InsightsPartSources: {
+            /**
+             * Base
+             * @enum {string}
+             */
+            base: "posted" | "company_rule" | "measured" | "estimated" | "mixed";
+            /**
+             * Bonus
+             * @enum {string}
+             */
+            bonus: "posted" | "company_rule" | "measured" | "estimated" | "mixed";
+            /**
+             * Equity
+             * @enum {string}
+             */
+            equity: "posted" | "company_rule" | "measured" | "estimated" | "mixed";
+        };
+        /** InsightsPayByDiscipline */
+        InsightsPayByDiscipline: {
+            /** Disciplines */
+            disciplines: components["schemas"]["InsightsPayDiscipline"][];
+            /** Max Employer Share */
+            max_employer_share: number;
+            /** Min Employers */
+            min_employers: number;
+            /** Min Ranges */
+            min_ranges: number;
+        };
+        /** InsightsPayDiscipline */
+        InsightsPayDiscipline: {
+            /** Employers */
+            employers: number;
+            /** Enough */
+            enough: boolean;
+            /** Family */
+            family: string;
+            /** High */
+            high: number | null;
+            /** Low */
+            low: number | null;
+            /** Mid P25 */
+            mid_p25: number | null;
+            /** Mid P75 */
+            mid_p75: number | null;
+            /** Picked */
+            picked: boolean;
+            /** Ranges */
+            ranges: number;
+            /** Roles */
+            roles: number;
+            /** Top Share */
+            top_share: number;
+            /** Withheld */
+            withheld: ("too_few" | "one_employer") | null;
+        };
+        /** InsightsPayTable */
+        InsightsPayTable: {
+            by_discipline: components["schemas"]["InsightsPayByDiscipline"];
+            /** Country */
+            country: string;
+            coverage: components["schemas"]["InsightsCoverage"];
+            /** Currency */
+            currency: string | null;
+            /** Estimates */
+            estimates: boolean;
+            /** Level Band */
+            level_band: string;
+            /** Min Skill Roles */
+            min_skill_roles: number;
+            /** Not Placed */
+            not_placed: components["schemas"]["InsightsPayTableUnplaced"][];
+            page?: components["schemas"]["InsightsPage"] | null;
+            /** Rows */
+            rows: components["schemas"]["InsightsPayTableRow"][];
+            /** Skill */
+            skill: string | null;
+            /** Skills */
+            skills: components["schemas"]["InsightsPayTableSkill"][];
+        };
+        /** InsightsPayTableEquity */
+        InsightsPayTableEquity: {
+            /** Rule */
+            rule: ("none" | "employee_election") | null;
+            /** Vehicle */
+            vehicle: string | null;
+            /** Vesting */
+            vesting: string | null;
+        };
+        /**
+         * InsightsPayTableEstimate
+         * @description RoleBand's estimate of base salary: a span, never stated pay.
+         */
+        InsightsPayTableEstimate: {
+            /** Families */
+            families: string[];
+            /** High */
+            high: number;
+            /** Low */
+            low: number;
+        };
+        /** InsightsPayTableRange */
+        InsightsPayTableRange: {
+            /** High */
+            high: number;
+            /** Low */
+            low: number;
+            /** Roles */
+            roles: number;
+        };
+        /**
+         * InsightsPayTableRow
+         * @description One company hiring at the level in the country. `low`, `high` and
+         *     `ranges` are what it posts; `estimate_base` and `estimate_total` are
+         *     estimates, never stated pay.
+         */
+        InsightsPayTableRow: {
+            /** Checked */
+            checked: number;
+            /** Company */
+            company: string;
+            /** Currency */
+            currency: string | null;
+            equity: components["schemas"]["InsightsPayTableEquity"] | null;
+            estimate_base: components["schemas"]["InsightsPayTableEstimate"] | null;
+            estimate_total: components["schemas"]["InsightsPayTableTotal"] | null;
+            /** Followed As Set */
+            followed_as_set: boolean;
+            /** High */
+            high: number | null;
+            /** Low */
+            low: number | null;
+            /** Open Roles */
+            open_roles: number;
+            /** Other Currency */
+            other_currency: boolean;
+            /** Posting */
+            posting: number;
+            /** Ranges */
+            ranges: components["schemas"]["InsightsPayTableRange"][];
+            /** Reason */
+            reason: ("total" | "unclear" | "several_countries" | "not_yearly" | "placed_by_pay" | "unread" | "none") | null;
+        };
+        /** InsightsPayTableSkill */
+        InsightsPayTableSkill: {
+            /** Roles */
+            roles: number;
+            /** Term */
+            term: string;
+        };
+        /**
+         * InsightsPayTableTotal
+         * @description RoleBand's estimate of total compensation, as a span.
+         */
+        InsightsPayTableTotal: {
+            /** High */
+            high: number;
+            /** Low */
+            low: number;
+            /** Rung */
+            rung: string | null;
+        };
+        /** InsightsPayTableUnplaced */
+        InsightsPayTableUnplaced: {
+            /** Company */
+            company: string;
+            /** Roles */
+            roles: number;
+        };
+        /** InsightsPayTrendPoint */
+        InsightsPayTrendPoint: {
+            /** Date */
+            date: string;
+            /** P25 */
+            p25: number | null;
+            /** P50 */
+            p50: number | null;
+            /** P75 */
+            p75: number | null;
+            /** P90 */
+            p90: number | null;
+        };
+        /** InsightsPayTrendSeries */
+        InsightsPayTrendSeries: {
+            /** Count */
+            count: number;
+            /** Key */
+            key: string;
+            /** Points */
+            points: components["schemas"]["InsightsPayTrendPoint"][];
+        };
+        /** InsightsPayTrends */
+        InsightsPayTrends: {
+            coverage: components["schemas"]["InsightsCoverage"];
+            /** Dates */
+            dates: string[];
+            /** Days */
+            days: number;
+            /**
+             * Dim
+             * @enum {string}
+             */
+            dim: "overall" | "company" | "level" | "family";
+            page?: components["schemas"]["InsightsPage"] | null;
+            /** Reference Changes */
+            reference_changes: components["schemas"]["InsightsReferenceChange"][];
+            /** Series */
+            series: components["schemas"]["InsightsPayTrendSeries"][];
+        };
+        /** InsightsPostedCountry */
+        InsightsPostedCountry: {
+            /** Bands */
+            bands: components["schemas"]["InsightsDisclosedBand"][];
+            /** Country */
+            country: string;
+            /** Currency */
+            currency: string | null;
+            excluded: components["schemas"]["InsightsPostedCountryExclusions"];
+            /** Levels */
+            levels: components["schemas"]["InsightsPostedLevel"][];
+            not_placed: components["schemas"]["InsightsPostedUnplaced"];
+            /** Other Currency */
+            other_currency: number;
+            /** Ranges */
+            ranges: number;
+            /** Yours */
+            yours: boolean;
+        };
+        /** InsightsPostedCountryExclusions */
+        InsightsPostedCountryExclusions: {
+            /** Implausible */
+            implausible: number;
+            /** Not Base */
+            not_base: number;
+            /** Not Yearly */
+            not_yearly: number;
+            /** Placed By Pay */
+            placed_by_pay: number;
+        };
+        /** InsightsPostedExclusions */
+        InsightsPostedExclusions: {
+            /** Implausible */
+            implausible: number;
+            /** No Country */
+            no_country: number;
+            /** Not Base */
+            not_base: number;
+            /** Not Yearly */
+            not_yearly: number;
+            /** Placed By Pay */
+            placed_by_pay: number;
+            /** Without Country */
+            without_country: number;
+        };
+        /**
+         * InsightsPostedLevel
+         * @description One level's posted yearly base pay in one country and currency. Below
+         *     the minimums `enough` is false and the figures are null.
+         */
+        InsightsPostedLevel: {
+            /** Employers */
+            employers: number;
+            /** Enough */
+            enough: boolean;
+            /** High */
+            high: number | null;
+            /** Level Band */
+            level_band: string;
+            /** Low */
+            low: number | null;
+            /** Mid P25 */
+            mid_p25: number | null;
+            /** Mid P75 */
+            mid_p75: number | null;
+            /** Ranges */
+            ranges: number;
+            /** Roles */
+            roles: number;
+        };
+        /**
+         * InsightsPostedPay
+         * @description What employers post as yearly base pay, per country and level: stated
+         *     pay only, never an estimate.
+         */
+        InsightsPostedPay: {
+            /** Countries */
+            countries: components["schemas"]["InsightsPostedCountry"][];
+            /** Default Country */
+            default_country: string | null;
+            excluded: components["schemas"]["InsightsPostedExclusions"];
+            /** Min Employers */
+            min_employers: number;
+            /** Min Ranges */
+            min_ranges: number;
+            /** Your Levels */
+            your_levels: string[];
+        };
+        /** InsightsPostedUnplaced */
+        InsightsPostedUnplaced: {
+            /** Ranges */
+            ranges: number;
+            /** Roles */
+            roles: number;
+        };
+        /**
+         * InsightsReferenceChange
+         * @description A switch of the pay reference inside the window: a step in a series
+         *     there is a change of sources, not of the market.
+         */
+        InsightsReferenceChange: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Companies */
+            companies: number;
+            /** Gained */
+            gained: number;
+            /** Id */
+            id: number;
+            /** Jobs */
+            jobs: number;
+            /** Lost */
+            lost: number;
+            /** Moved */
+            moved: number;
+        };
+        /** InsightsSkills */
+        InsightsSkills: {
+            /** Competencies */
+            competencies: components["schemas"]["InsightsTopSkill"][];
+            coverage: components["schemas"]["InsightsCoverage"];
+            /** Items */
+            items: components["schemas"]["InsightsTopSkill"][];
+            /** Market Roles */
+            market_roles: number;
+            /** Narrowed */
+            narrowed: boolean;
+            page?: components["schemas"]["InsightsPage"] | null;
+            /** Roles */
+            roles: number;
+        };
+        /** InsightsTopSkill */
+        InsightsTopSkill: {
+            /** Category */
+            category: string;
+            /** Distinctiveness */
+            distinctiveness: number;
+            /** Job Count */
+            job_count: number;
+            /** Lift */
+            lift: number | null;
+            /** Market Share */
+            market_share: number;
+            /** Share */
+            share: number;
+            /** Term */
+            term: string;
+        };
+        /** InsightsTrajectory */
+        InsightsTrajectory: {
+            /** Choice */
+            choice: components["schemas"]["InsightsTrajectoryChoiceCompany"][];
+            coverage: components["schemas"]["InsightsCoverage"];
+            /**
+             * Currency
+             * @constant
+             */
+            currency: "USD";
+            overall: components["schemas"]["InsightsCompPackage"] | null;
+            page?: components["schemas"]["InsightsPage"] | null;
+            /** Private */
+            private: components["schemas"]["InsightsTrajectoryPrivateCompany"][];
+            /** Public */
+            public: components["schemas"]["InsightsTrajectoryPublicCompany"][];
+            /** Set Apart */
+            set_apart: components["schemas"]["InsightsTrajectorySetApart"][];
+        };
+        /** InsightsTrajectoryChoiceCompany */
+        InsightsTrajectoryChoiceCompany: {
+            /** Company */
+            company: string;
+            /** Count */
+            count: number;
+            /** Median Tc */
+            median_tc: number;
+            /** Ticker */
+            ticker: string | null;
+            /**
+             * Total Source
+             * @enum {string}
+             */
+            total_source: "posted" | "estimated" | "mixed";
+        };
+        /** InsightsTrajectoryPrivateCompany */
+        InsightsTrajectoryPrivateCompany: {
+            /** Base */
+            base: number;
+            /** Bonus */
+            bonus: number;
+            /** Company */
+            company: string;
+            /** Count */
+            count: number;
+            /** Equity */
+            equity: number;
+            /** Equity Pct */
+            equity_pct: number;
+            /** Equity Vehicle */
+            equity_vehicle: string | null;
+            /** Median Tc */
+            median_tc: number;
+            sources: components["schemas"]["InsightsPartSources"];
+            /** Vesting */
+            vesting: string | null;
+        };
+        /** InsightsTrajectoryPublicCompany */
+        InsightsTrajectoryPublicCompany: {
+            /** Base */
+            base: number;
+            /** Bonus */
+            bonus: number;
+            /** Company */
+            company: string;
+            /** Count */
+            count: number;
+            /** Equity */
+            equity: number;
+            /** Equity Pct */
+            equity_pct: number;
+            /** Equity Vehicle */
+            equity_vehicle: string | null;
+            /** Median Tc */
+            median_tc: number;
+            sources: components["schemas"]["InsightsPartSources"];
+            /** Ticker */
+            ticker: string | null;
+            /** Vesting */
+            vesting: string | null;
+        };
+        /** InsightsTrajectorySetApart */
+        InsightsTrajectorySetApart: {
+            /** Count */
+            count: number;
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "not_us_pay" | "level_unplaced" | "base_only" | "basis_unclear" | "hourly" | "monthly" | "period_unclear" | "total_compensation" | "plugin_without_split" | "plugin_not_covered";
+        };
+        /** InsightsVelocity */
+        InsightsVelocity: {
+            /** Aging */
+            aging: components["schemas"]["InsightsVelocityAgingBand"][];
+            /** By Company */
+            by_company: components["schemas"]["InsightsVelocityCompany"][];
+            coverage: components["schemas"]["InsightsCoverage"];
+            /** Days */
+            days: number;
+            kpis: components["schemas"]["InsightsVelocityKpis"];
+            page?: components["schemas"]["InsightsPage"] | null;
+            /** Posted */
+            posted: components["schemas"]["InsightsVelocityAgingBand"][];
+            /** Since */
+            since: string | null;
+        };
+        /** InsightsVelocityAgingBand */
+        InsightsVelocityAgingBand: {
+            /** Count */
+            count: number;
+            /** Hi */
+            hi: number | null;
+            /** Lo */
+            lo: number;
+        };
+        /** InsightsVelocityCompany */
+        InsightsVelocityCompany: {
+            /** Closed */
+            closed: number;
+            /** Company */
+            company: string;
+            /** Median Days Open */
+            median_days_open: number | null;
+            /** Median Observed Listing Duration Days */
+            median_observed_listing_duration_days: number | null;
+            /** Open */
+            open: number;
+            /** Opened */
+            opened: number;
+            /** Reposted */
+            reposted: number;
+        };
+        /** InsightsVelocityKpis */
+        InsightsVelocityKpis: {
+            /** Age Unknown */
+            age_unknown: number;
+            /** Already Listed */
+            already_listed: number;
+            /** Closed */
+            closed: number;
+            /** Closed Employer Dated Share */
+            closed_employer_dated_share: number | null;
+            /** Closed Sample */
+            closed_sample: number;
+            /** Closed Unknown */
+            closed_unknown: number;
+            /** Employer Dated Share */
+            employer_dated_share: number | null;
+            /** Median Days Open */
+            median_days_open: number | null;
+            /** Median Observed Listing Duration Days */
+            median_observed_listing_duration_days: number | null;
+            /** Open Total */
+            open_total: number;
+            /** Opened */
+            opened: number;
+            /** Reposted */
+            reposted: number;
         };
         /**
          * IntelligenceFitBand
@@ -6524,6 +9400,8 @@ export interface components {
             department: string | null;
             /** Description Html */
             description_html: string | null;
+            /** Description Readable */
+            description_readable: boolean;
             /** Description Sections */
             description_sections: components["schemas"]["DescriptionSection"][];
             /** Description Text */
@@ -7245,6 +10123,88 @@ export interface components {
              */
             link: "twin" | "duplicate";
         };
+        /** KeptOffer */
+        KeptOffer: {
+            /** Answered */
+            answered: ("company" | "base" | "stock" | "strike" | "price" | "valuation" | "vesting" | "bonus" | "sign_on")[];
+            inputs: components["schemas"]["KeptOfferInputs"];
+            /**
+             * Saved At
+             * Format: date-time
+             */
+            saved_at: string;
+            started_from: components["schemas"]["KeptOfferOrigin"] | null;
+        };
+        /**
+         * KeptOfferInputs
+         * @description What the person entered. A null figure is blank, never zero.
+         */
+        KeptOfferInputs: {
+            /** Base */
+            base: number | null;
+            /** Bonus Pct */
+            bonus_pct: number | null;
+            /** Company */
+            company: string;
+            /** Grant */
+            grant: number | null;
+            /**
+             * Grant Unit
+             * @enum {string}
+             */
+            grant_unit: "dollars" | "shares";
+            /** Listed */
+            listed: boolean;
+            /** Price */
+            price: number | null;
+            /** Sign On */
+            sign_on: (number | null)[];
+            /** Strike */
+            strike: number | null;
+            /**
+             * Vehicle
+             * @enum {string}
+             */
+            vehicle: "rsu" | "options";
+            /** Vesting */
+            vesting: (number | null)[] | null;
+        };
+        /**
+         * KeptOfferOrigin
+         * @description The typical figures the offer was started from: a company's median
+         *     role, or one role (with its title).
+         */
+        KeptOfferOrigin: {
+            /** Company */
+            company: string;
+            /** Title */
+            title: string | null;
+        };
+        /**
+         * KeptValuation
+         * @description A private company's value at grant and the one the person tests, per
+         *     share or for the whole company.
+         */
+        KeptValuation: {
+            /** Company */
+            company: string;
+            /** Grant At */
+            grant_at: number | null;
+            /**
+             * Saved At
+             * Format: date-time
+             */
+            saved_at: string;
+            /** Share Count */
+            share_count: number | null;
+            /** Test At */
+            test_at: number | null;
+            /**
+             * Unit
+             * @enum {string}
+             */
+            unit: "per_share" | "company";
+        };
         /** LauncherHealthResponse */
         LauncherHealthResponse: {
             launcher: components["schemas"]["LauncherIdentity"];
@@ -7396,6 +10356,27 @@ export interface components {
          * @enum {string}
          */
         LevelBand: "intern" | "entry" | "mid" | "senior" | "staff" | "principal" | "director_plus";
+        /**
+         * LevelBase
+         * @description RoleBand's own base pay for one band, in US dollars; a total only when
+         *     base, bonus and stock are all known.
+         */
+        LevelBase: {
+            /** Band */
+            band: string;
+            /** Base Usd */
+            base_usd: number;
+            /** Below Lower */
+            below_lower: boolean;
+            /** Bonus Ratio */
+            bonus_ratio: number | null;
+            /** Bonus Usd */
+            bonus_usd: number | null;
+            /** Stock Usd */
+            stock_usd: number | null;
+            /** Total Usd */
+            total_usd: number | null;
+        };
         /**
          * LevelGuideCell
          * @description How one company names one level: one entry for every function, or one
@@ -8157,15 +11138,6 @@ export interface components {
             /** Total Bytes */
             total_bytes: number;
         };
-        /** McpServerCommand */
-        McpServerCommand: {
-            /** Args */
-            args: string[];
-            /** Command */
-            command: string;
-            /** Cwd */
-            cwd: string;
-        };
         /**
          * MoveBoardPayload
          * @description A board `POST .../board/find` answered with; verified again on write.
@@ -8334,6 +11306,15 @@ export interface components {
             inputs: components["schemas"]["OfferInputs"];
             started_from: components["schemas"]["OfferOrigin"] | null;
         };
+        /** OfferFact */
+        OfferFact: {
+            /** Fact */
+            fact: string;
+            /** Stated By */
+            stated_by: ("employer" | "estimated") | null;
+            /** Value */
+            value: string | number | boolean | null;
+        };
         /**
          * OfferInputs
          * @description What the person entered. A null figure is blank, never zero.
@@ -8413,6 +11394,14 @@ export interface components {
             /** Price */
             price: number;
         };
+        /** OfferRead */
+        OfferRead: {
+            offer: components["schemas"]["KeptOffer"] | null;
+            /** Valuation Count */
+            valuation_count: number;
+            /** Valuations */
+            valuations: components["schemas"]["KeptValuation"][];
+        };
         /**
          * OfferResponse
          * @description Every offer route: the offer (null when none) and the valuations by
@@ -8424,6 +11413,18 @@ export interface components {
             valuations: {
                 [key: string]: components["schemas"]["StoredValuation"];
             };
+        };
+        /**
+         * OfferRules
+         * @description How the company builds an offer, from the level atlas.
+         */
+        OfferRules: {
+            /** Facts */
+            facts: components["schemas"]["OfferFact"][];
+            /** Unknown Fields */
+            unknown_fields: string[];
+            /** Verified On */
+            verified_on: string | null;
         };
         /**
          * OfferTermsCompany
@@ -8458,6 +11459,63 @@ export interface components {
             companies: components["schemas"]["OfferTermsCompany"][];
             /** Feed Configured */
             feed_configured: boolean;
+        };
+        /**
+         * OperationBrief
+         * @description How to call one operation. Its input schema leaves out the titles
+         *     derived from field names; its output schema is in the full view.
+         */
+        OperationBrief: {
+            /**
+             * Access
+             * @enum {string}
+             */
+            access: "read" | "write";
+            availability: components["schemas"]["AvailabilityShape"];
+            /** Client Effects */
+            client_effects: ("file_write" | "browser_open" | "app_open")[];
+            /** Continue With */
+            continue_with: components["schemas"]["NextAction"][];
+            /** Contract Version */
+            contract_version: string;
+            /** Data Classes */
+            data_classes: ("public_posting" | "market_statistic" | "private_pursuit" | "offer" | "candidate")[];
+            engine_effects: components["schemas"]["EffectsShape"];
+            /** Examples */
+            examples: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Idempotency
+             * @enum {string}
+             */
+            idempotency: "read" | "required_key" | "natural_key";
+            /** Input Schema */
+            input_schema: {
+                [key: string]: unknown;
+            };
+            /** Introduced */
+            introduced: string;
+            /**
+             * Metadata Source
+             * @enum {string}
+             */
+            metadata_source: "bundled" | "engine";
+            /** Operation */
+            operation: string;
+            /** Required Scopes */
+            required_scopes: string[];
+            /** Summary */
+            summary: string;
+            /** Supports Dry Run */
+            supports_dry_run: boolean;
+            /** Tool Tiers */
+            tool_tiers: ("small" | "standard" | "full")[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            view: "summary";
         };
         /** OperationDetail */
         OperationDetail: {
@@ -8510,6 +11568,11 @@ export interface components {
             supports_dry_run: boolean;
             /** Tool Tiers */
             tool_tiers: ("small" | "standard" | "full")[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            view: "full";
         };
         /** OperationSummary */
         OperationSummary: {
@@ -8536,6 +11599,11 @@ export interface components {
             /** Tool Tiers */
             tool_tiers: ("small" | "standard" | "full")[];
         };
+        /**
+         * OperationView
+         * @description One operation in the view asked for; `view` names which.
+         */
+        OperationView: components["schemas"]["OperationBrief"] | components["schemas"]["OperationDetail"];
         /** OpportunityDetail */
         OpportunityDetail: {
             /** Company */
@@ -8548,9 +11616,11 @@ export interface components {
             description_sections: components["schemas"]["PostingSection"][];
             employer_stated_pay: components["schemas"]["EmployerStatedPay"] | null;
             /** Estimate Component */
-            estimate_component: string | null;
-            estimated_base: components["schemas"]["EstimatedBase"] | null;
-            estimated_total_comp: components["schemas"]["EstimatedTotalComp"] | null;
+            estimate_component?: string | null;
+            /** Estimated Base */
+            estimated_base?: components["schemas"]["EstimatedBase"] | null;
+            /** Estimated Total Comp */
+            estimated_total_comp?: components["schemas"]["EstimatedTotalComp"] | null;
             excerpt: components["schemas"]["Excerpt"] | null;
             /** Family */
             family: string | null;
@@ -8568,9 +11638,10 @@ export interface components {
             listed_since: string | null;
             /** Locations */
             locations: string[];
-            pursuit: components["schemas"]["PursuitState"] | null;
+            /** Pursuit */
+            pursuit?: components["schemas"]["PursuitState"] | null;
             /** Saved */
-            saved: boolean;
+            saved?: boolean;
             /** Status */
             status: string;
             /** Team */
@@ -8595,9 +11666,11 @@ export interface components {
             company: string;
             employer_stated_pay: components["schemas"]["EmployerStatedPay"] | null;
             /** Estimate Component */
-            estimate_component: string | null;
-            estimated_base: components["schemas"]["EstimatedBase"] | null;
-            estimated_total_comp: components["schemas"]["EstimatedTotalComp"] | null;
+            estimate_component?: string | null;
+            /** Estimated Base */
+            estimated_base?: components["schemas"]["EstimatedBase"] | null;
+            /** Estimated Total Comp */
+            estimated_total_comp?: components["schemas"]["EstimatedTotalComp"] | null;
             evidence: components["schemas"]["Evidence"];
             /** Family */
             family: string | null;
@@ -8615,9 +11688,10 @@ export interface components {
             listed_since: string | null;
             /** Locations */
             locations: string[];
-            pursuit: components["schemas"]["PursuitState"] | null;
+            /** Pursuit */
+            pursuit?: components["schemas"]["PursuitState"] | null;
             /** Saved */
-            saved: boolean;
+            saved?: boolean;
             /** Status */
             status: string;
             /** Title */
@@ -8638,11 +11712,15 @@ export interface components {
         OpportunitySummary: {
             /** Company */
             company: string;
+            /** Continue With */
+            continue_with?: components["schemas"]["NextAction"][];
             employer_stated_pay: components["schemas"]["EmployerStatedPay"] | null;
             /** Estimate Component */
-            estimate_component: string | null;
-            estimated_base: components["schemas"]["EstimatedBase"] | null;
-            estimated_total_comp: components["schemas"]["EstimatedTotalComp"] | null;
+            estimate_component?: string | null;
+            /** Estimated Base */
+            estimated_base?: components["schemas"]["EstimatedBase"] | null;
+            /** Estimated Total Comp */
+            estimated_total_comp?: components["schemas"]["EstimatedTotalComp"] | null;
             /** Family */
             family: string | null;
             /** First Seen */
@@ -8659,9 +11737,10 @@ export interface components {
             listed_since: string | null;
             /** Locations */
             locations: string[];
-            pursuit: components["schemas"]["PursuitState"] | null;
+            /** Pursuit */
+            pursuit?: components["schemas"]["PursuitState"] | null;
             /** Saved */
-            saved: boolean;
+            saved?: boolean;
             /** Status */
             status: string;
             /** Title */
@@ -8728,6 +11807,60 @@ export interface components {
             /** Term */
             term: string;
         };
+        /** PacketComponent */
+        PacketComponent: {
+            /** Fingerprint */
+            fingerprint: string | null;
+            /**
+             * Name
+             * @enum {string}
+             */
+            name: "posting" | "pay" | "company" | "pursuit";
+            /** Sha256 */
+            sha256: string;
+            /** Source Timestamps */
+            source_timestamps: {
+                [key: string]: string | null;
+            };
+        };
+        /** PairPassage */
+        PairPassage: {
+            /** Section */
+            section: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * PairReason
+         * @description One reason the detector gives, as a code and its numbers (`lineage.reasons`).
+         */
+        PairReason: {
+            /** Code */
+            code: string;
+            /** Params */
+            params: {
+                [key: string]: number | null;
+            };
+        };
+        /**
+         * PairTextDifference
+         * @description The postings' texts side by side: whether they could be compared, how
+         *     alike they are, and the passages each has that the other does not.
+         */
+        PairTextDifference: {
+            /** Alike */
+            alike: number;
+            /** Comparable */
+            comparable: boolean;
+            /** Only In Newer */
+            only_in_newer: components["schemas"]["PairPassage"][];
+            /** Only In Newer Count */
+            only_in_newer_count: number;
+            /** Only In Older */
+            only_in_older: components["schemas"]["PairPassage"][];
+            /** Only In Older Count */
+            only_in_older_count: number;
+        };
         /**
          * ParsedQueryEcho
          * @description The structured filters a search query was read as.
@@ -8770,6 +11903,17 @@ export interface components {
              * @enum {string}
              */
             equity: "posted" | "company_rule" | "measured" | "estimated" | "mixed";
+        };
+        /** Pay */
+        Pay: {
+            answered_by: components["schemas"]["Answering"];
+            /** Level Base */
+            level_base: components["schemas"]["LevelBase"][];
+            /** Levels */
+            levels: components["schemas"]["PayRung"][];
+            /** Notes */
+            notes: string | null;
+            offer_policy: components["schemas"]["OfferRules"] | null;
         };
         /**
          * PayBasis
@@ -8882,6 +12026,37 @@ export interface components {
          * @enum {string}
          */
         PayPeriod: "year" | "month" | "hour" | "unclear";
+        /**
+         * PayRung
+         * @description One level of the company's pay ladder, in whole units of `currency` as
+         *     its publisher stated them, never converted; shares are fractions.
+         */
+        PayRung: {
+            /** Band */
+            band: string | null;
+            /** Base */
+            base: number | null;
+            /** Base Share */
+            base_share: number | null;
+            /** Bonus */
+            bonus: number | null;
+            /** Bonus Share */
+            bonus_share: number | null;
+            /** Currency */
+            currency: string;
+            /** Level */
+            level: string;
+            /** Source */
+            source: string;
+            /** Source Url */
+            source_url: string | null;
+            /** Stock */
+            stock: number | null;
+            /** Stock Share */
+            stock_share: number | null;
+            /** Total Median */
+            total_median: number | null;
+        };
         /**
          * PayTableEquity
          * @description The equity facts the company itself states (`levels.pay.stated_equity`);
@@ -9012,6 +12187,28 @@ export interface components {
             /** Roles */
             roles: number;
         };
+        /** Place */
+        Place: {
+            /** City */
+            city: string;
+            /** Country */
+            country: string | null;
+            /** Is Hq */
+            is_hq: boolean;
+            /** Open Roles */
+            open_roles: number;
+        };
+        /** PlaceMember */
+        PlaceMember: {
+            /** Is This */
+            is_this: boolean;
+            /** Opportunity Id */
+            opportunity_id: number;
+            /** Relation */
+            relation: string;
+            /** Same Place */
+            same_place: boolean;
+        };
         /**
          * PlaceResult
          * @description One place the location search offers (`GET /api/scope/places`).
@@ -9043,6 +12240,22 @@ export interface components {
             places: components["schemas"]["PlaceResult"][];
             /** Unions */
             unions: components["schemas"]["UnionResult"][];
+        };
+        /**
+         * PlaceSetDeck
+         * @description The role listed once per place, by rule: same title and text, each at a different place.
+         */
+        PlaceSetDeck: {
+            /** Employer Label */
+            employer_label: string | null;
+            /** Members */
+            members: components["schemas"]["PlaceMember"][];
+            /** Places */
+            places: string[];
+            /** Rule Version */
+            rule_version: string | null;
+            /** Size */
+            size: number;
         };
         /** PlaceSetInfo */
         PlaceSetInfo: {
@@ -9242,6 +12455,22 @@ export interface components {
             state: "needs_approval" | "enabled" | "disabled" | "removed";
             /** Version */
             version: string;
+        };
+        /** PluginHealthChange */
+        PluginHealthChange: {
+            /** Job */
+            job: string;
+            /** Outcome */
+            outcome: string;
+            /** Plugin */
+            plugin: string;
+            /** Previous State */
+            previous_state: ("healthy" | "degraded" | "failing") | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "healthy" | "degraded" | "failing";
         };
         /** PluginJobView */
         PluginJobView: {
@@ -9640,6 +12869,25 @@ export interface components {
             /** Last Seen */
             last_seen: string | null;
         };
+        /** PostingDecks */
+        PostingDecks: {
+            /** Columns */
+            columns: string[];
+            /** Continue With */
+            continue_with: components["schemas"]["NextAction"][];
+            /** Opportunity Id */
+            opportunity_id: number;
+            place_set: components["schemas"]["PlaceSetDeck"] | null;
+            /** Place Set Split */
+            place_set_split: boolean;
+            reposts: components["schemas"]["RepostDeck"] | null;
+            /**
+             * Rows
+             * @description One array per posting, its values in the order `columns` names.
+             */
+            rows: (number | string | null)[][];
+            twins: components["schemas"]["TwinDeck"] | null;
+        };
         /**
          * PostingDiff
          * @description `build_member_diff`: one key per field that differs, absent otherwise.
@@ -9704,6 +12952,48 @@ export interface components {
             key: string;
             /** Title */
             title: string;
+        };
+        /**
+         * PostingTextResponse
+         * @description `POST /api/jobs/{job_id}/description`: read the posting's text because
+         *     someone opened it and its row has none. `read` stored it now;
+         *     `already_read` answers from storage with no request; `not_available` is a
+         *     posting nothing may read on open; `failed` stored nothing. The text is the
+         *     row's afterwards, as Job detail shows it.
+         */
+        PostingTextResponse: {
+            /** Description Sections */
+            description_sections: components["schemas"]["DescriptionSection"][];
+            /** Description Text */
+            description_text: string | null;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "read" | "already_read" | "not_available" | "failed";
+        };
+        /** PostingVerdict */
+        PostingVerdict: {
+            /** Counted From */
+            counted_from: ("role" | "posting") | null;
+            /** Criteria */
+            criteria: components["schemas"]["Criterion"][];
+            /** Criteria Total */
+            criteria_total: number;
+            /** Opportunity Id */
+            opportunity_id: number;
+            /** Relisted Here */
+            relisted_here: number | null;
+            /** Returns */
+            returns: number | null;
+            /** Role Postings */
+            role_postings: number | null;
+            /** Standing Since */
+            standing_since: string | null;
+            /** Status */
+            status: string;
+            /** Verdict */
+            verdict: ("possible" | "none") | null;
         };
         /** PreparationStatus */
         PreparationStatus: {
@@ -9823,6 +13113,66 @@ export interface components {
             price: number;
             /** Ticker */
             ticker: string;
+        };
+        /** PricesPage */
+        PricesPage: {
+            /** Attribution */
+            attribution: string | null;
+            /** Columns */
+            columns: string[];
+            /** Count */
+            count: number;
+            /** Currency */
+            currency: string;
+            /** Feed Configured */
+            feed_configured: boolean;
+            latest: components["schemas"]["Quote"] | null;
+            /**
+             * Range
+             * @enum {string}
+             */
+            range: "1m" | "3m" | "6m" | "1y";
+            /**
+             * Rows
+             * @description One array per row, its values in the order `columns` names.
+             */
+            rows: [
+                string,
+                number | null,
+                number | null,
+                number | null,
+                number,
+                number | null
+            ][];
+            /** Slug */
+            slug: string;
+            /** Total */
+            total: number;
+        };
+        /**
+         * ProfileFact
+         * @description A resolved fact and how far to trust it. An unasserted one has a null
+         *     value and null provenance.
+         */
+        ProfileFact: {
+            /** Answered By */
+            answered_by: string | null;
+            /** Basis */
+            basis: ("official" | "estimated" | "dataset" | "seed" | "inferred" | "human" | "plugin") | null;
+            /** Conflicts */
+            conflicts: components["schemas"]["FactConflict"][];
+            /** Field */
+            field: string;
+            /** Freshness */
+            freshness: string | null;
+            /** Observed At */
+            observed_at: string | null;
+            /** Pinned */
+            pinned: boolean;
+            /** Source */
+            source: string | null;
+            /** Value */
+            value: string | number | boolean | null;
         };
         /**
          * ProfileFieldCandidate
@@ -10089,10 +13439,6 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
-            /** Id */
-            id: number;
-            /** Job Id */
-            job_id: number;
             /** Next Action */
             next_action: string | null;
             /** Next Action Due */
@@ -10100,7 +13446,10 @@ export interface components {
             next_interview: components["schemas"]["PursuitRound"] | null;
             /** Notes */
             notes: string | null;
-            opportunity: components["schemas"]["PursuedOpportunity"];
+            /** Opportunity */
+            opportunity?: components["schemas"]["PursuedOpportunity"];
+            /** Opportunity Id */
+            opportunity_id: number;
             /** Priority */
             priority: number;
             /** Priority Set */
@@ -10112,6 +13461,8 @@ export interface components {
              * @enum {string}
              */
             stage: "saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed";
+            /** Steps */
+            steps: components["schemas"]["PursuitNextStep"][];
             /**
              * Updated At
              * Format: date-time
@@ -10167,6 +13518,26 @@ export interface components {
             /** Pursuits */
             pursuits: components["schemas"]["PursuitListItem"][];
         };
+        /**
+         * PursuitNextStep
+         * @description One next step the person owes: `steps.edit`, `steps.done` and
+         *     `steps.undo` take its id.
+         */
+        PursuitNextStep: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Done At */
+            done_at: string | null;
+            /** Due */
+            due: string | null;
+            /** Id */
+            id: number;
+            /** Text */
+            text: string;
+        };
         /** PursuitOpportunity */
         PursuitOpportunity: {
             /** Company */
@@ -10201,7 +13572,7 @@ export interface components {
         };
         /**
          * PursuitState
-         * @description One pursuit's fields as every surface shows them.
+         * @description One pursuit's fields as every agent operation shows them.
          */
         PursuitState: {
             /**
@@ -10209,16 +13580,14 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
-            /** Id */
-            id: number;
-            /** Job Id */
-            job_id: number;
             /** Next Action */
             next_action: string | null;
             /** Next Action Due */
             next_action_due: string | null;
             /** Notes */
             notes: string | null;
+            /** Opportunity Id */
+            opportunity_id: number;
             /** Priority */
             priority: number;
             /** Revision */
@@ -10254,20 +13623,57 @@ export interface components {
         PursuitWriteResponse: {
             pursuit: components["schemas"]["JobPursuit"];
         };
-        /** RadarSummary */
+        /**
+         * Quote
+         * @description The latest cached quote. `as_of` is a market date.
+         */
+        Quote: {
+            /**
+             * As Of
+             * Format: date
+             */
+            as_of: string;
+            /** Change Abs */
+            change_abs: number | null;
+            /** Change Pct */
+            change_pct: number | null;
+            /** Currency */
+            currency: string;
+            /** Price */
+            price: number;
+            /** Ticker */
+            ticker: string;
+        };
+        /**
+         * RadarSummary
+         * @description The pursuit counts are absent when the person does not share their
+         *     pursuits with assistants.
+         */
         RadarSummary: {
             /** Active Pursuits */
-            active_pursuits: number;
+            active_pursuits?: number;
             /** Open Opportunities */
             open_opportunities: number;
             /** Overdue Next Actions */
-            overdue_next_actions: number;
+            overdue_next_actions?: number;
             /** Pursuits By Stage */
-            pursuits_by_stage: {
+            pursuits_by_stage?: {
                 [key: string]: number;
             };
             /** Saved Opportunities */
-            saved_opportunities: number;
+            saved_opportunities?: number;
+        };
+        /**
+         * Reason
+         * @description One reason a link gives, as a code and its numbers (`lineage.reasons`).
+         */
+        Reason: {
+            /** Code */
+            code: string;
+            /** Params */
+            params: {
+                [key: string]: number | null;
+            };
         };
         /**
          * ReasonSaid
@@ -10554,6 +13960,36 @@ export interface components {
             /** Version */
             version: string;
         };
+        /**
+         * RepostDeck
+         * @description The role listed again over time: every posting of it, oldest first.
+         */
+        RepostDeck: {
+            /** First Seen */
+            first_seen: string | null;
+            /** Last Seen */
+            last_seen: string | null;
+            /** Lineage Id */
+            lineage_id: number;
+            /** Members */
+            members: components["schemas"]["RepostMember"][];
+            /** Open Members */
+            open_members: number | null;
+            /** Size */
+            size: number;
+        };
+        /** RepostMember */
+        RepostMember: {
+            /** Effective */
+            effective: boolean;
+            link: components["schemas"]["DeckLink"] | null;
+            /** Opportunity Id */
+            opportunity_id: number;
+            /** Role */
+            role: string | null;
+            /** Seq */
+            seq: number | null;
+        };
         /** RequirementEvidence */
         RequirementEvidence: {
             /** End Offset */
@@ -10609,6 +14045,13 @@ export interface components {
             /** Slug */
             slug: string;
         };
+        /** ResourceIndex */
+        ResourceIndex: {
+            /** Operations */
+            operations: string[];
+            /** Summary */
+            summary: string;
+        };
         /**
          * RetentionChoice
          * @description One option of the Select, with what a run under it would remove now.
@@ -10660,6 +14103,20 @@ export interface components {
         RetentionUpdate: {
             /** Days */
             days: number | null;
+        };
+        /**
+         * ReviewItem
+         * @description A fact the person is asked to confirm or correct, with the best-trusted value on offer.
+         */
+        ReviewItem: {
+            /** Field */
+            field: string;
+            /** Reason */
+            reason: string;
+            /** Suggestion */
+            suggestion: string | number | boolean | null;
+            /** Suggestion Source */
+            suggestion_source: string | null;
         };
         /**
          * RoleAge
@@ -11527,19 +14984,7 @@ export interface components {
              * Rows
              * @description One array per opportunity, its values in the order `columns` names.
              */
-            rows: [
-                number,
-                string,
-                string,
-                string | null,
-                number,
-                string | null,
-                string | null,
-                number | null,
-                string | null,
-                string | null,
-                string | null
-            ][];
+            rows: (number | string | null)[][];
             /**
              * Sort
              * @enum {string}
@@ -11895,6 +15340,44 @@ export interface components {
              */
             scope: "within" | "cross" | "all";
         };
+        /** SimilarRoles */
+        SimilarRoles: {
+            /** Columns */
+            columns: string[];
+            /** Continue With */
+            continue_with: components["schemas"]["NextAction"][];
+            /** Opportunity Id */
+            opportunity_id: number;
+            /**
+             * Rows
+             * @description One array per posting, its values in the order `columns` names.
+             */
+            rows: (number | string | null)[][];
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "within" | "cross" | "all";
+            /** Similar */
+            similar: [
+                number,
+                number
+            ][];
+        };
+        /** SourceHealthChange */
+        SourceHealthChange: {
+            /** Outcome */
+            outcome: string;
+            /** Previous State */
+            previous_state: ("healthy" | "degraded" | "failing") | null;
+            /** Provider */
+            provider: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "healthy" | "degraded" | "failing";
+        };
         /** SourceInspection */
         SourceInspection: {
             /** Content */
@@ -11953,6 +15436,25 @@ export interface components {
             reason: "authoritative_stale";
         };
         /**
+         * StatedBand
+         * @description One side of a stated-pay change: the employer's base band as stated.
+         */
+        StatedBand: {
+            /** Currency */
+            currency: string | null;
+            /** High */
+            high: number | null;
+            /** Low */
+            low: number | null;
+            /** Period */
+            period: string | null;
+        };
+        /** StatedPayChange */
+        StatedPayChange: {
+            after: components["schemas"]["StatedBand"];
+            before: components["schemas"]["StatedBand"];
+        };
+        /**
          * StatisticsOverviewResponse
          * @description `GET /api/statistics/overview`. `days <= 0` is all-time. The one-line
          *     brief is the dashboard's, said from these facts.
@@ -12004,6 +15506,22 @@ export interface components {
             trust: components["schemas"]["EngineTrust"];
             /** Workspace Id */
             workspace_id: string;
+        };
+        /** StepUpdate */
+        StepUpdate: {
+            /** Done */
+            done?: boolean | null;
+            /** Due */
+            due?: string | null;
+            /** Text */
+            text?: string | null;
+        };
+        /** StepWrite */
+        StepWrite: {
+            /** Due */
+            due?: string | null;
+            /** Text */
+            text: string;
         };
         /** StoredOffer */
         StoredOffer: {
@@ -12487,6 +16005,26 @@ export interface components {
             reason: "not_us_pay" | "level_unplaced" | "base_only" | "basis_unclear" | "hourly" | "monthly" | "period_unclear" | "total_compensation" | "plugin_without_split" | "plugin_not_covered";
         };
         /**
+         * TwinDeck
+         * @description The role listed more than once at the same time: the asked posting first.
+         */
+        TwinDeck: {
+            /** Direct Count */
+            direct_count: number;
+            /** Members */
+            members: components["schemas"]["TwinDeckMember"][];
+            /** Size */
+            size: number;
+        };
+        /** TwinDeckMember */
+        TwinDeckMember: {
+            /** Direct */
+            direct: boolean;
+            link: components["schemas"]["DeckLink"] | null;
+            /** Opportunity Id */
+            opportunity_id: number;
+        };
+        /**
          * TwinLinkCreated
          * @description `POST /api/twins/links`: a human-confirmed twin, new or re-confirmed.
          */
@@ -12530,10 +16068,14 @@ export interface components {
         TwinProposal: {
             /** Confidence */
             confidence: string;
+            /** Decided By */
+            decided_by: ("person" | "agent") | null;
             /** Decision */
             decision: string | null;
             /** Decision Changes */
             decision_changes: number;
+            /** Decision Note */
+            decision_note: string | null;
             /** Description Diff */
             description_diff: {
                 [key: string]: unknown;
@@ -12651,6 +16193,16 @@ export interface components {
              * @enum {string}
              */
             status: "confirmed" | "rejected" | "pending";
+        };
+        /** UnavailableKind */
+        UnavailableKind: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "new" | "closed" | "reopened" | "reposted" | "stated_pay_changed" | "pursuit_due" | "source_health" | "plugin_source_health";
+            /** Reason */
+            reason: string;
         };
         /**
          * UnconfirmedPosting
@@ -12962,11 +16514,138 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    agent_activity_api_agent_activity_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                kind?: "all" | "change" | "read" | "refused";
+                category?: ("public_posting" | "market_statistic" | "private_pursuit" | "offer" | "candidate") | null;
+                host?: ("claude-code" | "codex" | "other") | null;
+                since?: string | null;
+                until?: string | null;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityPageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    agent_activity_entry_api_agent_activity__entry_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityEntry"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    application_board_api_agent_v1_applications_get: {
+        parameters: {
+            query?: {
+                /** @description Only the applications at this stage. */
+                stage?: ("saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed") | null;
+                /** @description The caller's tool tier, which bounds the page. */
+                tier?: "small" | "standard" | "full";
+                /** @description The next_cursor of the previous page, read with the same stage. */
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_ApplicationBoard_"];
+                };
+            };
+        };
+    };
+    application_calendar_api_agent_v1_applications_calendar_get: {
+        parameters: {
+            query: {
+                /** @description The span's first instant, with its offset. */
+                start: string;
+                /** @description The instant the span stops before, with its offset; at most 42 days after start. */
+                end: string;
+                /** @description The caller's tool tier, which bounds the page. */
+                tier?: "small" | "standard" | "full";
+                /** @description The next_cursor of the previous page, read with the same span. */
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_ApplicationCalendar_"];
+                };
+            };
+        };
+    };
     capabilities_api_agent_v1_capabilities_get: {
         parameters: {
             query?: {
                 /** @description List only the operations in this tool tier. */
                 tier?: ("small" | "standard" | "full") | null;
+                /** @description summary (each resource's summary and operation ids) or full (each operation's summary, access, availability, effects, data classes, tiers and idempotency). */
+                view?: "summary" | "full";
             };
             header?: never;
             path?: never;
@@ -12985,9 +16664,648 @@ export interface operations {
             };
         };
     };
-    describe_api_agent_v1_operations__operation__get: {
+    change_list_api_agent_v1_changes_get: {
+        parameters: {
+            query?: {
+                /** @description The next_since of the previous page: the read continues after it, in commit order, with the same kinds. Without it the read starts at start_time, or at the oldest change kept. A read made while pursuits are not shared can move past pursuit due times that passed meanwhile; those are not caught up when sharing turns back on. */
+                since?: string | null;
+                /** @description Without since: start with the changes recorded at or after this time, with its UTC offset. Pursuits whose next action fell due from this time on are included. Later reads with the since this read gives keep the bound. */
+                start_time?: string | null;
+                /** @description Only these kinds; every kind the person shares when left out. A since read keeps the kinds of the read it continues. */
+                kinds?: ("new" | "closed" | "reopened" | "reposted" | "stated_pay_changed" | "pursuit_due" | "source_health" | "plugin_source_health")[] | null;
+                /** @description Events on one page. */
+                limit?: number;
+                /** @description The caller's tool tier, which bounds the page. */
+                tier?: "small" | "standard" | "full";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_ChangesPage_"];
+                };
+            };
+        };
+    };
+    company_list_api_agent_v1_companies_get: {
+        parameters: {
+            query?: {
+                /** @description Words a company's name, slug or ticker contains, as the Companies search box matches. */
+                query?: string | null;
+                /** @description Sectors, by slug; repeat for more. Any one matches. */
+                sector?: string[];
+                /** @description Only companies the level atlas researched (true), or only the others (false). */
+                researched?: boolean | null;
+                /** @description Only companies whose facts need a person's review. */
+                needs_review?: boolean;
+                /** @description Most rows on one page. */
+                limit?: number;
+                /** @description The next_cursor of the previous page, read with the same filters. */
+                cursor?: string | null;
+                /** @description The caller's tool tier, which bounds the page. */
+                tier?: "small" | "standard" | "full";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_CompanyPage_"];
+                };
+            };
+        };
+    };
+    company_get_api_agent_v1_companies__company__get: {
+        parameters: {
+            query?: {
+                /** @description profile (facts, pay, price), or benefits or locations whole, a page at a time. */
+                view?: "profile" | "benefits" | "locations";
+                /** @description benefits and locations: most rows on one page. */
+                limit?: number;
+                /** @description benefits and locations: the next_cursor of the previous page. */
+                cursor?: string | null;
+                /** @description The caller's tool tier, which bounds the answer. */
+                tier?: "small" | "standard" | "full";
+            };
+            header?: never;
+            path: {
+                /** @description The company's slug, as companies.list returns it. */
+                company: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_CompanyView_"];
+                };
+            };
+        };
+    };
+    company_facts_api_agent_v1_companies__company__facts_get: {
+        parameters: {
+            query?: {
+                /** @description Only the claims about this fact, such as headcount. */
+                field?: string | null;
+                /** @description Most rows on one page. */
+                limit?: number;
+                /** @description The next_cursor of the previous page, read with the same filters. */
+                cursor?: string | null;
+                /** @description The caller's tool tier, which bounds the page. */
+                tier?: "small" | "standard" | "full";
+            };
+            header?: never;
+            path: {
+                /** @description The company's slug, as companies.list returns it. */
+                company: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_FactsPage_"];
+                };
+            };
+        };
+    };
+    company_prices_api_agent_v1_companies__company__prices_get: {
+        parameters: {
+            query?: {
+                /** @description How far back: 1m, 3m, 6m or 1y. */
+                range?: "1m" | "3m" | "6m" | "1y";
+                /** @description The next_cursor of the previous page. */
+                cursor?: string | null;
+                /** @description The caller's tool tier, which bounds the page. */
+                tier?: "small" | "standard" | "full";
+            };
+            header?: never;
+            path: {
+                /** @description The company's slug, as companies.list returns it. */
+                company: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PricesPage_"];
+                };
+            };
+        };
+    };
+    doctor_api_agent_v1_doctor_get: {
+        parameters: {
+            query?: {
+                /** @description The caller's tool tier, which bounds the report. */
+                tier?: "small" | "standard" | "full";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_DoctorReport_"];
+                };
+            };
+        };
+    };
+    duplicate_queue_api_agent_v1_duplicates_queue_get: {
+        parameters: {
+            query?: {
+                /** @description Only pairs with a posting the person saved or pursues. */
+                mine?: boolean;
+                /** @description Most pairs on one page. */
+                limit?: number;
+                /** @description The next_cursor of the previous page, read with the same filters. */
+                cursor?: string | null;
+                /** @description The caller's tool tier, which bounds the page. */
+                tier?: "small" | "standard" | "full";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_DuplicateQueue_"];
+                };
+            };
+        };
+    };
+    duplicate_decide_api_agent_v1_duplicates_verdicts_post: {
         parameters: {
             query?: never;
+            header: {
+                "X-RoleBand-Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Verdicts
+                     * @description 1 to 50 verdicts, each on its own pair.
+                     */
+                    verdicts: {
+                        /**
+                         * Pair
+                         * @description The pair, as duplicates.queue names it: lineage-<id> or twin-<id>.
+                         */
+                        pair: string;
+                        /**
+                         * Reason
+                         * @description One line the person reads beside the verdict: what in the postings decided it.
+                         */
+                        reason: string;
+                        /**
+                         * Verdict
+                         * @description same_opening (one opening listed again), two_openings (the same role, separate openings), different_roles, or unsure (leave it for the person).
+                         * @enum {string}
+                         */
+                        verdict: "same_opening" | "two_openings" | "different_roles" | "unsure";
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_DuplicateVerdictsResult_"];
+                };
+            };
+        };
+    };
+    insights_compensation_api_agent_v1_insights_compensation_get: {
+        parameters: {
+            query?: {
+                /** @description The caller's tool tier, which bounds the answer. */
+                tier?: "small" | "standard" | "full";
+                /** @description Read on from where an answer stopped, as its continue_with gives it. */
+                cursor?: string | null;
+                /** @description Which companies: all, yours (the ones you picked) or other (followed through the market sweep). */
+                side?: "all" | "yours" | "other";
+                /** @description Narrow to these disciplines (role families); vocabulary.list kind=family lists them. */
+                family?: string[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_InsightsCompensation_"];
+                };
+            };
+        };
+    };
+    insights_demand_api_agent_v1_insights_demand_get: {
+        parameters: {
+            query?: {
+                /** @description The caller's tool tier, which bounds the answer. */
+                tier?: "small" | "standard" | "full";
+                /** @description Read on from where an answer stopped, as its continue_with gives it. */
+                cursor?: string | null;
+                /** @description Which companies: all, yours (the ones you picked) or other (followed through the market sweep). */
+                side?: "all" | "yours" | "other";
+                /** @description Narrow to these disciplines (role families); vocabulary.list kind=family lists them. */
+                family?: string[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_InsightsDemand_"];
+                };
+            };
+        };
+    };
+    insights_disclosure_trends_api_agent_v1_insights_disclosure_trends_get: {
+        parameters: {
+            query?: {
+                /** @description The caller's tool tier, which bounds the answer. */
+                tier?: "small" | "standard" | "full";
+                /** @description Read on from where an answer stopped, as its continue_with gives it. */
+                cursor?: string | null;
+                /** @description Which companies: all, yours or other. */
+                side?: "all" | "yours" | "other";
+                /** @description One series overall, or one per company or level. */
+                dim?: "overall" | "company" | "level";
+                /** @description The window in days; 0 is all history. */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_InsightsDisclosureTrends_"];
+                };
+            };
+        };
+    };
+    insights_history_api_agent_v1_insights_history_get: {
+        parameters: {
+            query?: {
+                /** @description Which companies: all, yours (the ones you picked) or other (followed through the market sweep). */
+                side?: "all" | "yours" | "other";
+                /** @description Narrow to these disciplines (role families); vocabulary.list kind=family lists them. */
+                family?: string[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_InsightsHistory_"];
+                };
+            };
+        };
+    };
+    insights_levels_api_agent_v1_insights_levels_get: {
+        parameters: {
+            query?: {
+                /** @description The caller's tool tier, which bounds the answer. */
+                tier?: "small" | "standard" | "full";
+                /** @description Read on from where an answer stopped, as its continue_with gives it. */
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_InsightsLevels_"];
+                };
+            };
+        };
+    };
+    insights_offer_terms_api_agent_v1_insights_offer_terms_get: {
+        parameters: {
+            query?: {
+                /** @description The caller's tool tier, which bounds the answer. */
+                tier?: "small" | "standard" | "full";
+                /** @description Read on from where an answer stopped, as its continue_with gives it. */
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_InsightsOfferTerms_"];
+                };
+            };
+        };
+    };
+    insights_overview_api_agent_v1_insights_overview_get: {
+        parameters: {
+            query?: {
+                /** @description Which companies: all, yours (the ones you picked) or other (followed through the market sweep). */
+                side?: "all" | "yours" | "other";
+                /** @description Narrow to these disciplines (role families); vocabulary.list kind=family lists them. */
+                family?: string[];
+                /** @description The window in days; 0 is all time. */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_InsightsOverview_"];
+                };
+            };
+        };
+    };
+    insights_pay_table_api_agent_v1_insights_pay_table_get: {
+        parameters: {
+            query: {
+                /** @description The caller's tool tier, which bounds the answer. */
+                tier?: "small" | "standard" | "full";
+                /** @description Read on from where an answer stopped, as its continue_with gives it. */
+                cursor?: string | null;
+                /** @description Which companies: all, yours (the ones you picked) or other (followed through the market sweep). */
+                side?: "all" | "yours" | "other";
+                /** @description Narrow to these disciplines (role families); vocabulary.list kind=family lists them. */
+                family?: string[];
+                /** @description An ISO 3166-1 alpha-2 country code. */
+                country: string;
+                /** @description The level band to compare companies at. */
+                level: "intern" | "entry" | "mid" | "senior" | "staff" | "principal" | "director_plus";
+                /** @description Narrow the companies to roles naming this skill (its slug). */
+                skill?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_InsightsPayTable_"];
+                };
+            };
+        };
+    };
+    insights_pay_trends_api_agent_v1_insights_pay_trends_get: {
+        parameters: {
+            query?: {
+                /** @description The caller's tool tier, which bounds the answer. */
+                tier?: "small" | "standard" | "full";
+                /** @description Read on from where an answer stopped, as its continue_with gives it. */
+                cursor?: string | null;
+                /** @description Which companies: all, yours (the ones you picked) or other (followed through the market sweep). */
+                side?: "all" | "yours" | "other";
+                /** @description Narrow to these disciplines (role families); vocabulary.list kind=family lists them. */
+                family?: string[];
+                /** @description One series overall, or one per company, level or discipline. */
+                dim?: "overall" | "company" | "level" | "family";
+                /** @description The window in days; 0 is all history. */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_InsightsPayTrends_"];
+                };
+            };
+        };
+    };
+    insights_skills_api_agent_v1_insights_skills_get: {
+        parameters: {
+            query?: {
+                /** @description The caller's tool tier, which bounds the answer. */
+                tier?: "small" | "standard" | "full";
+                /** @description Read on from where an answer stopped, as its continue_with gives it. */
+                cursor?: string | null;
+                /** @description Which companies: all, yours (the ones you picked) or other (followed through the market sweep). */
+                side?: "all" | "yours" | "other";
+                /** @description Narrow to these disciplines (role families); vocabulary.list kind=family lists them. */
+                family?: string[];
+                /** @description Narrow the slice to these companies. */
+                company?: string[];
+                /** @description Narrow the slice to these places; vocabulary.list kind=location lists them. */
+                location?: string[];
+                /** @description How many skills to rank. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_InsightsSkills_"];
+                };
+            };
+        };
+    };
+    insights_trajectory_api_agent_v1_insights_trajectory_get: {
+        parameters: {
+            query?: {
+                /** @description The caller's tool tier, which bounds the answer. */
+                tier?: "small" | "standard" | "full";
+                /** @description Read on from where an answer stopped, as its continue_with gives it. */
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_InsightsTrajectory_"];
+                };
+            };
+        };
+    };
+    insights_velocity_api_agent_v1_insights_velocity_get: {
+        parameters: {
+            query?: {
+                /** @description The caller's tool tier, which bounds the answer. */
+                tier?: "small" | "standard" | "full";
+                /** @description Read on from where an answer stopped, as its continue_with gives it. */
+                cursor?: string | null;
+                /** @description Which companies: all, yours (the ones you picked) or other (followed through the market sweep). */
+                side?: "all" | "yours" | "other";
+                /** @description Narrow to these disciplines (role families); vocabulary.list kind=family lists them. */
+                family?: string[];
+                /** @description The window in days; 0 is all time. */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_InsightsVelocity_"];
+                };
+            };
+        };
+    };
+    offer_get_api_agent_v1_offer_get: {
+        parameters: {
+            query?: {
+                /** @description The caller's tool tier, which bounds the page of valuations. */
+                tier?: "small" | "standard" | "full";
+                /** @description The next_cursor of the previous page: the valuations after it, by company slug. */
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_OfferRead_"];
+                };
+            };
+        };
+    };
+    describe_api_agent_v1_operations__operation__get: {
+        parameters: {
+            query?: {
+                /** @description summary (how to call it: input schema, effects, scopes, examples) or full (also its output schema). */
+                view?: "summary" | "full";
+            };
             header?: never;
             path: {
                 /** @description A dotted operation id from capabilities. */
@@ -13003,7 +17321,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Envelope_OperationDetail_"];
+                    "application/json": components["schemas"]["Envelope_OperationView_"];
                 };
             };
         };
@@ -13067,6 +17385,31 @@ export interface operations {
             };
         };
     };
+    opportunity_get_many_api_agent_v1_opportunities_get_many_get: {
+        parameters: {
+            query: {
+                /** @description Opportunity ids, as search returns them; 1 to 100. A repeated id is read once. */
+                ids: number[];
+                /** @description The caller's tool tier, which bounds the answer. */
+                tier?: "small" | "standard" | "full";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_GetManyPage_"];
+                };
+            };
+        };
+    };
     opportunity_get_api_agent_v1_opportunities__opportunity_id__get: {
         parameters: {
             query?: {
@@ -13097,6 +17440,62 @@ export interface operations {
             };
         };
     };
+    context_export_api_agent_v1_opportunities__opportunity_id__context_get: {
+        parameters: {
+            query?: {
+                /** @description The caller's tool tier, which bounds one part of the packet. */
+                tier?: "small" | "standard" | "full";
+                /** @description Read the packet from this character on, as continue_with gives it; the parts joined are the packet. */
+                packet_from?: number | null;
+                /** @description The manifest's packet_sha256 of the parts read so far, as continue_with gives it. A packet that changed since is refused, so parts of two packets are never joined. */
+                packet_sha256?: string | null;
+            };
+            header?: never;
+            path: {
+                /** @description The opportunity's id, as search returns it. */
+                opportunity_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_ContextExport_"];
+                };
+            };
+        };
+    };
+    opportunity_duplicates_api_agent_v1_opportunities__opportunity_id__duplicates_get: {
+        parameters: {
+            query?: {
+                /** @description The caller's tool tier, which bounds the answer. */
+                tier?: "small" | "standard" | "full";
+            };
+            header?: never;
+            path: {
+                /** @description The opportunity's id, as search returns it. */
+                opportunity_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PostingDecks_"];
+                };
+            };
+        };
+    };
     opportunity_history_api_agent_v1_opportunities__opportunity_id__history_get: {
         parameters: {
             query?: never;
@@ -13116,6 +17515,62 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Envelope_ListingHistory_"];
+                };
+            };
+        };
+    };
+    opportunity_reality_api_agent_v1_opportunities__opportunity_id__reality_get: {
+        parameters: {
+            query?: {
+                /** @description The caller's tool tier, which bounds the answer. */
+                tier?: "small" | "standard" | "full";
+            };
+            header?: never;
+            path: {
+                /** @description The opportunity's id, as search returns it. */
+                opportunity_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PostingVerdict_"];
+                };
+            };
+        };
+    };
+    opportunity_similar_api_agent_v1_opportunities__opportunity_id__similar_get: {
+        parameters: {
+            query?: {
+                /** @description within (the same company), cross (other companies) or all. */
+                scope?: "within" | "cross" | "all";
+                /** @description Most similar roles to name. */
+                limit?: number;
+                /** @description The caller's tool tier, which bounds the answer. */
+                tier?: "small" | "standard" | "full";
+            };
+            header?: never;
+            path: {
+                /** @description The opportunity's id, as search returns it. */
+                opportunity_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_SimilarRoles_"];
                 };
             };
         };
@@ -13256,6 +17711,172 @@ export interface operations {
                      * @enum {string}
                      */
                     stage?: "saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed";
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PursuitItem_"];
+                };
+            };
+        };
+    };
+    step_add_api_agent_v1_pursuits__opportunity_id__steps_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-RoleBand-Idempotency-Key": string;
+            };
+            path: {
+                /** @description The opportunity the pursuit is about. */
+                opportunity_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Due
+                     * @description The day it is due by, with its UTC offset. Leave it out for a step with no day.
+                     */
+                    due?: string | null;
+                    /**
+                     * If Revision
+                     * @description The pursuit's revision you read (pursuits.get); 0 when the role has no pursuit yet. A pursuit that moved since is not changed.
+                     */
+                    if_revision: number;
+                    /**
+                     * Text
+                     * @description What to do.
+                     */
+                    text: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PursuitItem_"];
+                };
+            };
+        };
+    };
+    step_edit_api_agent_v1_pursuits__opportunity_id__steps__step_id__patch: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-RoleBand-Idempotency-Key": string;
+            };
+            path: {
+                /** @description The opportunity the pursuit is about. */
+                opportunity_id: number;
+                /** @description The step's id, from the pursuit's steps (pursuits.get). */
+                step_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Due
+                     * @description The step's new day, with its UTC offset. null takes its day off; leave the field out to keep it.
+                     */
+                    due?: string | null;
+                    /**
+                     * If Revision
+                     * @description The pursuit's revision you read (pursuits.get); 0 when the role has no pursuit yet. A pursuit that moved since is not changed.
+                     */
+                    if_revision: number;
+                    /**
+                     * Text
+                     * @description The step's new words. Cannot be null.
+                     */
+                    text?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PursuitItem_"];
+                };
+            };
+        };
+    };
+    step_done_api_agent_v1_pursuits__opportunity_id__steps__step_id__done_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-RoleBand-Idempotency-Key": string;
+            };
+            path: {
+                /** @description The opportunity the pursuit is about. */
+                opportunity_id: number;
+                /** @description The step's id, from the pursuit's steps (pursuits.get). */
+                step_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * If Revision
+                     * @description The pursuit's revision you read (pursuits.get); 0 when the role has no pursuit yet. A pursuit that moved since is not changed.
+                     */
+                    if_revision: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PursuitItem_"];
+                };
+            };
+        };
+    };
+    step_undo_api_agent_v1_pursuits__opportunity_id__steps__step_id__undo_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-RoleBand-Idempotency-Key": string;
+            };
+            path: {
+                /** @description The opportunity the pursuit is about. */
+                opportunity_id: number;
+                /** @description The step's id, from the pursuit's steps (pursuits.get). */
+                step_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * If Revision
+                     * @description The pursuit's revision you read (pursuits.get); 0 when the role has no pursuit yet. A pursuit that moved since is not changed.
+                     */
+                    if_revision: number;
                 };
             };
         };
@@ -13564,7 +18185,8 @@ export interface operations {
     activity_ep_api_applications__job_id__activity_get: {
         parameters: {
             query?: {
-                limit?: number;
+                /** @description At most this many entries; the whole history when absent. */
+                limit?: number | null;
                 offset?: number;
             };
             header?: never;
@@ -14799,6 +19421,39 @@ export interface operations {
             };
         };
     };
+    patch_agent_access_ep_api_intelligence_agents_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentAccessChoices"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentAccessResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_cloud_llm_profiles_api_intelligence_cloud_models_get: {
         parameters: {
             query?: never;
@@ -15500,6 +20155,39 @@ export interface operations {
             };
         };
     };
+    read_posting_text_on_open_api_jobs__job_id__description_post: {
+        parameters: {
+            query?: {
+                retry?: boolean;
+            };
+            header?: never;
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PostingTextResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     add_favorite_api_jobs__job_id__favorite_put: {
         parameters: {
             query?: never;
@@ -16028,6 +20716,109 @@ export interface operations {
             };
         };
     };
+    add_step_ep_api_jobs__job_id__pursuit_steps_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StepWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationStepResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_step_ep_api_jobs__job_id__pursuit_steps__step_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+                step_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationDeleted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_step_ep_api_jobs__job_id__pursuit_steps__step_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+                step_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StepUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationStepResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     similar_jobs_api_jobs__job_id__similar_get: {
         parameters: {
             query?: {
@@ -16249,6 +21040,7 @@ export interface operations {
                 order?: "strongest" | "weakest";
                 on_board?: boolean;
                 detail?: boolean;
+                decided_by?: ("person" | "agent") | null;
                 limit?: number;
                 offset?: number;
             };
@@ -18521,6 +23313,7 @@ export interface operations {
                 confidence?: string | null;
                 on_board?: boolean;
                 detail?: boolean;
+                decided_by?: ("person" | "agent") | null;
                 limit?: number;
                 offset?: number;
             };

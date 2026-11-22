@@ -1,8 +1,9 @@
 {
  "_why": "The schema as the models declare it, frozen so a change to a column, index, constraint or default cannot land without showing up in a reviewer's diff. `alembic check` already answers 'do the models and the migrations agree?', but only against a live cluster and only in a CI log; this fixture answers 'did the models change at all?' with no database, in the pull request itself. The two claims are independent: a model edit WITH a matching migration keeps `check` green and still belongs in review, which is what this catches. Regenerate deliberately, in the same change as the migration: `.venv/bin/python -m scripts.freeze_schema_metadata`.",
  "embedding_dim": 768,
- "table_count": 75,
+ "table_count": 78,
  "classes": {
+  "AgentActivity": "agent_activity",
   "AiTaskLog": "ai_task_log",
   "AppSetting": "app_settings",
   "BindingReconciliationDecision": "binding_reconciliation_decisions",
@@ -51,6 +52,7 @@
   "PluginInstall": "plugin_install",
   "PluginReport": "plugin_report",
   "PluginRun": "plugin_run",
+  "PluginRunEnd": "plugin_run_ends",
   "PluginState": "plugin_state",
   "PostingInventory": "posting_inventory",
   "PriceFeedRequest": "price_feed_requests",
@@ -61,6 +63,7 @@
   "PursuitComment": "pursuit_comments",
   "PursuitEvent": "pursuit_events",
   "PursuitInterview": "pursuit_interviews",
+  "PursuitStep": "pursuit_steps",
   "ReferenceChange": "reference_change",
   "ReferenceState": "reference_state",
   "RoleCatalog": "role_catalog",
@@ -80,6 +83,38 @@
   "WorkspaceIdentity": "workspace_identity"
  },
  "tables": {
+  "agent_activity": {
+   "create": [
+    "CREATE TABLE agent_activity (",
+    "    id BIGSERIAL NOT NULL,",
+    "    occurred_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,",
+    "    workspace_id VARCHAR(64),",
+    "    principal_id VARCHAR(64) NOT NULL,",
+    "    operation VARCHAR(128) NOT NULL,",
+    "    request_id VARCHAR(128),",
+    "    kind VARCHAR(16) NOT NULL,",
+    "    categories VARCHAR(32)[] DEFAULT '{}'::varchar[] NOT NULL,",
+    "    action_group VARCHAR(64),",
+    "    refusal VARCHAR(64),",
+    "    summary TEXT NOT NULL,",
+    "    subject JSONB DEFAULT '{}'::jsonb NOT NULL,",
+    "    changes JSONB,",
+    "    idempotency_key VARCHAR(128),",
+    "    host VARCHAR(32),",
+    "    PRIMARY KEY (id),",
+    "    CONSTRAINT ck_agent_activity_kind CHECK (kind IN ('read', 'change', 'refused')),",
+    "    CONSTRAINT ck_agent_activity_refusal CHECK ((kind = 'refused') = (refusal IS NOT NULL))",
+    ")"
+   ],
+   "indexes": [
+    "CREATE INDEX ix_agent_activity_host ON agent_activity (host, occurred_at)",
+    "CREATE INDEX ix_agent_activity_occurred ON agent_activity (occurred_at, id)"
+   ],
+   "python_defaults": {},
+   "python_onupdate": {},
+   "comment": null,
+   "column_comments": {}
+  },
   "ai_task_log": {
    "create": [
     "CREATE TABLE ai_task_log (",
@@ -780,12 +815,15 @@
     "    event_type VARCHAR(24) NOT NULL,",
     "    detail JSONB NOT NULL,",
     "    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,",
+    "    change_xact xid8 DEFAULT pg_current_xact_id(),",
+    "    change_cluster BIGINT DEFAULT (pg_control_system()).system_identifier,",
     "    PRIMARY KEY (id),",
     "    FOREIGN KEY(job_id) REFERENCES jobs (id) ON DELETE CASCADE,",
     "    FOREIGN KEY(run_id) REFERENCES scrape_runs (id) ON DELETE SET NULL",
     ")"
    ],
    "indexes": [
+    "CREATE INDEX ix_job_lifecycle_events_change_position ON job_lifecycle_events (change_xact, id) WHERE change_xact IS NOT NULL",
     "CREATE INDEX ix_job_lifecycle_events_closing_note ON job_lifecycle_events USING gin (detail jsonb_path_ops) WITH (fastupdate = off) WHERE event_type = 'closed'",
     "CREATE INDEX ix_job_lifecycle_events_created_at ON job_lifecycle_events (created_at)",
     "CREATE INDEX ix_job_lifecycle_events_event_type ON job_lifecycle_events (event_type)",
@@ -839,11 +877,14 @@
     "    confidence VARCHAR(12) NOT NULL,",
     "    status VARCHAR(12) NOT NULL,",
     "    reviewed_at TIMESTAMP WITH TIME ZONE,",
+    "    decided_by VARCHAR(8),",
+    "    decision_note TEXT,",
     "    detector_version VARCHAR(32) NOT NULL,",
     "    evidence JSONB NOT NULL,",
     "    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,",
     "    PRIMARY KEY (id),",
     "    CONSTRAINT uq_job_lineage_link UNIQUE (job_id, prior_job_id),",
+    "    CONSTRAINT ck_job_lineage_link_decided_by CHECK (decided_by IS NULL OR decided_by IN ('person', 'agent')),",
     "    FOREIGN KEY(job_id) REFERENCES jobs (id) ON DELETE CASCADE,",
     "    FOREIGN KEY(prior_job_id) REFERENCES jobs (id) ON DELETE CASCADE",
     ")"
@@ -1246,9 +1287,12 @@
     "    detector_version VARCHAR(32) NOT NULL,",
     "    evidence JSONB NOT NULL,",
     "    reviewed_at TIMESTAMP WITH TIME ZONE,",
+    "    decided_by VARCHAR(8),",
+    "    decision_note TEXT,",
     "    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,",
     "    PRIMARY KEY (id),",
     "    CONSTRAINT ck_job_twin_link_canonical_pair CHECK (job_a_id < job_b_id),",
+    "    CONSTRAINT ck_job_twin_link_decided_by CHECK (decided_by IS NULL OR decided_by IN ('person', 'agent')),",
     "    CONSTRAINT uq_job_twin_link_pair UNIQUE (job_a_id, job_b_id),",
     "    FOREIGN KEY(job_a_id) REFERENCES jobs (id) ON DELETE CASCADE,",
     "    FOREIGN KEY(job_b_id) REFERENCES jobs (id) ON DELETE CASCADE",
@@ -1573,6 +1617,30 @@
    "comment": null,
    "column_comments": {}
   },
+  "plugin_run_ends": {
+   "create": [
+    "CREATE TABLE plugin_run_ends (",
+    "    id BIGSERIAL NOT NULL,",
+    "    run_id BIGINT NOT NULL,",
+    "    plugin_id VARCHAR(32) NOT NULL,",
+    "    job VARCHAR(32) NOT NULL,",
+    "    outcome VARCHAR(16) NOT NULL,",
+    "    ended_at TIMESTAMP WITH TIME ZONE NOT NULL,",
+    "    change_xact xid8 DEFAULT pg_current_xact_id(),",
+    "    change_cluster BIGINT DEFAULT (pg_control_system()).system_identifier,",
+    "    PRIMARY KEY (id),",
+    "    CONSTRAINT uq_plugin_run_ends_run UNIQUE (run_id),",
+    "    FOREIGN KEY(run_id) REFERENCES plugin_run (id) ON DELETE CASCADE",
+    ")"
+   ],
+   "indexes": [
+    "CREATE INDEX ix_plugin_run_ends_change_position ON plugin_run_ends (change_xact, id) WHERE change_xact IS NOT NULL"
+   ],
+   "python_defaults": {},
+   "python_onupdate": {},
+   "comment": null,
+   "column_comments": {}
+  },
   "plugin_state": {
    "create": [
     "CREATE TABLE plugin_state (",
@@ -1786,6 +1854,8 @@
     "    detail JSONB NOT NULL,",
     "    source VARCHAR(16) DEFAULT 'app' NOT NULL,",
     "    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,",
+    "    change_xact xid8 DEFAULT pg_current_xact_id(),",
+    "    change_cluster BIGINT DEFAULT (pg_control_system()).system_identifier,",
     "    PRIMARY KEY (id),",
     "    FOREIGN KEY(pursuit_id) REFERENCES pursuits (id) ON DELETE CASCADE",
     ")"
@@ -1832,6 +1902,29 @@
    "python_onupdate": {
     "updated_at": "now()"
    },
+   "comment": null,
+   "column_comments": {}
+  },
+  "pursuit_steps": {
+   "create": [
+    "CREATE TABLE pursuit_steps (",
+    "    id SERIAL NOT NULL,",
+    "    pursuit_id INTEGER NOT NULL,",
+    "    text TEXT NOT NULL,",
+    "    due TIMESTAMP WITH TIME ZONE,",
+    "    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,",
+    "    done_at TIMESTAMP WITH TIME ZONE,",
+    "    PRIMARY KEY (id),",
+    "    CONSTRAINT ck_pursuit_step_text CHECK (text <> ''),",
+    "    FOREIGN KEY(pursuit_id) REFERENCES pursuits (id) ON DELETE CASCADE",
+    ")"
+   ],
+   "indexes": [
+    "CREATE INDEX ix_pursuit_steps_due ON pursuit_steps (due)",
+    "CREATE INDEX ix_pursuit_steps_pursuit_id ON pursuit_steps (pursuit_id)"
+   ],
+   "python_defaults": {},
+   "python_onupdate": {},
    "comment": null,
    "column_comments": {}
   },
@@ -2039,6 +2132,8 @@
     "    errors JSONB NOT NULL,",
     "    drift JSONB NOT NULL,",
     "    stats JSONB NOT NULL,",
+    "    change_xact xid8 DEFAULT pg_current_xact_id(),",
+    "    change_cluster BIGINT DEFAULT (pg_control_system()).system_identifier,",
     "    PRIMARY KEY (id),",
     "    CONSTRAINT uq_scrape_source_run_binding UNIQUE (run_id, binding_id),",
     "    FOREIGN KEY(run_id) REFERENCES scrape_runs (id) ON DELETE CASCADE,",
@@ -2049,6 +2144,7 @@
     "CREATE INDEX ix_scrape_source_runs_binding_finished ON scrape_source_runs (binding_id, finished_at)",
     "CREATE INDEX ix_scrape_source_runs_binding_id ON scrape_source_runs (binding_id)",
     "CREATE INDEX ix_scrape_source_runs_binding_started ON scrape_source_runs (binding_id, started_at)",
+    "CREATE INDEX ix_scrape_source_runs_change_position ON scrape_source_runs (change_xact, id) WHERE change_xact IS NOT NULL",
     "CREATE INDEX ix_scrape_source_runs_company_slug ON scrape_source_runs (company_slug)",
     "CREATE INDEX ix_scrape_source_runs_outcome ON scrape_source_runs (outcome)",
     "CREATE INDEX ix_scrape_source_runs_provider_finished ON scrape_source_runs (provider_key, finished_at)",

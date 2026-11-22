@@ -1,13 +1,14 @@
 """Every operation the engine offers is accounted for where coverage is decided.
 
-The coverage ledger names the operation that covers each dashboard route, and
-the MCP parity checklist names the operation that replaces each MCP tool and
-the switch that gates it, and lists the operations parity added that
-replace no tool (`receipts.get`). An operation in neither was added without anyone
-deciding what it covers, so the catalog may hold no such operation. One the
-checklist names must sit under the switch the checklist gives it: the parity
-rule is "the same switch", and a read moved under the write switch, or a write
-left under the read switch, would break it silently.
+The coverage ledger names the operation that covers each dashboard route and
+lists those that cover none (`unrouted`). An operation the ledger does not
+name must be one of `OUTSIDE_THE_LEDGER`: it answers something no dashboard
+route does (the connection's state, a lost reply's receipt, a recipe's
+contract). An operation in neither was added without anyone deciding what it
+covers, so the catalog may hold no such operation. Every operation also sits
+under the switch its access class means: a read under `enabled`, a write under
+`enabled` and `allow_writes`, so a read moved under the write switch, or a
+write left under the read switch, fails.
 
 `capabilities` and `describe` are the discovery surface itself, as the routes
 under `/api/agent/v1/` are for the ledger: they describe operations and cover
@@ -19,9 +20,10 @@ from __future__ import annotations
 import json
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 from tracker.agents.operations.catalog import CATALOG
-from tracker.agents.operations.descriptor import EngineEffects, OperationDescriptor
+from tracker.agents.operations.descriptor import OperationDescriptor
 from tracker.agents.operations.recipes import (
     RECIPES_CONTRACT_GET,
     RECIPES_VALIDATE,
@@ -30,60 +32,54 @@ from tracker.agents.operations.recipes import (
 
 _FIXTURES = Path(__file__).parent / "fixtures"
 
-#: Operations that describe the surface and cover no route or tool.
+#: Operations that describe the surface and cover no route.
 DISCOVERY = {"capabilities", "describe"}
 
-#: The scopes an operation under each checklist switch requires. An ungated
-#: tool's replacement still needs `enabled`, as every operation does
-#: (`tracker/agents/operations/policy.py`); its checklist row says so.
-SCOPES_FOR_SWITCH = {
-    "none": ("agent_access.enabled",),
-    "enabled": ("agent_access.enabled",),
-    "allow_writes": ("agent_access.enabled", "agent_access.allow_writes"),
+#: Operations that answer what no dashboard route answers.
+OUTSIDE_THE_LEDGER = {
+    "status", "receipts.get", "opportunities.get_many", "opportunities.reality",
+    "recipes.contract.get", "sources.inspect",
+}
+
+#: The scopes an operation of each access class requires.
+SCOPES_FOR_ACCESS = {
+    "read": ("agent_access.enabled",),
+    "write": ("agent_access.enabled", "agent_access.allow_writes"),
 }
 
 
 def _ledger_operations() -> set[str]:
-    rows = json.loads((_FIXTURES / "agent_coverage_ledger.json").read_text())["rows"]
-    return {row["operation"] for row in rows if row.get("operation")}
-
-
-def _checklist_switches() -> dict[str, str]:
-    """The switch of each operation the checklist names: the replacement of
-    each MCP tool, and each operation parity added that replaces none."""
-    checklist = json.loads((_FIXTURES / "mcp_parity_checklist.json").read_text())
-    rows = [*checklist["tools"], *checklist.get("added_operations", [])]
-    return {row["operation"]: row["switch"] for row in rows}
+    """The operations the ledger names: on a route's row, or as covering none."""
+    ledger = json.loads((_FIXTURES / "agent_coverage_ledger.json").read_text())
+    return {row["operation"] for row in ledger["rows"] if row.get("operation")} | {
+        entry["operation"] for entry in ledger.get("unrouted", [])
+    }
 
 
 def row_problems(
-    descriptors: list[OperationDescriptor], ledger: set[str], checklist: dict[str, str]
+    descriptors: list[OperationDescriptor], ledger: set[str], outside: set[str]
 ) -> list[str]:
     problems: list[str] = []
     for descriptor in descriptors:
         if descriptor.id in DISCOVERY:
             continue
-        if descriptor.id not in ledger and descriptor.id not in checklist:
-            problems.append(f"{descriptor.id}: no ledger or checklist row")
+        if descriptor.id not in ledger and descriptor.id not in outside:
+            problems.append(f"{descriptor.id}: no ledger row and not outside the ledger")
             continue
-        switch = checklist.get(descriptor.id)
-        if switch is not None and descriptor.required_scopes != SCOPES_FOR_SWITCH.get(switch):
-            problems.append(f"{descriptor.id}: requires {list(descriptor.required_scopes)}, checklist says {switch!r}")
+        if descriptor.required_scopes != SCOPES_FOR_ACCESS[descriptor.access]:
+            problems.append(
+                f"{descriptor.id}: a {descriptor.access} requires {list(descriptor.required_scopes)}"
+            )
     return problems
 
 
 def test_every_catalog_operation_has_its_row_under_its_switch():
-    assert row_problems(list(CATALOG), _ledger_operations(), _checklist_switches()) == []
+    assert row_problems(list(CATALOG), _ledger_operations(), OUTSIDE_THE_LEDGER) == []
 
 
-def test_the_parity_reads_are_named_by_the_checklist_itself():
-    """The reads that replace MCP tools are found through the checklist, not
-    only through a dashboard route the ledger happens to map to them."""
-    checklist = _checklist_switches()
-    for operation in ("radar.summary", "opportunities.get", "opportunities.history", "pursuits.list",
-                      "recipes.contract.get", "sources.inspect", "recipes.validate"):
-        assert operation in CATALOG
-        assert checklist[operation] == "enabled"
+def test_the_operations_outside_the_ledger_exist_and_the_ledger_does_not_name_them():
+    assert OUTSIDE_THE_LEDGER <= {d.id for d in CATALOG}
+    assert not OUTSIDE_THE_LEDGER & _ledger_operations()
     assert "pursuits.get" in _ledger_operations()
 
 
@@ -104,34 +100,37 @@ def _read(operation_id: str) -> OperationDescriptor:
     return replace(descriptor, id=operation_id)
 
 
-def test_an_operation_in_neither_file_fails():
-    problems = row_problems([_read("widgets.list")], _ledger_operations(), _checklist_switches())
+def test_an_operation_in_neither_place_fails():
+    problems = row_problems([_read("widgets.list")], _ledger_operations(), OUTSIDE_THE_LEDGER)
 
-    assert problems == ["widgets.list: no ledger or checklist row"]
+    assert problems == ["widgets.list: no ledger row and not outside the ledger"]
+
+
+def _stub(operation_id: str, access: str, scopes: tuple[str, ...]):
+    return SimpleNamespace(id=operation_id, access=access, required_scopes=scopes)
 
 
 def test_a_write_under_the_read_switch_fails():
-    write = replace(
-        _read("pursuits.list"), access="write", idempotency="required_key",
-        engine_effects=EngineEffects(state_write=True),
-    )
+    write = _stub("pursuits.list", "write", ("agent_access.enabled",))
 
-    problems = row_problems([write], _ledger_operations(), _checklist_switches())
+    problems = row_problems([write], _ledger_operations(), OUTSIDE_THE_LEDGER)
 
-    assert problems == [
-        "pursuits.list: requires ['agent_access.enabled', 'agent_access.allow_writes'], checklist says 'enabled'"
-    ]
+    assert problems == ["pursuits.list: a write requires ['agent_access.enabled']"]
 
 
 def test_a_read_under_the_write_switch_fails():
-    problems = row_problems([_read("pursuits.save")], _ledger_operations(), _checklist_switches())
+    read = _stub("pursuits.get", "read", ("agent_access.enabled", "agent_access.allow_writes"))
 
-    assert problems == ["pursuits.save: requires ['agent_access.enabled'], checklist says 'allow_writes'"]
+    problems = row_problems([read], _ledger_operations(), OUTSIDE_THE_LEDGER)
+
+    assert problems == [
+        "pursuits.get: a read requires ['agent_access.enabled', 'agent_access.allow_writes']"
+    ]
 
 
 def test_the_discovery_operations_are_the_only_ones_without_a_row():
     unrowed = {
         descriptor.id for descriptor in CATALOG
-        if descriptor.id not in _ledger_operations() and descriptor.id not in _checklist_switches()
+        if descriptor.id not in _ledger_operations() and descriptor.id not in OUTSIDE_THE_LEDGER
     }
     assert unrowed == DISCOVERY

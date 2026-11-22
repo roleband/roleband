@@ -11,13 +11,19 @@ every look, and every second while it is paused, without touching the database.
 
 The answer names the supervisor's PID and the request it answers, so an answer
 left by a supervisor that has since died, or one given to an earlier request,
-is never read as the current supervisor being paused.
+is never read as the current supervisor being paused. A request is named by a
+random id, not by its timestamp: a lift and a new request can fall within one
+tick of a coarse clock and share it. The answer names the request both ways, so
+either side may run the code from before the id: an answer without one is
+matched by the timestamp, and a request file without one takes its timestamp
+as its id.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import secrets
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -39,6 +45,8 @@ class Request:
     by: str
     #: Wait for running jobs to finish instead of cancelling them.
     drain: bool = False
+    #: What an answer names. Random, or the `since` of a request file without one.
+    id: str = ""
 
 
 @dataclass(frozen=True)
@@ -47,6 +55,9 @@ class Answer:
     state: str
     #: The `since` of the request this answers.
     request: str
+    #: The `id` of the request this answers; None from a supervisor that names
+    #: requests only by `since`.
+    request_id: str | None = None
 
 
 def _write(path: Path, payload: dict[str, Any]) -> None:
@@ -70,8 +81,8 @@ def request(data_dir: Path, *, by: str, drain: bool = False) -> Request:
     standing = requested(data_dir)
     if standing is not None:
         return standing
-    made = Request(since=datetime.now(UTC).isoformat(), by=by, drain=drain)
-    _write(data_dir / REQUEST, {"since": made.since, "by": made.by, "drain": made.drain})
+    made = Request(since=datetime.now(UTC).isoformat(), by=by, drain=drain, id=secrets.token_hex(16))
+    _write(data_dir / REQUEST, {"id": made.id, "since": made.since, "by": made.by, "drain": made.drain})
     return made
 
 
@@ -79,7 +90,9 @@ def requested(data_dir: Path) -> Request | None:
     raw = _read(data_dir / REQUEST)
     if not isinstance(raw, dict) or not isinstance(raw.get("since"), str):
         return None
-    return Request(since=raw["since"], by=str(raw.get("by") or ""), drain=bool(raw.get("drain")))
+    named = raw.get("id")
+    return Request(since=raw["since"], by=str(raw.get("by") or ""), drain=bool(raw.get("drain")),
+                   id=named if isinstance(named, str) and named else raw["since"])
 
 
 def lift(data_dir: Path) -> bool:
@@ -92,7 +105,8 @@ def lift(data_dir: Path) -> bool:
 
 
 def answer(data_dir: Path, state: str, standing: Request) -> None:
-    _write(data_dir / ANSWER, {"pid": os.getpid(), "state": state, "request": standing.since})
+    _write(data_dir / ANSWER, {"pid": os.getpid(), "state": state,
+                               "request": standing.since, "request_id": standing.id})
 
 
 def withdraw_answer(data_dir: Path) -> None:
@@ -106,7 +120,9 @@ def last_answer(data_dir: Path, *, alive: Callable[[int], bool]) -> Answer | Non
     if not isinstance(raw, dict):
         return None
     try:
-        given = Answer(pid=int(raw["pid"]), state=str(raw["state"]), request=str(raw["request"]))
+        named = raw.get("request_id")
+        given = Answer(pid=int(raw["pid"]), state=str(raw["state"]), request=str(raw["request"]),
+                       request_id=named if isinstance(named, str) else None)
     except (KeyError, TypeError, ValueError):
         return None
     return given if alive(given.pid) else None
@@ -116,6 +132,8 @@ def answered(data_dir: Path, *, alive: Callable[[int], bool]) -> Answer | None:
     """The live supervisor's answer to the standing request, or None."""
     standing = requested(data_dir)
     given = last_answer(data_dir, alive=alive)
-    if standing is None or given is None or given.request != standing.since:
+    if standing is None or given is None:
         return None
-    return given
+    if given.request_id is None:
+        return given if given.request == standing.since else None
+    return given if given.request_id == standing.id else None

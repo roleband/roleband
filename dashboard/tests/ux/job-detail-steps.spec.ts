@@ -185,7 +185,7 @@ test.describe("posting steps", () => {
     }
   });
 
-  test("the side column stops under the bar at the page's top inset on a wide step", async ({ page }) => {
+  test("the side column stops under the bar, and under a pipeline role's tabs, at the page's top inset on a wide step", async ({ page }) => {
     await openPosting(page, { width: 2160, height: 1350 });
     await page.locator(".cover-scroll").evaluate(async (box) => {
       box.scrollTop = 1400;
@@ -194,7 +194,11 @@ test.describe("posting steps", () => {
     });
     const scroll = (await page.locator(".cover-scroll").boundingBox())!;
     const column = (await page.locator(".jd-aside").boundingBox())!;
-    expect(column.y - scroll.y).toBeCloseTo(40, 0);
+    // The role is in the pipeline, so its two tabs are held at the top and
+    // the column stops the inset below them.
+    const tabs = (await page.locator(".jd-tabs").boundingBox())!;
+    expect(tabs.y - scroll.y).toBeCloseTo(0, 0);
+    expect(column.y - (tabs.y + tabs.height)).toBeCloseTo(40, 0);
     await expect(detail(page).locator(".jd-aside .section-title").first()).toBeInViewport({ ratio: 1 });
   });
 

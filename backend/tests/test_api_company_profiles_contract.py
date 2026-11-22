@@ -51,6 +51,7 @@ from tracker.api.schemas import companies as contract
 from tracker.db.models import CompanyProfile
 from tracker.levels.pay import profile_offer
 from tracker.prices.provider import ATTRIBUTION_FIXTURE
+from tracker.profiles import read as profile_read
 from tracker.profiles import resolve
 from tracker.profiles import store as profile_store
 
@@ -107,7 +108,7 @@ def test_each_literal_is_the_vocabulary_it_mirrors():
     assert set(get_args(contract.DataHealth)) == set(resolve._HEALTH_SEVERITY)
     assert set(get_args(contract.Freshness)) == {resolve.FRESH, resolve.AGING, resolve.STALE}
     assert set(get_args(contract.ReviewReason)) == {resolve.CONFLICT, resolve.STALE, resolve.MISSING}
-    assert set(get_args(contract.PriceRange)) == set(router._PRICE_RANGES)
+    assert set(get_args(contract.PriceRange)) == set(profile_read.PRICE_RANGES)
     shown = list(get_args(contract.ShownProfileField))
     assert _fields(contract.CompanyProfileFields) == shown
     assert set(shown) <= set(profile_store.PROFILE_FIELDS)
@@ -475,16 +476,16 @@ def _adding(real):
 
 @pytest.mark.asyncio
 async def test_a_field_builder_that_adds_a_key_fails_the_profile(api_client, profiles, monkeypatch):
-    monkeypatch.setattr(router, "_profile_field", _adding(router._profile_field))
+    monkeypatch.setattr(profile_read, "_profile_field", _adding(profile_read._profile_field))
     with pytest.raises(ResponseValidationError):
         await api_client.get(f"{P}/google")
 
 
 @pytest.mark.asyncio
 async def test_a_worklist_item_without_its_suggestion_fails_the_profile(api_client, profiles, monkeypatch):
-    real = router._needs_review
+    real = profile_read._needs_review
     monkeypatch.setattr(
-        router, "_needs_review",
+        profile_read, "_needs_review",
         lambda profile, fields: [{k: v for k, v in item.items() if k != "suggestion"} for item in real(profile, fields)],
     )
     with pytest.raises(ResponseValidationError):

@@ -1,6 +1,5 @@
-import { Link } from "react-router-dom";
 import { applicationsEmpty, applicationsEmptyHint, applicationsEmptyRadar, applicationsNoMatches } from "../../copy/gen/applications";
-import { EmptyState } from "../../ui";
+import { EmptyState, RouterLink } from "../../ui";
 
 /* The pipeline's two empty states, the same in the Board, the List and Up
  * next: nothing saved yet, and filters that leave nothing to show. */
@@ -10,7 +9,7 @@ export function PipelineEmpty() {
   return (
     <EmptyState
       title={applicationsEmpty()}
-      actions={<Link className="ui-btn ui-btn-link" to="/">{applicationsEmptyRadar()}</Link>}
+      actions={<RouterLink variant="link" to="/">{applicationsEmptyRadar()}</RouterLink>}
     >
       {applicationsEmptyHint()}
     </EmptyState>

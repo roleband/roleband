@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit
 
-from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import and_, exists, or_, select
+from pydantic import AfterValidator, BaseModel, Field, field_validator, model_validator
+from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.agents.receipts import RevisionConflict
@@ -19,7 +21,9 @@ from tracker.db.models import (
     PursuitComment,
     PursuitEvent,
     PursuitInterview,
+    PursuitStep,
 )
+from tracker.notifications.pursuit_due import generate_pursuit_due_notifications
 from tracker.platform.locks import advisory_xact_lock_pair
 
 PursuitStage = Literal[
@@ -36,13 +40,21 @@ PursuitStage = Literal[
     "role_closed",
 ]
 
-#: The user's own endings: each can be reversed, and Withdrawn can re-engage
-#: while the posting is open.
-DECIDED_STAGES = frozenset({"accepted", "declined", "withdrawn"})
-#: Endings the company or the world decided. Only these never move again.
-CLOSED_STAGES = frozenset({"rejected", "role_closed"})
-#: A role at one of these has left the moving stages.
-ENDED_STAGES = DECIDED_STAGES | CLOSED_STAGES
+def _as_utc(value: datetime) -> datetime:
+    return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+
+
+#: A moment of the person's, always carrying an offset: a bare datetime is
+#: read as UTC where it enters, so every stored and compared instant agrees.
+Instant = Annotated[datetime, AfterValidator(_as_utc)]
+
+
+def refuse_null(value: object) -> object:
+    """The `mode="before"` guard of a field whose column cannot hold null:
+    absent leaves it, an explicit null is refused."""
+    if value is None:
+        raise ValueError("cannot be null; omit the field to leave it unchanged")
+    return value
 
 
 # A partial write: an ABSENT field is left alone, and `None` is how the model
@@ -50,9 +62,8 @@ ENDED_STAGES = DECIDED_STAGES | CLOSED_STAGES
 #
 # `stage` and `priority` are NOT NULL in the table, so an explicit `null` for
 # either asks for a value the row cannot hold, and would reach the flush as a
-# 500. The guard is on the MODEL rather than in the route because both writers
-# construct one: the HTTP route passes the body straight through, and MCP drops
-# `None` before constructing, so only the route could ever send one. The other
+# 500. The guard is on the MODEL rather than in a route because every writer
+# constructs one, so no writer can pass a `null` through. The other
 # three columns ARE nullable, and a `null` there is a legitimate "clear this"
 # (the only way the route offers to take a follow-up back off), so the guard
 # names two fields and not all five.
@@ -65,17 +76,12 @@ class PursuitUpdate(BaseModel):
     priority: int | None = Field(default=None, ge=1, le=5)
     notes: str | None = Field(json_schema_extra={"x-text": "content"}, default=None, max_length=20_000)
     next_action: str | None = Field(default=None, max_length=2_000)
-    next_action_due: datetime | None = None
+    next_action_due: Instant | None = None
 
     # `mode="before"` on a field with a default runs ONLY when the key is
     # present, which is exactly the distinction needed: absent is "leave it",
     # null is a request the table must refuse.
-    @field_validator("stage", "priority", mode="before")
-    @classmethod
-    def _reject_explicit_null(cls, value: object) -> object:
-        if value is None:
-            raise ValueError("cannot be null; omit the field to leave it unchanged")
-        return value
+    _no_null = field_validator("stage", "priority", mode="before")(refuse_null)
 
 
 #: The two-int lock namespace for writes to one role's saved state and pursuit
@@ -87,7 +93,7 @@ async def lock_role_writes(session: AsyncSession, job_id: int) -> None:
     """Serialize every writer of one role's saved state and pursuit until the
     transaction ends: the star, unsave, a pursuit write from the dashboard or
     the agent. Without it each read-then-insert below races between two
-    clients (a second tab, the MCP agent beside a click): both see no row, both
+    clients (a second tab, an agent beside a click): both see no row, both
     insert, the second commit fails; two stage changes both record the same old
     stage. Never a row lock on `jobs`: the scan writers hold those until each
     company commits."""
@@ -165,6 +171,33 @@ async def upsert_pursuit(
     land between it and this one. Omitted, the write is last-writer-wins, as
     the dashboard's is.
     """
+    pursuit, _ = await _write_pursuit(
+        session, job_id, payload.model_dump(exclude_unset=True),
+        actor=actor, expected_revision=expected_revision, via=via,
+    )
+    return pursuit
+
+
+#: The pursuit's columns that hold its soonest open step, written from the steps.
+STEP_MIRROR = ("next_action", "next_action_due")
+
+
+async def _write_pursuit(
+    session: AsyncSession,
+    job_id: int,
+    values: dict[str, object],
+    *,
+    actor: Literal["user", "agent"],
+    expected_revision: int | None,
+    via: str | None,
+    step_write: StepChange | None = None,
+) -> tuple[Pursuit, PursuitStep | None]:
+    """`upsert_pursuit`, and the one way a step is written: the step change
+    runs under the role's lock and revision check, the pursuit's soonest-step
+    columns follow it, and the write's one event records both. Answers the
+    pursuit and the step the write touched. The overdue reminders are
+    reconciled in the write's transaction, so every writer's reminders follow
+    its write."""
     job = await session.get(Job, job_id)
     if job is None:
         raise LookupError("opportunity not found")
@@ -185,30 +218,61 @@ async def upsert_pursuit(
         pursuit = Pursuit(job_id=job_id, stage="saved", priority=3)
         session.add(pursuit)
 
+    touched: PursuitStep | None = None
     before = pursuit.stage
     changed: dict[str, object] = {}
     replaced: dict[str, object] = {}
-    values = payload.model_dump(exclude_unset=True)
-    for field, value in values.items():
-        if getattr(pursuit, field) != value:
-            replaced[field] = getattr(pursuit, field)
-            setattr(pursuit, field, value)
-            changed[field] = value
-    # A priority is chosen once the log records one. The first choice is
-    # recorded even when it equals the default the row was written with, so a
-    # chosen Medium reads apart from one never set.
-    if "priority" in values and "priority" not in changed and (
-        created or not await _priority_recorded(session, pursuit.id)
-    ):
-        replaced["priority"] = pursuit.priority
-        changed["priority"] = pursuit.priority
+    values = dict(values)
+    legacy_step = {field: values.pop(field) for field in STEP_MIRROR if field in values}
+    # Everything this write changes is decided before anything is flushed, so
+    # the pursuit's row is written once and its revision advances once.
+    with session.no_autoflush:
+        plan = _StepPlan([] if created else await open_steps(session, pursuit.id))
+        for field, value in values.items():
+            if getattr(pursuit, field) != value:
+                replaced[field] = getattr(pursuit, field)
+                setattr(pursuit, field, value)
+                changed[field] = value
+        # A priority is chosen once the log records one. The first choice is
+        # recorded even when it equals the default the row was written with, so a
+        # chosen Medium reads apart from one never set.
+        if "priority" in values and "priority" not in changed and (
+            created or not await session.scalar(select(priority_chosen(pursuit.id)))
+        ):
+            replaced["priority"] = pursuit.priority
+            changed["priority"] = pursuit.priority
 
-    # Pursuing a job implies it is saved.
-    await ensure_favorite(session, job_id)
-    # The insert, or the update that advances the revision; the event needs the id.
+        if legacy_step:
+            _write_first_step(plan, legacy_step)
+        if step_write is not None:
+            touched = await step_write(session, plan)
+        if plan.told is not None:
+            first = plan.first()
+            soonest = {
+                "next_action": first.text if first is not None else None,
+                "next_action_due": first.due if first is not None else None,
+            }
+            for field, value in soonest.items():
+                if getattr(pursuit, field) != value:
+                    replaced[field] = getattr(pursuit, field)
+                    setattr(pursuit, field, value)
+                    changed[field] = value
+            # A step write is a write to the pursuit, whichever step it touched:
+            # its revision advances, so an agent's stale read of the steps is refused.
+            pursuit.updated_at = func.now()
+
+        # Pursuing a job implies it is saved.
+        await ensure_favorite(session, job_id)
+    # The insert, or the one update that advances the revision; new steps need its id.
     await session.flush()
+    plan.store(session, pursuit)
+    for gone in plan.removed:
+        await session.delete(gone)
+    if plan.added or plan.removed:
+        await session.flush()
+    said = plan.said()
 
-    if created or changed:
+    if created or changed or said is not None:
         session.add(
             PursuitEvent(
                 pursuit_id=pursuit.id,
@@ -219,27 +283,27 @@ async def upsert_pursuit(
                 # Both versions of every field, so a write never loses what
                 # it replaced (an agent's note over the user's own).
                 detail={
-                    "changed": sorted(changed),
+                    "changed": sorted({*changed, *(["steps"] if said is not None else [])}),
                     "before": _stored(replaced),
                     "after": _stored(changed),
+                    **({"step": said} if said is not None else {}),
                     **({"via": via} if via is not None else {}),
                 },
             )
         )
     await session.flush()
-    return pursuit
+    await generate_pursuit_due_notifications(session)
+    return pursuit, touched
 
 
-async def _priority_recorded(session: AsyncSession, pursuit_id: int) -> bool:
-    return bool(
-        await session.scalar(
-            select(
-                exists().where(
-                    PursuitEvent.pursuit_id == pursuit_id,
-                    PursuitEvent.detail["changed"].contains(["priority"]),
-                )
-            )
-        )
+def priority_chosen(pursuit_id: Any) -> Any:
+    """True when the person, or an agent for them, has ever chosen the
+    pursuit's priority. A new pursuit is written at the column's default, so
+    the stored value alone cannot tell a chosen Medium from one never set: the
+    change log can, since it records every priority a write chose."""
+    return exists().where(
+        PursuitEvent.pursuit_id == pursuit_id,
+        PursuitEvent.detail["changed"].contains(["priority"]),
     )
 
 
@@ -373,12 +437,7 @@ class InterviewUpdate(BaseModel):
     outcome: InterviewOutcome | None = None
     notes: str | None = Field(json_schema_extra={"x-text": "content"}, default=None, max_length=20_000)
 
-    @field_validator("label", "scheduled_at", "all_day", mode="before")
-    @classmethod
-    def _reject_explicit_null(cls, value: object) -> object:
-        if value is None:
-            raise ValueError("cannot be null; omit the field to leave it unchanged")
-        return value
+    _no_null = field_validator("label", "scheduled_at", "all_day", mode="before")(refuse_null)
 
     _link_is_web = field_validator("link")(_web_link)
 
@@ -436,6 +495,291 @@ def public_interview(interview: PursuitInterview) -> dict:
         "created_at": interview.created_at,
         "updated_at": interview.updated_at,
     }
+
+
+# --- next steps ----------------------------------------------------------------
+
+#: What a step write did, as the write's event and the Activity schema name it.
+StepAction = Literal["added", "edited", "done", "reopened", "removed"]
+
+#: A step write run inside `_write_pursuit`: it makes its change on the plan and
+#: returns the step it touched.
+StepChange = Callable[[AsyncSession, "_StepPlan"], Awaitable[PursuitStep]]
+
+
+class StepNeedsWords(ValueError):
+    """A day was given for a next step that has no words."""
+
+
+def step_words(value: str | None) -> str | None:
+    """A next step's words, trimmed; blank is refused. Null passes, for a
+    partial write whose own guard decides what an absent or null field means."""
+    if value is None:
+        return None
+    words = value.strip()
+    if not words:
+        raise ValueError("a next step needs some words")
+    return words
+
+
+class StepWrite(BaseModel):
+    text: str = Field(json_schema_extra={"x-text": "content"}, min_length=1, max_length=2_000)
+    due: Instant | None = None
+
+    _has_words = field_validator("text")(step_words)
+
+
+# A partial write, as `PursuitUpdate`: absent is "leave it". `text` and `done`
+# always have a value, so an explicit null for them is refused; a null `due`
+# takes the step's day off. A write that names none of the three changes nothing.
+class StepUpdate(BaseModel):
+    text: str | None = Field(json_schema_extra={"x-text": "content"}, default=None, min_length=1, max_length=2_000)
+    due: Instant | None = None
+    done: bool | None = None
+
+    _no_null = field_validator("text", "done", mode="before")(refuse_null)
+    _has_words = field_validator("text")(step_words)
+
+    @model_validator(mode="after")
+    def _changes_something(self) -> StepUpdate:
+        if not self.model_fields_set & {"text", "due", "done"}:
+            raise ValueError("name at least one field to change: text, due, done")
+        return self
+
+
+def soonest_first() -> tuple[Any, ...]:
+    """The steps' one order: by day, a step with no day after every dated one,
+    then in the order they were added."""
+    return (PursuitStep.due.asc().nulls_last(), PursuitStep.id.asc())
+
+
+async def open_steps(session: AsyncSession, pursuit_id: int) -> list[PursuitStep]:
+    return list(
+        (
+            await session.scalars(
+                select(PursuitStep)
+                .where(PursuitStep.pursuit_id == pursuit_id, PursuitStep.done_at.is_(None))
+                .order_by(*soonest_first())
+                .execution_options(populate_existing=True)
+            )
+        ).all()
+    )
+
+
+def _said(step: PursuitStep, action: StepAction, was: dict[str, object] | None = None) -> dict[str, object]:
+    """A step as the write's event keeps it."""
+    return {
+        "id": step.id,
+        "action": action,
+        **_stored({"text": step.text, "due": step.due}),
+        **({"was": _stored(was)} if was else {}),
+    }
+
+
+@dataclass
+class _StepPlan:
+    """One write's change to a pursuit's steps, made on the steps in memory:
+    the pursuit's soonest step is read from it before anything is stored, and
+    a new step is stored once the pursuit has its id."""
+
+    #: The open steps as read, then every step the write touched.
+    steps: list[PursuitStep]
+    added: list[PursuitStep] = dataclass_field(default_factory=list)
+    removed: list[PursuitStep] = dataclass_field(default_factory=list)
+    #: The step the write changed, what it did, and what it replaced.
+    told: tuple[PursuitStep, StepAction, dict[str, object]] | None = None
+
+    def _touch(self, step: PursuitStep) -> None:
+        if not any(one is step for one in self.steps):
+            self.steps.append(step)
+
+    def add(self, text: str, due: datetime | None) -> PursuitStep:
+        step = PursuitStep(text=text, due=due)
+        self.steps.append(step)
+        self.added.append(step)
+        self.told = (step, "added", {})
+        return step
+
+    def remove(self, step: PursuitStep) -> PursuitStep:
+        self._touch(step)
+        self.removed.append(step)
+        self.told = (step, "removed", {})
+        return step
+
+    def change(self, step: PursuitStep, values: dict[str, object]) -> PursuitStep:
+        """A step's new words, day or done state; nothing is told when nothing changed."""
+        self._touch(step)
+        was: dict[str, object] = {}
+        for name in ("text", "due"):
+            if name in values and getattr(step, name) != values[name]:
+                was[name] = getattr(step, name)
+                setattr(step, name, values[name])
+        if "done" in values and values["done"] != (step.done_at is not None):
+            step.done_at = datetime.now(UTC) if values["done"] else None
+            self.told = (step, "done" if values["done"] else "reopened", was)
+        elif was:
+            self.told = (step, "edited", was)
+        return step
+
+    def first(self) -> PursuitStep | None:
+        """The soonest open step, in `soonest_first`'s order; a step not stored
+        yet sorts after the stored ones of its day, as its id will."""
+        open_ = [
+            (index, step) for index, step in enumerate(self.steps)
+            if step.done_at is None and not any(step is gone for gone in self.removed)
+        ]
+        if not open_:
+            return None
+        return min(
+            open_,
+            key=lambda pair: (
+                pair[1].due is None,
+                pair[1].due if pair[1].due is not None else datetime.min.replace(tzinfo=UTC),
+                pair[1].id is None,
+                pair[1].id or 0,
+                pair[0],
+            ),
+        )[1]
+
+    def store(self, session: AsyncSession, pursuit: Pursuit) -> None:
+        """Adds the new steps under the pursuit's id."""
+        for step in self.added:
+            step.pursuit_id = pursuit.id
+            session.add(step)
+
+    def said(self) -> dict[str, object] | None:
+        """What the event says of the step the write changed, once it is flushed."""
+        if self.told is None:
+            return None
+        step, action, was = self.told
+        return _said(step, action, was)
+
+
+def _write_first_step(plan: _StepPlan, values: dict[str, object]) -> None:
+    """A write of `next_action` or `next_action_due`, the pursuit's one step as
+    a client that knows one step names it: it changes the soonest open step,
+    adds one when there is none, and clearing the words ticks it done."""
+    first = plan.first()
+    text = values.get("next_action", first.text if first is not None else None)
+    due = values.get("next_action_due", first.due if first is not None else None)
+    words = text.strip() if isinstance(text, str) else ""
+    if first is None:
+        if not words:
+            if due is not None:
+                raise StepNeedsWords("a next step needs some words before it can have a day")
+            return
+        plan.add(words, due)  # type: ignore[arg-type]
+        return
+    plan.change(first, {"done": True} if not words else {"text": words, "due": due})
+
+
+async def _step_on(session: AsyncSession, job_id: int, step_id: int) -> PursuitStep:
+    """The step, if it belongs to this role's pursuit. `LookupError` otherwise,
+    so an id from another role is never reached through this one's route."""
+    step = await session.scalar(
+        select(PursuitStep)
+        .join(Pursuit, Pursuit.id == PursuitStep.pursuit_id)
+        .where(PursuitStep.id == step_id, Pursuit.job_id == job_id)
+        .execution_options(populate_existing=True)
+    )
+    if step is None:
+        raise LookupError("next step not found")
+    return step
+
+
+async def add_step(
+    session: AsyncSession,
+    job_id: int,
+    payload: StepWrite,
+    *,
+    actor: Literal["user", "agent"],
+    expected_revision: int | None = None,
+    via: str | None = None,
+) -> tuple[Pursuit, PursuitStep]:
+    async def add(session: AsyncSession, plan: _StepPlan) -> PursuitStep:
+        return plan.add(payload.text, payload.due)
+
+    pursuit, step = await _write_pursuit(
+        session, job_id, {}, actor=actor, expected_revision=expected_revision, via=via, step_write=add
+    )
+    assert step is not None
+    return pursuit, step
+
+
+async def update_step(
+    session: AsyncSession,
+    job_id: int,
+    step_id: int,
+    payload: StepUpdate,
+    *,
+    actor: Literal["user", "agent"],
+    expected_revision: int | None = None,
+    via: str | None = None,
+) -> tuple[Pursuit, PursuitStep]:
+    """Change a step's words or day, tick it done or open it again. A step of
+    another role, or none, is a `LookupError`."""
+    # Before the write starts: a wrong id must not leave a pursuit row pending in the session.
+    await _step_on(session, job_id, step_id)
+
+    async def change(session: AsyncSession, plan: _StepPlan) -> PursuitStep:
+        return plan.change(await _step_on(session, job_id, step_id), payload.model_dump(exclude_unset=True))
+
+    pursuit, step = await _write_pursuit(
+        session, job_id, {}, actor=actor, expected_revision=expected_revision, via=via, step_write=change
+    )
+    assert step is not None
+    return pursuit, step
+
+
+async def delete_step(
+    session: AsyncSession,
+    job_id: int,
+    step_id: int,
+    *,
+    actor: Literal["user", "agent"],
+    expected_revision: int | None = None,
+    via: str | None = None,
+) -> Pursuit:
+    """Remove a step added by mistake. Ticking one done keeps it; this does not."""
+    # Before the write starts: a wrong id must not leave a pursuit row pending in the session.
+    await _step_on(session, job_id, step_id)
+
+    async def remove(session: AsyncSession, plan: _StepPlan) -> PursuitStep:
+        return plan.remove(await _step_on(session, job_id, step_id))
+
+    pursuit, _ = await _write_pursuit(
+        session, job_id, {}, actor=actor, expected_revision=expected_revision, via=via, step_write=remove
+    )
+    return pursuit
+
+
+def public_step(step: PursuitStep) -> dict:
+    return {
+        "id": step.id,
+        "text": step.text,
+        "due": step.due,
+        "created_at": step.created_at,
+        "done_at": step.done_at,
+    }
+
+
+async def steps_of(
+    session: AsyncSession, pursuit_ids: list[int], *, done: bool = False
+) -> dict[int, list[dict]]:
+    """Each pursuit's open steps soonest first, and with `done` its ticked
+    ones after them, the latest ticked first."""
+    found: dict[int, list[dict]] = {pid: [] for pid in pursuit_ids}
+    if not pursuit_ids:
+        return found
+    query = select(PursuitStep).where(PursuitStep.pursuit_id.in_(pursuit_ids))
+    if not done:
+        query = query.where(PursuitStep.done_at.is_(None))
+    rows = await session.scalars(
+        query.order_by(PursuitStep.done_at.desc().nulls_first(), *soonest_first())
+    )
+    for step in rows.all():
+        found[step.pursuit_id].append(public_step(step))
+    return found
 
 
 @dataclass(frozen=True)

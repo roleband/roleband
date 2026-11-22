@@ -1,30 +1,33 @@
-import { useCallback } from "react";
-import { api, type ActivityItem, type ApplicationDetail, type ApplicationInterview, type InterviewWrite } from "../../api";
-import { useAsyncResource } from "../../hooks/useAsyncResource";
+import { useCallback, useRef } from "react";
+import { api, type ActivityItem, type ApplicationDetail, type ApplicationInterview, type ApplicationStep, type InterviewWrite } from "../../api";
+import { useJobWorkspace } from "../../context/JobWorkspace";
+import { useAsyncResource, useRefetchOn } from "../../hooks/useAsyncResource";
 import { useToast } from "../../ui";
 import {
-  applicationsChangeFailed,
   applicationsCommentDeleteFailed,
   applicationsCommentFailed,
   applicationsInterviewDeleteFailed,
-  applicationsMoveUndo,
   applicationsUpnextDone,
   applicationsUpnextOutcomeSet,
-  applicationsUpnextUndoFailed,
 } from "../../copy/gen/applications";
+import { withStep, withoutStep } from "./board";
 import { OUTCOME_LABEL } from "./interviewWords";
 import type { PostingApplication } from "./usePostingApplication";
+import { useQuickChange } from "./useQuickChange";
 
-type PursuitUpdate = Parameters<typeof api.setPursuit>[1];
+const NO_ACTIVITY: readonly ActivityItem[] = [];
 
 export interface PostingWorkspaceActions {
   /** The application's feed; read only while the Workspace shows. */
   activity: readonly ActivityItem[];
   setPriority: (priority: number) => Promise<boolean>;
-  setNextStep: (text: string | null, due: string | null) => Promise<boolean>;
-  finishStep: () => void;
+  addStep: (text: string, due: string | null) => Promise<boolean>;
+  editStep: (step: ApplicationStep, text: string, due: string | null) => Promise<boolean>;
+  finishStep: (step: ApplicationStep) => void;
+  removeStep: (step: ApplicationStep) => Promise<boolean>;
   setOutcome: (interview: ApplicationInterview, outcome: NonNullable<ApplicationInterview["outcome"]>) => void;
   saveNotes: (notes: string) => Promise<boolean>;
+  addComment: (body: string) => Promise<boolean>;
   editComment: (id: number, body: string) => Promise<boolean>;
   deleteComment: (id: number) => Promise<boolean>;
   addInterview: (interview: InterviewWrite) => Promise<boolean>;
@@ -34,196 +37,203 @@ export interface PostingWorkspaceActions {
 
 /**
  * The writes of a role's Workspace, on the posting's own read of its
- * application. Every write paints at once where it can and reads again what
- * it changed; a failure says so and reads again, so the posting never shows
- * what the server refused. Pursuit writes go through the save command, so
- * the board and every other reader of the role follow.
+ * application. Every write paints at once where it can; a failure says so and
+ * reads again, so the posting never shows what the server refused. Pursuit
+ * writes (steps, priority, notes, an interview's outcome) go through the save
+ * command, whose announcement makes the application and the feed read again,
+ * once each, with the board and every other reader of the role. A comment or
+ * an interview is no pursuit write and reads both itself.
  */
 export function usePostingWorkspace(
   application: PostingApplication,
-  { showing, paintNotes, rereadPosting }: {
+  { showing, paintNotes }: {
     /** The Workspace is on screen, so its feed is read. */
     showing: boolean;
     /** Paints the posting's own copy of the notes. */
     paintNotes: (notes: string | null) => void;
-    rereadPosting: () => void;
   },
 ): PostingWorkspaceActions {
   const { toast } = useToast();
-  const { card, paintDetail, reread: rereadApplication, write } = application;
+  const { favVersion } = useJobWorkspace();
+  const { card, paintDetail, rereadRole, writeRole } = application;
   const jobId = card?.job_id ?? null;
+  const openJob = useRef(jobId);
+  openJob.current = jobId;
+
+  // Keyed on the role alone: showing the Workspace again keeps the answer it
+  // had while the feed reads once more.
   const feed = useAsyncResource(
     (signal) => (jobId != null && showing ? api.activity(jobId, signal) : Promise.resolve(null)),
-    [jobId, showing],
+    [jobId],
   );
   const { refresh: refreshFeed } = feed;
+  const readFeed = useCallback(
+    () => (showing ? refreshFeed({ preserveData: true }) : Promise.resolve()),
+    [showing, refreshFeed],
+  );
+  // The feed's owners: the Workspace coming on screen, and a write that landed.
+  useRefetchOn(showing, readFeed);
+  useRefetchOn(favVersion, readFeed);
 
-  const reread = useCallback(
-    async () => {
-      await Promise.all([rereadApplication(), refreshFeed({ preserveData: true })]);
+  /** The application and the feed of `target`, if it is still the open role. */
+  const readBoth = useCallback(
+    async (target: number) => {
+      if (openJob.current !== target) return;
+      await Promise.all([rereadRole(target), readFeed()]);
     },
-    [rereadApplication, refreshFeed],
+    [rereadRole, readFeed],
+  );
+  const change = useQuickChange(readBoth);
+
+  const paintApplication = useCallback(
+    (paint: (current: ApplicationDetail["application"]) => Partial<ApplicationDetail["application"]>) =>
+      paintDetail((current) => ({ ...current, application: { ...current.application, ...paint(current.application) } })),
+    [paintDetail],
   );
 
-  /** One pursuit write: paint, send, read again. True when it saved. */
-  const update = useCallback(
-    async (change: PursuitUpdate, painted: Partial<ApplicationDetail["application"]>): Promise<boolean> => {
+  /** One pursuit write through the role's save command: paint, send. True
+   *  when it saved; a failure says so and reads again. */
+  const stepWrite = useCallback(
+    async (send: () => Promise<unknown>, paint?: () => void): Promise<boolean> => {
       if (!card) return false;
-      paintDetail((current) => ({ ...current, application: { ...current.application, ...painted } }));
-      try {
-        await write(card, change);
-      } catch {
-        toast({ key: "applications", tone: "error", text: applicationsChangeFailed({ title: card.title }) });
-        await reread();
-        return false;
-      }
-      void reread();
-      return true;
+      return change({ jobId: card.job_id, title: card.title, paint, send: () => writeRole(card, send) });
     },
-    [card, paintDetail, write, toast, reread],
+    [card, change, writeRole],
   );
 
   /** A priority the person picks is a chosen one, whatever its number. */
   const setPriority = useCallback(
-    (priority: number) => update({ priority }, { priority, priority_set: true }),
-    [update],
+    (priority: number) =>
+      jobId == null
+        ? Promise.resolve(false)
+        : stepWrite(
+          () => api.setPursuit(jobId, { priority }),
+          () => paintApplication(() => ({ priority, priority_set: true })),
+        ),
+    [jobId, stepWrite, paintApplication],
   );
 
-  const setNextStep = useCallback(
-    (text: string | null, due: string | null) =>
-      update({ next_action: text, next_action_due: due }, { next_action: text, next_action_due: due }),
-    [update],
+  const addStep = useCallback(
+    (text: string, due: string | null) => (jobId == null ? Promise.resolve(false) : stepWrite(() => api.addStep(jobId, { text, due }))),
+    [jobId, stepWrite],
   );
 
-  /** A change made in one click: it paints at once, and its toast takes it
-   *  back. A failure reads again rather than restoring a remembered copy. */
-  const quickChange = useCallback(
-    async ({ painted, send, undo, text }: {
-      painted: (current: ApplicationDetail) => ApplicationDetail;
-      send: () => Promise<unknown>;
-      undo: () => Promise<unknown>;
-      text: string;
-    }) => {
-      if (!card) return;
-      const title = card.title;
-      paintDetail(painted);
-      try {
-        await send();
-      } catch {
-        toast({ key: "applications", tone: "error", text: applicationsChangeFailed({ title }) });
-        await reread();
-        return;
-      }
-      void reread();
-      toast({
-        key: "applications",
-        text,
-        action: {
-          label: applicationsMoveUndo(),
-          onClick: () => {
-            void undo()
-              .catch(() => toast({ key: "applications", tone: "error", text: applicationsUpnextUndoFailed({ title }) }))
-              .finally(() => void reread());
-          },
-        },
-      });
+  /** A changed step is painted at once, in its place in the order. */
+  const editStep = useCallback(
+    (step: ApplicationStep, text: string, due: string | null) => {
+      if (jobId == null) return Promise.resolve(false);
+      return stepWrite(
+        () => api.updateStep(jobId, step.id, { text, due }),
+        () => paintApplication((current) => withStep(current, { ...step, text, due })),
+      );
     },
-    [card, paintDetail, toast, reread],
+    [jobId, stepWrite, paintApplication],
   );
 
-  /** The next step is done: it is cleared, and its toast puts it back. */
-  const finishStep = useCallback(() => {
-    if (!card?.next_action) return;
-    const { next_action: step, next_action_due: due } = card;
-    void quickChange({
-      painted: (current) => ({ ...current, application: { ...current.application, next_action: null, next_action_due: null } }),
-      send: () => write(card, { next_action: null, next_action_due: null }),
-      undo: () => write(card, { next_action: step, next_action_due: due }),
-      text: applicationsUpnextDone({ step }),
+  const removeStep = useCallback(
+    (step: ApplicationStep) => {
+      if (jobId == null) return Promise.resolve(false);
+      return stepWrite(
+        () => api.deleteStep(jobId, step.id),
+        () => paintApplication((current) => withoutStep(current, step.id)),
+      );
+    },
+    [jobId, stepWrite, paintApplication],
+  );
+
+  /** A step is done: it leaves the list, and its toast opens it again. */
+  const finishStep = useCallback((step: ApplicationStep) => {
+    if (!card) return;
+    void change({
+      jobId: card.job_id,
+      title: card.title,
+      paint: () => paintApplication((current) => withoutStep(current, step.id)),
+      send: () => writeRole(card, () => api.updateStep(card.job_id, step.id, { done: true })),
+      undo: () => writeRole(card, () => api.updateStep(card.job_id, step.id, { done: false })),
+      text: applicationsUpnextDone({ step: step.text }),
     });
-  }, [card, quickChange, write]);
+  }, [card, change, writeRole, paintApplication]);
 
   /** How a round went, in one click; its toast takes it back. */
   const setOutcome = useCallback(
     (interview: ApplicationInterview, outcome: NonNullable<ApplicationInterview["outcome"]>) => {
-      if (jobId == null) return;
+      if (!card) return;
       const was = interview.outcome;
-      void quickChange({
-        painted: (current) => ({
+      void change({
+        jobId: card.job_id,
+        title: card.title,
+        paint: () => paintDetail((current) => ({
           ...current,
           interviews: current.interviews.map((one) => (one.id === interview.id ? { ...one, outcome } : one)),
-        }),
-        send: () => api.updateInterview(jobId, interview.id, { outcome }),
-        undo: () => api.updateInterview(jobId, interview.id, { outcome: was }),
+        })),
+        send: () => writeRole(card, () => api.updateInterview(card.job_id, interview.id, { outcome })),
+        undo: () => writeRole(card, () => api.updateInterview(card.job_id, interview.id, { outcome: was })),
         text: applicationsUpnextOutcomeSet({ label: interview.label, outcome: OUTCOME_LABEL[outcome]() }),
       });
     },
-    [jobId, quickChange],
+    [card, change, writeRole, paintDetail],
   );
 
   /** The notes live on the pursuit, which the posting's own read carries. */
   const saveNotes = useCallback(
-    async (notes: string): Promise<boolean> => {
-      if (!card) return false;
+    (notes: string): Promise<boolean> => {
+      if (!card) return Promise.resolve(false);
       const value = notes.trim() ? notes : null;
-      paintNotes(value);
-      try {
-        await write(card, { notes: value });
-      } catch {
-        toast({ key: "applications", tone: "error", text: applicationsChangeFailed({ title: card.title }) });
-        rereadPosting();
-        return false;
-      }
-      rereadPosting();
-      void reread();
-      return true;
+      return stepWrite(() => api.setPursuit(card.job_id, { notes: value }), () => paintNotes(value));
     },
-    [card, paintNotes, write, toast, rereadPosting, reread],
+    [card, stepWrite, paintNotes],
   );
 
   /** A comment or interview write and the read after it. True when it
    *  saved. An interview's form says a failure itself, so it is not told. */
   const send = useCallback(
-    async (call: () => Promise<unknown>, failed: string | null): Promise<boolean> => {
+    async (target: number, call: () => Promise<unknown>, failed: string | null): Promise<boolean> => {
       try {
         await call();
       } catch {
         if (failed) toast({ key: "applications", tone: "error", text: failed });
         return false;
       }
-      void reread();
+      void readBoth(target);
       return true;
     },
-    [toast, reread],
+    [toast, readBoth],
+  );
+  const addComment = useCallback(
+    (body: string) => (jobId == null ? Promise.resolve(false) : send(jobId, () => api.addComment(jobId, body), applicationsCommentFailed())),
+    [send, jobId],
   );
   const editComment = useCallback(
-    (id: number, body: string) => (jobId == null ? Promise.resolve(false) : send(() => api.editComment(jobId, id, body), applicationsCommentFailed())),
+    (id: number, body: string) => (jobId == null ? Promise.resolve(false) : send(jobId, () => api.editComment(jobId, id, body), applicationsCommentFailed())),
     [send, jobId],
   );
   const deleteComment = useCallback(
-    (id: number) => (jobId == null ? Promise.resolve(false) : send(() => api.deleteComment(jobId, id), applicationsCommentDeleteFailed())),
+    (id: number) => (jobId == null ? Promise.resolve(false) : send(jobId, () => api.deleteComment(jobId, id), applicationsCommentDeleteFailed())),
     [send, jobId],
   );
   const addInterview = useCallback(
-    (interview: InterviewWrite) => (jobId == null ? Promise.resolve(false) : send(() => api.addInterview(jobId, interview), null)),
+    (interview: InterviewWrite) => (jobId == null ? Promise.resolve(false) : send(jobId, () => api.addInterview(jobId, interview), null)),
     [send, jobId],
   );
   const saveInterview = useCallback(
-    (id: number, interview: InterviewWrite) => (jobId == null ? Promise.resolve(false) : send(() => api.updateInterview(jobId, id, interview), null)),
+    (id: number, interview: InterviewWrite) => (jobId == null ? Promise.resolve(false) : send(jobId, () => api.updateInterview(jobId, id, interview), null)),
     [send, jobId],
   );
   const deleteInterview = useCallback(
-    (id: number) => (jobId == null ? Promise.resolve(false) : send(() => api.deleteInterview(jobId, id), applicationsInterviewDeleteFailed())),
+    (id: number) => (jobId == null ? Promise.resolve(false) : send(jobId, () => api.deleteInterview(jobId, id), applicationsInterviewDeleteFailed())),
     [send, jobId],
   );
 
   return {
-    activity: feed.data?.items ?? [],
+    activity: feed.data?.items ?? NO_ACTIVITY,
     setPriority,
-    setNextStep,
+    addStep,
+    editStep,
     finishStep,
+    removeStep,
     setOutcome,
     saveNotes,
+    addComment,
     editComment,
     deleteComment,
     addInterview,

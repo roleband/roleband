@@ -1,6 +1,7 @@
 import type { Page } from "./fixtures";
 import { mockGet } from "./fixtures";
 import { installBoardRoutes, installJobDetailRoutes } from "./boardHarness";
+import { activityPage } from "./activityFixtures";
 import { applicationCardFixture, applicationDetailFixture, historyFixture, jobFixture, overviewFixture } from "../../src/test/fixtures";
 import { companyDiscovery, companyOpenCounts } from "./settingsHarness";
 import { companyList, scopeCatalog, scopePreview } from "./scopeFixtures";
@@ -22,6 +23,7 @@ export async function installEveryRoute(page: Page) {
   await page.route("/api/scope/catalog", (route) => route.fulfill({ json: scopeCatalog }));
   await page.route("/api/scope/preview", (route) => route.fulfill({ json: scopePreview }));
   await page.route("/api/scope/rules", (route) => route.fulfill({ json: { rules: [] } }));
+  await mockGet(page, "/api/agent-activity?**", (route) => route.fulfill({ json: activityPage() }));
   await page.route("/api/profile/suggestions", (route) =>
     route.fulfill({ json: { suggestions: [] } }));
   await page.route("/api/statistics/overview**", (route) =>

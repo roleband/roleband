@@ -9,7 +9,7 @@
 import type { ApplicationCard, Job } from "../../api";
 import { compare } from "../../copy/format";
 import { BAND_ORDER } from "../../format";
-import { dueOf, sortColumn } from "./board";
+import { DAY, dueOf, sortColumn } from "./board";
 import { priorityOf, priorityRank } from "./priority";
 
 /** The columns the List can show, in their first order. */
@@ -143,7 +143,6 @@ export function writeSort(params: URLSearchParams, sort: ListSort, order: ListOr
 }
 
 const BAND_RANK = new Map(BAND_ORDER.map((band, index) => [band, index]));
-const DAY = 86_400_000;
 
 /** A posting's level, when it names one the bands can place. A level the
  *  posting does not state, or states in words no band maps to, is no level. */

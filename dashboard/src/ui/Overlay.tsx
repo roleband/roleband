@@ -24,6 +24,10 @@ export const ABOVE_COVER = "data-above-cover";
  *  While a modal cover is open it is inert: out of the accessibility tree and
  *  the tab order, which `aria-modal` alone does not achieve. */
 export const BEHIND_COVER = "data-behind-cover";
+/** Marks what stays live beside a cover that opens beside it (the rail): it
+ *  keeps its place, its pointer and its place in the tab order, while the
+ *  rest of the page behind the cover is inert (patterns/Cover). */
+export const BESIDE_COVER = "data-beside-cover";
 
 const focusablesIn = (root: ParentNode) => Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE));
 

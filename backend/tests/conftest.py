@@ -478,6 +478,15 @@ def _no_test_touches_the_machines_secret_key(monkeypatch, tmp_path):
 
 
 @pytest.fixture(autouse=True)
+def _no_test_touches_the_persons_agent_hosts(monkeypatch, tmp_path):
+    """`roleband capabilities` updates the skill `connect` installed in an
+    agent host's folder. No test reaches the person's own: each run of the
+    client in this process, and every process it starts, gets scratch ones."""
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "hosts" / "claude"))
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "hosts" / "codex"))
+
+
+@pytest.fixture(autouse=True)
 def _usage_sharing_stays_off(monkeypatch):
     """No test records or sends usage events unless it says so: the product's
     own kill switch is on everywhere (docs/architecture.md). Usage tests
@@ -515,8 +524,53 @@ def _embedded_servers_stop_with_the_session(tmp_path_factory):
     stop_clusters_under(tmp_path_factory.getbasetemp())
 
 
+#: The embedded cluster this run's database tests open. Kept by the
+#: controlling process only.
+_RUN_CLUSTER = pytest.StashKey[Path]()
+
+
+def _configured_cluster() -> Path | None:
+    """The embedded cluster the settings name, without starting it; None for a
+    server named by URL (CI) and on Windows, whose runner stops its own."""
+    if os.name == "nt":
+        return None
+    try:
+        from tracker.config import Settings
+
+        settings = Settings()
+    except Exception:  # noqa: BLE001 - no settings, no cluster to look after
+        return None
+    if settings.database_url_override or not settings.db_embedded:
+        return None
+    return settings.embedded_pgdata()
+
+
 def pytest_configure(config):
     config.pluginmanager.register(DocReads(), "doc-reads")
+    if hasattr(config, "workerinput"):
+        return
+    pgdata = _configured_cluster()
+    if pgdata is not None:
+        config.stash[_RUN_CLUSTER] = pgdata
+
+
+def pytest_unconfigure(config):
+    """Stop the cluster the run's database tests used, once the run's workers
+    have let go of it, if it is a throwaway one (in a temporary folder or
+    `~/.cache`) and no other process holds it. The embedded server outlives
+    every process that opens it, so without this a test run leaves its cluster
+    running, and each holds one of the machine's few shared memory segments.
+    A killed run is not covered: `scripts.stray_clusters` lists and stops what
+    is left."""
+    pgdata = config.stash.get(_RUN_CLUSTER, None)
+    if pgdata is None:
+        return
+    from scripts.stray_clusters import stop_after_run
+
+    try:
+        stop_after_run(pgdata)
+    except Exception:  # noqa: BLE001 - teardown must never fail the run
+        pass
 
 
 def pytest_collection_modifyitems(items):

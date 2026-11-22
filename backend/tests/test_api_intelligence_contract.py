@@ -26,7 +26,6 @@ a real re-embed, and the self-test would reach a real model.
 
 from __future__ import annotations
 
-import sys
 from datetime import timedelta
 from typing import get_args
 
@@ -60,7 +59,6 @@ from tracker.intelligence.provider import (
 )
 from tracker.intelligence_runtime.selftest import EXPECTED_HINT, SAMPLE_POSTING, TEST_TASK
 from tracker.pay_disclosure import DisclosedComp
-from tracker.platform.paths import REPO_ROOT, venv_python
 from tracker.search import fit
 from tracker.semantic import matching as matching_policy
 from tracker.semantic import provision
@@ -641,50 +639,37 @@ async def test_each_band_previews_its_strongest_open_roles_best_first(api_client
 
 
 @pytest.mark.asyncio
-async def test_agent_access_is_off_until_saved_and_copy_ready_from_the_start(api_client, machine):
+async def test_agent_access_is_off_until_saved_and_names_each_hosts_connect_command(
+    api_client, machine, tmp_path, monkeypatch,
+):
+    # Empty host folders: the person's own ~/.claude and ~/.codex are never read here.
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude"))
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex"))
     body = await _call(api_client, "GET", "/api/intelligence/agents")
-    python = str(venv_python(REPO_ROOT / "backend" / ".venv"))
-    cwd = str(REPO_ROOT / "backend")
     assert list(body) == _fields(contract.AgentAccessResponse)
     assert body == {
         "enabled": False,
         "allow_writes": False,
-        "transport": "stdio",
-        "command": python,
-        "args": ["-m", "tracker.mcp.server"],
-        "cwd": cwd,
-        "tools": [
-            {"name": "get_server_status", "access": "status"},
-            {"name": "get_radar_summary", "access": "read"},
-            {"name": "search_opportunities", "access": "read"},
-            {"name": "get_opportunity", "access": "read"},
-            {"name": "listing_history", "access": "read"},
-            {"name": "get_pursuits", "access": "read"},
-            {"name": "save_opportunity", "access": "write"},
-            {"name": "update_pursuit", "access": "write"},
-            {"name": "get_recipe_contract", "access": "read"},
-            {"name": "inspect_source", "access": "read"},
-            {"name": "validate_recipe", "access": "read"},
-            {"name": "save_recipe_draft", "access": "write"},
+        # Every category and group is named, open until the person holds it back.
+        "categories": {
+            "public_posting": "any_model", "market_statistic": "any_model", "private_pursuit": "any_model",
+            "offer": "any_model", "candidate": "any_model",
+        },
+        "groups": {
+            "tracking_progress": "on", "keeping_findings": "on", "tuning_radar": "on",
+            "controlling_collection": "on",
+        },
+        "connect": [
+            {"host": "claude-code", "command": "roleband connect claude-code --apply"},
+            {"host": "codex", "command": "roleband connect codex --apply"},
         ],
-        "codex_command": f"codex mcp add roleband -- {python} -m tracker.mcp.server",
-        "claude_json": {"mcpServers": {"roleband": {"command": python, "args": ["-m", "tracker.mcp.server"],
-                                                   "cwd": cwd}}},
+        # No host's files say it is connected, and no app has called yet.
+        "apps": [
+            {"app": "claude-code", "connection": None, "last_call_at": None},
+            {"app": "codex", "connection": None, "last_call_at": None},
+            {"app": "other", "connection": None, "last_call_at": None},
+        ],
     }
-
-
-def test_the_codex_command_is_quoted_for_the_shell_it_is_pasted_into(monkeypatch):
-    """An installed interpreter's path can hold a space; the command is pasted into a terminal as it is."""
-    from tracker.agents.config import AgentAccessConfig
-    from tracker.api.routers import intelligence
-
-    windows = sys.platform == "win32"
-    python = r"C:\Program Files\Role Band\python.exe" if windows else "/Applications/Role Band.app/python"
-    monkeypatch.setattr(intelligence, "PACKAGED", True)
-    monkeypatch.setattr(intelligence.sys, "executable", python)
-    command = intelligence._agent_connection_state(AgentAccessConfig())["codex_command"]
-    quoted = f'"{python}"' if windows else f"'{python}'"
-    assert command.startswith(f"codex mcp add roleband -- {quoted} -I "), command
 
 
 @pytest.mark.asyncio
@@ -737,7 +722,7 @@ async def test_a_builder_that_drifts_fails_the_response(api_client, machine, mon
 @pytest.mark.asyncio
 async def test_agent_and_fit_builders_that_drift_fail_the_response(api_client, db_session, machine, monkeypatch):
     real_agents = router._agent_connection_state
-    monkeypatch.setattr(router, "_agent_connection_state", lambda config: {**real_agents(config), "token": "x"})
+    monkeypatch.setattr(router, "_agent_connection_state", lambda config, apps: {**real_agents(config, apps), "token": "x"})
     with pytest.raises(ResponseValidationError):
         await api_client.get("/api/intelligence/agents")
 

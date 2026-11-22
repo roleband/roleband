@@ -250,16 +250,15 @@ test("the Mac panel's new-roles address opens the board on New, then leaves the 
 });
 
 /* The top bar's counts are ONE choice, like tabs: open roles, new,
-   reposted, saved. Whichever was clicked last is the one lit, and it is what
-   the page shows. A lens kept beside the route rather than in it fails three
+   reposted. Whichever was clicked last is the one lit, and it is what the
+   page shows. A lens kept beside the route rather than in it fails three
    ways: "open roles" leaves a lens on, so the board keeps filtering under a
-   chip that says it is not; "saved" leaves "new" lit on the pipeline's
-   List; and the lens comes back the next time the board opens, from any
-   door. */
+   chip that says it is not; leaving for the pipeline leaves "new" lit there;
+   and the lens comes back the next time the board opens, from any door. */
 test("the top-bar counts are one choice: whatever you click is what you see", async ({
   page, isMobile,
 }) => {
-  test.skip(isMobile, "the compact header hides the open-roles and saved counts");
+  test.skip(isMobile, "the compact header hides the open-roles count");
   const lists: URLSearchParams[] = [];
   await page.route("/api/jobs?**", (route) => {
     const url = new URL(route.request().url());
@@ -277,7 +276,6 @@ test("the top-bar counts are one choice: whatever you click is what you see", as
   const openRoles = bar.getByRole("link", { name: /open roles?$/ });
   const newToday = bar.getByRole("button", { name: "1 new in the last 2 days" });
   const reposted = bar.getByRole("button", { name: "2 reposted today" });
-  const saved = bar.getByRole("link", { name: /saved roles$/ });
   const lensChip = page.getByRole("button", { name: msg("radar-new-today"), exact: true });
   const last = () => lists.at(-1);
   const lensesSent = () => `${last()?.get("new_today_only")}/${last()?.get("repost_today_only")}`;
@@ -325,18 +323,17 @@ test("the top-bar counts are one choice: whatever you click is what you see", as
   await expect(lensChip).toBeVisible();
   expect(lensesSent()).toBe("true/false");
 
-  // Saved roles are the pipeline's Board, where every one is a card: only
-  // saved is lit there.
-  await saved.click();
-  await expect(page).toHaveURL(/\/pipeline\/board$/);
-  await expect(saved).toHaveAttribute("aria-current", "page");
+  // The pipeline is another place: no count is lit there.
+  const rail = page.getByRole("navigation", { name: msg("shell-rail-aria") });
+  await rail.getByRole("link", { name: msg("shell-nav-pipeline") }).click();
+  await expect(page).toHaveURL(/\/pipeline\//);
   await expect(newToday).toHaveAttribute("aria-pressed", "false");
   await expect(openRoles).not.toHaveAttribute("aria-current", "page");
 
   // And the lens does not wait for the board's next visit: back through the
   // rail, it is the plain board again.
   const before = lists.length;
-  await page.getByRole("navigation", { name: msg("shell-rail-aria") }).getByRole("link", { name: "Radar" }).click();
+  await rail.getByRole("link", { name: "Radar" }).click();
   await expect.poll(() => lists.length).toBeGreaterThan(before);
   expect(lensesSent()).toBe("false/false");
   await expect(lensChip).toHaveCount(0);

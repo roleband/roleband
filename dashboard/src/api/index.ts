@@ -14,6 +14,7 @@
 // boundary, and this file composes the one `api` object every screen calls.
 // Importers write `../api`.
 
+import { agentActivityApi } from "./agentActivity";
 import { applicationsApi } from "./applications";
 import { jobsApi } from "./jobs";
 import { opsApi } from "./ops";
@@ -46,6 +47,7 @@ export const api = {
   ...recipesApi,
   ...usageApi,
   ...pluginsApi,
+  ...agentActivityApi,
 };
 
 export { ApiError, isNotFound } from "./transport";
@@ -56,7 +58,7 @@ export type {
   Facets, Filters, ImportanceBand, Job, JobCompPackage, JobCompPolicy, JobCompReconciliation,
   JobDescriptionSection, JobDetail, JobDetailRow, JobList, JobQualification, JobRequirements,
   JobSkill, JobSkillEvidence, JobSort, JobViewResult, LifecycleEvent, ListingEvent, ListingHistory, ParsedQuery,
-  RelevanceReview, RequirementModality, SimilarJob, SimilarJobs, SortOrder,
+  PostingTextResult, RelevanceReview, RequirementModality, SimilarJob, SimilarJobs, SortOrder,
 } from "./jobs";
 export type {
   ScheduleBinding, SchedulePlan, SchedulePlanUpdate, ScheduleProvider, ScheduleTimeUpdate, ScheduleUpcomingRun,
@@ -101,7 +103,7 @@ export type {
   StoredPersonaProfile,
 } from "./scope";
 export type {
-  AgentAccessState, CloudLLMProfile, CloudLLMProfileInput, CloudLLMState, CloudLLMTestResult,
+  AgentAccessChoices, AgentAccessInput, AgentAccessState, CloudLLMProfile, CloudLLMProfileInput, CloudLLMState, CloudLLMTestResult,
   IntelligenceAvailability, IntelligenceExtracted, IntelligenceFit, IntelligenceFitBand,
   IntentStatementResult,
   IntelligenceFitBandPreview, IntelligenceRouting, IntelligenceStatus, IntelligenceTestResult,
@@ -117,8 +119,11 @@ export type {
   ApplicationCardInterview,
   ApplicationDetail,
   ApplicationInterview,
+  ApplicationStep,
   InterviewUpdate,
   InterviewWrite,
+  StepUpdate,
+  StepWrite,
 } from "./applications";
 export type {
   OfferAnswers, OfferDraft, OfferStep, ValuationDraft,

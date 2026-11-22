@@ -133,6 +133,10 @@ export function ageLabel(hours: number | null | undefined): string {
 // the scan's tone. Two states outrank
 // the pass: a live scan, which the pass waits for, and scans that have
 // stopped, which is the warning the badge exists for.
+//
+// `age` is set when the text is the scan's own words, which already start with
+// "Last scan": a spoken label wraps the bare age, not the text, or a screen
+// reader hears the words twice.
 export function freshnessLabel(
   s: {
     running: boolean;
@@ -143,7 +147,7 @@ export function freshnessLabel(
     scheduler: { unread: readonly unknown[] };
     wider_market?: { checked: number; to_check: number; waiting_for_power: boolean } | null;
   } | null,
-): { text: string; tone: FreshnessTone; scan?: string } {
+): { text: string; tone: FreshnessTone; age?: string; scan?: string } {
   if (!s) return { text: "—", tone: "unknown" };
   if (s.running) return { text: shellScanScanning(), tone: "unknown" };
   const scan = scanState(s);
@@ -163,7 +167,7 @@ function scanState(s: {
   stale: boolean;
   freshness_max_hours: number;
   scheduler: { unread: readonly unknown[] };
-}): { text: string; tone: FreshnessTone } {
+}): { text: string; tone: FreshnessTone; age?: string } {
   // Null age means no followed company was ever read. It is not "a company is
   // behind": that state carries the age of the oldest scan.
   if (s.last_success_age_hours == null) {
@@ -174,5 +178,5 @@ function scanState(s: {
   // Companies behind are the amber dot and the tooltip's list, never more
   // words in the badge.
   const tone = hours > s.freshness_max_hours ? "stale" : s.stale ? "behind" : "fresh";
-  return { text: shellFreshnessChecked({ age }), tone };
+  return { text: shellFreshnessChecked({ age }), tone, age };
 }

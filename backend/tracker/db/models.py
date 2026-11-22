@@ -30,6 +30,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.types import UserDefinedType
 
 from tracker.config import get_settings
 
@@ -45,6 +46,38 @@ def _provider_column():
 
 class Base(DeclarativeBase):
     pass
+
+
+class Xid8(UserDefinedType[int]):
+    """Postgres `xid8`: a 64-bit transaction id that never wraps."""
+
+    cache_ok = True
+
+    def get_col_spec(self, **_kw: object) -> str:
+        return "xid8"
+
+
+def _change_xact_column():
+    """Where a row of a changes-feed record falls in commit order.
+
+    `change_xact` is the id of the transaction that inserted the row and
+    `change_cluster` the system identifier of the cluster that assigned it.
+    A transaction id is ordered by when the transaction began, not when it
+    committed, so the feed reads a row only once every transaction below its
+    id has ended (`tracker/agents/operations/changes.py`, decision 0020). Both
+    are NULL on a row written before the columns existed. A row restored from
+    another cluster keeps that cluster's id, which this cluster's ids say
+    nothing about, so the feed reads it as history from before its cursors.
+    Every writer leaves both to their defaults.
+    """
+    return mapped_column(Xid8(), nullable=True, server_default=text("pg_current_xact_id()"))
+
+
+def _change_cluster_column():
+    """The cluster that assigned `change_xact`; see `_change_xact_column`."""
+    return mapped_column(
+        BigInteger, nullable=True, server_default=text("(pg_control_system()).system_identifier")
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -822,9 +855,18 @@ class JobLifecycleEvent(Base):
         DateTime(timezone=True), server_default=func.now(), index=True
     )
 
+    change_xact: Mapped[int | None] = _change_xact_column()
+    change_cluster: Mapped[int | None] = _change_cluster_column()
+
     job: Mapped[Job] = relationship(back_populates="events")
 
     __table_args__ = (
+        Index(
+            "ix_job_lifecycle_events_change_position",
+            "change_xact",
+            "id",
+            postgresql_where=text("change_xact IS NOT NULL"),
+        ),
         # The closings whose role note names a posting (`queries.motion._reached`):
         # a note is found from the posting it names, not only from its own.
         # Without the pending list: a read probes this index once per posting
@@ -895,6 +937,12 @@ class JobLineageLink(Base):
     confidence: Mapped[str] = mapped_column(String(12))  # auto | suspected  (MACHINE)
     status: Mapped[str] = mapped_column(String(12), default="pending")  # pending|confirmed|rejected (HUMAN)
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: Who made the verdict: `person` or `agent`; null on a pending link, and on
+    #: a verdict recorded before attribution existed, which reads as the person's.
+    decided_by: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    #: An assistant's one-line reason for its verdict, or its note on a pair it
+    #: left pending for the person.
+    decision_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     detector_version: Mapped[str] = mapped_column(String(32))
     evidence: Mapped[dict] = mapped_column(JSONB, default=dict)
     created_at: Mapped[datetime] = mapped_column(
@@ -904,6 +952,9 @@ class JobLineageLink(Base):
     __table_args__ = (
         UniqueConstraint("job_id", "prior_job_id", name="uq_job_lineage_link"),
         Index("ix_job_lineage_link_review", "status", "confidence", "created_at"),
+        CheckConstraint(
+            "decided_by IS NULL OR decided_by IN ('person', 'agent')", name="ck_job_lineage_link_decided_by"
+        ),
     )
 
 
@@ -932,12 +983,18 @@ class JobTwinLink(Base):
     detector_version: Mapped[str] = mapped_column(String(32))
     evidence: Mapped[dict] = mapped_column(JSONB, default=dict)
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: As on `JobLineageLink`.
+    decided_by: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    decision_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
 
     __table_args__ = (
         CheckConstraint("job_a_id < job_b_id", name="ck_job_twin_link_canonical_pair"),
+        CheckConstraint(
+            "decided_by IS NULL OR decided_by IN ('person', 'agent')", name="ck_job_twin_link_decided_by"
+        ),
         UniqueConstraint("job_a_id", "job_b_id", name="uq_job_twin_link_pair"),
         Index("ix_job_twin_link_review", "status", "confidence", "created_at"),
     )
@@ -1245,6 +1302,20 @@ class Pursuit(Base):
     )
 
 
+#: The user's own endings: each can be reversed, and Withdrawn can re-engage
+#: while the posting is open.
+DECIDED_STAGES = frozenset({"accepted", "declined", "withdrawn"})
+#: Endings the company or the world decided. Only these never move again.
+CLOSED_STAGES = frozenset({"rejected", "role_closed"})
+#: A role at one of these has left the moving stages.
+ENDED_STAGES = DECIDED_STAGES | CLOSED_STAGES
+#: Endings that owe nothing: no follow-up is owed and a next step is not on
+#: the calendar. An accepted offer is not one, since signing and a start date
+#: still carry dates the person set; nor is `offer`, the stage where a missed
+#: follow-up costs the most.
+OWES_NOTHING = ENDED_STAGES - {"accepted"}
+
+
 class ProfileClaim(Base):
     """One provenance-tracked fact about the candidate.
 
@@ -1346,6 +1417,8 @@ class PursuitEvent(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )
+    change_xact: Mapped[int | None] = _change_xact_column()
+    change_cluster: Mapped[int | None] = _change_cluster_column()
 
 
 class PursuitComment(Base):
@@ -1369,6 +1442,33 @@ class PursuitComment(Base):
 
     __table_args__ = (
         CheckConstraint("actor IN ('user','agent')", name="ck_pursuit_comment_actor"),
+    )
+
+
+class PursuitStep(Base):
+    """One next step the person owes on a pursuit, open until `done_at`.
+
+    A pursuit's open steps read soonest first, steps with no day last in the
+    order they were added. `pursuits.next_action` and `next_action_due` hold
+    the first of them, written by the step writes only, for readers that know
+    one step per pursuit."""
+
+    __tablename__ = "pursuit_steps"
+    __mapper_args__ = {"eager_defaults": True}
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    pursuit_id: Mapped[int] = mapped_column(
+        ForeignKey("pursuits.id", ondelete="CASCADE"), index=True
+    )
+    text: Mapped[str] = mapped_column(Text)
+    due: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("text <> ''", name="ck_pursuit_step_text"),
     )
 
 
@@ -1658,6 +1758,61 @@ class CommandReceipt(Base):
             "workspace_id", "principal_id", "operation", "idempotency_key", name="uq_command_receipt_key"
         ),
         CheckConstraint("input_hash ~ '^[0-9a-f]{64}$'", name="ck_command_receipt_input_hash"),
+    )
+
+
+class AgentActivity(Base):
+    """One agent operation as the person reads it on the Activity screen: a
+    read, a change or a refusal (`tracker/agents/activity.py`).
+
+    A change's row is written in the write's own transaction, beside its audit
+    event and its receipt, so a write that rolled back leaves no row and a row
+    never claims a change that did not land. A read's or a refusal's row is
+    written once the answer is decided, on a session of its own.
+
+    `categories` are the data categories the operation read (for a refusal,
+    the one it asked for). `subject` holds the facts the summary is said from
+    (a role's title, a count, a stage slug); `summary` is the same sentence in
+    English, kept for search and for a reader without the catalog. `changes`
+    lists each field a change touched with its value before and after.
+    """
+
+    __tablename__ = "agent_activity"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    workspace_id: Mapped[str | None] = mapped_column(String(64))
+    principal_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    operation: Mapped[str] = mapped_column(String(128), nullable=False)
+    request_id: Mapped[str | None] = mapped_column(String(128))
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    categories: Mapped[list[str]] = mapped_column(
+        ARRAY(String(32)), nullable=False, server_default=text("'{}'::varchar[]")
+    )
+    #: The action group a change belongs to; None for a read, a refusal, or
+    #: an operation no group names yet.
+    action_group: Mapped[str | None] = mapped_column(String(64))
+    #: The refusal's error code (`category_disabled`, `writes_disabled`, ...).
+    refusal: Mapped[str | None] = mapped_column(String(64))
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    subject: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    changes: Mapped[list | None] = mapped_column(JSONB)
+    #: A change's idempotency key: with the principal and operation it names its receipt.
+    idempotency_key: Mapped[str | None] = mapped_column(String(128))
+    #: The host the call ran under (`tracker/platform/agent_hosts.py`): a host
+    #: `roleband connect` sets up, or `other`. None on a row recorded before
+    #: calls named their host.
+    host: Mapped[str | None] = mapped_column(String(32))
+
+    __table_args__ = (
+        CheckConstraint("kind IN ('read', 'change', 'refused')", name="ck_agent_activity_kind"),
+        CheckConstraint("(kind = 'refused') = (refusal IS NOT NULL)", name="ck_agent_activity_refusal"),
+        # The screen pages newest first by (occurred_at, id): one index, read backwards.
+        Index("ix_agent_activity_occurred", "occurred_at", "id"),
+        # Each host's last call, for Settings, and the screen's list for one host.
+        Index("ix_agent_activity_host", "host", "occurred_at"),
     )
 
 
@@ -1966,6 +2121,12 @@ class ScrapeSourceRun(Base):
         # `scripts.bench_status_cost` measures it.
         Index("ix_scrape_source_runs_binding_started", "binding_id", "started_at"),
         Index("ix_scrape_source_runs_provider_finished", "provider_key", "finished_at"),
+        Index(
+            "ix_scrape_source_runs_change_position",
+            "change_xact",
+            "id",
+            postgresql_where=text("change_xact IS NOT NULL"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
@@ -1994,6 +2155,8 @@ class ScrapeSourceRun(Base):
     errors: Mapped[list] = mapped_column(JSONB, default=list)
     drift: Mapped[list] = mapped_column(JSONB, default=list)
     stats: Mapped[dict] = mapped_column(JSONB, default=dict)
+    change_xact: Mapped[int | None] = _change_xact_column()
+    change_cluster: Mapped[int | None] = _change_cluster_column()
 
 
 class AiTaskLog(Base):
@@ -2732,6 +2895,37 @@ class PluginRun(Base):
         ),
         Index("ix_plugin_run_clean", "plugin_id", "outcome"),
     )
+
+
+class PluginRunEnd(Base):
+    """How one plugin run ended, recorded by the transaction that closed it.
+
+    `plugin_run` is rewritten while a run goes and when it ends, so its row
+    holds no place in commit order; this table is the changes feed's record of
+    each end: one row per run, inserted and never updated. The first close of a
+    run is its record: a later rewrite of the run's outcome (a host that closes
+    a run the dead-run sweep closed first) changes `plugin_run` only.
+    """
+
+    __tablename__ = "plugin_run_ends"
+    __table_args__ = (
+        UniqueConstraint("run_id", name="uq_plugin_run_ends_run"),
+        Index(
+            "ix_plugin_run_ends_change_position",
+            "change_xact",
+            "id",
+            postgresql_where=text("change_xact IS NOT NULL"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("plugin_run.id", ondelete="CASCADE"))
+    plugin_id: Mapped[str] = mapped_column(String(32))
+    job: Mapped[str] = mapped_column(String(32))
+    outcome: Mapped[str] = mapped_column(String(16))
+    ended_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    change_xact: Mapped[int | None] = _change_xact_column()
+    change_cluster: Mapped[int | None] = _change_cluster_column()
 
 
 class PluginState(Base):

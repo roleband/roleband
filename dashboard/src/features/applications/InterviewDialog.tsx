@@ -51,7 +51,7 @@ import {
 import { ClockPicker } from "./ClockPicker";
 import { clockLabel, parseClock } from "./clock";
 import { DayPicker } from "./DayPicker";
-import { fromDayKey } from "./monthGrid";
+import { dayKey, fromDayKey } from "./monthGrid";
 
 type FormatChoice = "" | "video" | "phone" | "onsite";
 type OutcomeChoice = "" | "passed" | "not_passed" | "cancelled";
@@ -79,7 +79,7 @@ function fieldsOf(interview: ApplicationInterview) {
   const at = new Date(interview.scheduled_at);
   return {
     label: interview.label === applicationsInterviewDefaultLabel() ? "" : interview.label,
-    day: `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`,
+    day: dayKey(at),
     clock: interview.all_day ? "" : `${pad(at.getHours())}:${pad(at.getMinutes())}`,
     format: (interview.format ?? "") as FormatChoice,
     link: interview.link ?? "",

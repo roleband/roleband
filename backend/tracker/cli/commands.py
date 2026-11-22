@@ -7,9 +7,10 @@ is the command's words (`opportunities.search` is `opportunities search`,
 is a hyphen), each field the route takes in its path is a positional
 argument, and every other scalar or list field of its input schema is a flag
 (`level_band` is `--level-band`; a list flag is repeated for more values).
-`--input @FILE` or `--input -` gives the whole input as one JSON object
-instead, for nested or long input; it and a field flag together are an error,
-never a silent precedence.
+`--input @FILE` or `--input -` gives the input as one JSON object, for nested
+or long input and for an explicit null; path arguments and field flags add the
+fields it does not carry, and a field given both ways is an error, never a
+silent precedence.
 
 The handshake operations (`status`, `capabilities`, `describe`) keep their own
 commands, which answer offline too. Standard library only: `--help` builds
@@ -20,12 +21,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import select
 import sys
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import quote, urlencode
 
+from tracker.cli import output
 from tracker.cli.errors import ClientError
 
 #: The prefix every agent route lives under.
@@ -35,7 +39,7 @@ HANDSHAKE = frozenset({"status", "capabilities", "describe"})
 #: Options every command or the client itself takes; no input field may claim one.
 RESERVED = frozenset({
     "format", "json", "non_interactive", "context", "timeout", "help", "version", "input",
-    "idempotency_key", "offline",
+    "idempotency_key", "offline", "output", "overwrite",
 })
 #: The most `--input` may hold, as the engine accepts.
 MAX_INPUT_BYTES = 1024 * 1024
@@ -75,6 +79,8 @@ class Command:
     flags: tuple[Field, ...]
     #: Required fields no flag can give (nested objects): only `--input` gives them.
     input_only: tuple[str, ...]
+    #: The answer is a document `--output` can write to a file (`tracker/cli/output.py`).
+    writes_file: bool = False
 
 
 def words_of(operation: str) -> tuple[str, ...]:
@@ -126,6 +132,9 @@ def _command(entry: dict[str, Any], route: dict[str, str]) -> Command:
             input_only.append(name)
     if missing := [name for name in in_path if name not in {field.name for field in positional}]:
         raise ValueError(f"{operation}: its path names {missing}, which its input does not")
+    writes_file = "file_write" in entry.get("client_effects", ())
+    if writes_file and operation not in output.WRITERS:
+        raise ValueError(f"{operation}: it writes a file, and this client cannot lay its answer out as one")
     positional.sort(key=lambda field: in_path.index(field.name))
     return Command(
         operation=operation,
@@ -138,6 +147,7 @@ def _command(entry: dict[str, Any], route: dict[str, str]) -> Command:
         positional=tuple(positional),
         flags=tuple(flags),
         input_only=tuple(input_only),
+        writes_file=writes_file,
     )
 
 
@@ -194,7 +204,7 @@ def _check_words(commands: list[Command]) -> None:
     if len(leaves) != len(commands):
         raise ValueError("two operations map to the same command")
     for words, operation in leaves.items():
-        if words[0] in HANDSHAKE | {"connect"}:
+        if words[0] in HANDSHAKE | {"connect", "tools"}:
             raise ValueError(f"{operation}: {words[0]!r} is already a command of its own")
         for cut in range(1, len(words)):
             if words[:cut] in leaves:
@@ -270,7 +280,14 @@ def _arguments(parser: argparse.ArgumentParser, command: Command) -> None:
             metavar=None if field.choices else field.name.upper(), help=help_text.strip() or None,
         )
     parser.add_argument("--input", dest="input_source", metavar="@FILE|-", default=None,
-                        help="the whole input as one JSON object, from a file or stdin")
+                        help="the input as one JSON object, from a file or stdin; arguments and flags add "
+                             "the fields it leaves out, and a field given both ways is refused")
+    if command.writes_file:
+        parser.add_argument("--output", dest="output", metavar="FILE", default=None,
+                            help="write the whole document to FILE, read in every part and checked against its "
+                                 "hash, and answer with its path, size and hash instead of its text")
+        parser.add_argument("--overwrite", dest="overwrite", action="store_true",
+                            help="with --output, replace a file already there")
     if command.keyed:
         parser.add_argument("--idempotency-key", dest="idempotency_key", metavar="KEY", default=None,
                             help="send under this key; a retry under it never writes twice (default: a new one)")
@@ -280,25 +297,28 @@ def _arguments(parser: argparse.ArgumentParser, command: Command) -> None:
 
 
 def payload(command: Command, args: argparse.Namespace, *, stdin: Any = None) -> dict[str, Any]:
-    """The operation's input from the positional arguments and either the flags or `--input`."""
+    """The operation's input: `--input`'s object, with the positional arguments
+    and flags adding the fields it does not carry. A field given both ways is
+    refused, whatever the two values: neither silently wins."""
     given = {
-        field.name: getattr(args, f"in_{field.name}")
+        field.option: (field.name, getattr(args, f"in_{field.name}"))
         for field in command.flags
         if getattr(args, f"in_{field.name}", None) is not None
     }
     data: dict[str, Any] = {}
     if args.input_source is not None:
-        if given:
+        data = read_input(args.input_source, stdin=stdin)
+        if overlap := [(option, name) for option, (name, _) in given.items() if name in data]:
+            names = ", ".join(name for _, name in overlap)
             raise ClientError(
                 "invalid_arguments",
-                f"--input and {', '.join(f'--{name.replace(chr(95), chr(45))}' for name in given)} both give "
-                "input; give it one way.",
+                f"{', '.join(option for option, _ in overlap)} and --input both give {names}; give each field once.",
+                details={"fields": [name for _, name in overlap]},
             )
-        data = read_input(args.input_source, stdin=stdin)
-    else:
-        data = given
-        if missing := [field.option for field in command.flags if field.required and field.name not in data]:
-            raise ClientError("invalid_arguments", f"{', '.join(missing)} is required.")
+    data.update(dict(given.values()))
+    if missing := [field.option for field in command.flags if field.required and field.name not in data]:
+        where = ", as a flag or in --input" if args.input_source is not None else ""
+        raise ClientError("invalid_arguments", f"{', '.join(missing)} is required{where}.")
     for field in command.positional:
         value = getattr(args, f"pos_{field.name}", None)
         if value is None:
@@ -307,12 +327,91 @@ def payload(command: Command, args: argparse.Namespace, *, stdin: Any = None) ->
             continue
         if field.name in data:
             raise ClientError(
-                "invalid_arguments", f"{field.name} is given both as an argument and in --input; give it once."
+                "invalid_arguments", f"{field.name} is given both as an argument and in --input; give it once.",
+                details={"fields": [field.name]},
             )
         data[field.name] = value
     if missing := [name for name in command.input_only if name not in data]:
         raise ClientError("invalid_arguments", f"{', '.join(missing)} can only be given with --input.")
     return data
+
+
+#: How much of an unread standard input is looked at to tell data from blank lines.
+_STDIN_PEEK_BYTES = 4096
+
+
+def refuse_unread_input(stream: Any) -> None:
+    """Refuse a call whose standard input holds data that no `--input -` reads.
+
+    Without it, `echo '{"location": ["London"]}' | roleband opportunities
+    search` runs with no filter and answers every role. Only input already
+    there counts, read without waiting: a terminal, an empty or closed pipe,
+    `/dev/null` (`NUL` on Windows), or a pipe nothing has written to yet runs
+    as it would without input, since agent hosts start commands with each of
+    these."""
+    try:
+        descriptor = stream.fileno()
+        if os.isatty(descriptor):
+            return
+        held = False
+        seen = 0
+        # Leading whitespace can fill a whole read; keep reading what is already
+        # there until a non-blank byte, the end, or a pause in the input. Blank
+        # input past the input limit counts as held: the scan stops undecided.
+        while waiting := _waiting(descriptor):
+            chunk = os.read(descriptor, min(waiting, _STDIN_PEEK_BYTES))
+            if not chunk:
+                break
+            seen += len(chunk)
+            if chunk.strip() or seen > MAX_INPUT_BYTES:
+                held = True
+                break
+    except (AttributeError, OSError, ValueError):
+        return
+    if held:
+        raise ClientError(
+            "invalid_arguments",
+            "Standard input holds data, which this command reads only with --input -; add --input - to read it.",
+        )
+
+
+if sys.platform == "win32":
+    import ctypes
+    import msvcrt
+    from ctypes import wintypes
+
+    _FILE_TYPE_DISK, _FILE_TYPE_PIPE = 1, 3
+    _kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    _kernel32.GetFileType.argtypes = [wintypes.HANDLE]
+    _kernel32.GetFileType.restype = wintypes.DWORD
+    _kernel32.PeekNamedPipe.argtypes = [
+        wintypes.HANDLE, wintypes.LPVOID, wintypes.DWORD,
+        wintypes.LPDWORD, wintypes.LPDWORD, wintypes.LPDWORD,
+    ]
+    _kernel32.PeekNamedPipe.restype = wintypes.BOOL
+
+    def _waiting(descriptor: int) -> int:
+        """How many bytes a read takes now without waiting. A pipe can't be
+        polled with `select` on Windows; `PeekNamedPipe` says what it holds,
+        and fails once the writer closed it and it is empty. A file never
+        makes a read wait; a console or the `NUL` device is left alone."""
+        handle = msvcrt.get_osfhandle(descriptor)
+        kind = _kernel32.GetFileType(handle)
+        if kind == _FILE_TYPE_DISK:
+            return _STDIN_PEEK_BYTES
+        if kind != _FILE_TYPE_PIPE:
+            return 0
+        available = wintypes.DWORD(0)
+        if not _kernel32.PeekNamedPipe(handle, None, 0, None, ctypes.byref(available), None):
+            return 0
+        return available.value
+
+else:
+
+    def _waiting(descriptor: int) -> int:
+        """How many bytes a read takes now without waiting: up to one peek
+        when `select` finds input or the end of it there, else none."""
+        return _STDIN_PEEK_BYTES if select.select([descriptor], [], [], 0)[0] else 0
 
 
 def read_input(source: str, *, stdin: Any = None) -> dict[str, Any]:

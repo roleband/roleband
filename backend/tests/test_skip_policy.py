@@ -128,10 +128,10 @@ class TestClassification:
         )
 
 
-def _fires_off_windows(condition: ast.expr | None) -> bool:
-    """`sys.platform != "win32"` or `os.name != "nt"`: true on every CI runner."""
+def _compares_platform(condition: ast.expr | None, op: type[ast.cmpop]) -> bool:
+    """`sys.platform <op> "win32"` or `os.name <op> "nt"`."""
     if not (isinstance(condition, ast.Compare) and len(condition.ops) == 1
-            and isinstance(condition.ops[0], ast.NotEq) and isinstance(condition.left, ast.Attribute)
+            and isinstance(condition.ops[0], op) and isinstance(condition.left, ast.Attribute)
             and isinstance(condition.left.value, ast.Name)
             and isinstance(condition.comparators[0], ast.Constant)):
         return False
@@ -139,13 +139,24 @@ def _fires_off_windows(condition: ast.expr | None) -> bool:
     return subject in {("sys", "platform", "win32"), ("os", "name", "nt")}
 
 
-def _off_windows_skips(root: Path) -> list[tuple[str, object]]:
-    """(file, reason) of every `skipif` that skips everywhere except Windows."""
+def _fires_off_windows(condition: ast.expr | None) -> bool:
+    """True on every CI runner but Windows."""
+    return _compares_platform(condition, ast.NotEq)
+
+
+def _fires_on_windows(condition: ast.expr | None) -> bool:
+    """True on the Windows lane only."""
+    return _compares_platform(condition, ast.Eq)
+
+
+def _off_windows_skips(root: Path, fires=_fires_off_windows) -> list[tuple[str, object]]:
+    """(file, reason) of every `skipif` whose condition `fires` accepts; by
+    default, those that skip everywhere except Windows."""
     found = []
     for path in sorted(root.rglob("test_*.py")):
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "skipif"
-                    and node.args and _fires_off_windows(node.args[0])):
+                    and node.args and fires(node.args[0])):
                 reason = next((keyword.value for keyword in node.keywords if keyword.arg == "reason"), None)
                 found.append((path.name, reason.value if isinstance(reason, ast.Constant) else ast.dump(reason or node)))
     return found
@@ -176,6 +187,29 @@ class TestWindowsOnlyFiles:
         )
         assert _off_windows_skips(tmp_path) == [("test_widgets.py", "Windows widgets require Windows")]
         assert not skip_policy.is_optional("Windows widgets require Windows")
+
+
+class TestPosixOnlyFiles:
+    """A POSIX-only test skips on the Windows lane, where the policy turns a
+    reason it does not name into a failure of every test that carries it. That
+    lane runs only on a pull request, so the reason is checked here too."""
+
+    def test_every_skip_that_fires_on_windows_is_a_named_windows_reason(self):
+        skips = _off_windows_skips(BACKEND / "tests", fires=_fires_on_windows)
+        assert "test_bench_agent_hosts.py" in {name for name, _reason in skips}
+        refused = [(name, reason) for name, reason in skips
+                   if not isinstance(reason, str) or not skip_policy.is_optional(reason, windows=True)]
+        assert not refused, "add these reasons to WINDOWS_SKIPS with why they stay skips"
+
+    def test_a_reworded_reason_is_found_and_refused(self, tmp_path):
+        (tmp_path / "test_shell.py").write_text(
+            "import sys\nimport pytest\n"
+            "pytestmark = pytest.mark.skipif(sys.platform == 'win32', reason='the bench runs POSIX shell scripts')\n",
+            encoding="utf-8",
+        )
+        assert _off_windows_skips(tmp_path, fires=_fires_on_windows) == [
+            ("test_shell.py", "the bench runs POSIX shell scripts")]
+        assert not skip_policy.is_optional("the bench runs POSIX shell scripts", windows=True)
 
 
 def test_this_suite_runs_with_the_policy_registered(request):

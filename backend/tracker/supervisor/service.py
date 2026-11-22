@@ -321,9 +321,9 @@ async def _pause(data_dir: Path, stop: asyncio.Event, poll_seconds: float, beat:
     answered: str | None = None
     while standing is not None and not stop.is_set():
         beat()
-        if answered != standing.since:
+        if answered != standing.id:
             maintenance.answer(data_dir, maintenance.PAUSED, standing)
-            answered = standing.since
+            answered = standing.id
         if await _wait(stop, poll_seconds):
             break
         standing = maintenance.requested(data_dir)

@@ -1,6 +1,6 @@
-import { ReactNode, RefObject } from "react";
+import { CSSProperties, ReactNode, RefObject, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useEscapeLayer } from "../ui/escapeLayer";
-import { Overlay } from "../ui/Overlay";
+import { BEHIND_COVER, BESIDE_COVER, Overlay } from "../ui/Overlay";
 import "./cover.css";
 
 /* The Cover (docs/ui.md "Cover"): a full-viewport surface for
@@ -20,9 +20,86 @@ import "./cover.css";
  * No scrim: the cover is opaque, so a dim layer under it would paint nothing
  * and a click-to-close target would sit over a page you cannot see.
  *
+ * Opened BESIDE the rail (a role opened from a Pipeline view) it covers the
+ * page but not the rail: the rail stays live and keeps the view marked, so
+ * the cover is a page of that place rather than a dialog over it. It is not
+ * modal then: the rest of the page behind it is inert, the rail keeps its
+ * pointer and its place in the tab order, and Escape still goes back. Back
+ * hands focus to the page's link to what the cover showed last (the card it
+ * was opened from, or the one a link on the posting swapped in), which wears
+ * `data-returned` for a moment so the eye finds where it was. Found by its
+ * address, because a card pressed with a pointer never held focus.
+ *
  * `data-design-system="app"` stays on the cover in BOTH shells: the rules in
  * design/surfaces.css and design/dataviz.css are gated on it, so a shell that
  * drops it silently unstyles the panels inside. */
+
+/** How long the link back wears `data-returned` once the cover is gone. */
+const RETURNED_MS = 2400;
+
+/** Where the rail ends, so a cover beside it starts there. A rail laid along
+ *  the bottom of a narrow window is not beside anything: the cover takes the
+ *  whole width then. */
+function railEdge(): number {
+  let edge = 0;
+  document.querySelectorAll<HTMLElement>(`[${BESIDE_COVER}]`).forEach((element) => {
+    const box = element.getBoundingClientRect();
+    if (box.height >= window.innerHeight / 2) edge = Math.max(edge, box.right);
+  });
+  return edge;
+}
+
+/** The page behind a cover that opens beside the rail: inert but for the
+ *  rail, its scroll held, and the cover's left edge kept on the rail's as it
+ *  widens or narrows. */
+function useBesideRail(on: boolean): CSSProperties | undefined {
+  const [left, setLeft] = useState(0);
+  // The address the cover shows, kept current as a link on the posting swaps another in.
+  const shown = useRef(window.location.pathname);
+  useEffect(() => {
+    shown.current = window.location.pathname;
+  });
+
+  useLayoutEffect(() => {
+    if (!on) return;
+    const measure = () => setLeft(railEdge());
+    measure();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    document.querySelectorAll(`[${BESIDE_COVER}]`).forEach((element) => observer?.observe(element));
+    window.addEventListener("resize", measure);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [on]);
+
+  // After the Overlay has moved focus in, so nothing focused goes inert; and
+  // released before the Overlay hands focus back, which an inert page refuses.
+  useEffect(() => {
+    if (!on) return;
+    const behind = Array.from(document.querySelectorAll<HTMLElement>(`[${BEHIND_COVER}]:not([${BESIDE_COVER}])`));
+    behind.forEach((element) => element.setAttribute("inert", ""));
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      behind.forEach((element) => element.removeAttribute("inert"));
+      document.body.style.overflow = overflow;
+      const path = shown.current;
+      // After the Overlay has handed focus back to whatever held it at open.
+      window.setTimeout(() => {
+        const link = Array.from(document.querySelectorAll<HTMLAnchorElement>("a[href]")).find(
+          (anchor) => anchor.pathname === path && !anchor.closest(`[${BESIDE_COVER}]`),
+        );
+        if (!link) return;
+        link.focus();
+        link.setAttribute("data-returned", "");
+        window.setTimeout(() => link.removeAttribute("data-returned"), RETURNED_MS);
+      }, 0);
+    };
+  }, [on]);
+
+  return on ? ({ "--cover-left": `${left}px` } as CSSProperties) : undefined;
+}
 export function Cover({
   label,
   asOverlay,
@@ -30,6 +107,7 @@ export function Cover({
   bar,
   className,
   scrollRef,
+  besideRail = false,
   children,
 }: {
   /** Accessible name — the thing being studied ("Role: …", "Comparison"). */
@@ -46,9 +124,14 @@ export function Cover({
       its own (a comparison, a role reached by URL) and comes first in the
       document. */
   scrollRef?: RefObject<HTMLDivElement | null>;
+  /** Opened from a Pipeline view: beside the rail, not over it. Applies only
+      as an overlay; reached by URL the cover is the whole page. */
+  besideRail?: boolean;
   children: ReactNode;
 }) {
   useEscapeLayer(!asOverlay, onBack, "page");
+  const beside = asOverlay && besideRail;
+  const besideStyle = useBesideRail(beside);
 
   // By URL the cover IS the page, so it is the page's one `main` landmark; as
   // an overlay the dialog is the landmark and this is its content.
@@ -74,11 +157,12 @@ export function Cover({
       isOpen
       onClose={onBack}
       label={label}
-      modal
+      modal={!beside}
       layer="cover"
       scrim={false}
       closeOnScrim={false}
-      className="ui-overlay-full"
+      className={beside ? "ui-overlay-full cover-beside" : "ui-overlay-full"}
+      style={besideStyle}
     >
       {cover}
     </Overlay>

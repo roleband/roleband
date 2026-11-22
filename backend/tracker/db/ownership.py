@@ -517,13 +517,21 @@ TABLE_OWNERS: dict[str, TableOwnership] = {
         claim="user",
         lifecycle="append_only",
         writers=("tracker/agents/pursuits.py",),
-        readers=("tracker/agents/applications.py",),
+        readers=("tracker/agents/applications.py", "tracker/agents/operations/changes.py"),
     ),
     "pursuit_interviews": TableOwnership(
         claim="user",
         lifecycle="authored",
         writers=("tracker/agents/pursuits.py",),
         readers=("tracker/agents/applications.py",),
+    ),
+    # A ticked step stays, dated, for History; only the person's own delete
+    # removes one.
+    "pursuit_steps": TableOwnership(
+        claim="user",
+        lifecycle="authored",
+        writers=("tracker/agents/pursuits.py",),
+        readers=("tracker/agents/applications.py", "tracker/notifications/pursuit_due.py"),
     ),
     "pursuits": TableOwnership(
         claim="user",
@@ -598,6 +606,15 @@ TABLE_OWNERS: dict[str, TableOwnership] = {
         lifecycle="append_only",
         writers=("tracker/agents/receipts.py",),
         readers=("tracker/agents/receipts.py",),
+    ),
+    # One row per agent read, change or refusal, for the Activity screen. A
+    # change's row is written in the write's own transaction; nothing updates
+    # a row once written.
+    "agent_activity": TableOwnership(
+        claim="user",
+        lifecycle="append_only",
+        writers=("tracker/agents/activity.py",),
+        readers=("tracker/agents/activity.py",),
     ),
     # One row, written by its migration or at engine start. A scratch copy
     # of the database is given a new id by `deploy/restore_db.sh --into`.
@@ -697,6 +714,14 @@ TABLE_OWNERS: dict[str, TableOwnership] = {
         lifecycle="operational",
         writers=("tracker/plugins/store.py",),
         readers=("tracker/plugins/registry.py",),
+    ),
+    # Each run's end, inserted by the transaction that closes the run: the
+    # changes feed's ordered record of plugin health.
+    "plugin_run_ends": TableOwnership(
+        claim="infra",
+        lifecycle="append_only",
+        writers=("tracker/plugins/store.py",),
+        readers=("tracker/agents/operations/changes.py",),
     ),
     "plugin_state": TableOwnership(
         claim="infra",

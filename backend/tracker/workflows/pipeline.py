@@ -59,7 +59,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Collection
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
@@ -286,8 +286,10 @@ class _RunWriter:
         settings: Settings,
         on_recorded: SourceRecordedHook | None = None,
         asked: asyncio.Queue[AskedCompany] | None = None,
+        retries: Collection[str] = (),
     ) -> None:
         self._on_recorded = on_recorded
+        self._retries = frozenset(retries)
         self._settings = settings
         self._asked = asked
         #: Companies asked for during the run that joined it, with their targets.
@@ -480,6 +482,8 @@ class _RunWriter:
         # here, so the collection stays the complete record either way.
         await self._write(company, collection.enriched)
         stats = collection.stats
+        if company in self._retries:
+            stats["retry"] = True
         stats["new"] += self._new.pop(company, 0)
         # A company cut by a bound outside its collection (the backstop)
         # arrives with nothing kept, yet the rows it streamed
@@ -581,6 +585,7 @@ async def run_pipeline(
     scan_mode: ScanMode = ScanMode.RECONCILE,
     on_source_recorded: SourceRecordedHook | None = None,
     join_requests: bool = False,
+    retries: Collection[str] = (),
 ) -> dict:
     """Execute one pipeline run.
 
@@ -604,6 +609,10 @@ async def run_pipeline(
             scheduler's next deadlines) lands with the source it describes.
             Writes on the run's session and commits nothing; a failure fails
             the run.
+        retries: companies asked again after a read that failed earlier in
+            the same full read. Each one's record is marked `retry`, and the
+            run's notification says nothing of a retry that fails again: the
+            first failure was already told.
     """
     scan_mode = ScanMode(scan_mode)
     settings = get_settings()
@@ -748,6 +757,7 @@ async def run_pipeline(
                 settings=settings,
                 on_recorded=on_source_recorded,
                 asked=asked,
+                retries=retries,
             )
             collections = await _collect_into(
                 writer,

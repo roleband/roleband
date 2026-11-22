@@ -170,10 +170,10 @@ ignore_imports = [
 # The interfaces are siblings in the L6 row (":", so the layers contract alone
 # would permit them to import each other), but they are alternative front doors
 # onto the same services, not a stack: each must reach the tiers below on its
-# own (docs/architecture.md). `routers/intelligence.py` names
-# `tracker.mcp.server` only inside the argv of a subprocess, which is a string
-# and not an import. The CLI is a client of the API over HTTP, never of its
-# modules.
+# own (docs/architecture.md). `tracker.mcp` holds only the entry point that
+# older agent host settings still launch: it imports nothing and points the
+# person to `roleband connect`. The CLI is a client of the API over HTTP, never
+# of its modules.
 [[tool.importlinter.contracts]]
 name = "API, MCP and CLI are independent interfaces"
 type = "independence"
@@ -285,10 +285,16 @@ files = [
     "tracker/api/routers/applications.py",
     # Agent operations: descriptors, envelope, policy, their routes and the client
     "tracker/agents/operations",
+    "tracker/agents/activity.py",
     "tracker/api/agent_operations.py",
+    "tracker/api/routers/agent_activity.py",
     "tracker/api/routers/agent.py",
     "tracker/cli",
     "scripts/export_agent_operations.py",
+    # Tool calling for a model: the wire formats, the transport and the tools from descriptors
+    "tracker/intelligence/tool_calls",
+    "tracker/agents/tool_definitions.py",
+    "scripts/smoke_model_tools.py",
     # The one API answer each company-store refusal gets
     "tracker/api/company_errors.py",
     # What a notification says, as catalog keys
@@ -300,6 +306,7 @@ files = [
     "tracker/platform/launcher.py",
     "tracker/platform/preparation.py",
     "tracker/platform/command_shim.py",
+    "tracker/platform/cli_context.py",
     "tracker/platform/releases.py",
     "tracker/platform/paths.py",
     "tracker/platform/os_process.py",
@@ -354,9 +361,10 @@ files = [
     "tracker/db/queries/insights.py",
     # The roles that opened and came down, each once, and the open roles' ages
     "tracker/db/queries/motion.py",
-    # The listing history and role age behind the route and the agent tool
+    # The listing history and role age behind the route and the agent operation
     "tracker/db/queries/listing_history.py",
-    "tracker/mcp/vocab.py",
+    # The retired agent server's entry point, which imports nothing
+    "tracker/mcp/server.py",
     "tracker/workflows/tuning.py",
     # One role listed once per place: the rule and its rebuild
     "tracker/lineage/place_sets.py",

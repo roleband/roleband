@@ -9,7 +9,7 @@
 
 import type { ApplicationCard } from "../../api";
 import { companyName } from "../../format";
-import { dueOf, dueState, isMoving, isStale, needsNextStep } from "./board";
+import { dayOffset, dueOf, dueState, isStale, needsNextStep, owesNothing } from "./board";
 import { priorityOf } from "./priority";
 
 export const QUICK_FILTERS = [
@@ -44,18 +44,19 @@ export interface BoardFilter {
   mode: FilterMode;
 }
 
-const WEEK = 7 * 86_400_000;
+/** Calendar days ahead that still count as this week. */
+const WEEK_DAYS = 7;
 
-/** A quick filter is about work in motion: an application that has ended
- *  matches none of them. */
+/** A quick filter is about work that is owed: an application that has ended
+ *  with nothing owed matches none of them. */
 export function matchesQuick(card: ApplicationCard, filter: QuickFilter, now: Date): boolean {
-  if (!isMoving(card)) return false;
+  if (owesNothing(card)) return false;
   const due = dueOf(card);
   switch (filter) {
     case "overdue":
       return due != null && dueState(due, now) === "overdue";
     case "due_week":
-      return due != null && dueState(due, now) !== "overdue" && due.at.getTime() - now.getTime() <= WEEK;
+      return due != null && dueState(due, now) !== "overdue" && dayOffset(due.on, now) <= WEEK_DAYS;
     case "needs_next":
       return needsNextStep(card);
     case "quiet":

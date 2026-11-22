@@ -127,11 +127,6 @@
   vertical-align: 0;
 }
 
-.review-system-indicator .info-tip-popover {
-  right: 0;
-  left: auto;
-}
-
 .review-system-detail {
   display: flex;
   flex-direction: column;
@@ -1051,4 +1046,13 @@
   .review-console-assessment p {
     white-space: normal;
   }
+}
+
+/* An assistant's note on a pair it left for the person: read before deciding. */
+.review-assistant-note {
+  margin: 0 0 var(--app-space-3);
+  padding: var(--app-space-2) var(--app-space-3);
+  border-left: 2px solid var(--app-border-strong);
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
 }

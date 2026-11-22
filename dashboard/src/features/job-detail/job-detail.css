@@ -138,14 +138,24 @@
   box-shadow: inset 0 -1px 0 var(--app-border);
 }
 
-/* Held, they hide what passes beneath as a held heading does; in their place
-   the hero's ground shows through. */
+/* Held, they hide what passes beneath as a held heading does, with the page's
+   own ground: its base colour and its wash, pinned to the window as the
+   page's is, so the band lands on the page's pixels and no edge shows where
+   it ends inside the wash. */
 .jd-tabs[data-stuck] {
   background-color: var(--app-canvas);
+  background-image: var(--app-ambient-image);
+  background-attachment: fixed, fixed;
 }
 
 .jd-container[data-tabbed] .jd-section h2 {
   top: var(--jd-tabs-h);
+}
+
+/* What else sticks in the scroll box (the Workspace's month dividers) stops
+   under the tabs too. */
+.jd-container[data-tabbed] {
+  --held-above: var(--jd-tabs-h);
 }
 
 .jd-container[data-tabbed] .jd-aside {
@@ -272,9 +282,8 @@
    (`postingTurn.ts`). The reading area carries the name `posting` for the
    length of the turn, so the browser draws it apart from the bar: the old
    posting leaves first and quickly, then the new one comes in, so two texts
-   are never read through each other. Along the list it travels the way the
-   list runs; from a link on the posting it rises, as a cover does when it
-   opens. The bar stays where it is and only its words change. */
+   are never read through each other. The new one rises, as a cover does when
+   it opens. The bar stays where it is and only its words change. */
 
 ::view-transition-group(posting) {
   overflow: clip;
@@ -300,29 +309,14 @@
 @keyframes posting-leave {
   to {
     opacity: 0;
-    transform: translateX(var(--posting-leave, 0));
   }
 }
 
 @keyframes posting-arrive {
   from {
     opacity: 0;
-    transform: translate(var(--posting-arrive, 0), var(--posting-rise, 0));
+    transform: translateY(var(--app-space-2));
   }
-}
-
-:root[data-posting-turn="next"] {
-  --posting-leave: calc(-1 * var(--app-space-3));
-  --posting-arrive: var(--app-space-5);
-}
-
-:root[data-posting-turn="previous"] {
-  --posting-leave: var(--app-space-3);
-  --posting-arrive: calc(-1 * var(--app-space-5));
-}
-
-:root[data-posting-turn="open"] {
-  --posting-rise: var(--app-space-2);
 }
 
 :root[data-posting-turn]::view-transition-old(root),
@@ -372,30 +366,6 @@
     background: var(--app-action-line);
     animation: none;
   }
-}
-
-/* The posting's place in its list: two quiet arrows around the count, with a
-   hairline after it that sets list navigation apart from the actions.
-   A focus ring is drawn outside its button, by the ring's offset and width,
-   and an arrow that cannot act now still takes focus (ui/Button.css), so the
-   gaps carry the ring: at the plain inline gap it would stand on the place's
-   first digit, and at the group's end on the hairline. */
-.jd-pager {
-  --jd-ring: calc(var(--app-ring-offset) + var(--app-ring-width));
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: calc(var(--jd-ring) + var(--app-space-1));
-  margin-right: var(--app-space-1);
-  padding-right: calc(var(--jd-ring) + var(--app-space-3));
-  border-right: 1px solid var(--app-border);
-}
-
-.jd-pager-place {
-  color: var(--app-text-muted);
-  font-size: var(--app-type-meta);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
 }
 
 /* ---- the pay panel's small copy ------------------------------------------ */
@@ -490,8 +460,11 @@
 
 /* The side column is a ledger of short sections. A hairline opens each one
    after the first, with more room above it than between two rows, so a
-   section reads as a group before any of its rows is read. */
+   section reads as a group before any of its rows is read. Its captions name
+   facts, not reading, so they take the faint ink of the Workspace captions
+   and leave the action blue to what can be pressed. */
 .jd-aside .section-title {
+  color: var(--app-text-faint);
   margin-top: var(--app-space-5);
   padding-top: var(--app-space-4);
   border-top: 1px solid var(--app-border);
@@ -568,7 +541,8 @@
    section is read, and the next section's pushes it out: the person always
    knows which part of the posting they are in. In its place it draws no
    ground of its own. Stuck (`data-stuck`, stuckHeadings.ts), its ground is
-   the canvas, solid, so what passes beneath is hidden, never seen through,
+   the page's, base colour and wash pinned to the window, solid, so what
+   passes beneath is hidden, never seen through, and no edge shows on the wash,
    with a hairline at its foot as the bar has: a line passing under it goes
    under an edge, not cut off in mid-air. A shadow, not a border, so the box
    keeps its height and its words their place.
@@ -593,6 +567,8 @@
 
 .jd-section h2[data-stuck] {
   background-color: var(--app-canvas);
+  background-image: var(--app-ambient-image);
+  background-attachment: fixed, fixed;
   box-shadow: 0 1px 0 var(--app-border);
 }
 
@@ -662,6 +638,46 @@
   margin: 0;
   color: var(--app-text-muted);
   font-size: var(--app-type-body);
+}
+
+/* The text's place while it is read from the employer's site: a running line
+   under the heading, what is happening in the quiet voice of `.jd-empty`,
+   then the way on. Drawn after 200 ms, the app's moment for any loading
+   state, still under reduced motion; it keeps its room meanwhile, so nothing
+   below moves when it appears. */
+.jd-read {
+  display: grid;
+  gap: var(--app-space-3);
+  max-width: 60ch;
+  animation: loading-appears 1ms 200ms both;
+}
+
+.jd-read-line {
+  margin: 0;
+  color: var(--app-text-muted);
+  font-size: var(--app-type-body);
+}
+
+.jd-read-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--app-space-3);
+}
+
+/* Text that landed while the posting was open comes in, rather than standing
+   there as if it always had. */
+@media (prefers-reduced-motion: no-preference) {
+  .jd-arrived {
+    animation: jd-text-arrives var(--app-duration-slow) var(--app-ease) both;
+  }
+
+  @keyframes jd-text-arrives {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+  }
 }
 
 /* ---- the end of the read --------------------------------------------------
@@ -781,11 +797,12 @@
   overflow-wrap: anywhere;
 }
 
-/* The priority is set in place: its button keeps the row's line, its word
-   at the other values' edge. */
+/* The priority is set in place: its button takes exactly the row's line, so
+   the row stands as high as the others, and its word sits at the other values'
+   edge. */
 .jd-pipeline-facts .jd-pipeline-pick {
   gap: var(--app-space-2);
-  margin-block: calc(var(--app-space-1) * -1);
+  margin-block: calc((1lh - var(--app-control-sm)) / 2);
   margin-inline-start: calc(var(--app-control-sm-pad) * -1);
   white-space: nowrap;
 }
@@ -1172,26 +1189,11 @@
   margin-left: -1px;
 }
 
-/* The split label and its help mark sit on the header's first row, away from
-   its left edge, where a sentence anchored to the small mark would run off a
-   narrow screen. The sentence hangs from the header instead: right-aligned
-   to it, no wider than it, just below the row (18px mark, the 7px every
-   help mark keeps). `.pkg-head` is its containing block. */
+/* The split label and its help mark sit on the header's first row. */
 .pkg-split {
   display: inline-flex;
   flex: none;
   align-items: center;
-}
-
-.pkg-split .info-tip {
-  position: static;
-}
-
-.pkg-split .info-tip-popover {
-  top: calc(18px + 7px);
-  right: 0;
-  left: auto;
-  max-width: min(320px, 100%);
 }
 
 .pkg-note {

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Job } from "../../api";
+import type { Job, JobDetail } from "../../api";
 import { Button, Icon } from "../../ui";
 import {
   applicationsCrossingClosed,
@@ -25,11 +25,12 @@ const CROSSING_TEXT: Record<Crossing["kind"], (args: { days: number }) => string
  * so a posting outside the pipeline loads none of it.
  */
 export default function PostingWorkspace({ job, onShowPosting, ...workspace }: WorkspaceProps & {
-  job: Job;
+  /** The detail carries the posting's lifecycle; the row alone has none. */
+  job: Job | JobDetail;
   onShowPosting: () => void;
 }) {
   const [dismissed, setDismissed] = useState(readDismissed);
-  const lifecycle = "lifecycle" in job && Array.isArray(job.lifecycle) ? job.lifecycle : [];
+  const lifecycle = ("lifecycle" in job && job.lifecycle) || [];
   const crossing = latestCrossing(lifecycle, workspace.detail.stages_reached);
   const crossingId = crossing ? crossingKey(job.id, crossing) : null;
   const dismiss = (key: string) => {

@@ -1,7 +1,9 @@
-"""The one writer of `plugin_install`, `plugin_run`, `plugin_state`, `plugin_report` and `plugin_coverage`.
+"""The one writer of `plugin_install`, `plugin_run`, `plugin_run_ends`, `plugin_state`, `plugin_report` and
+`plugin_coverage`.
 
 Install, approve, enable and disable change `plugin_install`; the host opens and
-closes `plugin_run`, keeps `plugin_state` and `plugin_report`, and records
+closes `plugin_run`, records each close in `plugin_run_ends` in the same
+transaction, keeps `plugin_state` and `plugin_report`, and records
 `plugin_coverage`. Nothing
 here imports the plugin SDK: the manifest arrives as the dict the SDK produced.
 
@@ -13,15 +15,22 @@ the plugin's code, manifest or lock produces a new fingerprint, which lapses it.
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import Row, delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracker.db.models import PluginCoverage, PluginInstall, PluginReport, PluginRun, PluginState
+from tracker.db.models import (
+    PluginCoverage,
+    PluginInstall,
+    PluginReport,
+    PluginRun,
+    PluginRunEnd,
+    PluginState,
+)
 
 OUTCOMES = ("clean", "partial", "bounded", "stopped", "error")
 #: Outcomes that went through the job: a `partial` run did what it set out to and
@@ -178,12 +187,14 @@ async def close_run(
     (`PASS_OUTCOMES`) carries it."""
     if outcome not in OUTCOMES:
         raise ValueError(f"unknown outcome {outcome!r}")
-    await session.execute(
+    closed = await session.execute(
         update(PluginRun)
         .where(PluginRun.id == run_id)
         .values(outcome=outcome, ended_at=_now(), published=dict(published), refusals=refusals[:200],
                 message=(message or None) and message[:4000], continues=continues and outcome in PASS_OUTCOMES)
+        .returning(PluginRun.id, PluginRun.plugin_id, PluginRun.job, PluginRun.outcome, PluginRun.ended_at)
     )
+    await _record_ends(session, closed.all())
 
 
 async def state_get(session: AsyncSession, plugin_id: str, key: str) -> tuple[bool, Any]:
@@ -265,10 +276,28 @@ async def close_dead_runs(session: AsyncSession, run_ids: list[int]) -> None:
     """Close `running` rows whose runner process is gone (`runtime.reconcile_dead_runs`)."""
     if not run_ids:
         return
-    await session.execute(
+    closed = await session.execute(
         update(PluginRun)
         .where(PluginRun.id.in_(run_ids), PluginRun.outcome == "running")
         .values(outcome="error", ended_at=_now(), message="the runner process ended without closing the run")
+        .returning(PluginRun.id, PluginRun.plugin_id, PluginRun.job, PluginRun.outcome, PluginRun.ended_at)
+    )
+    await _record_ends(session, closed.all())
+
+
+async def _record_ends(session: AsyncSession, closed: Sequence[Row[Any]]) -> None:
+    """Record each run just closed, in the closing transaction: the changes
+    feed reads a run's end from here, in commit order. A run already recorded
+    keeps its first end."""
+    if not closed:
+        return
+    await session.execute(
+        pg_insert(PluginRunEnd)
+        .values([
+            {"run_id": run_id, "plugin_id": plugin_id, "job": job, "outcome": outcome, "ended_at": ended_at}
+            for run_id, plugin_id, job, outcome, ended_at in closed
+        ])
+        .on_conflict_do_nothing(index_elements=[PluginRunEnd.run_id])
     )
 
 

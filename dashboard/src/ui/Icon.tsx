@@ -48,6 +48,7 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
+  GripVertical,
   Files,
   Gem,
   Globe,
@@ -121,6 +122,7 @@ const ICONS = {
   external: ExternalLink,
   eye: Eye,
   eyeOff: EyeOff,
+  grip: GripVertical,
   // Two postings stacked: the Duplicates tab. `copy` is the copy action.
   files: Files,
   gear: Settings,

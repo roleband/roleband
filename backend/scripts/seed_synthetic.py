@@ -532,6 +532,7 @@ EXPORT_TABLES: tuple[str, ...] = (
     "job_feedback",
     "favorites",
     "pursuits",
+    "pursuit_steps",
     "pursuit_events",
     "pursuit_comments",
     "pursuit_interviews",

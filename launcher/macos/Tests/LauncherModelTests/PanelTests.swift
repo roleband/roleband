@@ -48,31 +48,157 @@ private actor Engine {
     }, discard: { _ in }, handOff: { handOffs.plans.append($0) })
 }
 
-@MainActor @Test func noticesFollowAutomaticChecksUntilChosenAndOnlyTurningThemOnAsksMacOS() async throws {
-    let defaults = preferences()
-    let updates = LauncherUpdates(preferences: defaults, fetch: { release("0.1.1") }, authenticate: { _ in nil })
-    var asked: [Bool] = []
-    updates.noticesChanged = { asked.append($0) }
-    #expect(!updates.notices)
-    updates.setAutomaticChecks(true, requestNotifications: false)
-    #expect(updates.notices)
-    updates.setNotices(false)
-    #expect(!updates.notices && asked.isEmpty)
-    updates.stop()
+@MainActor @Test func theUpdateWindowSwitchStartsOnAndKeepsTheChoiceTheNoticesSwitchLeft() async throws {
+    let fresh = LauncherUpdates(preferences: preferences(), fetch: { release("0.1.1") }, authenticate: { _ in nil })
+    #expect(fresh.showsWindow)
+    fresh.stop()
 
+    // Someone who turned desktop notices off before the window replaced them keeps it off.
+    let defaults = preferences()
+    defaults.set(false, forKey: "updateNotices")
+    let earlier = LauncherUpdates(preferences: defaults, fetch: { release("0.1.1") }, authenticate: { _ in nil })
+    #expect(!earlier.showsWindow)
+    earlier.setShowsWindow(true)
+    earlier.stop()
     let restored = LauncherUpdates(preferences: defaults, fetch: { release("0.1.1") }, authenticate: { _ in nil })
-    restored.noticesChanged = { asked.append($0) }
-    #expect(restored.automatic && !restored.notices)
-    restored.setNotices(true)
-    restored.setNotices(true)
-    #expect(restored.notices && asked == [true])
+    #expect(restored.showsWindow)
     restored.stop()
+}
+
+private final class PanelClock: @unchecked Sendable {
+    var now = Date(timeIntervalSince1970: 1_800_000_000)
+}
+
+@MainActor @Test func aFailedUpdateSetAsideWithLaterOpensItsWindowAgainAfterThreeDays() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("panel-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: root) }
+    let clock = PanelClock()
+    let defaults = preferences()
+    defaults.set(true, forKey: "setupCompleted")
+    let updates = LauncherUpdates(preferences: defaults, fetch: { release("0.1.1") }, now: { clock.now }, authenticate: { _ in nil })
+    let model = LauncherModel(launcherVersion: "0.1.0", preferences: defaults, updates: updates,
+                              installOperations: operations(home: root, handOffs: HandOffs()))
+    defer { model.stop(); updates.stop() }
+    await updates.checkManuallyAndWait()
+    try #require(model.installer).show(.failed(.download), version: "0.1.1")
+    #expect(model.updateFound("0.1.1", automatic: true))
+    updates.later("0.1.1")
+    clock.now = clock.now.addingTimeInterval(3 * 86400 - 1)
+    #expect(!model.updateFound("0.1.1", automatic: true))
+    clock.now = clock.now.addingTimeInterval(1)
+    #expect(model.updateFound("0.1.1", automatic: true))
+}
+
+/// A signed important mark brings the window back a day after Later, while an unmarked offer waits
+/// three. The person's switch still holds it closed.
+@MainActor @Test func anImportantOfferOpensItsWindowADayAfterLaterUnlessSwitchedOff() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("panel-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: root) }
+    let clock = PanelClock()
+    let defaults = preferences()
+    defaults.set(true, forKey: "setupCompleted")
+    let listing = try JSONSerialization.data(withJSONObject: ["tag_name": "v0.1.1",
+        "html_url": "https://github.com/roleband/roleband/releases/tag/v0.1.1", "body": "", "draft": false, "prerelease": false,
+        "assets": (ReleaseFiles.all("0.1.1") + [ReleaseFiles.important("0.1.1")]).map { ["name": $0, "state": "uploaded"] }])
+    let updates = LauncherUpdates(preferences: defaults, fetch: { listing }, now: { clock.now }, authenticate: { _ in nil },
+                                  important: { $0 == "0.1.1" })
+    let model = LauncherModel(launcherVersion: "0.1.0", preferences: defaults, updates: updates,
+                              installOperations: operations(home: root, handOffs: HandOffs()))
+    defer { model.stop(); updates.stop() }
+    await updates.checkManuallyAndWait()
+    #expect(updates.offered?.important == true)
+    updates.later("0.1.1")
+    clock.now = clock.now.addingTimeInterval(86400 - 1)
+    #expect(!model.opensUpdateWindow(for: "0.1.1", automatic: true))
+    clock.now = clock.now.addingTimeInterval(1)
+    #expect(model.opensUpdateWindow(for: "0.1.1", automatic: true))
+    updates.setShowsWindow(false)
+    #expect(!model.opensUpdateWindow(for: "0.1.1", automatic: true))
+}
+
+@MainActor @Test func onlyADailyFindOpensTheUpdateWindowAndNeverDuringSetupAnUpdateOrWhenSwitchedOff() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("panel-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: root) }
+    func offered(setupCompleted: Bool = true, mode: LaunchMode = .owned(leftover: nil)) async -> (LauncherModel, LauncherUpdates) {
+        let defaults = preferences()
+        defaults.set(setupCompleted, forKey: "setupCompleted")
+        let updates = LauncherUpdates(preferences: defaults, fetch: { release("0.1.1") }, authenticate: { _ in nil })
+        let model = LauncherModel(mode: mode, launcherVersion: "0.1.0", preferences: defaults, updates: updates,
+                                  installOperations: operations(home: root, handOffs: HandOffs()))
+        await updates.checkManuallyAndWait()
+        return (model, updates)
+    }
+
+    let (model, updates) = await offered()
+    defer { model.stop(); updates.stop() }
+    #expect(model.opensUpdateWindow(for: "0.1.1", automatic: true))
+    // Check now answers in About; a version that is no longer the offer opens nothing.
+    #expect(!model.opensUpdateWindow(for: "0.1.1", automatic: false))
+    #expect(!model.opensUpdateWindow(for: "0.1.2", automatic: true))
+    updates.setShowsWindow(false)
+    #expect(!model.opensUpdateWindow(for: "0.1.1", automatic: true))
+    updates.setShowsWindow(true)
+    model.setSetupVisible(true)
+    #expect(!model.opensUpdateWindow(for: "0.1.1", automatic: true))
+    model.setSetupVisible(false)
+    #expect(model.opensUpdateWindow(for: "0.1.1", automatic: true))
+    updates.later("0.1.1")
+    #expect(!model.opensUpdateWindow(for: "0.1.1", automatic: true))
+
+    // A find held back by setup opens once setup closes, not a day later; a manual find is never held.
+    let (held, heldUpdates) = await offered()
+    defer { held.stop(); heldUpdates.stop() }
+    held.setSetupVisible(true)
+    #expect(!held.updateFound("0.1.1", automatic: false) && !held.heldUpdateWindowOpens())
+    #expect(!held.updateFound("0.1.1", automatic: true) && !held.heldUpdateWindowOpens())
+    held.setSetupVisible(false)
+    #expect(held.heldUpdateWindowOpens() && !held.heldUpdateWindowOpens())
+    #expect(held.updateFound("0.1.1", automatic: true))
+
+    // A running update holds a find back and lets it open once cancelled; a failed one does not
+    // hold the offer back, so it can come again after Later.
+    let (updating, updatingUpdates) = await offered()
+    defer { updating.stop(); updatingUpdates.stop() }
+    let installer = try #require(updating.installer)
+    installer.show(.downloading(received: 1, total: 2), version: "0.1.1")
+    #expect(!updating.updateFound("0.1.1", automatic: true) && !updating.heldUpdateWindowOpens())
+    installer.cancel()
+    #expect(updating.heldUpdateWindowOpens())
+    installer.show(.failed(.download), version: "0.1.1")
+    #expect(updating.opensUpdateWindow(for: "0.1.1", automatic: true))
+
+    // An idle window goes when its switch is turned off or the offer goes; a failed update keeps it.
+    #expect(!updating.updateWindowStale)
+    updatingUpdates.setShowsWindow(false)
+    #expect(updating.updateWindowStale == false)
+    let (idle, idleUpdates) = await offered()
+    defer { idle.stop(); idleUpdates.stop() }
+    #expect(!idle.updateWindowStale)
+    idleUpdates.setShowsWindow(false)
+    #expect(idle.updateWindowStale)
+    idleUpdates.setShowsWindow(true)
+    idleUpdates.suppress("0.1.1")
+    #expect(idle.updateWindowStale)
+
+    let (unfinished, unfinishedUpdates) = await offered(setupCompleted: false)
+    defer { unfinished.stop(); unfinishedUpdates.stop() }
+    #expect(!unfinished.opensUpdateWindow(for: "0.1.1", automatic: true))
+
+    // A source checkout updates with its own tools, so its offer stays in the banner and the badge.
+    let (attached, attachedUpdates) = await offered(mode: .attach)
+    defer { attached.stop(); attachedUpdates.stop() }
+    #expect(attached.updateOffered && !attached.opensUpdateWindow(for: "0.1.1", automatic: true))
+
+    let (rolledBack, rolledBackUpdates) = await offered()
+    defer { rolledBack.stop(); rolledBackUpdates.stop() }
+    rolledBackUpdates.suppress("0.1.1")
+    #expect(!rolledBack.opensUpdateWindow(for: "0.1.1", automatic: true))
 }
 
 @MainActor @Test func aRolledBackVersionIsNotOfferedAgainUntilAnExplicitCheckFindsIt() async throws {
     let defaults = preferences()
     let updates = LauncherUpdates(preferences: defaults, fetch: { release("0.1.1") }, authenticate: { _ in nil })
-    updates.setAutomaticChecks(true, requestNotifications: false)
+    updates.setAutomaticChecks(true)
     let back = UpdateNotice(id: UUID(), kind: .rolledBack, from: "0.1.0", to: "0.1.1")
     let model = LauncherModel(launcherVersion: "0.1.0", preferences: defaults, updates: updates, updateNotice: back)
     defer { model.stop(); updates.stop() }
@@ -230,12 +356,6 @@ private actor Engine {
     }
 }
 
-@Test func notificationSettingsOpenOnThisAppsOwnPage() throws {
-    let parts = try #require(URLComponents(url: SystemSettings.notifications, resolvingAgainstBaseURL: false))
-    #expect(parts.scheme == "x-apple.systempreferences" && parts.path == "com.apple.Notifications-Settings.extension")
-    #expect(parts.queryItems == [URLQueryItem(name: "id", value: "com.roleband.launcher")])
-}
-
 @MainActor @Test func theSwitchJumpsInsteadOfSlidingUnderReduceMotion() {
     #expect(InkSwitchStyle.animation(reduceMotion: true) == nil)
     #expect(InkSwitchStyle.animation(reduceMotion: false) != nil)
@@ -245,6 +365,39 @@ private actor Engine {
     // All settings lands on the settings page's first tab, Companies, so no row may open that tab.
     #expect(SettingsTab.browserLinks.map(\.route) == [.schedule, .settings])
     #expect(SettingsTab.browserLinks.map(\.title) == ["panel-scan-times", "panel-all-settings"])
+}
+
+@MainActor @Test func theAboutTabLeadsToThePublicProjectAndItsFeedbackFormsInEveryLanguage() {
+    #expect(AboutTab.projectLinks.map(\.url.absoluteString) == [
+        "https://github.com/roleband/roleband", "https://github.com/roleband/roleband/issues/new/choose",
+    ])
+    // Only the star row is GitHub's; the feedback row keeps a system symbol.
+    #expect(AboutTab.projectLinks.map(\.github) == [true, false])
+    for language in ["en", "es", "zh-Hans"] {
+        let copy = LauncherCopy(language: language)
+        for key in ["panel-open-source"] + AboutTab.projectLinks.flatMap({ [$0.title, $0.caption] }) {
+            #expect(copy.text(key) != key, "\(language) has no \(key)")
+        }
+    }
+    for link in AboutTab.projectLinks {
+        #expect(NSImage(systemSymbolName: link.symbol, accessibilityDescription: nil) != nil, "\(link.symbol) is not a symbol")
+    }
+}
+
+@Test func theGitHubMarkIsTheCatCutOutOfAFilledCircleCentredInItsFrame() {
+    let mark = GitHubMark().path(in: CGRect(x: 0, y: 0, width: 40, height: 32))
+    // A wide frame draws the mark at its height, centred: 32 wide starting 4 points in. Its bottom
+    // stops just short of the frame, where the circle opens between the cat's legs.
+    let bounds = mark.boundingRect
+    #expect(abs(bounds.minX - 4) < 0.1 && abs(bounds.width - 32) < 0.1 && abs(bounds.minY) < 0.1)
+    #expect(bounds.maxY > 31 && bounds.maxY <= 32)
+    // The ring around the cat is ink; the cat's face, its chest and the gap under its tail are not.
+    for filled in [CGPoint(x: 6, y: 16), CGPoint(x: 34, y: 16), CGPoint(x: 20, y: 2)] {
+        #expect(mark.contains(filled), "\(filled) should be filled")
+    }
+    for clear in [CGPoint(x: 20, y: 14), CGPoint(x: 20, y: 24), CGPoint(x: -1, y: 16), CGPoint(x: 39, y: 30)] {
+        #expect(!mark.contains(clear), "\(clear) should be clear")
+    }
 }
 
 @Test func scheduledScanningSwitchedOffByTheEngineOffersNoLinkThatCannotTurnItOn() throws {
@@ -272,4 +425,55 @@ private actor Engine {
     #expect(OfferButton.of(try offer("## Before you update\nA backup is made first.\n\n## Added\n- More.")) == .install)
     #expect(OfferButton.of(try offer("## Added\n- More.")) == .install)
     #expect(OfferButton.of(nil) == .install)
+}
+
+@MainActor @Test func anOfferedUpdateMarksTheMenuBarIconAtRestAndItsTooltipNamesTheVersion() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("panel-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let path = root.appendingPathComponent("installation.json")
+    try Data(#"{"product":"roleband","instance":"0123456789abcdef01234567","api_origin":"http://127.0.0.1:58241","version":"0.1.0","format":1}"#.utf8).write(to: path)
+    try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path.path)
+    let engine = Engine()
+    let updates = LauncherUpdates(preferences: preferences(), fetch: { release("0.1.1") }, authenticate: { _ in nil })
+    let model = LauncherModel(registration: path, readStatus: { try await engine.read($0) }, launcherVersion: "0.1.0", updates: updates)
+    defer { model.stop(); updates.stop() }
+    await model.refreshAndWait()
+    let state = "RoleBand: " + model.text(model.titleKey, model.helpValues)
+    #expect(model.symbol == "checkmark.circle" && model.menuBarBadge == nil && model.menuBarTitle == state)
+
+    await updates.checkManuallyAndWait()
+    #expect(model.menuBarBadge == "arrow.down.circle.fill")
+    #expect(model.menuBarTitle == state + ". Version 0.1.1 is ready")
+
+    // A running scan needs the person sooner, so its badge takes the place until it ends.
+    await engine.set(scanning: true)
+    await model.refreshAndWait()
+    #expect(model.menuBarBadge == "arrow.triangle.2.circlepath.circle.fill")
+    await engine.set(scanning: false)
+    await model.refreshAndWait()
+    #expect(model.menuBarBadge == "arrow.down.circle.fill")
+
+    // A version that was rolled back is not offered, so it marks nothing.
+    updates.suppress("0.1.1")
+    #expect(model.menuBarBadge == nil && model.menuBarTitle == state)
+}
+
+@MainActor @Test func theUpdateBadgeDrawsAsATemplateSoMacOSTintsItWithTheMenuBar() {
+    let image = BrandGlyph.menuBar(badge: "arrow.down.circle.fill")
+    #expect(image.isTemplate && image.size == BrandGlyph.menuBar.size)
+    #expect(NSImage(systemSymbolName: "arrow.down.circle.fill", accessibilityDescription: nil) != nil)
+}
+
+/// The step bar is one stop for VoiceOver: it says where the person is and how many steps there
+/// are, and names only the current step, not all four in a row.
+@MainActor @Test func theSetupStepBarSaysWhichStepOfHowMany() {
+    let english = LauncherCopy(language: "en")
+    #expect(SetupView.steps.map { SetupView.progressLabel($0, copy: english) } == [
+        "Step 1 of 4: Welcome", "Step 2 of 4: Get ready", "Step 3 of 4: At login", "Step 4 of 4: Ready",
+    ])
+    // Installation runs inside the first bar and reads as it.
+    #expect(SetupView.progressLabel(.installation, copy: english) == "Step 1 of 4: Welcome")
+    #expect(SetupView.progressLabel(.login, copy: LauncherCopy(language: "es")) == "Paso 3 de 4: Al iniciar sesión")
+    #expect(SetupView.progressLabel(.login, copy: LauncherCopy(language: "zh-Hans")) == "第 3 步，共 4 步：登录时")
 }

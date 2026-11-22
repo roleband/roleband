@@ -20,7 +20,8 @@ from datetime import UTC, datetime, time, timedelta
 import pytest
 from sqlalchemy import select
 
-from tracker.db.models import Job, JobLifecycleEvent, Notification, Pursuit, ScrapeRun
+from tests.factories import add_pursuit
+from tracker.db.models import Job, JobLifecycleEvent, Notification, ScrapeRun
 from tracker.notifications import (
     channels,
     generate_notifications,
@@ -112,16 +113,7 @@ async def test_a_registered_channel_receives_the_digest_and_pursuit_categories(
             job_id=discovered.id, run_id=run.id, event_type="opened", detail={}, created_at=NOW
         )
     )
-    db_session.add(
-        Pursuit(
-            job_id=pursued.id,
-            stage="applied",
-            priority=3,
-            next_action="Follow up",
-            next_action_due=NOW - timedelta(days=2),
-        )
-    )
-    await db_session.flush()
+    await add_pursuit(db_session, pursued.id, next_action="Follow up", next_action_due=NOW - timedelta(days=2))
 
     # `include_run=False` still runs the digest pass; the pursuit pass is its
     # own entry point, exactly as the scheduler calls them.
@@ -133,7 +125,7 @@ async def test_a_registered_channel_receives_the_digest_and_pursuit_categories(
         "the daily digest did not reach the channel seam — it is writing its own "
         "insert, so a registered channel is silent for it"
     )
-    assert "pursuit" in delivered, (
+    assert "step" in delivered, (
         "pursuit reminders did not reach the channel seam — same defect, and it "
         "is the category a push channel is most often added for"
     )

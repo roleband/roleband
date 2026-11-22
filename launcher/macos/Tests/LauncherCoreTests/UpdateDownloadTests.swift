@@ -43,6 +43,7 @@ private struct DownloadServer {
         values["checksum"] = Data("\(sha)  RoleBand-0.1.1-macOS-arm64.dmg\n".utf8)
         values["signature"] = try signer.signature(for: values["checksum"]! + values["metadata"]!)
         values["image"] = image
+        values["important"] = try signer.signature(for: VerifiedArtifact.importantMessage("0.1.1"))
         try JSONEncoder().encode(values).write(to: root.appendingPathComponent("fixture.json"))
         try Data(mode.utf8).write(to: root.appendingPathComponent("mode"))
         let script = #"""
@@ -58,8 +59,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if mode=='offline':
             self.connection.shutdown(socket.SHUT_RDWR);self.connection.close();return
         name=self.path.rsplit('/',1)[-1]
-        kind='image' if name.endswith('.dmg') else 'checksum' if name.endswith('.sha256') else 'signature' if name.endswith('.sig') else 'metadata'
+        kind='image' if name.endswith('.dmg') else 'checksum' if name.endswith('.sha256') else 'signature' if name.endswith('.sig') else 'important' if name.endswith('.important') else 'metadata'
         body=fixture[kind]
+        if kind=='important' and mode=='no-mark':
+            self.send_response(404);self.send_header('Content-Length','0');self.end_headers();return
+        if kind=='important' and mode=='oversized-mark': body+=b'x'
         if mode=='bad-signature' and kind=='signature': body=bytes([body[0]^1])+body[1:]
         if mode=='metadata-overflow' and kind=='metadata': body=b'x'*4097
         if mode=='redirect':
@@ -333,6 +337,23 @@ func checkingAReleaseReadsOnlyItsSignedMetadata(mode: String) async throws {
     }
     #expect(!(try server.requests()).contains { ($0["path"] as? String)?.hasSuffix(".dmg") == true })
     #expect(!FileManager.default.fileExists(atPath: server.cache.path))
+}
+
+/// An important mark counts only when it is this release's mark signed by the app's keys: a missing,
+/// oversized or foreign one is no mark, and reading it never touches the image.
+@Test(arguments: ["normal", "no-mark", "oversized-mark", "foreign-key", "other-version"])
+func anImportantMarkCountsOnlyWhenItsSignatureHolds(mode: String) async throws {
+    let server = try await DownloadServer(mode: ["foreign-key", "other-version"].contains(mode) ? "normal" : mode)
+    defer { server.stop() }
+    let key = mode == "foreign-key" ? Curve25519.Signing.PrivateKey().publicKey.rawRepresentation : server.key
+    let important = await UpdateDownloader.important(version: mode == "other-version" ? "0.1.2" : "0.1.1", publicKey: key,
+                                                     origin: server.origin)
+    #expect(important == (mode == "normal"))
+    if mode == "foreign-key" {
+        // The spare key is trusted as the current one.
+        #expect(await UpdateDownloader.important(version: "0.1.1", publicKey: key, spareKey: server.key, origin: server.origin))
+    }
+    #expect(try server.requests().allSatisfy { ($0["path"] as? String)?.hasSuffix(".important") == true })
 }
 
 /// Starting a download clears the other releases' folders, but never one whose download another

@@ -55,7 +55,7 @@ error-last-world = Mantén al menos un ámbito en tu radar.
 error-recipe-invalid = Esa receta tiene problemas. Corrígelos e inténtalo de nuevo.
 error-recipe-conflict = Esa empresa ya se escanea de otra forma.
 error-plugin-not-found = Ese plugin ya no está instalado.
-error-ai-egress-off = El envío de ofertas a proveedores de IA está desactivado. Actívalo en Ajustes › IA.
+error-ai-egress-off = Los proveedores de IA están desactivados. Actívalos en Ajustes › IA.
 error-usage-catalogue-changed = Lo que se comparte cambió mientras elegías. Inténtalo de nuevo.
 error-plugin-not-runnable = Ese plugin solo se ejecuta cuando está aprobado y activado.
 error-plugin-running = Ese plugin ya se está actualizando. Inténtalo de nuevo cuando termine.
@@ -71,6 +71,8 @@ error-application-not-found = Ese puesto ya no está en tu seguimiento.
 error-comment-not-found = Ese comentario ya no existe.
 
 error-interview-not-found = Esa entrevista ya no existe.
+# kind=error next=none
+error-step-not-found = Ese siguiente paso ya no existe.
 
 error-comment-not-yours = Solo puedes cambiar tus propios comentarios.
 

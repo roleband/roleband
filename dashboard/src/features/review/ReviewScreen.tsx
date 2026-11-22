@@ -28,6 +28,7 @@ import {
   duplicatesProposedAs,
   duplicatesReviewHistoryDecided,
   duplicatesReviewScreenAboutSystemSimilarity,
+  duplicatesReviewScreenAssistantUnsure,
   duplicatesReviewScreenCandidatePair,
   duplicatesReviewScreenCouldNotRecordTheVerdict,
   duplicatesReviewScreenCouldNotUndo,
@@ -51,6 +52,7 @@ import {
   duplicatesReviewScreenUndo,
   duplicatesReviewScreenUndoneYourLaterDecisionOn,
 } from "../../copy/gen/duplicates";
+import { Content } from "../../ui/Content";
 import { Msg } from "../../ui/Msg";
 
 /* `queue` is the possible matches waiting for a verdict; `auto` the pairs the
@@ -461,6 +463,12 @@ function ReviewWorkspace({
 
       <ComparisonLedger prior={item.prior} job={item.job} />
 
+      {item.link.decision_note && (
+        <p className="review-assistant-note">
+          <Msg of={duplicatesReviewScreenAssistantUnsure} elems={{ note: <Content text={item.link.decision_note} /> }} />
+        </p>
+      )}
+
       <QueueDecisionConsole
         busy={busy}
         aiBusy={aiBusy}
@@ -485,7 +493,7 @@ function SystemSimilarity({ item }: { item: LineageReviewItem }) {
     >
       <span>{duplicatesReviewScreenSystemSimilarity()}</span>
       {score !== null && <strong>{score}</strong>}
-      <InfoTip label={duplicatesReviewScreenAboutSystemSimilarity()}>
+      <InfoTip label={duplicatesReviewScreenAboutSystemSimilarity()} align="end">
         <span className="review-system-detail">
           <strong>{duplicatesProposedAs({ kind: link.proposal_kind })}</strong>
           {reasonsText(link.said).length > 0 && <span>{reasonsText(link.said).join(" · ")}</span>}

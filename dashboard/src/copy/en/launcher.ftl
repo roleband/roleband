@@ -59,6 +59,8 @@ launcher-step-welcome = Welcome
 launcher-step-login = At login
 # kind=label
 launcher-step-done = Ready
+# kind=aria note="The setup step bar as a screen reader hears it: Step 2 of 4: Get ready"
+launcher-step-progress = Step { $current } of { $total }: { $name }
 # kind=error
 launcher-login-error = Couldn't change the login setting. Try again.
 
@@ -339,8 +341,6 @@ launcher-notes-loading = Loading release notes…
 launcher-notes-done = Done
 
 # kind=label
-launcher-update-available = Update available
-# kind=label
 launcher-update-offered = Available version
 # kind=status
 launcher-update-checked = Release check completed.
@@ -367,10 +367,6 @@ launcher-update-check-now = Check now
 # kind=status
 launcher-update-idle = Not checked yet
 
-# kind=notification
-launcher-update-notification-body = See what's new in this version.
-# kind=button
-launcher-update-notification-settings = Notification settings
 
 # kind=heading
 launcher-guide-title = Install the app
@@ -727,11 +723,19 @@ launcher-panel-check-automatically = Check automatically
 # kind=sentence
 launcher-panel-check-automatically-caption = Looks for a new version once a day.
 # kind=label
-launcher-panel-notices = Update notices
+launcher-panel-update-window = Update window
 # kind=sentence
-launcher-panel-notices-caption = A notification when one is ready.
+launcher-panel-update-window-caption = Opens when a new version is ready.
+# kind=heading
+launcher-panel-open-source = Open source
+# kind=label
+launcher-panel-star = Star on GitHub
 # kind=sentence
-launcher-panel-notices-refused = Notifications are off for this app in System Settings.
+launcher-panel-star-caption = The easiest way to say thanks.
+# kind=label
+launcher-panel-feedback = Share feedback
+# kind=sentence
+launcher-panel-feedback-caption = Report a problem or suggest an idea.
 # kind=status
 launcher-panel-checked = Checked { $time }
 # kind=status
@@ -743,6 +747,10 @@ launcher-panel-status-failed = Couldn't check
 
 # kind=status
 launcher-update-ready = Version { $version } is ready
+# kind=sentence
+launcher-update-window-body = This update includes improvements and bug fixes.
+# kind=sentence
+launcher-update-window-body-important = This update includes important improvements and fixes, and is recommended for all users.
 # kind=button
 launcher-update-install = Update
 # kind=button

@@ -1,6 +1,6 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api, type ApplicationDetail, type Job, type JobDetail, type PursuitStage } from "../../api";
@@ -8,8 +8,9 @@ import { ApiError } from "../../api/transport";
 import { ToastProvider } from "../../ui/Toast";
 import { applicationCardFixture, applicationDetailFixture, jobDetailFixture } from "../../test/fixtures";
 import { msg } from "../../test/msg";
-import { interviewWhen } from "./ApplicationPanels";
-import { usePostingPipeline, type PostingTab } from "./usePostingPipeline";
+import { interviewWhen } from "./interviewWords";
+import type { RoleTab } from "./roleLink";
+import { usePostingPipeline } from "./usePostingPipeline";
 
 /* The pipeline's part of a posting. Off the board it is the star and nothing
  * else, and the posting has no tabs; on it, the star's place holds the
@@ -28,10 +29,21 @@ vi.mock("../../api", async (importOriginal) => ({
     addInterview: vi.fn(),
     deleteInterview: vi.fn(),
     activity: vi.fn(),
+    updateStep: vi.fn(),
   },
 }));
 
-const appState = { refreshStats: vi.fn(), savedChanged: vi.fn(), favVersion: 0 };
+/* A write that landed bumps the version every reader of the role re-reads on,
+ * and the screen draws again, as the provider does. */
+let redraw: () => void = () => undefined;
+const appState = {
+  refreshStats: vi.fn(),
+  savedChanged: vi.fn(() => {
+    appState.favVersion += 1;
+    redraw();
+  }),
+  favVersion: 0,
+};
 vi.mock("../../context/JobWorkspace", () => ({ useJobWorkspace: () => appState, useJobActions: () => appState }));
 vi.mock("../../context/MissionState", () => ({ useMissionActions: () => appState }));
 
@@ -59,9 +71,14 @@ function pursuit(stage: PursuitStage) {
 
 /** The posting's bar, its side column and whether it reads as applied, as the
  *  posting screen draws them, around the posting's own state. */
-function Posting({ initial, asked = null }: { initial: Job; asked?: PostingTab | null }) {
+function Posting({ initial, other, asked = null }: { initial: Job; other?: Job; asked?: RoleTab | null }) {
   const [job, setJob] = useState<Job | null>(initial);
-  const [tab, setTab] = useState<PostingTab | null>(asked);
+  const [tab, setTab] = useState<RoleTab | null>(asked);
+  const [, setDrawn] = useState(0);
+  useEffect(() => {
+    redraw = () => setDrawn((n) => n + 1);
+    return () => { redraw = () => undefined; };
+  }, []);
   const [column, setColumn] = useState<HTMLElement | null>(null);
   const showSaved = useCallback((on: boolean) => setJob((prev) => prev && { ...prev, is_favorite: on }), []);
   const paintPosting = useCallback(
@@ -86,6 +103,11 @@ function Posting({ initial, asked = null }: { initial: Job; asked?: PostingTab |
   return (
     <>
       <nav aria-label="Posting bar">{pipeline.control}</nav>
+      <nav aria-label="Roles and tabs">
+        {other && <button type="button" onClick={() => setJob(other)}>Open the other role</button>}
+        <button type="button" onClick={() => setTab("posting")}>Tab: posting</button>
+        <button type="button" onClick={() => setTab("workspace")}>Tab: workspace</button>
+      </nav>
       <p data-testid="tab">{pipeline.tab ?? "no tabs"}</p>
       <main aria-label="Main column">{pipeline.tab === "workspace" ? pipeline.workspace : "The posting"}</main>
       <aside aria-label="Side column" ref={setColumn}>{pipeline.section}</aside>
@@ -94,11 +116,11 @@ function Posting({ initial, asked = null }: { initial: Job; asked?: PostingTab |
   );
 }
 
-function renderPosting(job: JobDetail, asked: PostingTab | null = null) {
+function renderPosting(job: JobDetail, asked: RoleTab | null = null, other?: JobDetail) {
   return render(
     <ToastProvider>
       <MemoryRouter initialEntries={["/company/openai/job/101"]}>
-        <Posting initial={job} asked={asked} />
+        <Posting initial={job} other={other} asked={asked} />
       </MemoryRouter>
     </ToastProvider>,
   );
@@ -122,6 +144,7 @@ async function findRow(term: string): Promise<HTMLElement> {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  appState.favVersion = 0;
   detail = null;
   vi.mocked(api.application).mockImplementation(async () => {
     if (!detail) throw new ApiError("not on the board", 404);
@@ -495,5 +518,115 @@ describe("a role's two tabs", () => {
     renderPosting(posting());
     await userEvent.keyboard("mi");
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+describe("one write, one read", () => {
+  const step = (id: number, text: string, due: string | null) => ({
+    id, text, due, created_at: daysAgo(2), done_at: null,
+  });
+  const comment = {
+    kind: "comment" as const, id: 1, created_at: daysAgo(1), actor: "user" as const, source: "app" as const,
+    body: "Call went well", edited_at: null,
+  };
+  const appliedWith = (jobId: number, steps = [step(jobId * 10 + 1, "Email the recruiter", tomorrowNoon())]) =>
+    applicationDetailFixture({
+      application: applicationCardFixture({ job_id: jobId, pursuit_id: 10, stage: "applied", stage_since: daysAgo(3), steps }),
+    });
+  const pursuedPosting = (id: number, title: string) =>
+    posting({ id, title, is_favorite: true, pursuit: { ...pursuit("applied"), job_id: id } });
+  const settle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 60)); });
+
+  it("reads the application once and the feed once for a pursuit write that landed", async () => {
+    detail = appliedWith(101);
+    renderPosting(pursuedPosting(101, TITLE), "workspace");
+    await within(main()).findByText(msg("applications-ws-next"));
+    await settle();
+    expect(api.application).toHaveBeenCalledTimes(1);
+    expect(api.activity).toHaveBeenCalledTimes(1);
+
+    const priority = await findRow(msg("applications-fact-priority"));
+    await userEvent.click(within(priority).getByRole("button"));
+    const menu = await screen.findByRole("dialog", { name: msg("applications-priority-menu", { title: TITLE }) });
+    await userEvent.click(within(menu).getByRole("button", { name: new RegExp(msg("applications-priority-high")) }));
+    await waitFor(() => expect(appState.savedChanged).toHaveBeenCalledWith({ jobId: 101, saved: true }));
+    await waitFor(() => expect(api.application).toHaveBeenCalledTimes(2));
+    await settle();
+
+    expect(api.application, "the announcement's read, and no second one by hand").toHaveBeenCalledTimes(2);
+    expect(api.activity, "the feed follows the same announcement once").toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the feed on screen while it reads again after a tab toggle, instead of clearing it", async () => {
+    detail = appliedWith(101);
+    vi.mocked(api.activity).mockResolvedValue({ items: [comment] } as Awaited<ReturnType<typeof api.activity>>);
+    renderPosting(pursuedPosting(101, TITLE), "workspace");
+    expect(await within(main()).findByText("Call went well")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Tab: posting" }));
+    // The next read never answers: what is on screen is the answer it had.
+    vi.mocked(api.activity).mockImplementation(() => new Promise(() => undefined));
+    await userEvent.click(screen.getByRole("button", { name: "Tab: workspace" }));
+    await waitFor(() => expect(api.activity).toHaveBeenCalledTimes(2));
+    expect(within(main()).getByText("Call went well"), "the feed is not cleared to read again").toBeInTheDocument();
+  });
+
+  it("leaves the role it did not write to alone when an Undo fails after another role was opened", async () => {
+    detail = appliedWith(101, [step(1011, "Email the recruiter", tomorrowNoon()), step(1012, "Ask Sam", null)]);
+    vi.mocked(api.application).mockImplementation(async (jobId) => structuredClone(jobId === 101 ? detail! : appliedWith(102)));
+    vi.mocked(api.updateStep).mockResolvedValueOnce({} as Awaited<ReturnType<typeof api.updateStep>>);
+    vi.mocked(api.updateStep).mockRejectedValueOnce(new ApiError("down", 500));
+    renderPosting(pursuedPosting(101, TITLE), "workspace", pursuedPosting(102, "Other role"));
+    await userEvent.click(await screen.findByRole("button", { name: msg("applications-upnext-done-label", { step: "Email the recruiter" }) }));
+    const undo = await screen.findByRole("button", { name: msg("applications-move-undo") });
+    expect(api.updateStep).toHaveBeenCalledWith(101, 1011, { done: true });
+
+    await userEvent.click(screen.getByRole("button", { name: "Open the other role" }));
+    await waitFor(() => expect(api.application).toHaveBeenCalledWith(102, expect.anything()));
+    await settle();
+    const before = vi.mocked(api.application).mock.calls.length;
+
+    await userEvent.click(undo);
+    expect(await screen.findByText(msg("applications-upnext-undo-failed", { title: TITLE }))).toBeInTheDocument();
+    await settle();
+    expect(api.application, "the open role is not read for a change made on another").toHaveBeenCalledTimes(before);
+    expect(api.updateStep).toHaveBeenLastCalledWith(101, 1011, { done: false });
+  });
+});
+
+describe("a role switch", () => {
+  it("closes the interview form and the stage menu opened on the role left behind", async () => {
+    detail = applicationDetailFixture({
+      application: applicationCardFixture({ pursuit_id: 10, stage: "applied", stage_since: daysAgo(3) }),
+    });
+    vi.mocked(api.application).mockImplementation(async () => structuredClone(detail!));
+    const other = posting({ id: 102, title: "Other role", is_favorite: true, pursuit: { ...pursuit("applied"), job_id: 102 } });
+    renderPosting(posting({ is_favorite: true, pursuit: pursuit("applied") }), null, other);
+    await findRow(msg("applications-posting-stage"));
+
+    await userEvent.keyboard("i");
+    await screen.findByRole("dialog", { name: msg("applications-interview-add-title") });
+    await userEvent.click(screen.getByRole("button", { name: "Open the other role" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: msg("applications-interview-add-title") }),
+      "an interview form for the old role must not write against the new one").toBeNull());
+
+    await userEvent.keyboard("m");
+    await screen.findByRole("dialog", { name: msg("applications-stage-menu-label", { title: "Other role" }) });
+  });
+
+  it("closes a stage menu opened on the role left behind", async () => {
+    detail = applicationDetailFixture({
+      application: applicationCardFixture({ pursuit_id: 10, stage: "applied", stage_since: daysAgo(3) }),
+    });
+    vi.mocked(api.application).mockImplementation(async () => structuredClone(detail!));
+    const other = posting({ id: 102, title: "Other role", is_favorite: true, pursuit: { ...pursuit("applied"), job_id: 102 } });
+    renderPosting(posting({ is_favorite: true, pursuit: pursuit("applied") }), null, other);
+    await findRow(msg("applications-posting-stage"));
+
+    await userEvent.keyboard("m");
+    await menuOf();
+    await userEvent.click(screen.getByRole("button", { name: "Open the other role" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: /stage/i })).toBeNull());
+    expect(screen.queryByRole("dialog", { name: msg("applications-stage-menu-label", { title: "Other role" }) })).toBeNull();
   });
 });

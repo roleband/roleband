@@ -8,7 +8,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.api.deps import OffBoardDep, Offset, SessionDep, end_read
@@ -42,7 +42,8 @@ from tracker.intelligence_runtime.local_profiles import (
 )
 from tracker.intelligence_runtime.telemetry import log_ai_task
 from tracker.lineage.content_diff import compare_descriptions
-from tracker.lineage.detect import effective_link_clause, link_fact, rebuild_lineage_projection
+from tracker.lineage.decks import lineage_stack, twin_deck
+from tracker.lineage.detect import rebuild_lineage_projection
 from tracker.lineage.diff import build_member_diff
 from tracker.lineage.pairs import (
     PairRefused,
@@ -50,7 +51,6 @@ from tracker.lineage.pairs import (
     require_one_company,
 )
 from tracker.lineage.place_sets import NotAMember, place_set_of, review_place_set_member
-from tracker.lineage.project import choose_predecessors
 from tracker.lineage.reasons import duplicate_reasons, twin_reasons
 from tracker.lineage.review import (
     LinkNotFound,
@@ -59,10 +59,25 @@ from tracker.lineage.review import (
     decide_twin_link,
     lock_relationships,
 )
-from tracker.lineage.twins import connected_twin_ids, twin_component_links
 from tracker.local_llm.client import LocalLLMClient, LocalLLMError
 
 router = APIRouter()
+
+
+def _decided_by(link: JobLineageLink | JobTwinLink) -> str | None:
+    """Who made a link's verdict: a verdict recorded without attribution is the
+    person's; a pending link has none."""
+    if link.status == "pending":
+        return None
+    return link.decided_by or "person"
+
+
+def _decided_by_is(model: type[JobLineageLink] | type[JobTwinLink], who: str) -> ColumnElement[bool]:
+    """Links decided by `who`: a decided link without attribution is the person's,
+    and a pending link was decided by nobody."""
+    if who == "agent":
+        return model.decided_by == "agent"
+    return or_(model.decided_by == "person", and_(model.decided_by.is_(None), model.status != "pending"))
 
 
 def _serialize_link(link: JobLineageLink) -> dict:
@@ -83,6 +98,8 @@ def _serialize_link(link: JobLineageLink) -> dict:
         "decision": ev.get("review_outcome"),
         "decision_changes": len(ev.get("decision_history", [])),
         "reviewed_at": link.reviewed_at,
+        "decided_by": _decided_by(link),
+        "decision_note": link.decision_note,
     }
 
 
@@ -105,6 +122,8 @@ def _serialize_twin_link(link: JobTwinLink) -> dict:
         "decision": ev.get("review_outcome"),
         "decision_changes": len(ev.get("decision_history", [])),
         "reviewed_at": link.reviewed_at,
+        "decided_by": _decided_by(link),
+        "decision_note": link.decision_note,
         "description_diff": ev.get("description_diff"),
     }
 
@@ -139,47 +158,20 @@ async def job_lineage(job_id: int, session: SessionDep) -> dict:
         return {"lineage_id": None, "size": 1, "members": []}
 
     lineage = await session.get(JobLineage, job.lineage_id)
-    members = list(
-        (
-            await session.scalars(
-                select(Job).where(Job.lineage_id == job.lineage_id).order_by(Job.lineage_seq.asc())
-            )
-        ).all()
-    )
-    # Inbound link per successor member: the one the projection chose
-    # (`project.choose_predecessors`), never the last row read, so
-    # a pending proposal to a posting outside the lineage cannot stand in
-    # for the confirmed link that placed the member.
-    links = (
-        await session.scalars(
-            select(JobLineageLink).where(
-                JobLineageLink.job_id.in_([m.id for m in members]),
-                effective_link_clause(),
-            )
-        )
-    ).all()
-    by_pair = {(lk.job_id, lk.prior_job_id): lk for lk in links}
-    link_by_job = {
-        job_id: by_pair[(fact.job_id, fact.prior_job_id)]
-        for job_id, fact in choose_predecessors([link_fact(lk) for lk in links]).items()
-    }
-
-    ctx = await row_context(session, members, standing=False)
+    stack = await lineage_stack(session, job.lineage_id)
+    ctx = await row_context(session, [member.job for member in stack], standing=False)
     payload_members = []
     prev = None
-    for m in members:
-        link = link_by_job.get(m.id)
+    for member in stack:
+        m = member.job
         # Only an EFFECTIVE link ties a member to its predecessor in the stack.
-        effective = link is not None and (
-            (link.confidence == "auto" and link.status != "rejected") or link.status == "confirmed"
-        )
         payload_members.append(
             {
                 "seq": m.lineage_seq,
                 "role": m.lineage_role,
                 "job": serialize_job(m, detail=True, **ctx),
-                "link": _serialize_link(link) if link is not None else None,
-                "diff_vs_prev": build_member_diff(prev, m) if (prev is not None and effective) else None,
+                "link": _serialize_link(member.link) if member.link is not None else None,
+                "diff_vs_prev": build_member_diff(prev, m) if (prev is not None and member.effective) else None,
             }
         )
         prev = m
@@ -205,6 +197,7 @@ async def lineage_review(
     order: Literal["strongest", "weakest"] = "strongest",
     on_board: bool = True,
     detail: bool = True,
+    decided_by: Literal["person", "agent"] | None = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Offset = 0,
 ) -> dict:
@@ -226,6 +219,8 @@ async def lineage_review(
     conds = [JobLineageLink.status.in_(_review_statuses(status))]
     if confidence:
         conds.append(JobLineageLink.confidence == confidence)
+    if decided_by:
+        conds.append(_decided_by_is(JobLineageLink, decided_by))
     if status == "pending" and on_board:
         conds.append(pair_on_board(JobLineageLink.job_id, JobLineageLink.prior_job_id, hidden))
     total = await session.scalar(
@@ -311,6 +306,7 @@ async def twin_review(
     confidence: str | None = "suspected",
     on_board: bool = True,
     detail: bool = True,
+    decided_by: Literal["person", "agent"] | None = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Offset = 0,
 ) -> dict:
@@ -322,6 +318,8 @@ async def twin_review(
     conds = [JobTwinLink.status.in_(_review_statuses(status))]
     if confidence:
         conds.append(JobTwinLink.confidence == confidence)
+    if decided_by:
+        conds.append(_decided_by_is(JobTwinLink, decided_by))
     if status == "pending" and on_board:
         conds.append(pair_on_board(JobTwinLink.job_a_id, JobTwinLink.job_b_id, hidden))
     total = await session.scalar(select(func.count()).select_from(JobTwinLink).where(*conds))
@@ -437,6 +435,7 @@ async def create_twin_link(payload: TwinLinkPayload, session: SessionDep) -> dic
         payload.twin_job_id,
         method="manual",
         evidence={"review_outcome": "twin", "reasons": ["human-created twin relationship"]},
+        actor="person",
     )
     await session.commit()
     return {"id": twin["id"], "status": "confirmed", "decision": "twin"}
@@ -446,40 +445,29 @@ async def create_twin_link(payload: TwinLinkPayload, session: SessionDep) -> dic
 async def job_twins(job_id: int, session: SessionDep) -> dict:
     if await session.get(Job, job_id) is None:
         raise api_error(404, ErrorCode.JOB_NOT_FOUND, "job not found")
-    links = await twin_component_links(session, job_id)
-    component, direct = connected_twin_ids(job_id, list(links.values()))
-    member_ids = {job_id} | component
+    deck = await twin_deck(session, job_id)
     jobs = {
         job.id: job
         for job in (
-            await session.scalars(select(Job).where(Job.id.in_(member_ids)))
+            await session.scalars(select(Job).where(Job.id.in_(deck.member_ids)))
         ).all()
     }
-    # Only a direct link is shown with its evidence, so only those rows load whole.
-    own = [link_id for link_id, (a, b) in links.items() if job_id in (a, b)]
-    direct_links = {
-        (link.job_b_id if link.job_a_id == job_id else link.job_a_id): link
-        for link in (
-            await session.scalars(select(JobTwinLink).where(JobTwinLink.id.in_(own)))
-        ).all()
-    }
-    ordered_ids = [job_id] + sorted(component)
     ctx = await row_context(session, list(jobs.values()), standing=False)
     return {
         "job_id": job_id,
-        "size": len(member_ids),
-        "direct_count": len(direct),
+        "size": len(deck.member_ids),
+        "direct_count": len(deck.direct),
         "members": [
             {
                 "job": serialize_job(jobs[member_id], detail=True, **ctx),
-                "direct": member_id in direct,
+                "direct": member_id in deck.direct,
                 "link": (
-                    _serialize_twin_link(direct_links[member_id])
-                    if member_id in direct_links
+                    _serialize_twin_link(deck.links[member_id])
+                    if member_id in deck.links
                     else None
                 ),
             }
-            for member_id in ordered_ids
+            for member_id in deck.member_ids
             if member_id in jobs
         ],
     }

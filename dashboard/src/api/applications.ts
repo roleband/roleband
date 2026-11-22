@@ -1,8 +1,8 @@
 /* Applications: the pipeline board, one application, its activity, and the
-   comment and interview writes on it. One domain of the typed client;
-   `index.ts` composes `api`. A stage move, a priority, the notes and the next
-   step are `setPursuit` in `profile.ts`, the route every surface writes a
-   pursuit through. */
+   comment, interview and next-step writes on it. One domain of the typed
+   client; `index.ts` composes `api`. A stage move, a priority and the notes
+   are `setPursuit` in `profile.ts`, the route every surface writes a pursuit
+   through. */
 
 import type { Schemas } from "./schemas";
 import { deleteJSON, getJSON, patchJSON, postJSON, putJSON } from "./transport";
@@ -29,6 +29,15 @@ export type InterviewWrite = Schemas["InterviewWrite"];
 
 /** A partial interview write: an absent field is left as it is. */
 export type InterviewUpdate = Schemas["InterviewUpdate"];
+
+/** One next step the person owes; open while `done_at` is null. */
+export type ApplicationStep = Schemas["ApplicationStep"];
+
+/** A next step as a write adds it. */
+export type StepWrite = Schemas["StepWrite"];
+
+/** A partial step write: an absent field is left as it is; `done` ticks it or opens it again. */
+export type StepUpdate = Schemas["StepUpdate"];
 
 /** One interview or dated next step on the calendar, naming its application by job id. */
 export type ApplicationCalendarItem = Schemas["ApplicationCalendarResponse"]["items"][number];
@@ -59,4 +68,10 @@ export const applicationsApi = {
     ),
   deleteInterview: (jobId: number, interviewId: number) =>
     deleteJSON<Schemas["ApplicationDeleted"]>(`/api/jobs/${jobId}/pursuit/interviews/${interviewId}`),
+  addStep: (jobId: number, step: StepWrite) =>
+    postJSON<Schemas["ApplicationStepResponse"]>(`/api/jobs/${jobId}/pursuit/steps`, step),
+  updateStep: (jobId: number, stepId: number, update: StepUpdate) =>
+    patchJSON<Schemas["ApplicationStepResponse"]>(`/api/jobs/${jobId}/pursuit/steps/${stepId}`, update),
+  deleteStep: (jobId: number, stepId: number) =>
+    deleteJSON<Schemas["ApplicationDeleted"]>(`/api/jobs/${jobId}/pursuit/steps/${stepId}`),
 };

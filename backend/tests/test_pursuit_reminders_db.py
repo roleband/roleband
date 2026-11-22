@@ -8,7 +8,7 @@ dismissed for one follow-up must not swallow the next one on that pursuit (a
 row keyed by pursuit keeps `dismissed_at`), and a reconcile run at write time
 beside the run's own must not deadlock on the reminder rows.
 
-Real Postgres; the pursuit writes go through the real HTTP route and MCP tool.
+Real Postgres; the pursuit writes go through the real HTTP route and agent operation.
 """
 
 from __future__ import annotations
@@ -21,7 +21,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from tests.barriers import until_waiting
-from tracker.db.models import Job, Notification, Pursuit
+from tests.factories import add_pursuit
+from tracker.db.models import Job, Notification
 from tracker.notifications.pursuit_due import generate_pursuit_due_notifications
 
 pytestmark = pytest.mark.asyncio
@@ -69,7 +70,7 @@ async def test_a_follow_up_set_already_owed_rings_without_a_scan(api_client, db_
 @pytest.mark.parametrize("ending", ["rejected", "role_closed", "withdrawn", "declined"])
 async def test_ending_a_pursuit_retracts_its_reminder_at_once(api_client, db_session, ending):
     job = await _job(db_session)
-    db_session.add(Pursuit(job_id=job.id, stage="applied", next_action_due=datetime.now(UTC) - timedelta(days=1)))
+    await add_pursuit(db_session, job.id, stage="applied", next_action_due=datetime.now(UTC) - timedelta(days=1))
     await db_session.commit()
     await generate_pursuit_due_notifications(db_session)  # the last run's reconcile
     await db_session.commit()
@@ -82,7 +83,7 @@ async def test_ending_a_pursuit_retracts_its_reminder_at_once(api_client, db_ses
 
 async def test_an_accepted_offer_keeps_the_follow_up_the_user_set(api_client, db_session):
     job = await _job(db_session)
-    db_session.add(Pursuit(job_id=job.id, stage="offer", next_action_due=datetime.now(UTC) - timedelta(days=1)))
+    await add_pursuit(db_session, job.id, stage="offer", next_action_due=datetime.now(UTC) - timedelta(days=1))
     await db_session.commit()
     await generate_pursuit_due_notifications(db_session)
     await db_session.commit()
@@ -95,7 +96,7 @@ async def test_an_accepted_offer_keeps_the_follow_up_the_user_set(api_client, db
 async def test_a_dismissed_reminder_never_swallows_the_next_follow_up(api_client, db_session):
     job = await _job(db_session)
     await api_client.put(
-        f"/api/jobs/{job.id}/pursuit", json={"stage": "applied", "next_action_due": _due(3)}
+        f"/api/jobs/{job.id}/pursuit", json={"stage": "applied", "next_action": "Follow up", "next_action_due": _due(3)}
     )
     (first,) = await _reminders(db_session)
     dismissed = await api_client.post(f"/api/notifications/{first.id}/dismiss")
@@ -114,7 +115,7 @@ async def test_the_same_follow_up_stays_dismissed(api_client, db_session):
     the row's wording only; the person's dismissal stands."""
     job = await _job(db_session)
     await api_client.put(
-        f"/api/jobs/{job.id}/pursuit", json={"stage": "applied", "next_action_due": _due(3)}
+        f"/api/jobs/{job.id}/pursuit", json={"stage": "applied", "next_action": "Follow up", "next_action_due": _due(3)}
     )
     (first,) = await _reminders(db_session)
     await api_client.post(f"/api/notifications/{first.id}/dismiss")
@@ -126,18 +127,27 @@ async def test_the_same_follow_up_stays_dismissed(api_client, db_session):
     assert row.id == first.id and row.dismissed_at is not None
 
 
-async def test_the_agent_setting_an_owed_follow_up_rings(db_session, scratch_scope):
-    import tracker.mcp.server as server
+async def test_the_agent_setting_an_owed_follow_up_rings(api_client, db_session, scratch_scope):
     from tracker.agents.config import AgentAccessConfig, set_agent_access
+    from tracker.agents.operations.workspace import ensure_workspace_id
+    from tracker.api.agent_operations import IDEMPOTENCY_KEY_HEADER, PREFIX
 
     await set_agent_access(db_session, AgentAccessConfig(enabled=True, allow_writes=True))
+    await ensure_workspace_id(db_session)
     await db_session.commit()
     job = await _job(db_session)
+    assert await _reminders(db_session) == []
 
-    await server.update_pursuit(
-        job.id, stage="applied", next_action_due=datetime.now(UTC) - timedelta(hours=2)
+    response = await api_client.patch(
+        f"{PREFIX}/pursuits/{job.id}",
+        json={"if_revision": 0, "stage": "applied", "next_action": "Follow up",
+              "next_action_due": (datetime.now(UTC) - timedelta(hours=2)).isoformat()},
+        headers={IDEMPOTENCY_KEY_HEADER: "idk_" + "d" * 32},
     )
-    assert len(await _reminders(db_session)) == 1
+
+    assert response.status_code == 200, response.text
+    (row,) = await _reminders(db_session)
+    assert row.job_id == job.id
 
 
 async def test_an_idle_tick_rings_a_follow_up_that_fell_due(db_session, scratch_scope, monkeypatch):
@@ -147,7 +157,7 @@ async def test_an_idle_tick_rings_a_follow_up_that_fell_due(db_session, scratch_
     from tracker.workflows import scheduler
 
     job = await _job(db_session)
-    db_session.add(Pursuit(job_id=job.id, stage="applied", next_action_due=datetime.now(UTC) - timedelta(minutes=5)))
+    await add_pursuit(db_session, job.id, stage="applied", next_action_due=datetime.now(UTC) - timedelta(minutes=5))
     await db_session.commit()
 
     async def nothing_due(_now, **_):
@@ -172,7 +182,7 @@ async def test_two_reconciles_run_one_after_the_other(db_session):
     """Broken rule caught: a write-time reconcile beside the run's own touched
     the reminder rows in opposite orders and Postgres aborted one."""
     job = await _job(db_session)
-    db_session.add(Pursuit(job_id=job.id, stage="applied", next_action_due=datetime.now(UTC) - timedelta(days=1)))
+    await add_pursuit(db_session, job.id, stage="applied", next_action_due=datetime.now(UTC) - timedelta(days=1))
     await db_session.commit()
     factory = async_sessionmaker(db_session.bind, expire_on_commit=False)
     async with factory() as one, factory() as two:
@@ -206,3 +216,20 @@ async def test_the_reconcile_holds_its_lock_until_its_transaction_ends(db_sessio
         )
         await one.commit()
     assert held == 1
+
+
+async def test_a_reminder_raised_for_a_whole_pursuit_stands_for_no_step_and_is_retracted(db_session):
+    """A reminder from before steps had rows, whose pursuit had a day and no
+    words, was never carried onto a step. The reconcile retracts it."""
+    job = await _job(db_session)
+    pursuit, _ = await add_pursuit(db_session, job.id, stage="applied")
+    db_session.add(Notification(
+        created_at=datetime.now(UTC), priority="high", category="pursuit_due", title="Follow up", body="",
+        job_id=job.id, source_type="pursuit", source_id=pursuit.id, meta={},
+    ))
+    await db_session.commit()
+
+    await generate_pursuit_due_notifications(db_session)
+    await db_session.commit()
+
+    assert await _reminders(db_session) == []

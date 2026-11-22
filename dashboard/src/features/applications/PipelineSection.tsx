@@ -4,11 +4,9 @@ import { date as formatDate } from "../../copy/format";
 import { STAGE_LABEL, type StageSlug } from "../../copy/vocabulary";
 import { Button, Content, Icon, Msg, Popover } from "../../ui";
 import {
-  applicationsCardOverdue,
   applicationsFactDays,
   applicationsFactDaysValue,
   applicationsPostingDue,
-  applicationsPostingDueDay,
   applicationsPostingEnded,
   applicationsPostingHistoryInterview,
   applicationsPostingHistoryNow,
@@ -23,11 +21,13 @@ import {
   applicationsFactPriority,
   applicationsPriorityMenu,
 } from "../../copy/gen/applications";
-import { interviewWhen } from "./ApplicationPanels";
-import { CLOSED_STAGES, dayOffset, daysInStage, daysOverdue, daysToSay, dueState, isMoving, stepDue, type Due } from "./board";
+import { dueText } from "./DueBadge";
+import { interviewWhen } from "./interviewWords";
+import { CLOSED_STAGES, daysInStage, daysToSay, dueState, isMoving, stepDue } from "./board";
 import { PRIORITY_LABEL, PRIORITY_STORED, priorityOf } from "./priority";
 import { PriorityMark, PriorityMenu } from "./PriorityMark";
 import { stageName } from "./StageLabel";
+import { offeredSections, workspaceStage } from "./workspaceSections";
 
 type History = Pick<ApplicationDetail, "stages_reached" | "interviews">;
 
@@ -123,14 +123,6 @@ function HistoryButton({ card, history, now, column }: {
   );
 }
 
-/** The day a step is due, as the Due row says it: how late a missed step is,
- *  else the day itself. The one row that takes a colour is a step past its
- *  date, the state that asks the person to act. */
-function dueDay(due: Due, now: Date): string {
-  if (dueState(due, now) === "overdue") return applicationsCardOverdue({ days: daysOverdue(due, now) });
-  return applicationsPostingDueDay({ offset: dayOffset(due.on, now), date: formatDate(due.on, "weekday") });
-}
-
 /** The priority, set in place from its menu. */
 function PriorityPick({ card, onPick }: { card: ApplicationCard; onPick: (stored: number) => void }) {
   const [open, setOpen] = useState(false);
@@ -173,8 +165,9 @@ function PriorityPick({ card, onPick }: { card: ApplicationCard; onPick: (stored
  * is, the next step, and the day that step is due. The rows are read, apart
  * from the priority, which is set here: the bar's stage button is where the
  * stage is changed. A row shows only when it has something to say. On the
- * Workspace the next step and its day are the main column's, so they are not
- * repeated here. An ended application says how and when it ended, and
+ * Workspace the next step and its day are the main column's, and so are the
+ * interviews at a stage whose Workspace lists them, so they are not repeated
+ * here. An ended application says how and when it ended, and
  * nothing waits.
  */
 export function PipelineSection({ card, history, now, column, workspace = false, onPriority }: {
@@ -191,7 +184,8 @@ export function PipelineSection({ card, history, now, column, workspace = false,
   const moving = isMoving(card);
   const stage = stageName(card);
   const days = daysInStage(card, now);
-  const interview = moving ? card.next_interview : null;
+  const roundsBeside = workspace && offeredSections(workspaceStage(card)).includes("interviews");
+  const interview = moving && !roundsBeside ? card.next_interview : null;
   const step = moving && !workspace && card.next_action ? card.next_action : null;
   const due = step ? stepDue(card) : null;
   const historyButton = <HistoryButton card={card} history={history} now={now} column={column} />;
@@ -205,7 +199,7 @@ export function PipelineSection({ card, history, now, column, workspace = false,
         {moving && (
           <>
             <dt>{applicationsFactPriority()}</dt>
-            <dd><PriorityPick card={card} onPick={onPriority} /></dd>
+            <dd className="jd-listed"><PriorityPick card={card} onPick={onPriority} /></dd>
           </>
         )}
         {moving && days != null && (
@@ -241,7 +235,7 @@ export function PipelineSection({ card, history, now, column, workspace = false,
         {due && (
           <>
             <dt>{applicationsPostingDue()}</dt>
-            <dd className={dueState(due, now) === "overdue" ? "jd-pipeline-late" : undefined}>{dueDay(due, now)}</dd>
+            <dd className={dueState(due, now) === "overdue" ? "jd-pipeline-late" : undefined}>{dueText(due, now, { bare: true })}</dd>
           </>
         )}
       </dl>

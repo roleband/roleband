@@ -1,5 +1,23 @@
 {
- "_why": "Every route of the dashboard API, with what an agent reaches it through: the ID of the operation that covers it, or an exclusion kind and the reason no operation does. tests/test_agent_coverage_ledger.py fails when a route has no row, so a new route cannot ship without that decision. Routes under /api/agent/v1/ are the operation surface itself and need no row.",
+ "_why": "Every route of the dashboard API, with what an agent reaches it through: the ID of the operation that covers it, or an exclusion kind and the reason no operation does. tests/test_agent_coverage_ledger.py fails when a route has no row, so a new route cannot ship without that decision. Routes under /api/agent/v1/ are the operation surface itself and need no row. `unrouted` lists the operations that cover no dashboard route, each with why it exists.",
+ "unrouted": [
+  {
+   "operation": "context.export",
+   "why": "The dashboard has no export: it assembles one opportunity's posting, pay evidence, company facts and pursuit as one hashed packet an assistant keeps, from the reads opportunities.get and the company profile serve."
+  },
+  {
+   "operation": "changes.list",
+   "why": "The dashboard shows the current radar: an assistant needs what changed since it last looked, in commit order, from a position it holds."
+  },
+  {
+   "operation": "steps.done",
+   "why": "The dashboard ticks a step through the step's own PATCH, the route steps.edit covers: an assistant names the tick as its own write, so its activity entry and receipt say what was done."
+  },
+  {
+   "operation": "steps.undo",
+   "why": "The dashboard opens a ticked step again through the step's own PATCH, the route steps.edit covers: an assistant names the undo as its own write, so its activity entry and receipt say what was done."
+  }
+ ],
  "rows": [
   {
    "method": "DELETE",
@@ -40,6 +58,12 @@
    "path": "/api/jobs/{job_id}/pursuit/interviews/{interview_id}",
    "excluded": "destructive",
    "reason": "Deletes an interview record; an agent changes one through interviews.patch instead."
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/jobs/{job_id}/pursuit/steps/{step_id}",
+   "excluded": "destructive",
+   "reason": "Deletes a next step with nothing to restore it from; an agent ticks one done with steps.done or changes it with steps.edit."
   },
   {
    "method": "DELETE",
@@ -88,8 +112,20 @@
   },
   {
    "method": "GET",
+   "path": "/api/agent-activity",
+   "excluded": "app_setting",
+   "reason": "The record of what assistant apps read, changed and were refused is how the person oversees them; it stays in the app."
+  },
+  {
+   "method": "GET",
+   "path": "/api/agent-activity/{entry_id}",
+   "excluded": "app_setting",
+   "reason": "One entry of the record of what assistant apps read, changed and were refused; it stays in the app with the list."
+  },
+  {
+   "method": "GET",
    "path": "/api/applications",
-   "operation": "pursuits.list"
+   "operation": "applications.board"
   },
   {
    "method": "GET",
@@ -407,7 +443,7 @@
   {
    "method": "GET",
    "path": "/api/statistics/comp-trends",
-   "operation": "insights.trends"
+   "operation": "insights.pay_trends"
   },
   {
    "method": "GET",
@@ -417,7 +453,7 @@
   {
    "method": "GET",
    "path": "/api/statistics/disclosure-trends",
-   "operation": "insights.trends"
+   "operation": "insights.disclosure_trends"
   },
   {
    "method": "GET",
@@ -457,7 +493,7 @@
   {
    "method": "GET",
    "path": "/api/status",
-   "operation": "status"
+   "operation": "doctor"
   },
   {
    "method": "GET",
@@ -506,8 +542,19 @@
   },
   {
    "method": "PATCH",
+   "path": "/api/intelligence/agents",
+   "excluded": "app_setting",
+   "reason": "The person's sharing and action choices stay in Settings."
+  },
+  {
+   "method": "PATCH",
    "path": "/api/jobs/{job_id}/pursuit/interviews/{interview_id}",
    "operation": "interviews.patch"
+  },
+  {
+   "method": "PATCH",
+   "path": "/api/jobs/{job_id}/pursuit/steps/{step_id}",
+   "operation": "steps.edit"
   },
   {
    "method": "PATCH",
@@ -621,6 +668,12 @@
   },
   {
    "method": "POST",
+   "path": "/api/jobs/{job_id}/description",
+   "excluded": "internal",
+   "reason": "Reads a posting's text because the person opened it in the dashboard with none."
+  },
+  {
+   "method": "POST",
    "path": "/api/jobs/{job_id}/place-set/review",
    "operation": "duplicates.decide"
   },
@@ -639,6 +692,11 @@
    "method": "POST",
    "path": "/api/jobs/{job_id}/pursuit/interviews",
    "operation": "interviews.add"
+  },
+  {
+   "method": "POST",
+   "path": "/api/jobs/{job_id}/pursuit/steps",
+   "operation": "steps.add"
   },
   {
    "method": "POST",

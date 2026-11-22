@@ -276,10 +276,9 @@ steps = pip_steps(Path('/scratch/venv/bin/python'), Path('/scratch/plugin'))
 assert any(str(REPO_ROOT / 'plugin-wheels') in arg for step in steps for arg in step)
 assert not any('/sdk/python' in arg or '/robots/python' in arg for step in steps for arg in step)
 assert _python() == sys.executable
-agent = _agent_connection_state(AgentAccessConfig())
-assert agent['command'] == sys.executable
-assert agent['cwd'] == str(BACKEND_DIR)
-assert agent['args'] == ['-I', str(BACKEND_DIR / 'packaged.py'), 'mcp.server']
+agent = _agent_connection_state(AgentAccessConfig(), [])
+assert [item['command'] for item in agent['connect']] == [
+    'roleband connect claude-code --apply', 'roleband connect codex --apply']
 install.REPO_ROOT = Path.home() / 'missing-resources'
 try:
     pip_steps(Path('/scratch/python'), Path('/scratch/plugin'))

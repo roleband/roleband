@@ -49,9 +49,36 @@
   text-align: start;
 }
 
-.ui-btn.ui-menu-item:not(:disabled):hover {
+/* Pointed at, the row fills edge to edge and draws no edge of its own: an
+   edge inside the glass boxes the words in. The selector matches the ghost
+   rank's hover, which would otherwise outrank it and draw that edge. */
+.ui-btn.ui-menu-item:not(:disabled):not([aria-disabled="true"]):not([aria-current="true"]):hover {
   border-color: transparent;
   background: var(--app-surface-hover);
+}
+
+/* A row with a line under its name: room above and below the two lines, the
+   lead on the name's line, and a hairline between two such rows, so each is
+   read as its own choice rather than one block of text. */
+.ui-btn.ui-menu-item[data-hinted] {
+  position: relative;
+  align-items: flex-start;
+  padding-block: var(--app-space-2);
+}
+
+.ui-btn.ui-menu-item[data-hinted] + .ui-btn.ui-menu-item[data-hinted] {
+  margin-top: calc(var(--app-space-1) * 2 + 1px);
+}
+
+.ui-btn.ui-menu-item[data-hinted] + .ui-btn.ui-menu-item[data-hinted]::before {
+  content: "";
+  position: absolute;
+  top: calc(-1px - var(--app-space-1) - 1px);
+  right: -1px;
+  left: -1px;
+  height: 1px;
+  background: var(--app-border);
+  pointer-events: none;
 }
 
 .ui-btn.ui-menu-item:disabled {

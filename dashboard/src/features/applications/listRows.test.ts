@@ -113,10 +113,12 @@ describe("the columns' layout a browser keeps", () => {
   afterEach(() => vi.restoreAllMocks());
   const KEY = "roleband.pipeline-list-columns";
 
-  it("starts with the role first and priority, days in stage and last activity hidden", () => {
+  it("starts with the role first and the next step, priority and last activity hidden", () => {
     expect(readListLayout()).toEqual(DEFAULT_LAYOUT);
     expect(readListLayout().order[0]).toBe("role");
-    expect(readListLayout().hidden).toEqual(["priority", "in_stage", "activity"]);
+    // Work that has not started yet: left to the reader to add.
+    expect(readListLayout().hidden).toEqual(["next", "priority", "activity"]);
+    expect(readListLayout().hidden).not.toContain("saved");
   });
 
   it("remembers an order and a hidden set, and never hides the role", () => {
@@ -132,8 +134,9 @@ describe("the columns' layout a browser keeps", () => {
       hidden: ["salary", "stage", "next"],
     }));
     const { order, hidden } = readListLayout();
-    // A layout saved while the List had a stage column loses it.
-    expect(order).toEqual(["pay", "role", "location", "level", "next", "posting", "priority", "in_stage", "activity"]);
+    // Columns the List no longer has (stage, days in stage) go; the day the
+    // role was saved and its last activity come back where they first stand.
+    expect(order).toEqual(["pay", "role", "location", "level", "next", "saved", "posting", "priority", "activity"]);
     expect(hidden).toEqual(["next"]);
   });
 

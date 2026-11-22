@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { positionKey, positionPath } from "./paths";
+import { pipelineViewUnder, positionKey, positionPath } from "./paths";
 
 /** Every source file under `dir`, tests and generated code aside. */
 function sources(dir: string): string[] {
@@ -43,5 +43,25 @@ describe("a role's boundary key", () => {
     for (const path of ["/", "/company", "/company/openai", "/company/openai/job", "/job", "/compare", "/settings/job/202", "/company/openai/job/202/extra"]) {
       expect(positionKey(path), path).toBeNull();
     }
+  });
+});
+
+describe("the Pipeline view a role was opened over", () => {
+  const role = "/company/openai/job/202";
+  const over = (pathname: string) => ({ backgroundLocation: { pathname, search: "", state: null } });
+
+  it("is the view, for a role opened from Considering, the Board or Up next", () => {
+    expect(pipelineViewUnder({ pathname: role, state: over("/pipeline/board") })).toBe("/pipeline/board");
+    expect(pipelineViewUnder({ pathname: "/job/202", state: over("/pipeline/up-next") })).toBe("/pipeline/up-next");
+  });
+
+  it("is none for a posting opened from the Radar, a comparison, or reached by its address", () => {
+    expect(pipelineViewUnder({ pathname: role, state: over("/") })).toBeNull();
+    expect(pipelineViewUnder({ pathname: role, state: over("/compare") })).toBeNull();
+    expect(pipelineViewUnder({ pathname: role, state: null })).toBeNull();
+  });
+
+  it("is none for anything but a role, even over a Pipeline view", () => {
+    expect(pipelineViewUnder({ pathname: "/compare", state: over("/pipeline/board") })).toBeNull();
   });
 });

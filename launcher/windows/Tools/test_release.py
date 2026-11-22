@@ -12,8 +12,10 @@ from pathlib import Path
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
+import release
 from identity import FEED, PACKAGE_NAME, PUBLISHER
 from lock_runtime import SIGNING_PACKAGES, signing_lines
+from tracker.platform.windows_release import Identity, ReleaseError, is_important, names
 
 TOOL = Path(__file__).with_name("release.py")
 WINDOWS = Path(__file__).resolve().parents[1]
@@ -160,6 +162,66 @@ class ReleaseToolTests(unittest.TestCase):
                 self.assertNotIn("Traceback", result.stderr)
         result = self.prepare("--passphrase-env", PASSPHRASE_ENV, passphrase="the release passphrase")
         self.assertEqual(0, result.returncode, result.stderr)
+
+
+class ImportantMarkTests(unittest.TestCase):
+    """The mark goes only to a published release with all four Windows files, once, signed for that version."""
+
+    def setUp(self):
+        self.key = ed25519.Ed25519PrivateKey.generate()
+        self.identity = Identity("roleband/roleband-trials", self.key.public_key().public_bytes_raw(),
+                                 "RoleBand.Windows.Trial", "CN=RoleBand Windows Trial")
+        self.draft, self.prerelease = False, False
+        self.assets = [{"name": name, "state": "uploaded"} for name in names("0.2.3")]
+        self.calls, self.marks = [], []
+
+    def gh(self, *arguments):
+        self.calls.append(arguments)
+        if arguments[:2] == ("release", "view"):
+            return json.dumps({"tagName": arguments[2], "isDraft": self.draft, "isPrerelease": self.prerelease,
+                               "assets": self.assets})
+        if arguments[:2] == ("release", "upload"):
+            self.marks.append((Path(arguments[-1]).name, Path(arguments[-1]).read_bytes()))
+            return ""
+        raise AssertionError(arguments)
+
+    def mark(self, tag="v0.2.3", key=None):
+        return release.important(tag, self.identity, key or self.key, run=self.gh)
+
+    def test_a_mark_signs_this_version_and_attaches_beside_its_files_once(self):
+        self.assertEqual(self.mark(), "RoleBand-0.2.3-Windows-x64.important")
+        [upload] = [call for call in self.calls if call[:2] == ("release", "upload")]
+        self.assertEqual(upload[2:5], ("v0.2.3", "--repo", "roleband/roleband-trials"))
+        self.assertNotIn("--clobber", upload)
+        [(name, mark)] = self.marks
+        self.assertEqual(name, "RoleBand-0.2.3-Windows-x64.important")
+        self.assertTrue(is_important(self.identity, "0.2.3", mark))
+        self.assertFalse(is_important(self.identity, "0.2.4", mark), "a mark names its version")
+
+    def test_a_mark_goes_only_where_apps_read_it_and_only_with_the_release_key(self):
+        def refused(**change):
+            self.calls.clear()
+            with self.assertRaises(ReleaseError):
+                self.mark(**change)
+            self.assertFalse(any(call[:2] == ("release", "upload") for call in self.calls))
+        refused(tag="0.2.3")
+        refused(tag="v0.2")
+        refused(key=ed25519.Ed25519PrivateKey.generate())
+        self.draft = True
+        refused()
+        self.draft, self.prerelease = False, True
+        refused()
+        self.prerelease = False
+        complete = list(self.assets)
+        self.assets = complete[:3]
+        refused()
+        self.assets = complete[:3] + [{"name": complete[3]["name"], "state": "new"}]
+        refused()
+        self.assets = complete + [{"name": "RoleBand-0.2.3-Windows-x64.important", "state": "uploaded"}]
+        refused()
+        self.assets = complete
+        self.mark()
+        self.assertEqual(1, len(self.marks))
 
 
 class SigningToolsTests(unittest.TestCase):

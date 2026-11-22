@@ -8,11 +8,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import sys
 from collections.abc import Awaitable, Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, get_args
 
 import httpx
 from fastapi import APIRouter
@@ -20,7 +19,15 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracker.agents.config import AgentAccessConfig, get_agent_access, set_agent_access
+from tracker.agents.activity import last_calls
+from tracker.agents.config import (
+    AgentAccessChoices,
+    AgentAccessConfig,
+    get_agent_access,
+    patch_agent_access,
+    set_agent_access,
+)
+from tracker.agents.operations.descriptor import ActionGroup, DataClass
 from tracker.api.deps import OffBoardDep, SessionDep, end_read
 from tracker.api.errors import ErrorCode, api_error
 from tracker.api.schemas.intelligence import (
@@ -97,8 +104,8 @@ from tracker.local_llm.client import LocalLLMClient, LocalLLMError
 from tracker.local_llm.models import LocalLLMProfileInput
 from tracker.local_llm.server import binary_path as omlx_binary_path
 from tracker.local_llm.server import control as control_omlx_server
+from tracker.platform import agent_hosts
 from tracker.platform.os_process import shell_join
-from tracker.platform.paths import PACKAGED, REPO_ROOT, backend_dir, venv_python
 from tracker.search.fit import (
     BAND_KEYS,
     FIT_BIN_WIDTH,
@@ -251,7 +258,11 @@ async def put_intelligence_ep(payload: IntelligencePayload, session: SessionDep)
 
 @router.put("/api/intelligence/egress", response_model=IntelligenceStateResponse)
 async def put_ai_egress_ep(payload: EgressPayload, session: SessionDep) -> dict:
-    """Allow (or stop) job text leaving this Mac.
+    """Allow (or stop) this computer contacting a cloud AI provider.
+
+    What it admits is the connection test, and search query parsing where that
+    is configured; no product task sends job text to a cloud model
+    (`tests/test_ai_egress_reach.py`).
 
     Its own endpoint rather than a field on the Apple FM toggle: this is the one
     consent that changes what the shipped privacy copy can truthfully say, so it
@@ -534,59 +545,63 @@ async def test_local_llm_profile(
 
 
 # --------------------------------------------------------------------------- #
-# External agents — local STDIO MCP access and independent write permission.
+# External agents: the two switches, and how an agent host connects.
 # --------------------------------------------------------------------------- #
 
+#: The agent hosts `roleband connect` sets up, in the order Settings shows them.
+#: `tests/test_agents.py` holds this to the command's own list.
+CONNECT_HOSTS = agent_hosts.HOSTS
 
-def _agent_connection_state(config: AgentAccessConfig) -> dict:
-    python = sys.executable if PACKAGED else str(venv_python(REPO_ROOT / "backend" / ".venv"))
-    directory = str(backend_dir(REPO_ROOT))
-    args = ["-I", str(backend_dir(REPO_ROOT) / "packaged.py"), "mcp.server"] if PACKAGED else ["-m", "tracker.mcp.server"]
+
+async def _agent_apps(session: AsyncSession) -> list[dict]:
+    """Each app's state for the Assistant apps card: what its host's files say,
+    read off the event loop, and its most recent recorded call."""
+    connections = await asyncio.to_thread(lambda: {host: agent_hosts.connection(host) for host in agent_hosts.HOSTS})
+    calls = await last_calls(session)
+    return [
+        {"app": app, "connection": connections.get(app), "last_call_at": calls.get(app)}
+        for app in (*agent_hosts.HOSTS, agent_hosts.OTHER)
+    ]
+
+
+def _agent_connection_state(config: AgentAccessConfig, apps: list[dict]) -> dict:
+    read_only = config.enabled and not config.allow_writes
     return {
-        **config.model_dump(),
-        "transport": "stdio",
-        "command": str(python),
-        "args": args,
-        "cwd": directory,
-        "tools": [
-            {"name": "get_server_status", "access": "status"},
-            {"name": "get_radar_summary", "access": "read"},
-            {"name": "search_opportunities", "access": "read"},
-            {"name": "get_opportunity", "access": "read"},
-            # The same payload as `GET /api/jobs/{id}/history`.
-            {"name": "listing_history", "access": "read"},
-            {"name": "get_pursuits", "access": "read"},
-            {"name": "save_opportunity", "access": "write"},
-            {"name": "update_pursuit", "access": "write"},
-            # Recipe authoring: three reads, one confirmed draft write.
-            {"name": "get_recipe_contract", "access": "read"},
-            {"name": "inspect_source", "access": "read"},
-            {"name": "validate_recipe", "access": "read"},
-            {"name": "save_recipe_draft", "access": "write"},
-        ],
-        "codex_command": shell_join(["codex", "mcp", "add", "roleband", "--", str(python), *args]),
-        "claude_json": {
-            "mcpServers": {
-                "roleband": {"command": str(python), "args": args, "cwd": directory}
-            }
+        "enabled": config.enabled,
+        "allow_writes": config.allow_writes,
+        "categories": {name: config.categories.get(name, "any_model") for name in get_args(DataClass)},
+        "groups": {
+            name: "off" if read_only else config.groups.get(name, "on") for name in get_args(ActionGroup)
         },
+        "connect": [
+            {"host": host, "command": shell_join(["roleband", "connect", host, "--apply"])}
+            for host in CONNECT_HOSTS
+        ],
+        "apps": apps,
     }
 
 
 @router.get("/api/intelligence/agents", response_model=AgentAccessResponse)
 async def get_agent_access_ep(session: SessionDep) -> dict:
-    return _agent_connection_state(await get_agent_access(session))
+    return _agent_connection_state(await get_agent_access(session), await _agent_apps(session))
 
 
 @router.put("/api/intelligence/agents", response_model=AgentAccessResponse)
 async def put_agent_access_ep(payload: AgentAccessConfig, session: SessionDep) -> dict:
     saved = await set_agent_access(session, payload)
     await session.commit()
-    return _agent_connection_state(saved)
+    return _agent_connection_state(saved, await _agent_apps(session))
+
+
+@router.patch("/api/intelligence/agents", response_model=AgentAccessResponse)
+async def patch_agent_access_ep(payload: AgentAccessChoices, session: SessionDep) -> dict:
+    saved = await patch_agent_access(session, payload)
+    await session.commit()
+    return _agent_connection_state(saved, await _agent_apps(session))
 
 
 # --------------------------------------------------------------------------- #
-# Direct cloud models — BYOK only; separate from subscription-backed MCP clients.
+# Direct cloud models: BYOK only, separate from the agent hosts above.
 # --------------------------------------------------------------------------- #
 
 

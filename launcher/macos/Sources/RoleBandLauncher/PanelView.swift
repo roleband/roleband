@@ -175,6 +175,38 @@ extension LauncherModel {
     /// Something asks the person to decide: the banner is tinted gold and the About tab has a dot.
     /// A newer offer takes the banner from the last update's result, which says nothing about it.
     var updateAsks: Bool { installer?.activity == nil && updateOffered }
+    /// Whether a version a check just found opens the update window by itself. Only a daily check
+    /// opens it, never Check now, whose answer shows in About. It waits while setup is unfinished or
+    /// open and while an update runs. It needs the app's own installer: a source checkout updates
+    /// with its own tools, so the banner and the menu-bar badge carry its offer.
+    func opensUpdateWindow(for version: String, automatic: Bool) -> Bool {
+        guard automatic, updates.showsWindow, installer != nil, !updateRunning, setupCompleted, !setupVisible,
+              updates.offered?.version == version, updateOffered else { return false }
+        return updates.windowAllows(version, important: updates.offered?.important == true)
+    }
+    /// An update on its way holds the window back; a failed one does not, since after Later its
+    /// offer stands again like any other.
+    var updateRunning: Bool {
+        guard let activity = installer?.activity else { return false }
+        if case .failed = activity { return false }
+        return true
+    }
+    /// Whether an open update window should go: nothing is left to offer, or its switch was turned
+    /// off. A running or failed update keeps it, so its result stays in view.
+    var updateWindowStale: Bool { installer?.activity == nil && (!updateOffered || !updates.showsWindow) }
+    /// A check's find: whether the update window opens now. An automatic find held back (by setup,
+    /// say) is kept, so `heldUpdateWindowOpens` can open it once that clears instead of a day later.
+    func updateFound(_ version: String, automatic: Bool) -> Bool {
+        guard automatic else { return false }
+        let opens = opensUpdateWindow(for: version, automatic: true)
+        heldUpdateWindow = opens ? nil : version
+        return opens
+    }
+    func heldUpdateWindowOpens() -> Bool {
+        guard let held = heldUpdateWindow, opensUpdateWindow(for: held, automatic: true) else { return false }
+        heldUpdateWindow = nil
+        return true
+    }
 }
 
 /// The update above everything, on every tab: the offer, its progress or failure, and the notice
@@ -297,13 +329,16 @@ private struct UpdateLine: View {
                        model.text("update-signer-changed-help"))
         }
         PanelRow(symbol: "exclamationmark.circle.fill", title: title, caption: caption, symbolTint: p.warning) {
-            if failure == .signer, let page = model.updates.offered?.page {
-                Button(model.text("update-release-page")) { NSWorkspace.shared.open(page) }.buttonStyle(PillButtonStyle())
+            if failure == .signer, let offer = model.updates.offered {
+                // The page of the version that failed, which a newer offer may have followed.
+                Button(model.text("update-release-page")) { NSWorkspace.shared.open(LiveUpdateWindow.page(for: version, offer: offer)) }
+                    .buttonStyle(PillButtonStyle())
             } else {
                 Button(model.text("retry")) { installer?.install(version) }.buttonStyle(PillButtonStyle())
             }
         }
         .help(help ?? "")
+        .announces(title)
     }
 
     /// A full line with a spinner, not a byte count, says the download is done and a later step is at work.
@@ -338,6 +373,8 @@ private struct UpdateLine: View {
                             .allowsHitTesting(false)
                         }
                     }
+                    .accessibilityElement()
+                    .accessibilityLabel(title)
                     .accessibilityValue(megabytes.map { Text($0) }
                         ?? Text((total > 0 ? Double(received) / Double(total) : 0).formatted(.percent.precision(.fractionLength(0)).locale(model.copy.locale))))
                     .padding(.bottom, -6)
@@ -388,11 +425,6 @@ private struct SizeTip: View {
     }
 }
 
-enum SystemSettings {
-    /// This app's own page in Notifications; without `id` the pane opens on its list of apps.
-    static let notifications = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id="
-                                   + LaunchMode.bundleIdentifier)!
-}
 
 enum UpdateSize {
     /// The download's progress in whole megabytes, the unit only once: "31 of 181 MB". Nil until
@@ -543,7 +575,7 @@ private struct PortRow: View {
             .disabled(model.controlBusy)
             if let refusal = model.portRefusal {
                 Text(model.text(refusal.key, refusal.values)).font(PanelType.fact).foregroundStyle(p.warning)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .fixedSize(horizontal: false, vertical: true).announces(model.text(refusal.key, refusal.values))
             } else if model.showsPortNote {
                 Text(model.text("panel-port-note")).font(PanelType.fact).foregroundStyle(p.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -568,7 +600,13 @@ private struct PortRow: View {
     }
 }
 
-private struct AboutTab: View {
+struct AboutTab: View {
+    /// The project's own pages, which open whether or not the engine answers.
+    static let projectLinks: [(symbol: String, title: String, caption: String, url: URL, github: Bool)] = [
+        ("chevron.left.forwardslash.chevron.right", "panel-star", "panel-star-caption", ProjectLinks.repository, true),
+        ("text.bubble", "panel-feedback", "panel-feedback-caption", ProjectLinks.feedback, false),
+    ]
+
     @ObservedObject var model: LauncherModel
     @ObservedObject var updates: LauncherUpdates
     let notes: () -> Void
@@ -588,7 +626,17 @@ private struct AboutTab: View {
                             .toggleStyle(InkSwitchStyle()).labelsHidden()
                     }
                     RowDivider()
-                    notices(p)
+                    window(p)
+                }
+                SectionLabel(text: model.text("panel-open-source")).padding(.top, 4)
+                RowGroup {
+                    ForEach(Array(Self.projectLinks.enumerated()), id: \.offset) { index, link in
+                        if index > 0 { RowDivider() }
+                        LinkRow(symbol: link.symbol, title: model.text(link.title), help: model.text("panel-opens-browser"),
+                                caption: model.text(link.caption), mark: link.github ? AnyShape(GitHubMark()) : nil) {
+                            NSWorkspace.shared.open(link.url)
+                        }
+                    }
                 }
             }
         }
@@ -612,32 +660,18 @@ private struct AboutTab: View {
         }
         return PanelRow(symbol: row.symbol, title: row.title, caption: row.caption, symbolTint: row.tint) {
             HStack(spacing: 8) {
-                if state == .checking { ProgressView().controlSize(.mini) }
+                if state == .checking { ProgressView().controlSize(.mini).accessibilityHidden(true) }
                 Button(model.text("update-check-now")) { updates.checkManually() }
                     .buttonStyle(MiniButtonStyle()).disabled(state == .checking)
             }
         }
     }
 
-    /// Turning notices on is the only moment the app asks macOS for permission. If the person
-    /// refused it there, the row says so and offers the way back.
-    @ViewBuilder
-    private func notices(_ p: LaunchPalette) -> some View {
-        let toggle = Toggle(model.text("panel-notices"), isOn: Binding(get: { updates.notices }, set: { updates.setNotices($0) }))
-            .toggleStyle(InkSwitchStyle()).labelsHidden()
-        if updates.notices && updates.notificationsDenied {
-            VStack(alignment: .leading, spacing: 6) {
-                PanelRow(symbol: "bell.slash", title: model.text("panel-notices"), caption: model.text("panel-notices-refused"),
-                         symbolTint: p.warning, captionTint: p.warning) { toggle }
-                Button(model.text("update-notification-settings")) {
-                    NSWorkspace.shared.open(SystemSettings.notifications)
-                }
-                .buttonStyle(MiniButtonStyle())
-                .padding(.leading, PanelMetrics.separatorInset).padding(.bottom, 9).padding(.top, -4)
-            }
-        } else {
-            PanelRow(symbol: "bell", title: model.text("panel-notices"), caption: model.text("panel-notices-caption"),
-                     symbolTint: updates.notices ? p.ink : nil) { toggle }
+    private func window(_ p: LaunchPalette) -> some View {
+        PanelRow(symbol: "macwindow", title: model.text("panel-update-window"), caption: model.text("panel-update-window-caption"),
+                 symbolTint: updates.showsWindow ? p.ink : nil) {
+            Toggle(model.text("panel-update-window"), isOn: Binding(get: { updates.showsWindow }, set: { updates.setShowsWindow($0) }))
+                .toggleStyle(InkSwitchStyle()).labelsHidden()
         }
     }
 
@@ -650,6 +684,7 @@ private struct AboutTab: View {
                     Text(model.text("panel-version", ["version": version])).font(PanelType.fact).foregroundStyle(p.secondary)
                 }
             }
+            .accessibilityElement(children: .combine)
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 5) {
                 Button(model.text("notes-title"), action: notes).buttonStyle(LinkButtonStyle()).disabled(model.verified == nil)
@@ -722,6 +757,7 @@ private struct ScanTab: View {
                     if model.hostProblem == .portInUse, let refusal = model.portRefusal {
                         Text(model.text(refusal.key, refusal.values)).font(PanelType.fact).foregroundStyle(p.warning)
                             .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.updatesFrequently)
+                            .announces(model.text(refusal.key, refusal.values))
                     }
                 }
             }
@@ -744,9 +780,11 @@ private struct ScanTab: View {
                     }
                 }
                 .accessibilityElement(children: .combine).accessibilityAddTraits(.updatesFrequently)
+                .announces(attention ? model.text(model.titleKey, model.helpValues) : nil)
                 Spacer(minLength: 0)
                 if let start = model.verified.flatMap({ Stamp.date($0.presentation.activitySince) }), model.verified?.presentation.isActive == true {
                     Text(start, style: .timer).font(.system(size: 12, weight: .medium)).monospacedDigit().foregroundStyle(p.cyan)
+                        .accessibilityLabel(model.text(model.titleKey, model.helpValues))
                 } else if model.checking {
                     ProgressView().controlSize(.mini).accessibilityLabel(model.text("connecting"))
                 }
@@ -788,6 +826,7 @@ private struct ScanTab: View {
             else { Text(model.text("not-scanned")).foregroundStyle(p.secondary) }
         }
         .font(PanelType.fact)
+        .accessibilityElement(children: .combine)
     }
 
     /// Restarting a stopped engine is the one thing the tab is for while it needs attention;

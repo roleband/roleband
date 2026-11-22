@@ -19,8 +19,9 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import update
 
-import tracker.mcp.server as server
 from tracker.agents.config import AgentAccessConfig, set_agent_access
+from tracker.agents.operations.workspace import ensure_workspace_id
+from tracker.api.agent_operations import PREFIX
 from tracker.api.routers.settings import _board_count
 from tracker.db.models import Favorite, Job, JobLifecycleEvent, TrackedCompany
 from tracker.notifications.digest import collect_digest_matches
@@ -50,6 +51,7 @@ def _job(job_id: int, company: str) -> Job:
 @pytest_asyncio.fixture
 async def board(db_session, scratch_scope) -> dict[str, int]:
     await set_agent_access(db_session, AgentAccessConfig(enabled=True, allow_writes=False))
+    await ensure_workspace_id(db_session)
     db_session.add_all([
         _company("followed"),
         _company("dormant", enabled=False),
@@ -62,6 +64,13 @@ async def board(db_session, scratch_scope) -> dict[str, int]:
     db_session.add(Favorite(job_id=2))
     await db_session.commit()
     return {name: job.id for name, job in jobs.items()}
+
+
+async def _agent_ids(api_client, **params) -> list[int]:
+    response = await api_client.get(f"{PREFIX}/opportunities", params={"limit": 100, **params})
+    body = response.json()
+    assert body["ok"] is True, body
+    return [row[0] for row in body["data"]["rows"]]
 
 
 async def _ids(api_client, query: str = "") -> set[int]:
@@ -78,8 +87,8 @@ async def test_every_count_is_the_boards_count(api_client, db_session, board):
 
     stats = (await api_client.get("/api/stats")).json()
     facets = (await api_client.get("/api/facets")).json()
-    summary = await server.get_radar_summary()
-    agent = {item["id"] for item in (await server.search_opportunities(limit=50))["items"]}
+    summary = (await api_client.get(f"{PREFIX}/radar/summary")).json()["data"]
+    agent = set(await _agent_ids(api_client))
     assert stats["open_total"] == facets["total"] == await _board_count(db_session) == len(on_board) == 2
     assert summary["open_opportunities"] == 2
     assert agent == on_board
@@ -91,8 +100,7 @@ async def test_a_saved_role_at_an_unfollowed_company_stays_the_users(api_client,
     assert await _ids(api_client, "&favorites_only=true") == {dormant}
     assert await _ids(api_client, f"&ids={dormant}") == {dormant}, "Compare reads by id"
     assert (await api_client.get(f"/api/jobs/{dormant}")).status_code == 200
-    saved = await server.search_opportunities(saved_only=True)
-    assert [item["id"] for item in saved["items"]] == [dormant]
+    assert await _agent_ids(api_client, saved_only="true") == [dormant]
     # And it says nothing checks it: the Saved row and Job detail both
     # carry the flag; a followed company's row never does.
     saved_rows = (await api_client.get("/api/jobs?favorites_only=true")).json()["items"]

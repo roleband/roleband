@@ -14,7 +14,15 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracker.db.models import Job, ScrapeRun, ScrapeSourceRun, SourceBinding, TrackedCompany
+from tracker.db.models import (
+    Job,
+    Pursuit,
+    PursuitStep,
+    ScrapeRun,
+    ScrapeSourceRun,
+    SourceBinding,
+    TrackedCompany,
+)
 from tracker.enrich.enricher import ScopeFilter, annotate
 from tracker.platform.drift import SchemaDriftDetector
 from tracker.schema import (
@@ -67,6 +75,32 @@ def make_job(req_id: str, *, company: str = "google", **over: Any) -> Job:
     # date has that date as the earliest one it ever gave.
     row.setdefault("first_posted_at", row.get("posted_at"))
     return Job(**row)
+
+
+async def add_pursuit(
+    session: AsyncSession,
+    job_id: int,
+    *,
+    next_action: str | None = None,
+    next_action_due: datetime | None = None,
+    **over: Any,
+) -> tuple[Pursuit, PursuitStep | None]:
+    """A stored pursuit with its one open next step, as the step writes leave
+    it: the step's row, and the pursuit's soonest-step columns naming it. A
+    day with no words is the step "Follow up". No step when neither is given.
+    Flushed, so both have their ids."""
+    pursuit = Pursuit(job_id=job_id, **{"stage": "applied", "priority": 3, **over})
+    step = None
+    if next_action is not None or next_action_due is not None:
+        pursuit.next_action = next_action or "Follow up"
+        pursuit.next_action_due = next_action_due
+    session.add(pursuit)
+    await session.flush()
+    if pursuit.next_action is not None:
+        step = PursuitStep(pursuit_id=pursuit.id, text=pursuit.next_action, due=next_action_due)
+        session.add(step)
+        await session.flush()
+    return pursuit, step
 
 
 def make_company(slug: str, display: str, **over: Any) -> TrackedCompany:

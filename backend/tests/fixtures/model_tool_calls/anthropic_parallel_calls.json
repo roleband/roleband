@@ -1,0 +1,19 @@
+{
+  "id": "msg_01XbQ8rT9mKcJvZ3a1nH2pLe",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-sonnet-5-5",
+  "content": [
+    {"type": "text", "text": "I'll look up both filters."},
+    {"type": "tool_use", "id": "toolu_01A9cLq2vWnX8sYb3TfR6kPd", "name": "vocabulary_list", "input": {"kind": "workplace_type"}},
+    {"type": "tool_use", "id": "toolu_01B7dMr3wXoY9tZc4UgS7lQe", "name": "vocabulary_list", "input": {"kind": "level_band"}}
+  ],
+  "stop_reason": "tool_use",
+  "stop_sequence": null,
+  "usage": {
+    "input_tokens": 412,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 1024,
+    "output_tokens": 96
+  }
+}

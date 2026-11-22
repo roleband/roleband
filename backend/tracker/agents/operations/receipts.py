@@ -2,8 +2,8 @@
 
 A receipt is looked up by the write's operation and idempotency key, in this
 workspace and for the principal the engine names: no input chooses another
-workspace or principal. It returns the result the write answered when it
-committed, however the record has moved since.
+workspace or principal. It returns the committed outcome under current
+visibility, however the record has moved since.
 
 A miss is not proof that the write failed: a request still running has not
 committed its receipt yet. The way forward is to send the same write again
@@ -12,6 +12,7 @@ under the same key, which never writes twice.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
@@ -21,12 +22,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.agents.operations.descriptor import (
     OPERATION_ID,
+    DataClass,
     EngineEffects,
     OperationDescriptor,
     Shape,
     ToolTier,
 )
 from tracker.agents.operations.envelope import NextAction, OperationError
+from tracker.agents.operations.policy import category_disabled
 from tracker.agents.receipts import ReceiptKey, find_receipt
 
 _CODE: JsonDict = {"x-text": "code"}
@@ -53,7 +56,7 @@ class Receipt(Shape):
     #: The contract version the write's input and result belong to.
     contract_version: str = Field(json_schema_extra=_CODE)
     recorded_at: datetime
-    #: The write's result as it answered then, in that operation's result shape.
+    #: The visible part of the committed result, in the write's result shape.
     result: dict[str, Any]
 
 
@@ -69,8 +72,10 @@ RECEIPTS_GET = OperationDescriptor(
     idempotency="read",
     engine_effects=EngineEffects(),
     tool_tiers=_EVERY_TIER,
-    # A receipt holds its write's result: a pursuit write's, the posting it is about included.
-    data_classes=("private_pursuit", "public_posting"),
+    # A receipt holds its write's result: a recipe draft's, or a pursuit write's
+    # with the posting it is about. Which of these a receipt may answer is
+    # decided by its write's own categories (`receipt_of`).
+    data_classes=("public_posting", "private_pursuit"),
     examples=({"operation": "pursuits.patch", "key": "followup-4821-v1"},),
 )
 
@@ -78,10 +83,18 @@ OPERATIONS: tuple[OperationDescriptor, ...] = (RECEIPTS_GET,)
 
 
 async def receipt_of(
-    session: AsyncSession, params: ReceiptGetInput, *, workspace_id: str, principal_id: str, keyed: bool
+    session: AsyncSession, params: ReceiptGetInput, *, workspace_id: str, principal_id: str, keyed: bool,
+    withheld: Sequence[DataClass] = (),
 ) -> Receipt:
     """The receipt of one keyed write. `keyed` says whether the operation
-    named is one this engine runs under a key; only those keep receipts."""
+    named is one this engine runs under a key; only those keep receipts.
+
+    `withheld` is the named write's categories the person does not share, in
+    the order it declares them. The lookup is refused when any of them is
+    withheld, so it does not reveal whether a write committed under the key.
+    """
+    if withheld:
+        raise category_disabled(withheld[0])
     if not keyed:
         raise OperationError(
             "invalid_input",

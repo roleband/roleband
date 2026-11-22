@@ -9,10 +9,12 @@ Real processes and the test database; every process is a fake job started here.
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import signal
 import subprocess
 import time
+from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -115,6 +117,76 @@ async def test_an_answer_counts_only_from_a_live_process_and_for_the_standing_re
     assert maintenance.answered(tmp_path, alive=lambda _pid: True) is None, "it answered an earlier request"
 
 
+#: One tick of a coarse clock: every request made while it is frozen shares it.
+TICK = datetime(2026, 11, 16, 12, 0, tzinfo=UTC)
+
+
+@pytest.fixture
+def frozen_clock(monkeypatch):
+    class Frozen(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return TICK
+
+    monkeypatch.setattr(maintenance, "datetime", Frozen)
+
+
+def _answer_file(data_dir) -> dict:
+    return json.loads((data_dir / maintenance.ANSWER).read_text(encoding="utf-8"))
+
+
+async def test_a_request_made_again_within_one_clock_tick_is_not_answered_by_the_earlier_answer(
+    tmp_path, frozen_clock
+):
+    """Windows' clock is coarse: a lift and a new `on` can share their timestamp."""
+    first = maintenance.request(tmp_path, by="cli")
+    maintenance.answer(tmp_path, maintenance.PAUSED, first)
+    assert maintenance.answered(tmp_path, alive=lambda _pid: True) is not None
+
+    maintenance.lift(tmp_path)
+    second = maintenance.request(tmp_path, by="cli")
+    assert second.since == first.since
+    assert maintenance.answered(tmp_path, alive=lambda _pid: True) is None, "it answered the earlier request"
+    maintenance.answer(tmp_path, maintenance.PAUSED, second)
+    assert maintenance.answered(tmp_path, alive=lambda _pid: True) is not None
+
+
+async def test_a_request_file_without_an_id_is_named_by_its_timestamp(tmp_path, frozen_clock):
+    """A request written by code from before the id is still answered, and its
+    answer counts for no request made since, even one in the same tick."""
+    (tmp_path / maintenance.REQUEST).write_text(
+        json.dumps({"since": TICK.isoformat(), "by": "cli", "drain": False}), encoding="utf-8"
+    )
+    standing = maintenance.requested(tmp_path)
+    assert standing is not None and standing.id == TICK.isoformat()
+    assert maintenance.answered(tmp_path, alive=lambda _pid: True) is None
+    maintenance.answer(tmp_path, maintenance.PAUSED, standing)
+    assert maintenance.answered(tmp_path, alive=lambda _pid: True).state == maintenance.PAUSED
+
+    maintenance.lift(tmp_path)
+    again = maintenance.request(tmp_path, by="cli")
+    assert again.since == standing.since
+    assert maintenance.answered(tmp_path, alive=lambda _pid: True) is None, "it answered the earlier request"
+
+
+async def test_an_answer_without_an_id_is_matched_by_the_timestamp_it_names(tmp_path, frozen_clock):
+    """A supervisor running code from before the id answers by `since` alone."""
+    standing = maintenance.request(tmp_path, by="cli")
+    old = {"pid": os.getpid(), "state": maintenance.PAUSED, "request": "2026-11-16T11:59:00+00:00"}
+    (tmp_path / maintenance.ANSWER).write_text(json.dumps(old), encoding="utf-8")
+    assert maintenance.answered(tmp_path, alive=lambda _pid: True) is None, "it answered another request"
+
+    (tmp_path / maintenance.ANSWER).write_text(json.dumps({**old, "request": standing.since}), encoding="utf-8")
+    assert maintenance.answered(tmp_path, alive=lambda _pid: True).state == maintenance.PAUSED
+
+
+async def test_an_answer_still_names_the_timestamp_for_code_that_reads_only_that(tmp_path):
+    standing = maintenance.request(tmp_path, by="cli")
+    maintenance.answer(tmp_path, maintenance.PAUSED, standing)
+    assert _answer_file(tmp_path)["request"] == standing.since
+    assert _answer_file(tmp_path)["request_id"] == standing.id
+
+
 # --- the supervisor ----------------------------------------------------------------
 
 
@@ -203,6 +275,28 @@ async def test_a_supervisor_that_starts_in_maintenance_touches_nothing(db_sessio
         assert await _runs(db_session, "quick") == []
         assert await db_session.get(JobStatus, job_store.SUPERVISOR_KEY) is None, "not even a status row"
     finally:
+        stop.set()
+        await service
+
+
+async def test_a_paused_supervisor_answers_a_request_made_again_within_one_clock_tick(
+    db_session, tmp_path, frozen_clock
+):
+    maintenance.request(tmp_path, by="test")
+    stop = asyncio.Event()
+    dispatcher = _dispatcher(db_session, tmp_path)
+    service = asyncio.create_task(
+        serve(dispatcher, db_session.bind, stop, idle_seconds=0.1, pause_poll_seconds=0.05)
+    )
+    try:
+        await _eventually(lambda: _paused(tmp_path))
+        # No await between the two: the supervisor never sees maintenance lifted.
+        maintenance.lift(tmp_path)
+        maintenance.request(tmp_path, by="test")
+        assert not _paused(tmp_path)
+        await _eventually(lambda: _paused(tmp_path))
+    finally:
+        maintenance.lift(tmp_path)
         stop.set()
         await service
 

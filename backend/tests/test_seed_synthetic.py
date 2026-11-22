@@ -249,6 +249,11 @@ async def test_export_writes_every_row_with_its_hash_and_no_embedding(db_session
     assert json.loads((tmp_path / "manifest.json").read_text()) == manifest
     assert manifest["tables"]["jobs"]["rows"] == _COUNT + len(_TASK_POSTINGS)
     assert manifest["tables"]["pursuits"]["rows"] == len(_TASK_PURSUITS)
+    # Each seeded next step travels as its own row, so a reader lists it.
+    steps = [json.loads(line) for line in (tmp_path / "pursuit_steps.ndjson").read_text().splitlines()]
+    assert sorted(row["text"] for row in steps) == sorted(
+        spec["next_action"] for spec in _TASK_PURSUITS if spec["next_action"] is not None
+    )
     for table in manifest["tables"].values():
         body = (tmp_path / table["file"]).read_bytes()
         assert hashlib.sha256(body).hexdigest() == table["sha256"]

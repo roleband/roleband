@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
 
@@ -143,11 +144,19 @@ async def test_run_pipeline_closes_comp_resolver_when_session_start_fails(monkey
     assert resolver.closed is True
 
 
-@pytest.mark.asyncio
-async def test_independent_sources_begin_collection_concurrently():
-    """A slow backend must not delay the initial request to another backend."""
-    release = asyncio.Event()
-    started = {"first": asyncio.Event(), "second": asyncio.Event()}
+#: Bounds a hang, never a pass: the concurrency tests below finish as soon as
+#: their sources meet, however loaded the host, and a broken collector never
+#: finishes at all. The wait only turns that hang into a failure.
+HANG_GUARD = 30.0
+
+
+async def _collect_waiting_on_each_other(
+    max_concurrent_sources: int, started: dict[str, asyncio.Event] | None = None
+) -> dict[str, SourceCollection]:
+    """Collect two sources on different backends whose first requests each wait
+    for the other's. They finish only when both are in flight at once.
+    `started` receives each source's first request as it is made."""
+    started = started if started is not None else {"first": asyncio.Event(), "second": asyncio.Event()}
 
     class WaitingAdapter:
         def __init__(self, company: str) -> None:
@@ -162,7 +171,8 @@ async def test_independent_sources_begin_collection_concurrently():
 
         async def fetch(self):
             started[self.company].set()
-            await release.wait()
+            other = "second" if self.company == "first" else "first"
+            await started[other].wait()
             if False:  # make this an async generator without yielding a job
                 yield None
 
@@ -172,24 +182,45 @@ async def test_independent_sources_begin_collection_concurrently():
     def factory(company: str, adapter: str, board_token: str | None, **kwargs):
         return WaitingAdapter(company)
 
-    collection_task = asyncio.create_task(
-        collect_sources(
-            {"first": {"adapter": "greenhouse"}, "second": {"adapter": "ashby"}},
-            EMPTY_SCOPE,
-            object(),
-            max_list=None,
-            hydrate=False,
-            max_concurrent_sources=2,
-            adapter_factory=factory,
-        )
+    return await collect_sources(
+        {"first": {"adapter": "greenhouse"}, "second": {"adapter": "ashby"}},
+        EMPTY_SCOPE,
+        object(),
+        max_list=None,
+        hydrate=False,
+        max_concurrent_sources=max_concurrent_sources,
+        adapter_factory=factory,
     )
-    await asyncio.wait_for(
-        asyncio.gather(*(event.wait() for event in started.values())), timeout=0.2
-    )
-    release.set()
-    collections = await collection_task
 
+
+@pytest.mark.asyncio
+async def test_independent_sources_begin_collection_concurrently():
+    """A slow backend must not delay the initial request to another backend."""
+    collections = await asyncio.wait_for(_collect_waiting_on_each_other(2), timeout=HANG_GUARD)
+
+    assert set(collections) == {"first", "second"}
     assert all(not collection.stats["errors"] for collection in collections.values())
+
+
+@pytest.mark.asyncio
+async def test_sources_beyond_the_concurrency_limit_wait_for_a_slot():
+    """Negative control for the test above: with one slot the second backend
+    starts only after the first finishes, so the two never meet. Once the
+    first source's request is made, however long that takes, the second's
+    never is: the collection holds on the slot. That absence is seen only as
+    time passing, and a request the slot holds back cannot arrive early under
+    load, so a short wait cannot fail a correct collector."""
+    started = {"first": asyncio.Event(), "second": asyncio.Event()}
+    collection = asyncio.create_task(_collect_waiting_on_each_other(1, started))
+    try:
+        await asyncio.wait_for(started["first"].wait(), timeout=HANG_GUARD)
+        with pytest.raises(TimeoutError):
+            await asyncio.wait_for(started["second"].wait(), timeout=0.5)
+        assert not collection.done()
+    finally:
+        collection.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await collection
 
 
 @pytest.mark.asyncio
@@ -231,7 +262,7 @@ async def test_companies_on_one_backend_use_one_collection_stream():
             adapter_factory=factory,
         )
     )
-    await asyncio.wait_for(started["first"].wait(), timeout=0.2)
+    await asyncio.wait_for(started["first"].wait(), timeout=HANG_GUARD)
     await asyncio.sleep(0)
 
     assert started["second"].is_set() is False

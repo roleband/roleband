@@ -16,7 +16,9 @@ on a second run. A value the person set the other way, or a layout this command 
 safely, is theirs to change: the command stops with `approval_required` and touches nothing.
 
 Each host also gets the versioned skill in `skills/roleband/SKILL.md`. A sidecar beside the
-installed copy records its hash, so a copy the person edited is never replaced.
+installed copy records its hash and version, so a copy the person edited is never replaced.
+`capabilities` brings an unedited copy of an older version up to this client's
+(`refresh_installed_skills`), so a new skill reaches a host without a second connect.
 """
 
 from __future__ import annotations
@@ -34,17 +36,23 @@ from typing import Any
 
 from tracker.cli.errors import ClientError
 from tracker.platform import command_shim
+from tracker.platform.agent_hosts import (
+    CLAUDE_EXCLUDED,
+    CLAUDE_RULE,
+    CODEX_KEY,
+    CODEX_TABLE,
+    HOSTS,
+    SKILL_RECORD,
+    SKILL_VERSION,
+    claude_conflict,
+    claude_dir,
+    codex_dir,
+)
 
-HOSTS = ("claude-code", "codex")
 #: Hosts people may name that were not measured. Each is refused rather than guessed at.
 UNTESTED = ("gemini", "gemini-cli")
 
-CLAUDE_EXCLUDED = "roleband *"
-CLAUDE_RULE = "Bash(roleband *)"
-
 SKILL_SOURCE = Path(__file__).with_name("skills") / "roleband" / "SKILL.md"
-SKILL_VERSION = 1
-SKILL_RECORD = ".roleband-skill.json"
 
 COSTS = {
     "claude-code": (
@@ -57,8 +65,8 @@ COSTS = {
     ),
 }
 
-_TOML_TABLE = "sandbox_workspace_write"
-_TOML_KEY = "network_access"
+_TOML_TABLE = CODEX_TABLE
+_TOML_KEY = CODEX_KEY
 _TOML_HEADER = re.compile(rf"^[ \t]*\[[ \t]*{_TOML_TABLE}[ \t]*\][ \t]*(#[^\n]*)?$", re.MULTILINE)
 
 
@@ -115,57 +123,11 @@ def _home() -> Path:
     return Path.home()
 
 
-def claude_dir() -> Path:
-    explicit = os.environ.get("CLAUDE_CONFIG_DIR")
-    return Path(explicit).expanduser() if explicit else _home() / ".claude"
-
-
-def codex_dir() -> Path:
-    explicit = os.environ.get("CODEX_HOME")
-    return Path(explicit).expanduser() if explicit else _home() / ".codex"
-
-
 def _no_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     keys = [key for key, _ in pairs]
     if len(keys) != len(set(keys)):
         raise ValueError("a key is repeated")
     return dict(pairs)
-
-
-def _calls() -> list[str]:
-    """The calls the skill teaches, for every operation this client knows: `status`,
-    `capabilities`, `describe OPERATION` and the operation's own command, each with and
-    without `--json`."""
-    try:
-        document = json.loads(Path(__file__).with_name("operations.json").read_text(encoding="utf-8"))
-        operations = [entry["operation"] for entry in document["operations"]]
-    except (OSError, ValueError, KeyError, TypeError):
-        operations = ["status", "capabilities", "describe"]
-    calls = {"roleband status", "roleband capabilities", "roleband capabilities --offline"}
-    for operation in operations:
-        calls.add(f"roleband describe {operation}")
-        calls.add("roleband " + operation.replace(".", " ").replace("_", "-"))
-    return sorted(calls | {f"{call} --json" for call in calls})
-
-
-def _covers(rule: str) -> bool:
-    """Whether a Claude Code Bash rule applies to a roleband call an agent makes: `Bash` alone,
-    a pattern (`*` is its one wildcard; `prefix:*` is the older prefix form) whose fixed start
-    is a roleband command, such as `Bash(roleband describe *)`, or one that matches a call
-    from `_calls()`. A pattern that matches only some other text in a call's arguments, such as
-    `Bash(*sudo*)`, does not count: no call the skill teaches carries it."""
-    if rule == "Bash":
-        return True
-    match = re.fullmatch(r"Bash\((.*)\)", rule)
-    if match is None:
-        return False
-    pattern = match.group(1)
-    if pattern.endswith(":*"):
-        pattern = pattern[:-2] + "*"
-    if pattern.split("*", 1)[0].startswith("roleband "):
-        return True
-    compiled = re.compile(".*".join(re.escape(part) for part in pattern.split("*")), re.DOTALL)
-    return any(compiled.fullmatch(call) for call in _calls())
 
 
 def _claude_settings(path: Path) -> FileChange:
@@ -181,18 +143,16 @@ def _claude_settings(path: Path) -> FileChange:
             raise ClientError("invalid_input", f"{path} is not a JSON object; nothing was changed.",
                               details={"path": str(path)})
         document = parsed
-    permissions = document.get("permissions")
-    for kind in ("deny", "ask"):
-        rules = permissions.get(kind) if isinstance(permissions, dict) else None
-        for rule in rules if isinstance(rules, list) else []:
-            if isinstance(rule, str) and _covers(rule):
-                raise ClientError(
-                    "approval_required",
-                    f"Your rule {rule!r} in permissions.{kind} in {path} comes before any allow rule, so "
-                    f"Claude Code would still {'refuse' if kind == 'deny' else 'ask about'} every roleband call. "
-                    "Nothing was changed; remove or narrow that rule yourself if you want roleband to run.",
-                    details={"path": str(path), "rule": rule, "list": f"permissions.{kind}"},
-                )
+    conflict = claude_conflict(document)
+    if conflict is not None:
+        kind, rule = conflict
+        raise ClientError(
+            "approval_required",
+            f"Your rule {rule!r} in permissions.{kind} in {path} comes before any allow rule, so "
+            f"Claude Code would still {'refuse' if kind == 'deny' else 'ask about'} every roleband call. "
+            "Nothing was changed; remove or narrow that rule yourself if you want roleband to run.",
+            details={"path": str(path), "rule": rule, "list": f"permissions.{kind}"},
+        )
     added: list[str] = []
 
     def listed(section: str, key: str, value: str) -> None:
@@ -344,6 +304,64 @@ def _install_skill(plan: SkillPlan, applied: list[str]) -> None:
         if current != text:
             _replace(record, text.encode(), mode=0o644)
             applied.append(str(record))
+
+
+def _recorded(directory: Path) -> object:
+    """The sidecar connect wrote beside the skill in `directory`; None when there is none to read."""
+    try:
+        return json.loads((directory / SKILL_RECORD).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def refresh_installed_skills() -> list[dict[str, str]]:
+    """Bring each skill `connect` installed up to this client's version, and
+    return a notice for each one it updated or could not.
+
+    Only a copy whose sidecar records an older version is touched, so two
+    clients of different versions on one computer never trade the file back
+    and forth. A copy the person edited stays as it is, as `connect` keeps it,
+    and so does one they deleted. Nothing here fails the call it runs in."""
+    notices: list[dict[str, str]] = []
+    for host, base in (("claude-code", claude_dir), ("codex", codex_dir)):
+        try:
+            directory = base() / "skills" / "roleband"
+        except (OSError, RuntimeError):
+            # No home folder to find (`Path.home()` raises where the
+            # environment names none): no installed skill to keep current.
+            continue
+        record = _recorded(directory)
+        installed = record.get("version") if isinstance(record, dict) else None
+        if not isinstance(installed, int) or isinstance(installed, bool) or installed >= SKILL_VERSION:
+            continue
+        try:
+            plan = _skill(directory)
+            # Another client may have installed its own version since the
+            # record was read; that copy is not this client's to replace.
+            if _recorded(directory) != record:
+                continue
+            if plan.action in ("update", "unchanged"):
+                _install_skill(plan, [])
+        except OSError as error:
+            notices.append({
+                "code": "skill_outdated",
+                "message": f"The roleband skill installed for {host} is version {installed} and could not be "
+                f"updated to {SKILL_VERSION} ({error.strerror or error}); run roleband connect {host} --apply.",
+            })
+            continue
+        if plan.action == "update":
+            notices.append({
+                "code": "skill_updated",
+                "message": f"The roleband skill installed for {host} is now version {SKILL_VERSION}, "
+                f"was {installed}; the host reads it from its next session.",
+            })
+        elif plan.action == "kept_edited":
+            notices.append({
+                "code": "skill_outdated",
+                "message": f"The roleband skill installed for {host} at {plan.path} was edited, so it stays "
+                f"at version {installed}; this client ships version {SKILL_VERSION}.",
+            })
+    return notices
 
 
 # --------------------------------------------------------------------------- #

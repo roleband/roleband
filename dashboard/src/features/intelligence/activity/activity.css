@@ -1,0 +1,278 @@
+/* The Activity screen (Settings › AI › Activity): the page header, the
+ * docked toolbar, and the list of entries beside the inspector of the picked
+ * one. Every value comes from --app-* (src/design/tokens.css).
+ *
+ * Three things pin as the list scrolls under them, each below the one above:
+ * the toolbar at the scrollport edge, a day's heading under the toolbar, the
+ * inspector under the toolbar. ActivityScreen measures the toolbar into
+ * --activity-toolbar-h when it wraps. */
+
+.main.activity-screen {
+  /* The header pays the page's top air, so the toolbar pins at the edge. */
+  padding-top: 0;
+  --activity-toolbar-h: calc(var(--app-space-2) + var(--app-control-md) + var(--app-space-4));
+}
+
+.activity-screen > .page-hero,
+.activity-screen > .activity-toolbar,
+.activity-screen > .activity-split {
+  max-width: 1320px;
+}
+
+/* ---- toolbar ------------------------------------------------------------- */
+
+.activity-search {
+  flex: 0 1 320px;
+}
+
+/* A hairline between the search, the kind chips and the two menus. */
+.activity-toolbar-rule {
+  width: 1px;
+  height: var(--app-space-4);
+  background: var(--app-border);
+}
+
+/* ---- the list beside the inspector -------------------------------------- */
+
+.activity-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: var(--app-space-4);
+  align-items: start;
+}
+
+.activity-list {
+  min-width: 0;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-lg);
+  box-shadow: var(--app-shadow);
+  /* Clips the rows to the card's corners without becoming a scroller, so
+     the day headings still pin against the page. */
+  overflow: clip;
+}
+
+.activity-day {
+  position: sticky;
+  top: var(--activity-toolbar-h);
+  z-index: 1;
+  display: flex;
+  align-items: baseline;
+  gap: var(--app-space-2);
+  margin: 0;
+  padding: var(--app-space-3) var(--app-space-4) var(--app-space-2);
+  background: var(--app-surface-subtle);
+  border-bottom: 1px solid var(--app-border);
+  font-size: var(--app-type-meta);
+  font-weight: var(--app-weight-body);
+  line-height: 1.3;
+}
+
+.activity-day-name {
+  color: var(--app-text-muted);
+  font-family: var(--app-font-mono);
+  font-size: var(--app-type-label);
+  font-weight: var(--app-weight-strong);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.activity-day-date {
+  color: var(--app-text-muted);
+}
+
+.activity-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A whole-row link to the entry: layout, no button chrome. */
+.activity-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) minmax(0, 200px);
+  align-items: center;
+  gap: var(--app-space-3);
+  min-height: 52px;
+  padding: var(--app-space-1) var(--app-space-4);
+  border-bottom: 1px solid var(--app-border);
+  color: var(--app-text);
+  font-size: var(--app-type-body);
+  text-decoration: none;
+  transition: background-color var(--app-duration-fast) var(--app-ease);
+}
+
+.activity-row:hover {
+  background: var(--app-surface-hover);
+}
+
+/* The shell's ring, drawn inside: the card clips anything past a flush row. */
+.activity-row:focus-visible {
+  outline-offset: calc(-1 * var(--app-ring-offset));
+}
+
+/* The picked entry: the chosen wash, and an inset bar on the flush row's edge. */
+.activity-row[aria-current="true"] {
+  background: var(--app-chosen-wash);
+}
+
+.activity-row[aria-current="true"]::before {
+  content: "";
+  position: absolute;
+  inset-block: var(--app-space-1);
+  left: 0;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--app-chosen-mark);
+}
+
+/* Contrast themes repaint backgrounds from the person's palette: the bar keeps
+   its shape in a system colour, so the picked row still stands apart. */
+@media (forced-colors: active) {
+  .activity-row[aria-current="true"]::before {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
+}
+
+.activity-time {
+  color: var(--app-text-faint);
+  white-space: nowrap;
+  font-family: var(--app-font-mono);
+  font-size: var(--app-type-label);
+}
+
+.activity-what {
+  line-height: 1.4;
+}
+
+.activity-what b {
+  font-weight: var(--app-weight-name);
+}
+
+/* A refusal changed nothing and read nothing: its sentence is quieter. */
+.activity-row[data-kind="refused"] .activity-what {
+  color: var(--app-text-muted);
+}
+
+.activity-tag {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.activity-pager {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  padding: var(--app-space-3) var(--app-space-4);
+}
+
+.activity-page-range {
+  margin-right: auto;
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+}
+
+/* ---- inspector ----------------------------------------------------------- */
+
+.activity-inspector {
+  position: sticky;
+  top: calc(var(--activity-toolbar-h) + var(--app-space-2));
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-4);
+  padding: var(--app-space-4);
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-lg);
+  box-shadow: var(--app-shadow);
+}
+
+.activity-inspector-note {
+  margin: 0;
+  color: var(--app-text-muted);
+  font-size: var(--app-type-body);
+}
+
+.activity-inspector-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-1);
+}
+
+.activity-inspector-title {
+  margin: 0;
+  font-size: var(--app-type-title);
+  font-weight: var(--app-weight-name);
+  line-height: 1.3;
+}
+
+.activity-diff {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-1);
+  margin: 0;
+  padding: var(--app-space-3);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface-subtle);
+  font-size: var(--app-type-meta);
+}
+
+.activity-diff-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: var(--app-space-2);
+}
+
+.activity-diff-row dt {
+  color: var(--app-text-muted);
+}
+
+.activity-diff-row dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.activity-old {
+  color: var(--app-text-faint);
+}
+
+.activity-facts {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: var(--app-space-2) var(--app-space-3);
+  margin: 0;
+}
+
+.activity-facts dt {
+  padding-top: 2px;
+  color: var(--app-text-faint);
+  font-family: var(--app-font-mono);
+  font-size: var(--app-type-label);
+  font-weight: var(--app-weight-strong);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.activity-facts dd {
+  margin: 0;
+  font-size: var(--app-type-meta);
+}
+
+.activity-operation {
+  font-family: var(--app-font-mono);
+  font-size: var(--app-type-label);
+}
+
+@media (max-width: 1100px) {
+  .activity-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .activity-inspector {
+    position: static;
+    order: -1;
+  }
+}

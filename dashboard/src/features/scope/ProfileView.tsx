@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { PROFILE_TABS } from "../../navTabs";
 import { useTabRoute } from "../../routing/useTabRoute";
 import { SETUP_PATH, useSetupMode, type SetupCompaniesProps } from "../../routing/setupMode";
@@ -10,6 +10,7 @@ import { ScopeDraftProvider } from "./useScopeDraft";
 import { Walk } from "./walk/Walk";
 import { SettingsDesignSystemRoot } from "../../ui/SettingsDesignSystemRoot";
 import { ResourceLoadState } from "../../ui/ResourceLoadState";
+import { RouterLink } from "../../ui/RouterLink";
 import { PageHeader } from "../../patterns/PageHeader";
 import { ScopeGuideButton } from "./ScopeGuide";
 import { ExperiencePage } from "./ExperiencePage";
@@ -61,7 +62,7 @@ export function ProfileView({
       {!inSetup && tab === "direction" && setUp === false && (
         <p className="scope-notice profile-setup-unfinished">
           {profileSetupUnfinished()}{" "}
-          <Link className="ui-btn ui-btn-link" to={SETUP_PATH}>{profileSetupFinish()}</Link>
+          <RouterLink variant="link" to={SETUP_PATH}>{profileSetupFinish()}</RouterLink>
         </p>
       )}
       <div className="settings-shell">

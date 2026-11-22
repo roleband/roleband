@@ -16,6 +16,7 @@ from sqlalchemy import select
 from tracker.agents.pursuits import (
     PursuitStage,
     PursuitUpdate,
+    StepNeedsWords,
     list_pursuits,
     public_pursuit,
     upsert_pursuit,
@@ -39,7 +40,6 @@ from tracker.api.schemas.profile_suggestions import (
 )
 from tracker.api.scope_saves import promote_after_save, promotion_fields, queue_follow_up
 from tracker.db.models import ProfileSuggestion
-from tracker.notifications.pursuit_due import generate_pursuit_due_notifications
 from tracker.scope.projection import recompute_saved_scope
 from tracker.settings_store import (
     PAY_FLOOR_MAX,
@@ -256,7 +256,7 @@ async def clear_valuation_ep(company: PrivateCompany, session: SessionDep) -> di
     return await _offer_response(session)
 
 
-# --- pursuits (the HTTP twin of the MCP write tool) --------------------------
+# --- pursuits (the HTTP twin of the agent pursuit writes) -------------------
 
 @router.get("/api/pursuits", response_model=PursuitListResponse)
 async def list_pursuits_ep(
@@ -271,16 +271,15 @@ async def list_pursuits_ep(
 async def set_pursuit_ep(
     job_id: int, payload: PursuitUpdate, session: SessionDep
 ) -> dict:
-    """Create/update the pursuit for one opportunity. Same helper the MCP
-    write tool uses (one transaction: current row + append-only event), actor
+    """Create/update the pursuit for one opportunity. Same helper the agent
+    pursuit writes use (one transaction: current row + append-only event), actor
     recorded as `user`. There is deliberately no DELETE: `withdrawn` is a
     stage, and history is the point."""
     try:
         pursuit = await upsert_pursuit(session, job_id, payload, actor="user")
     except LookupError as err:
         raise api_error(404, ErrorCode.JOB_NOT_FOUND, str(err)) from err
-    # The reminder follows the pursuit in the same transaction:
-    # an owed follow-up rings and an ended one retracts without a scan.
-    await generate_pursuit_due_notifications(session)
+    except StepNeedsWords as err:
+        raise api_error(422, ErrorCode.INVALID_INPUT, str(err)) from err
     await session.commit()
     return {"pursuit": public_pursuit(pursuit)}

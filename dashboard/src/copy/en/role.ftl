@@ -74,6 +74,18 @@ role-job-comp-panel-of-base-stated = { $round }% of base, stated
 ## features/job-detail/JobDescription.tsx
 # kind=sentence
 role-job-description-no-description-captured = No description for this role.
+# kind=status note="Under the Description heading while the text of a role that opened without one is read from the employer's site. $company is the company's name"
+role-job-description-reading = Getting the description from { $company }…
+# kind=aria note="Names the moving line under role-job-description-reading"
+role-job-description-reading-progress = Getting the description
+# kind=status note="Replaces role-job-description-reading when the employer's site has not answered after a few seconds; the link role-job-description-open-posting follows it"
+role-job-description-reading-slow = { $company }'s site is slow to answer.
+# kind=sentence note="Under the Description heading when the read found no description; Try again and the link role-job-description-open-posting follow it"
+role-job-description-read-failed = Couldn't get the description from { $company }'s site just now.
+# kind=link note="Opens the posting on the employer's own site in a new tab, after role-job-description-reading-slow or role-job-description-read-failed"
+role-job-description-open-posting = Read it on { $company }'s site
+# kind=status note="Said by screen readers, not shown, when the text read from the employer's site comes in under the Description heading, in place of role-job-description-reading. $company is the company's name"
+role-job-description-arrived = Got the description from { $company }'s site.
 
 ## features/job-detail/JobDetail.tsx
 # kind=button wording=as-is
@@ -126,14 +138,6 @@ role-job-detail-tabs = Posting and workspace
 role-job-detail-tab-posting = Posting
 # kind=label
 role-job-detail-tab-workspace = Workspace
-# kind=aria note="Names the group that holds a posting's place in the list it was opened from, with the previous and next buttons"
-role-job-detail-pager = Place in the list
-# kind=label note="A posting's place in the list it was opened from, for example 3 of 24"
-role-job-detail-pager-place = { $place } of { $count }
-# kind=aria note="Button: opens the posting before this one in the list"
-role-job-detail-pager-previous = Previous in the list
-# kind=aria note="Button: opens the posting after this one in the list"
-role-job-detail-pager-next = Next in the list
 # kind=label note="Kicker over the suggestion to apply, at the end of a posting"
 role-job-detail-apply-kicker = Next step
 # kind=label note="Link at the end of a posting: saves the role and opens the pipeline list in a new tab"

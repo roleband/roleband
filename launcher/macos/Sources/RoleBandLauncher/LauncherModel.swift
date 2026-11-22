@@ -231,7 +231,9 @@ final class LauncherModel: ObservableObject {
     private var controlTask: Task<Void, Never>?
     private var timer: Timer?
     private(set) var loginTimer: Timer?
-    private var setupVisible = false
+    private(set) var setupVisible = false
+    /// A version an automatic check found while something held its window back.
+    var heldUpdateWindow: String?
     let registrationURL: URL
     private let installationSource: InstallationSource
     private let readStatus: @Sendable (Installation) async throws -> VerifiedStatus
@@ -403,10 +405,11 @@ final class LauncherModel: ObservableObject {
         }
     }
     /// The menu bar always shows the product mark; a state other than at rest adds its own
-    /// symbol as a badge on it.
+    /// symbol as a badge on it. At rest, an offered update takes the badge, so a person who
+    /// never opens the panel still sees it; any other state outranks it, since it needs them sooner.
     var menuBarBadge: String? {
         switch symbol {
-        case "checkmark.circle": nil
+        case "checkmark.circle": updateOffered ? "arrow.down.circle.fill" : nil
         case "arrow.triangle.2.circlepath": "arrow.triangle.2.circlepath.circle.fill"
         case "pause.circle": "pause.circle.fill"
         case "exclamationmark.circle": "exclamationmark.circle.fill"
@@ -414,6 +417,12 @@ final class LauncherModel: ObservableObject {
         case "network.slash": "xmark.circle.fill"
         default: symbol
         }
+    }
+    /// The menu-bar icon's tooltip and spoken label: the state, then an offered update's version.
+    var menuBarTitle: String {
+        let state = "RoleBand: \(text(titleKey, helpValues))"
+        guard updateOffered, let version = updates.offered?.version else { return state }
+        return state + ". " + text("update-ready", ["version": version])
     }
     func text(_ key: String) -> String { copy.text(key) }
     func text(_ key: String, _ values: [String: String]) -> String { copy.text(key, values) }

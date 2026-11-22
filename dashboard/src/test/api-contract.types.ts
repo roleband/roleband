@@ -120,6 +120,11 @@ export type QueryContract = [
   Expect<ReadBy<DecidedQuery, "twin_review_api_twins_review_get">>,
   Expect<ReadBy<ParamsOf<typeof api.skillsTop>, "skills_top_api_skills_top_get">>,
   Expect<ReadBy<ParamsOf<typeof api.notifications>, "notifications_api_notifications_get">>,
+  Expect<ReadBy<ParamsOf<typeof api.agentActivity>, "agent_activity_api_agent_activity_get">>,
+];
+
+export type AgentActivityRouteContract = [
+  Expect<Equals<Returns<typeof api.agentActivity>, Ok<"agent_activity_api_agent_activity_get">>>,
 ];
 
 // @ts-expect-error: a sort key the job list does not publish does not compile.
@@ -136,6 +141,7 @@ export type JobRouteContract = [
   Expect<Equals<Returns<typeof api.job>, Ok<"get_job_api_jobs__job_id__get">>>,
   Expect<Equals<Returns<typeof api.markJobViewed>, Ok<"mark_job_viewed_api_jobs__job_id__view_post">>>,
   Expect<Equals<Returns<typeof api.readPostingPage>, Ok<"read_posting_page_on_open_api_jobs__job_id__posting_page_post">>>,
+  Expect<Equals<Returns<typeof api.readPostingText>, Ok<"read_posting_text_on_open_api_jobs__job_id__description_post">>>,
   Expect<Equals<Returns<typeof api.jobHistory>, Ok<"get_listing_history_api_jobs__job_id__history_get">>>,
   Expect<Equals<Returns<typeof api.setFavorite>, Ok<"add_favorite_api_jobs__job_id__favorite_put">>>,
   Expect<Equals<Returns<typeof api.setFavorite>, Ok<"remove_favorite_api_jobs__job_id__favorite_delete">>>,
@@ -313,6 +319,7 @@ export type IntelligenceRouteContract = [
   Expect<Equals<Returns<typeof api.intelligenceFitBand>, Ok<"intelligence_fit_band_api_intelligence_fit_band__band__get">>>,
   Expect<Equals<Returns<typeof api.agentAccess>, Ok<"get_agent_access_ep_api_intelligence_agents_get">>>,
   Expect<Equals<Returns<typeof api.setAgentAccess>, Ok<"put_agent_access_ep_api_intelligence_agents_put">>>,
+  Expect<Equals<Returns<typeof api.patchAgentAccess>, Ok<"patch_agent_access_ep_api_intelligence_agents_patch">>>,
   Expect<MatchingStopResult extends IntelligenceStatus ? true : false>,
 ];
 

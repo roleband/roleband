@@ -1,7 +1,7 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NavRail } from "./NavRail";
 
 vi.mock("../context/JobWorkspace", () => ({
@@ -107,129 +107,68 @@ describe("NavRail", () => {
 
 });
 
-/* The Pipeline is a star with its views under it, folded away until the
- * pointer rests on the star or the star is pressed, at either rail width.
- * Whether the well is drawn is the stylesheet's (pinned in
- * tests/ux/pipeline-rail.spec.ts); here the state is what the star says. */
+/* The Pipeline is a star. Collapsed, the star stands alone and the page's
+ * tabs switch between the views; expanded, the views are named under it. How
+ * they drop in is the stylesheet's (pinned in tests/ux/pipeline-rail.spec.ts). */
 describe("the Pipeline in the rail", () => {
   function Where() {
     return <output data-testid="where">{useLocation().pathname}</output>;
   }
-  const at = (path: string, expanded = false) =>
-    render(
-      <MemoryRouter initialEntries={[path]}>
-        <NavRail expanded={expanded} onToggleExpanded={vi.fn()} theme="dark" onToggleTheme={vi.fn()} />
-        <Where />
-      </MemoryRouter>
-    );
-  const star = () => screen.getByRole("button", { name: "Pipeline" });
-  const views = () => within(screen.getByRole("navigation", { name: "Main" }));
+  const rail = (path: string, expanded = false) => (
+    <MemoryRouter initialEntries={[path]}>
+      <NavRail expanded={expanded} onToggleExpanded={vi.fn()} theme="dark" onToggleTheme={vi.fn()} />
+      <Where />
+    </MemoryRouter>
+  );
+  const at = (path: string, expanded = false) => render(rail(path, expanded));
+  const nav = () => within(screen.getByRole("navigation", { name: "Main" }));
+  const star = () => nav().getByRole("link", { name: "Pipeline" });
+  const views = () => ["Considering", "Board", "Up next"].filter((name) => nav().queryByRole("link", { name }) != null);
 
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it("shows the star alone, closed, and a press opens its views until one is picked", async () => {
-    const user = userEvent.setup();
-    at("/");
-    expect(star()).toHaveAttribute("aria-expanded", "false");
+  it("collapsed, shows the star alone, inside the Pipeline and out", () => {
+    const { unmount } = at("/");
     expect(star().querySelector("svg")).not.toBeNull();
-    expect(screen.queryByRole("link", { name: "Pipeline" }), "collapsed, the star opens; it does not go").toBeNull();
-
-    await user.click(star());
-    expect(star()).toHaveAttribute("aria-expanded", "true");
-    expect(document.getElementById(star().getAttribute("aria-controls")!)).toContainElement(views().getByRole("link", { name: "Up next" }));
-
-    await user.click(views().getByRole("link", { name: "Up next" }));
-    expect(screen.getByTestId("where")).toHaveTextContent("/pipeline/up-next");
-    expect(star()).toHaveAttribute("aria-expanded", "false");
-    expect(views().getByRole("link", { name: "Up next" })).toHaveAttribute("aria-current", "page");
+    expect(views()).toEqual([]);
+    unmount();
+    at("/pipeline/board");
+    expect(star()).toHaveAttribute("aria-current", "true");
+    expect(views(), "the page's tabs name the view, not the rail").toEqual([]);
   });
 
-  it("folds a well the star opened on a second press, a press elsewhere, or Escape, which hands the star its focus", async () => {
+  it("goes into the Pipeline at Considering when the star is pressed, and marks the star as the place", async () => {
     const user = userEvent.setup();
     at("/");
+    expect(star()).not.toHaveAttribute("aria-current");
     await user.click(star());
-    await user.click(star());
-    expect(star()).toHaveAttribute("aria-expanded", "false");
-
-    await user.click(star());
-    await user.click(document.body);
-    expect(star()).toHaveAttribute("aria-expanded", "false");
-
-    await user.click(star());
-    views().getByRole("link", { name: "Board" }).focus();
-    await user.keyboard("{Escape}");
-    expect(star()).toHaveAttribute("aria-expanded", "false");
-    expect(star()).toHaveFocus();
+    expect(screen.getByTestId("where")).toHaveTextContent("/pipeline/list");
+    // The place is the Pipeline; the page is its view.
+    expect(star()).toHaveAttribute("aria-current", "true");
   });
 
-  it("opens when the pointer rests on the star, not when it crosses it, and closes once it leaves", () => {
-    vi.useFakeTimers();
-    at("/pipeline/board");
-    const family = star().parentElement!;
-
-    fireEvent.pointerEnter(family, { pointerType: "mouse" });
-    act(() => vi.advanceTimersByTime(60));
-    expect(star(), "a pointer crossing the rail opens nothing").toHaveAttribute("aria-expanded", "false");
-    fireEvent.pointerLeave(family, { pointerType: "mouse" });
-    act(() => vi.advanceTimersByTime(500));
-    expect(star()).toHaveAttribute("aria-expanded", "false");
-
-    fireEvent.pointerEnter(family, { pointerType: "mouse" });
-    act(() => vi.advanceTimersByTime(200));
-    expect(star()).toHaveAttribute("aria-expanded", "true");
-
-    // Away for a moment, as on the way from the star down into its views.
-    fireEvent.pointerLeave(family, { pointerType: "mouse" });
-    act(() => vi.advanceTimersByTime(100));
-    fireEvent.pointerEnter(family, { pointerType: "mouse" });
-    act(() => vi.advanceTimersByTime(500));
-    expect(star()).toHaveAttribute("aria-expanded", "true");
-
-    fireEvent.pointerLeave(family, { pointerType: "mouse" });
-    act(() => vi.advanceTimersByTime(500));
-    expect(star()).toHaveAttribute("aria-expanded", "false");
-  });
-
-  it("leaves a touch to the press: a finger on the star does not open it twice over", async () => {
-    at("/");
-    const family = star().parentElement!;
-    fireEvent.pointerEnter(family, { pointerType: "touch" });
-    await new Promise((done) => setTimeout(done, 200));
-    expect(star()).toHaveAttribute("aria-expanded", "false");
-  });
-
-  it("marks the view on screen, and only it", () => {
-    at("/pipeline/board");
-    expect(views().getByRole("link", { name: "Board" })).toHaveAttribute("aria-current", "page");
-    expect(views().getByRole("link", { name: "Considering" })).not.toHaveAttribute("aria-current");
-    expect(views().getByRole("link", { name: "Radar" })).not.toHaveAttribute("aria-current");
-  });
-
-  it("folds the views away in the expanded rail too, where the star is named and a press drops them in named", async () => {
-    const user = userEvent.setup();
-    at("/pipeline/board", true);
-    expect(star()).toHaveAttribute("aria-expanded", "false");
+  it("expanded, names the star and its three views in order, outside the Pipeline too", () => {
+    at("/", true);
     expect(star()).toHaveTextContent("Pipeline");
-    expect(screen.queryByRole("link", { name: "Pipeline" }), "the star opens; it does not go").toBeNull();
-
-    await user.click(star());
-    expect(star()).toHaveAttribute("aria-expanded", "true");
-    expect(views().getByRole("link", { name: "Considering" })).toHaveTextContent("Considering");
-    expect(views().getByRole("link", { name: "Board" })).toHaveAttribute("aria-current", "page");
+    expect(star()).not.toHaveAttribute("aria-current");
+    expect(views()).toEqual(["Considering", "Board", "Up next"]);
+    expect(nav().getByRole("link", { name: "Board" })).toHaveTextContent("Board");
+    for (const name of views()) expect(nav().getByRole("link", { name })).not.toHaveAttribute("aria-current");
   });
 
-  it("folds the views away when the rail changes width", async () => {
-    const user = userEvent.setup();
-    const { rerender } = at("/");
-    await user.click(star());
-    expect(star()).toHaveAttribute("aria-expanded", "true");
-    rerender(
-      <MemoryRouter initialEntries={["/"]}>
-        <NavRail expanded onToggleExpanded={vi.fn()} theme="dark" onToggleTheme={vi.fn()} />
-      </MemoryRouter>
-    );
-    expect(star()).toHaveAttribute("aria-expanded", "false");
+  it("expanded in the Pipeline, marks the star and the view on screen, and only it", () => {
+    at("/pipeline/board", true);
+    expect(star()).toHaveAttribute("aria-current", "true");
+    expect(nav().getByRole("link", { name: "Board" })).toHaveAttribute("aria-current", "page");
+    expect(nav().getByRole("link", { name: "Considering" })).not.toHaveAttribute("aria-current");
+    expect(nav().getByRole("link", { name: "Up next" })).not.toHaveAttribute("aria-current");
+    expect(nav().getByRole("link", { name: "Radar" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("drops the views when the rail widens and takes them away when it narrows", () => {
+    const { rerender } = at("/pipeline/list");
+    expect(views()).toEqual([]);
+    rerender(rail("/pipeline/list", true));
+    expect(views()).toEqual(["Considering", "Board", "Up next"]);
+    rerender(rail("/pipeline/list", false));
+    expect(views()).toEqual([]);
   });
 });

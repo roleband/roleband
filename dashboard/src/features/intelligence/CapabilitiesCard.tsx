@@ -8,8 +8,10 @@ import { number as copyNumber } from "../../copy/format";
 //   Online model services · cloud-connected  · none until the user adds one
 //
 // Configuration lives one step in, behind each row's own dialog. The cloud
-// row additionally carries the permission to send posting text off this
-// computer (`ai_egress_enabled`), including to services connected later.
+// row additionally carries the master switch for every online service
+// (`ai_egress_enabled`), including services connected later: off, none of them
+// is reached. Its consent names no data, because no product task sends posting
+// text to an online service (`backend/tests/test_ai_egress_reach.py`).
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CloudLLMProfile,
@@ -295,7 +297,7 @@ export function CapabilitiesCard({
         </span>
       </div>
 
-      <div>
+      <div className="intel-caps">
         {/* Your own model */}
         <div className="intel-cap">
           <Switch
@@ -307,42 +309,41 @@ export function CapabilitiesCard({
           <span className="intel-cap-mark" aria-hidden="true">
             <Icon name="sparkle" size={18} />
           </span>
-          <span>
+          <span className="intel-cap-text">
             <span className="intel-cap-name">{aiCapabilitiesCardYourOwnModel()}</span>
             <span className="intel-cap-sub">
               {activeProfile ? <><Content text={activeProfile.name} />{" · "}</> : ""}
               <Msg of={aiCapabilitiesCardFindsDuplicateJobPostsOnly} elems={{ value: server ? serverLabel(server) : aiCapabilitiesCardNoConnectionSaved() }} />
             </span>
           </span>
-          <span className="intel-cap-acts">
-            {/* Start is unavailable while the capability is switched off: it
-                would launch a server nothing is allowed to use. Stop stays
-                available whatever the switch says, so a running process is
-                never stranded by turning the row off. */}
-            {server?.managed && server.provider === "omlx" && server.installed && (
-              <Button
-                className="ui-btn-strong"
-                disabled={serverBusy || (!localOn && !server.reachable)}
-                title={
-                  !localOn && !server.reachable
-                    ? aiCapabilitiesCardSaveAConnectionFirstThen({ choice: (activeProfile) ? "yes" : "no" })
-                    : undefined
-                }
-                onClick={() => controlServer(server.reachable ? "stop" : "start")}
-              >
-                <Icon name={server.reachable ? "pause" : "play"} size={16} />
-                {aiCapabilitiesCardStart({ choice: (serverBusy) ? "v1" : (server.reachable) ? "v2" : "v3" })}
-              </Button>
-            )}
+          {/* Start is unavailable while the capability is switched off: it
+              would launch a server nothing is allowed to use. Stop stays
+              available whatever the switch says, so a running process is
+              never stranded by turning the row off. */}
+          {server?.managed && server.provider === "omlx" && server.installed && (
             <Button
-              variant="icon"
-              size="sm"
-              aria-label={aiCapabilitiesCardConfigureYourOwnModel()}
-              onClick={() => setLocalOpen(true)}
+              className="ui-btn-strong intel-cap-act"
+              disabled={serverBusy || (!localOn && !server.reachable)}
+              title={
+                !localOn && !server.reachable
+                  ? aiCapabilitiesCardSaveAConnectionFirstThen({ choice: (activeProfile) ? "yes" : "no" })
+                  : undefined
+              }
+              onClick={() => controlServer(server.reachable ? "stop" : "start")}
             >
-              <Icon name="gear" size={16} />
+              <Icon name={server.reachable ? "pause" : "play"} size={16} />
+              {aiCapabilitiesCardStart({ choice: (serverBusy) ? "v1" : (server.reachable) ? "v2" : "v3" })}
             </Button>
-          </span>
+          )}
+          <Button
+            variant="icon"
+            size="sm"
+            className="intel-cap-gear"
+            aria-label={aiCapabilitiesCardConfigureYourOwnModel()}
+            onClick={() => setLocalOpen(true)}
+          >
+            <Icon name="gear" size={16} />
+          </Button>
           <OriginBadge origin="local" />
         </div>
 
@@ -358,23 +359,21 @@ export function CapabilitiesCard({
             <span className="intel-cap-mark" aria-hidden="true">
               <Icon name="sun" size={18} />
             </span>
-            <span>
+            <span className="intel-cap-text">
               <span className="intel-cap-name">{aiCapabilitiesCardAppleIntelligence()}</span>
               <span className="intel-cap-sub">
                 <Msg of={aiCapabilitiesCardExperimentalWeAreStillTesting} elems={{ value: status.availability.ok ? aiCapabilitiesCardReady() : (APPLE_ROW[status.availability.state]?.() ?? clause(availabilityText(status.availability.state))) }} />
               </span>
             </span>
-            <span className="intel-cap-acts">
-              <Button
-                className="ui-btn-strong"
-                aria-label={aiCapabilitiesCardTestAppleIntelligence()}
-                disabled={testingApple || !appleOn}
-                title={appleOn ? undefined : aiCapabilitiesCardTurnAppleIntelligenceOnTo()}
-                onClick={runAppleTest}
-              >
-                {aiCapabilitiesCardTest({ choice: (testingApple) ? "yes" : "no" })}
-              </Button>
-            </span>
+            <Button
+              className="ui-btn-strong intel-cap-act"
+              aria-label={aiCapabilitiesCardTestAppleIntelligence()}
+              disabled={testingApple || !appleOn}
+              title={appleOn ? undefined : aiCapabilitiesCardTurnAppleIntelligenceOnTo()}
+              onClick={runAppleTest}
+            >
+              {aiCapabilitiesCardTest({ choice: (testingApple) ? "yes" : "no" })}
+            </Button>
             <OriginBadge origin="local" />
           </div>
         )}
@@ -384,7 +383,7 @@ export function CapabilitiesCard({
         {cloudProfiles.length === 0 ? (
           <div className="intel-cap is-future">
             {/* A standing permission, settable before any service exists:
-                the same shape as the MCP card's connect gate, which you may
+                the same shape as the assistant card's connect gate, which you may
                 allow before setting up an app. It is the SAME egress flag the
                 connected-service row toggles, so the answer survives adding a
                 service later; nothing can be sent while no service exists
@@ -398,18 +397,16 @@ export function CapabilitiesCard({
             <span className="intel-cap-mark" aria-hidden="true">
               <Icon name="plus" size={18} />
             </span>
-            <span>
+            <span className="intel-cap-text">
               <span className="intel-cap-name">{aiCapabilitiesCardOnlineModelServices()}</span>
               <span className="intel-cap-sub">
                 {aiCapabilitiesCardNoneConnected()}{" "}
                 {aiCapabilitiesCardNothingIsSent({ choice: (egressOn) ? "yes" : "no" })}
               </span>
             </span>
-            <span className="intel-cap-acts">
-              <Button className="ui-btn-strong" onClick={() => setCloudOpen("new")}>
-                {aiCapabilitiesCardAdd()}
-              </Button>
-            </span>
+            <Button className="ui-btn-strong intel-cap-act" onClick={() => setCloudOpen("new")}>
+              {aiCapabilitiesCardAdd()}
+            </Button>
             <OriginBadge origin="cloud" />
           </div>
         ) : (
@@ -424,17 +421,15 @@ export function CapabilitiesCard({
               <span className="intel-cap-mark" aria-hidden="true">
                 <Icon name="cloud" size={18} />
               </span>
-              <span>
+              <span className="intel-cap-text">
                 <span className="intel-cap-name">{aiCapabilitiesCardSendPostingsToOnlineServices()}</span>
                 <span className="intel-cap-sub">
                   {aiCapabilitiesCardOffNothingIsSent({ choice: (egressOn) ? "yes" : "no" })}
                 </span>
               </span>
-              <span className="intel-cap-acts">
-                <Button className="ui-btn-strong" onClick={() => setCloudOpen("new")}>
-                  {aiCapabilitiesCardAdd()}
-                </Button>
-              </span>
+              <Button className="ui-btn-strong intel-cap-act" onClick={() => setCloudOpen("new")}>
+                {aiCapabilitiesCardAdd()}
+              </Button>
               <OriginBadge origin="cloud" />
             </div>
             {cloudProfiles.map((profile) => (
@@ -639,7 +634,7 @@ function CloudRow({
   const state = aiCapabilitiesCardBlockedOnlineServicesAreSwitched({ choice: (usable) ? "v1" : (!profile.enabled) ? "v2" : "v3" });
 
   // Testing authenticates to the vendor with the saved key. It carries no job
-  // text (that path is gated in `intelligence.registry`), but it is still a
+  // text, but it is still a
   // request this computer makes to a service the user has switched off, which
   // is exactly what the switches are there to prevent.
   const test = async () => {
@@ -668,35 +663,34 @@ function CloudRow({
       <span className="intel-cap-mark" aria-hidden="true">
         <Icon name="cloud" size={18} />
       </span>
-      <span>
+      <span className="intel-cap-text">
         <Content className="intel-cap-name" text={profile.name} />
         <span className="intel-cap-sub">
           <Content text={profile.model} /> · {aiCapabilitiesCardNoKey({ choice: (profile.has_api_key) ? "yes" : "no" })} · {state}
           {note ? ` · ${note}` : ""}
         </span>
       </span>
-      <span className="intel-cap-acts">
-        {/* Setup stays reachable whatever the switches say: it is the only
-            way to correct the connection that made the row unusable. Testing
-            does not: it is use. */}
-        <Button
-          className="ui-btn-strong"
-          aria-label={aiCapabilitiesCardTest2({ name: String(profile.name) })}
-          disabled={testing || !usable}
-          title={usable ? undefined : reason}
-          onClick={test}
-        >
-          {aiCapabilitiesCardTest({ choice: (testing) ? "yes" : "no" })}
-        </Button>
-        <Button
-          variant="icon"
-          size="sm"
-          aria-label={aiCapabilitiesCardConfigure({ name: String(profile.name) })}
-          onClick={onConfigure}
-        >
-          <Icon name="gear" size={16} />
-        </Button>
-      </span>
+      {/* Setup stays reachable whatever the switches say: it is the only
+          way to correct the connection that made the row unusable. Testing
+          does not: it is use. */}
+      <Button
+        className="ui-btn-strong intel-cap-act"
+        aria-label={aiCapabilitiesCardTest2({ name: String(profile.name) })}
+        disabled={testing || !usable}
+        title={usable ? undefined : reason}
+        onClick={test}
+      >
+        {aiCapabilitiesCardTest({ choice: (testing) ? "yes" : "no" })}
+      </Button>
+      <Button
+        variant="icon"
+        size="sm"
+        className="intel-cap-gear"
+        aria-label={aiCapabilitiesCardConfigure({ name: String(profile.name) })}
+        onClick={onConfigure}
+      >
+        <Icon name="gear" size={16} />
+      </Button>
       <OriginBadge origin="cloud" />
     </div>
   );

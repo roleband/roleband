@@ -21,33 +21,52 @@ reads the rest. A page holds at most `limit` rows and stops early rather than
 outgrow its tool tier's budget; `next_cursor` continues where it stopped, so
 no row is cut or lost to the budget. Paging is live, not a snapshot: a posting that appears,
 closes or re-sorts between two pages can be missed or repeated.
+
+A category the person does not share is absent. Without their pursuits the
+`pursuit` column is left out of `columns` and every row, `saved_only` is
+refused, and the roles they dismissed are listed like any other. Queryless
+`best_match` ranks by the person's intent, which blends the statement in their
+candidate profile with the roles they saved, pursue and dismissed: each part
+counts only while its category is shared, and with neither the order is the
+default. Without market statistics the `estimated_pay` column is left out,
+`minimum_estimated_pay` and the `estimated_pay` sort are refused, and the base
+pay bounds and the `pay` sort read only the range a posting states.
 """
 
 from __future__ import annotations
 
 import json
+from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 
 from pydantic import Field, model_validator
 from pydantic.config import JsonDict
-from sqlalchemy import func, select
+from sqlalchemy import func, nullslast, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.agents.operations import cursor, vocabulary
-from tracker.agents.operations.descriptor import EngineEffects, OperationDescriptor, Shape, ToolTier
+from tracker.agents.operations.descriptor import (
+    DataClass,
+    EngineEffects,
+    OperationDescriptor,
+    Shape,
+    ToolTier,
+)
 from tracker.agents.operations.envelope import OperationError
+from tracker.agents.operations.policy import category_disabled
 from tracker.analytics.posting_reality import listing_age
 from tracker.company_store import off_board_company_slugs
 from tracker.db.models import Favorite, Job, Pursuit
-from tracker.db.queries.jobs import apply_job_filters, list_rows, resolve_ordering
+from tracker.db.queries.jobs import apply_job_filters, base_pay, list_rows, resolve_ordering
+from tracker.enrich.classify import location_slugs_for
 from tracker.pay_disclosure import disclosure_known
 from tracker.pay_period import effective_period
 from tracker.platform.util import MAX_WINDOW_DAYS
 from tracker.search.best_match import intent_ranking, relevance_search
 from tracker.semantic.embed import embed_query
-from tracker.semantic.intent import build_intent_vector
+from tracker.semantic.intent import build_intent_vector, combine_intent_vector
 from tracker.settings_store import get_intent_embedding
 
 _CODE: JsonDict = {"x-text": "code"}
@@ -135,7 +154,8 @@ COLUMNS: tuple[str, ...] = (
 )
 
 #: One opportunity, positioned as `COLUMNS` names: its id; title; company
-#: slug; the first place it names and how many more; workplace type; level
+#: slug; the first place it names and how many more, where under a location
+#: filter the first is a place the filter matched; workplace type; level
 #: band; the listing age every surface shows, in days; the employer's stated
 #: pay; RoleBand's estimate; the person's mark.
 #:
@@ -149,6 +169,12 @@ COLUMNS: tuple[str, ...] = (
 SearchRow = tuple[
     int, str, str, str | None, int, str | None, str | None, int | None, str | None, str | None, str | None
 ]
+#: A row as a page answers it: `SearchRow` less the columns of a category the
+#: person does not share, so its positions are the ones `columns` names.
+PageRow = tuple[int | str | None, ...]
+
+#: The column each category that a row can leave out owns.
+_CATEGORY_COLUMNS: dict[DataClass, str] = {"market_statistic": "estimated_pay", "private_pursuit": "pursuit"}
 
 
 class SearchPage(Shape):
@@ -160,7 +186,7 @@ class SearchPage(Shape):
     #: Each closed-vocabulary filter as the values it was read as.
     filters: dict[str, list[str]] = Field(json_schema_extra=_IDENTIFIER)
     columns: list[str] = Field(json_schema_extra=_CODE)
-    rows: list[SearchRow] = Field(
+    rows: list[PageRow] = Field(
         json_schema_extra={"x-text": "content"},
         description="One array per opportunity, its values in the order `columns` names.",
     )
@@ -175,7 +201,7 @@ OPPORTUNITIES_SEARCH = OperationDescriptor(
     idempotency="read",
     engine_effects=EngineEffects(),
     tool_tiers=_EVERY_TIER,
-    data_classes=("public_posting", "market_statistic", "private_pursuit"),
+    data_classes=("public_posting", "market_statistic", "private_pursuit", "candidate"),
     examples=(
         {"query": "product manager", "location": ["London"], "limit": 10},
         {"family": ["product_management"], "level_band": ["senior"], "sort": "estimated_pay"},
@@ -205,9 +231,19 @@ class SearchAnswer:
 
 
 async def search(
-    session: AsyncSession, params: SearchInput, *, workspace_id: str, now: datetime | None = None
+    session: AsyncSession, params: SearchInput, *, workspace_id: str, withheld: Collection[DataClass] = (),
+    now: datetime | None = None,
 ) -> SearchAnswer:
     now = now or datetime.now(UTC)
+    pursuits = "private_pursuit" not in withheld
+    statistics = "market_statistic" not in withheld
+    profile = "candidate" not in withheld
+    if params.saved_only and not pursuits:
+        raise category_disabled("private_pursuit", field="saved_only")
+    if params.minimum_estimated_pay is not None and not statistics:
+        raise category_disabled("market_statistic", field="minimum_estimated_pay")
+    if params.sort == "estimated_pay" and not statistics:
+        raise category_disabled("market_statistic", field="sort")
     unknown: list[vocabulary.Unknown] = []
     filters: dict[str, list[str]] = {}
     for kind in _CLOSED:
@@ -229,6 +265,10 @@ async def search(
     hidden = await off_board_company_slugs(session)
     board: dict[str, Any] = {
         "status": "open",
+        # Leaving dismissed roles out would tell which ones the person dismissed.
+        "keep_dismissed": not pursuits,
+        # The base pay bounds fall back to the estimated base where a posting states none.
+        "posted_pay_only": not statistics,
         "company": filters.get("company"),
         "family": filters.get("family"),
         "level_band": filters.get("level_band"),
@@ -249,22 +289,29 @@ async def search(
     # Best match has its own order; `order` reorders only the other sorts.
     order = "desc" if sort == "best_match" else params.order
     ordered = await _ordered(session, board, sort=sort, order=order, query=params.query,
-                             offset=offset, limit=params.limit, exact_seen=carried)
+                             offset=offset, limit=params.limit, exact_seen=carried,
+                             from_profile=profile, from_taste=pursuits, estimates=statistics)
 
-    rows = await _rows(session, ordered.jobs, now=now)
+    columns = shared_columns(withheld)
+    rows = only_columns(
+        await summary_rows(
+            session, ordered.jobs, now=now, pursuits=pursuits, places=frozenset(filters.get("location", ())),
+        ),
+        columns,
+    )
     page = SearchPage(
         total=ordered.total,
         count=0,
         sort=sort,
         order=None if sort == "best_match" else params.order,
         filters=filters,
-        columns=list(COLUMNS),
+        columns=columns,
         rows=[],
     )
     # The rows share the page's budget with its header, whose filters grow with the request.
     budget = PAGE_BUDGET_BYTES[params.tier]
     header = _size(page.model_dump(mode="json"))
-    kept, cut = _within_budget(rows, budget - header)
+    kept, cut = rows_within_budget(rows, budget - header)
     if kept and _size(kept[0]) + 1 > budget - header or header > budget:
         raise OperationError(
             "invalid_input",
@@ -299,19 +346,26 @@ class _Ordered:
 
 async def _ordered(
     session: AsyncSession, board: dict[str, Any], *, sort: Sort, order: str, query: str | None,
-    offset: int, limit: int, exact_seen: int,
+    offset: int, limit: int, exact_seen: int, from_profile: bool = True, from_taste: bool = True,
+    estimates: bool = True,
 ) -> _Ordered:
     if sort == "best_match" and query:
         return await _best_match(session, board, query, offset=offset, limit=limit, exact_seen=exact_seen)
-    if sort == "best_match":
-        stored = await get_intent_embedding(session)
-        intent = await build_intent_vector(session, stored["vector"] if stored else None)
+    if sort == "best_match" and (from_profile or from_taste):
+        stored = await get_intent_embedding(session) if from_profile else None
+        vector = stored["vector"] if stored else None
+        # The taste centroids come from saved, pursued and dismissed roles.
+        intent = await build_intent_vector(session, vector) if from_taste else combine_intent_vector(vector, [], [])
         if intent is not None:
             ranking = await intent_ranking(session, board, intent, limit, offset)
             return _Ordered([row.job for row in ranking.rows], ranking.total)
     base = apply_job_filters(select(Job), board)
     total = await session.scalar(select(func.count()).select_from(base.subquery())) or 0
-    statement = list_rows(base.order_by(*resolve_ordering(_SORT_KEYS[sort], order)).limit(limit).offset(offset))
+    ordering = resolve_ordering(_SORT_KEYS[sort], order)
+    if sort == "pay" and not estimates:
+        posted = base_pay(estimates=False)
+        ordering = [nullslast(posted.asc() if order == "asc" else posted.desc()), Job.id.desc()]
+    statement = list_rows(base.order_by(*ordering).limit(limit).offset(offset))
     return _Ordered(list((await session.scalars(statement)).all()), total)
 
 
@@ -351,11 +405,31 @@ async def _best_match(
 # --- rows -------------------------------------------------------------------- #
 
 
-async def _rows(session: AsyncSession, jobs: list[Job], *, now: datetime) -> list[SearchRow]:
+def shared_columns(withheld: Collection[DataClass]) -> list[str]:
+    """The summary columns an answer holds: `COLUMNS` less each one a withheld
+    category owns."""
+    left_out = {_CATEGORY_COLUMNS[category] for category in withheld if category in _CATEGORY_COLUMNS}
+    return [column for column in COLUMNS if column not in left_out]
+
+
+def only_columns(rows: list[SearchRow], columns: list[str]) -> list[PageRow]:
+    """Each row with only the values of `columns`, in their order."""
+    kept_at = [COLUMNS.index(column) for column in columns]
+    return [tuple(row[i] for i in kept_at) for row in rows]
+
+
+async def summary_rows(
+    session: AsyncSession, jobs: list[Job], *, now: datetime, pursuits: bool = True,
+    places: frozenset[str] = frozenset(),
+) -> list[SearchRow]:
+    """Each posting as a search row, in the order given: what every read that
+    answers postings in the summary shape shows of one. `places` puts a
+    location the search asked for first in a row's place; without `pursuits`
+    the person's saves and stages are not read."""
     ids = [job.id for job in jobs]
     saved: set[int] = set()
     stages: dict[int, str] = {}
-    if ids:
+    if ids and pursuits:
         saved = set((await session.scalars(select(Favorite.job_id).where(Favorite.job_id.in_(ids)))).all())
         stages = {
             job_id: stage
@@ -363,16 +437,16 @@ async def _rows(session: AsyncSession, jobs: list[Job], *, now: datetime) -> lis
                 await session.execute(select(Pursuit.job_id, Pursuit.stage).where(Pursuit.job_id.in_(ids)))
             ).all()
         }
-    return [_row(job, saved=job.id in saved, stage=stages.get(job.id), now=now) for job in jobs]
+    return [_row(job, saved=job.id in saved, stage=stages.get(job.id), now=now, wanted=places) for job in jobs]
 
 
-def _row(job: Job, *, saved: bool, stage: str | None, now: datetime) -> SearchRow:
+def _row(job: Job, *, saved: bool, stage: str | None, now: datetime, wanted: frozenset[str] = frozenset()) -> SearchRow:
     listed_days = (
         listing_age(job.first_posted_at, job.first_seen, status=job.status, closed_at=job.closed_at, now=now)[1]
         if job.first_seen
         else None
     )
-    places = job.locations or []
+    places = _matched_first(job.locations or [], wanted)
     return (
         job.id,
         job.title,
@@ -386,6 +460,15 @@ def _row(job: Job, *, saved: bool, stage: str | None, now: datetime) -> SearchRo
         estimated_pay(job),
         stage or ("saved" if saved else None),
     )
+
+
+def _matched_first(places: list[str], wanted: frozenset[str]) -> list[str]:
+    """`places` with those that fall in a `wanted` location slug first, so a
+    row found by a posting's second place names that place, not its first."""
+    if not wanted:
+        return places
+    matched = [place for place in places if wanted.intersection(location_slugs_for([place]))]
+    return [*matched, *(place for place in places if place not in matched)]
 
 
 def stated_pay(job: Job) -> str | None:
@@ -429,7 +512,7 @@ def _size(value: object) -> int:
 _SHORTEST_CELL = 24
 
 
-def _within_budget(rows: list[SearchRow], budget: int) -> tuple[list[SearchRow], bool]:
+def rows_within_budget(rows: list[PageRow], budget: int) -> tuple[list[PageRow], bool]:
     """The leading rows whose JSON fits `budget` bytes, and whether the first
     one was cut to fit. A page always holds its first row, so paging never
     stops before it starts: one longer than the whole budget has its longest
@@ -448,7 +531,7 @@ def _within_budget(rows: list[SearchRow], budget: int) -> tuple[list[SearchRow],
     return kept, cut
 
 
-def _fit(row: SearchRow, budget: int) -> tuple[SearchRow, bool]:
+def _fit(row: PageRow, budget: int) -> tuple[PageRow, bool]:
     cells: list[Any] = list(row)
     cut = False
     while (excess := _size(cells) + 1 - budget) > 0:

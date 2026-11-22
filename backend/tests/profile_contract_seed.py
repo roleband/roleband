@@ -18,7 +18,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.factories import make_job
-from tracker.db.models import Favorite, Job, Pursuit, PursuitEvent
+from tracker.db.models import Favorite, Job, Pursuit, PursuitEvent, PursuitStep
 
 NOW = datetime(2026, 7, 20, 15, 0, tzinfo=UTC)
 
@@ -58,6 +58,9 @@ async def seed_profile(session: AsyncSession) -> SeededProfile:
     session.add_all(pursuits.values())
     await session.flush()
     p = {key: row.id for key, row in pursuits.items()}
+    # The applied pursuit's next step, which its soonest-step columns name.
+    session.add(PursuitStep(pursuit_id=p["applied"], text="Prepare the product sense interview",
+                            due=NOW + timedelta(days=3), created_at=NOW - timedelta(days=1)))
 
     def event(pursuit: str, from_stage: str | None, to_stage: str, days_ago: int) -> PursuitEvent:
         return PursuitEvent(pursuit_id=p[pursuit], actor="user", event_type="created" if from_stage is None else "updated",

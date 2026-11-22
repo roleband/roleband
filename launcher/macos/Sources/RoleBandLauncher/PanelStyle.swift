@@ -29,6 +29,9 @@ enum PanelType {
     static let fact = Font.system(size: 11)
     static let link = Font.system(size: 11, weight: .medium)
     static let label = Font.system(size: 10, weight: .semibold)
+    /// The update window's title and its sentence under it.
+    static let heading = Font.system(size: 15, weight: .semibold)
+    static let body = Font.system(size: 13)
 }
 
 /// The panel's tokens beyond the launch windows' palette. Light gold and cyan are a step deeper
@@ -117,24 +120,35 @@ struct PanelRow<Trailing: View, Caption: View>: View {
     var caption: String? = nil
     var symbolTint: Color? = nil
     var captionTint: Color? = nil
+    /// Drawn in place of `symbol`, for a mark SF Symbols does not have.
+    var mark: AnyShape? = nil
     @ViewBuilder var trailing: Trailing
     @ViewBuilder var captionView: Caption
 
     var body: some View {
         PaletteReader { p in
             HStack(spacing: PanelMetrics.rowIconGap) {
-                Image(systemName: symbol).font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(symbolTint ?? p.secondary).frame(width: PanelMetrics.rowIcon)
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(title).font(PanelType.row).foregroundStyle(p.ink)
-                    if let caption {
-                        Text(caption).font(PanelType.fact).foregroundStyle(captionTint ?? p.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
+                Group {
+                    if let mark {
+                        mark.frame(width: 14, height: 14)
+                    } else {
+                        Image(systemName: symbol).font(.system(size: 14, weight: .medium))
                     }
+                }
+                .foregroundStyle(symbolTint ?? p.secondary).frame(width: PanelMetrics.rowIcon)
+                .accessibilityHidden(true)
+                // The caption view may be a link: it stays its own element, outside the combined text.
+                VStack(alignment: .leading, spacing: 1) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(title).font(PanelType.row).foregroundStyle(p.ink)
+                        if let caption {
+                            Text(caption).font(PanelType.fact).foregroundStyle(captionTint ?? p.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .accessibilityElement(children: .combine)
                     captionView
                 }
-                .accessibilityElement(children: .combine)
                 Spacer(minLength: 8)
                 trailing
             }
@@ -165,16 +179,18 @@ struct LinkRow: View {
     let symbol: String
     let title: String
     let help: String
+    var caption: String? = nil
+    var mark: AnyShape? = nil
     let action: () -> Void
     @ViewState private var hovering = false
 
     var body: some View {
         PaletteReader { p in
             Button(action: action) {
-                PanelRow(symbol: symbol, title: title, caption: nil) {
+                PanelRow(symbol: symbol, title: title, caption: caption, mark: mark, trailing: {
                     Image(systemName: "arrow.up.right").font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(hovering ? p.ink : p.secondary)
-                }
+                        .foregroundStyle(hovering ? p.ink : p.secondary).accessibilityHidden(true)
+                }, captionView: { EmptyView() })
                 .background(hovering ? p.hover : .clear)
             }
             .buttonStyle(.plain).onHover { hovering = $0 }.help(help)
@@ -322,6 +338,16 @@ struct ProgressLine: View {
             }
         }
         .frame(height: 3)
+    }
+}
+
+extension View {
+    /// Speaks `text` to VoiceOver when it appears or changes. On macOS the `updatesFrequently`
+    /// trait announces nothing, so an error that shows after a click would otherwise go unheard.
+    func announces(_ text: String?) -> some View {
+        onChange(of: text, initial: true) { _, spoken in
+            if let spoken, !spoken.isEmpty { AccessibilityNotification.Announcement(spoken).post() }
+        }
     }
 }
 

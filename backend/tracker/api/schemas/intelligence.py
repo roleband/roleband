@@ -22,7 +22,7 @@ connections, the local server's status and control, and both connection tests.
   provider origins (the enums in `intelligence.provider`, held by the contract
   test), the embedding tiers (`semantic.provision.TIERS`), the provisioning
   status, `chosen_by`, `job_phase`, fit band keys, the stop outcomes a switch
-  can end with, and agent tool access. Route reasons, failure classes and
+  can end with, and the agent hosts `roleband connect` sets up. Route reasons, failure classes and
   attempt outcomes stay `str`: `policy.RouteReason` is documented as a vocabulary
   that gains values.
 - Counts, byte sizes and durations are integers the handlers compute. The fit
@@ -36,6 +36,8 @@ from typing import Any, Literal
 
 from pydantic import ConfigDict, Field, RootModel
 
+from tracker.agents.config import CategoryChoice, GroupChoice
+from tracker.agents.operations.descriptor import ActionGroup, DataClass
 from tracker.api.schemas.base import Built
 from tracker.api.schemas.jobs import JobRow
 from tracker.api.schemas.local_models import LocalModelMetrics, LocalModelProvider
@@ -66,7 +68,8 @@ MatchingTierName = Literal["fp32", "int8"]
 FitBandKey = Literal["strong", "good", "some", "weak"]
 #: What a stop can have ended: the switch it signalled, or one that had already exited.
 SwitchStopOutcome = Literal["stopped", "not_running"]
-AgentToolAccess = Literal["status", "read", "write"]
+#: The hosts `roleband connect` sets up.
+AgentHost = Literal["claude-code", "codex"]
 
 
 # --------------------------------------------------------------------------- #
@@ -319,39 +322,40 @@ class IntelligenceFitBandResponse(Built):
 # --------------------------------------------------------------------------- #
 
 
-class AgentTool(Built):
-    name: str = Field(json_schema_extra=text("code"))
-    access: AgentToolAccess
+class AgentConnectCommand(Built):
+    """The command that sets up one agent host to run `roleband`."""
+
+    host: AgentHost
+    command: str = Field(json_schema_extra=text("code"))
 
 
-class McpServerCommand(Built):
-    command: str
-    args: list[str]
-    cwd: str
+class AgentAppState(Built):
+    """One assistant app as Settings shows it: a host `roleband connect` sets
+    up, or `other` for every other caller.
 
+    `connection` is what the host's own files say (`agent_hosts.connection`):
+    null when it was never connected, and always null for `other`, which has
+    no files to read. `last_call_at` is the app's most recent recorded call."""
 
-class ClaudeMcpServers(Built):
-    roleband: McpServerCommand
-
-
-class ClaudeDesktopConfig(Built):
-    """The `claude_desktop_config.json` fragment, served under its own key names."""
-
-    mcp_servers: ClaudeMcpServers = Field(alias="mcpServers")
+    app: Literal["claude-code", "codex", "other"]
+    connection: Literal["connected", "outdated", "rule_missing", "read_only"] | None
+    last_call_at: datetime | None
 
 
 class AgentAccessResponse(Built):
-    """Both gates as saved, and what a client needs to connect over STDIO."""
+    """Both gates as saved, the choice for every data category and action
+    group, the command that connects each agent host, and each app's state.
+
+    `categories` and `groups` name every category and group, a missing choice
+    filled in as open. A group reads as off while the connection is on and
+    `allow_writes` is off, since no change is allowed then whatever it says."""
 
     enabled: bool
     allow_writes: bool
-    transport: Literal["stdio"]
-    command: str
-    args: list[str]
-    cwd: str
-    tools: list[AgentTool]
-    codex_command: str
-    claude_json: ClaudeDesktopConfig
+    categories: dict[DataClass, CategoryChoice]
+    groups: dict[ActionGroup, GroupChoice]
+    connect: list[AgentConnectCommand]
+    apps: list[AgentAppState]
 
 
 # --------------------------------------------------------------------------- #

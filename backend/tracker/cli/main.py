@@ -1,9 +1,9 @@
 """Parse, call one operation, print one envelope, exit with its status.
 
 Every operation of the bundled index is a command (`tracker/cli/commands.py`);
-`status`, `capabilities`, `describe` and `connect` are written here. Global
-options may come before the command or after it; the same option given
-twice with different values is an error. `ROLEBAND_AGENT=1` selects JSON and
+`status`, `capabilities`, `describe`, `connect` and `tools export` are
+written here. Global options may come before the command or after it; the
+same option given twice with different values is an error. `ROLEBAND_AGENT=1` selects JSON and
 non-interactive behaviour unless a flag says otherwise. Every failure, the
 parser's included, is an envelope in the selected format with the exit status
 of its code.
@@ -23,8 +23,9 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any, NoReturn, TextIO, cast
 
+from tracker.agents.operations.index import VIEWS, capabilities_summary, describe_view, resource_of
 from tracker.agents.operations.outcomes import CONTRACT_VERSION, EXIT_OK, outcome
-from tracker.cli import commands, connect
+from tracker.cli import commands, connect, output, tools
 from tracker.cli.errors import (
     PARSE_OPERATION,
     ClientError,
@@ -49,8 +50,9 @@ _VALUED_GLOBALS = frozenset({"--format", "--context", "--timeout"})
 
 EPILOG = """\
 Contexts: --context NAME selects an engine from the context file
-(ROLEBAND_CLI_CONFIG, else ~/.config/roleband/cli.json). There is no default
-engine. Exit status: 0 ok, 1 internal, 2 invalid input, 3 engine unavailable,
+(ROLEBAND_CLI_CONFIG, else ~/.config/roleband/cli.json), else its current one.
+The Mac app keeps its own engine there as `app`. There is no default engine.
+Exit status: 0 ok, 1 internal, 2 invalid input, 3 engine unavailable,
 4 refused by settings, 5 not found, 6 conflict, 7 input required,
 8 deadline, 9 partial, 10 incompatible, 130 interrupted.
 """
@@ -127,16 +129,21 @@ def build_parser(bundle: dict[str, Any] | None = None) -> Parser:
     capabilities = command("capabilities", "List the operations the engine offers.")
     capabilities.add_argument("--offline", action="store_true", help="read the bundled index; ask no engine")
     capabilities.add_argument("--tier", choices=TIERS, help="only the operations in this tool tier")
+    capabilities.add_argument("--view", choices=VIEWS, default="summary",
+                              help="summary (default: ids and summaries) or full (each operation's metadata)")
     describe = command("describe", "Describe one operation's schemas and effects.")
     describe.add_argument("operation", metavar="OPERATION", type=_operation_id,
                           help="a dotted operation id, such as status")
     describe.add_argument("--offline", action="store_true", help="read the bundled index; ask no engine")
+    describe.add_argument("--view", choices=VIEWS, default="summary",
+                          help="summary (default: how to call it) or full (adds the output schema)")
     connect.register(command)
     try:
         generated = commands.build(bundle if bundle is not None else _bundle_document())
     except (KeyError, TypeError, ValueError):
         raise ClientError("internal_error", "The client's bundled operation index cannot be laid out as commands.") from None
     commands.register(commands_, generated, parser_class=Parser, add_globals=_add_globals)
+    tools.register(commands_, parser_class=Parser, add_globals=_add_globals)
     return parser
 
 
@@ -199,6 +206,8 @@ def _attempted(argv: Sequence[str]) -> str:
         elif not token.startswith("-"):
             words.append(token)
     known = ("status", "capabilities", "describe", "connect")
+    if words[:2] == ["tools", "export"]:
+        return tools.OPERATION
     if words and words[0] in known:
         return words[0]
     try:
@@ -237,7 +246,9 @@ def _bundle_document() -> dict[str, Any]:
     operations = document.get("operations")
     if not isinstance(operations, list) or not all(
         isinstance(entry, dict) and isinstance(entry.get("operation"), str) for entry in operations
-    ) or not isinstance(document.get("routes", {}), dict):
+    ) or not isinstance(document.get("routes", {}), dict) or not isinstance(document.get("resources"), dict) or not all(
+        resource_of(entry["operation"]) in document["resources"] for entry in operations
+    ):
         raise ClientError("internal_error", "The client's bundled operation index is missing or damaged.")
     _BUNDLE_CACHE.append(document)
     return document
@@ -251,29 +262,34 @@ def _bundle() -> dict[str, Any]:
 def _offline_capabilities(args: argparse.Namespace) -> dict[str, Any]:
     keys = ("operation", "summary", "access", "availability", "engine_effects", "client_effects",
             "data_classes", "tool_tiers", "idempotency")
-    return {
+    entries = [entry for entry in _bundle().values() if args.tier is None or args.tier in entry["tool_tiers"]]
+    versions = {
         "contract_version": CONTRACT_VERSION,
         "supported_contract_versions": [CONTRACT_VERSION],
         "engine_version": None,
         "metadata_source": "bundled",
-        "operations": [
-            {key: entry[key] for key in keys}
-            for entry in _bundle().values()
-            if args.tier is None or args.tier in entry["tool_tiers"]
-        ],
     }
+    if args.view == "full":
+        return {**versions, "view": "full", "operations": [{key: entry[key] for key in keys} for entry in entries]}
+    summaries = _bundle_document()["resources"]
+    return {**versions, **capabilities_summary(entries, resources=summaries, availability_known=False, tier=args.tier)}
 
 
 def _offline_describe(args: argparse.Namespace) -> dict[str, Any]:
-    entry = _bundle().get(args.operation)
+    operations = _bundle()
+    entry = operations.get(args.operation)
     if entry is None:
+        # As the engine answers: a partial id names the operations under it.
+        under = sorted(name for name in operations if name.startswith(args.operation))
         raise ClientError(
             "unknown_operation",
-            "This client knows no operation by that name.",
-            details={"operation": args.operation},
-            next_actions=[{"operation": "capabilities", "arguments": {}}],
+            f"This client knows no operation by that name; {len(under)} start with it." if under
+            else "This client knows no operation by that name.",
+            details={"operation": args.operation, "candidates": under},
+            next_actions=[*({"operation": "describe", "arguments": {"operation": name}} for name in under),
+                          {"operation": "capabilities", "arguments": {}}],
         )
-    return entry
+    return describe_view(entry, args.view)
 
 
 def _live(args: argparse.Namespace, request_id: str) -> dict[str, Any]:
@@ -282,16 +298,29 @@ def _live(args: argparse.Namespace, request_id: str) -> dict[str, Any]:
     generated: commands.Command | None = getattr(args, "generated", None)
     operation = generated.operation if generated is not None else args.command
     method, body, key = "GET", None, None
+    target: Path | None = None
+    overwrite = bool(getattr(args, "overwrite", False))
+    if overwrite and getattr(args, "output", None) is None:
+        raise ClientError("invalid_arguments", "--overwrite only goes with --output.")
     if generated is not None:
-        path, body = commands.request(generated, commands.payload(generated, args))
+        if args.input_source is None:
+            commands.refuse_unread_input(sys.stdin)
+        data = commands.payload(generated, args)
+        if getattr(args, "output", None) is not None:
+            target = output.destination(args.output, operation=generated.operation, data=data, overwrite=overwrite)
+        path, body = commands.request(generated, data)
         method = generated.method
         key = args.idempotency_key if generated.keyed else None
     elif args.command == "status":
         path = transport.path_for("status")
     elif args.command == "capabilities":
-        path = transport.path_for("capabilities", query={"tier": args.tier} if args.tier else None)
+        query = {"tier": args.tier} if args.tier else {}
+        if args.view != "summary":
+            query["view"] = args.view
+        path = transport.path_for("capabilities", query=query or None)
     else:
-        path = transport.path_for("operations", args.operation)
+        path = transport.path_for("operations", args.operation,
+                                  query={"view": args.view} if args.view != "summary" else None)
     context = contexts.resolve(args.context)
     deadline = time.monotonic() + (args.timeout or DEFAULT_TIMEOUT)
     user_agent = f"roleband/{_version()}"
@@ -316,6 +345,20 @@ def _live(args: argparse.Namespace, request_id: str) -> dict[str, Any]:
             details={"context": context.name, "expected": context.workspace_id,
                      "answered": answered},
         )
+    if target is not None and generated is not None and envelope["ok"] is True:
+        command = generated
+
+        def follow(arguments: dict[str, Any]) -> dict[str, Any]:
+            following, sent = commands.request(command, arguments)
+            part = transport.send(context, command.method, following, operation=operation, deadline=deadline,
+                                  request_id=request_id, user_agent=user_agent, body=sent)
+            if part.get("workspace_id") != answered:
+                raise ClientError("workspace_mismatch", "A later part came from another workspace than the first.",
+                                  details={"context": context.name, "expected": answered,
+                                           "answered": part.get("workspace_id")})
+            return part
+
+        envelope = output.write(envelope, target, overwrite=overwrite, follow=follow)
     meta = envelope.get("meta")
     if isinstance(meta, dict):
         meta["context"] = {"name": context.name, "url": context.url, "discovery": "configured"}
@@ -333,6 +376,7 @@ def run(argv: Sequence[str], *, stdout: TextIO, stderr: TextIO, environ: dict[st
     request_id = new_request_id()
     fmt = _format_hint(argv, environ, stdout)
     operation = _attempted(argv)
+    refresh_skills = False
     try:
         parser = build_parser()
         try:
@@ -350,13 +394,21 @@ def run(argv: Sequence[str], *, stdout: TextIO, stderr: TextIO, environ: dict[st
             words = " ".join(args.group)
             raise ClientError("invalid_arguments", f"Name a command after {words!r}; see roleband {words} --help.",
                               details={"usage": _usage(parser)})
-        operation = generated.operation if generated is not None else args.command
+        operation = generated.operation if generated is not None else getattr(args, "client_operation", args.command)
         if args.format is None:
             args.format = _default_format(environ, stdout)
         fmt = args.format
         if fmt == "ndjson":
             raise ClientError("invalid_arguments", f"{operation} answers one object, not a stream; use --format json.")
-        if getattr(args, "offline", False):
+        # The skill's first call, so an installed skill older than this
+        # client's is brought up to date before a host's next session reads it.
+        refresh_skills = operation == "capabilities"
+        if operation == tools.OPERATION:
+            asking = argparse.Namespace(
+                **{**vars(args), "command": "capabilities", "generated": None, "view": "full"})
+            envelope = tools.export(args, bundle=_bundle(), engine=lambda: _live(asking, request_id),
+                                    request_id=request_id)
+        elif getattr(args, "offline", False):
             envelope = success_envelope(operation, _OFFLINE[operation](args), request_id=request_id)
         else:
             envelope = _live(args, request_id)
@@ -367,6 +419,8 @@ def run(argv: Sequence[str], *, stdout: TextIO, stderr: TextIO, environ: dict[st
             operation, ClientError("interrupted", "Interrupted. Work the engine accepted continues."),
             request_id=request_id,
         )
+    if refresh_skills and isinstance(envelope.get("warnings"), list):
+        envelope["warnings"].extend(connect.refresh_installed_skills())
     status = EXIT_OK if envelope["ok"] else outcome(envelope["error"]["code"]).exit_status
     if fmt == "human":
         write_human(envelope, stdout, stderr)

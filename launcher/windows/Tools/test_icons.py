@@ -24,7 +24,8 @@ TRAY_SIZES = [16, 20, 24, 32]
 APP_ICO_SIZES = [16, 20, 24, 32, 40, 48, 64, 256]
 THEMES = ("light", "dark")
 BADGES = {"scanning": {"light": "08607D", "dark": "6FC9E6"}, "paused": {"light": "5A5A5A", "dark": "D0D0D0"},
-          "attention": {"light": "9D5D00", "dark": "EFA85E"}, "stopped": {"light": "C42B1C", "dark": "FF99A4"}}
+          "attention": {"light": "9D5D00", "dark": "EFA85E"}, "stopped": {"light": "C42B1C", "dark": "FF99A4"},
+          "update": {"light": "0F7B0F", "dark": "6CCB5F"}}
 
 
 def png_size(data):
@@ -172,6 +173,26 @@ class TrayIconTests(unittest.TestCase):
                                          if math.hypot(x + 0.5 - bc, y + 0.5 - bc) <= br - 0.75
                                          and pixels[(y * px + x) * 4 + 3] == 255)
                         self.assertEqual(inside.most_common(1)[0][0], colours[theme])
+
+    def test_each_state_draws_its_own_glyph(self):
+        """The glyph, not the colour, carries the state: no two badges share the pixels their glyph covers."""
+        for theme in THEMES:
+            for px in TRAY_SIZES:
+                br, _, bc = badge_geometry(px)
+                glyphs = {}
+                for state, colours in BADGES.items():
+                    pixels = tray_frame(theme, state, px)
+                    fill = bytes.fromhex(colours[theme])
+                    glyphs[state] = frozenset(
+                        (x, y) for y in range(px) for x in range(px)
+                        if math.hypot(x + 0.5 - bc, y + 0.5 - bc) <= br - 0.75
+                        and max(abs(a - b) for a, b in zip(pixels[(y * px + x) * 4:(y * px + x) * 4 + 3], fill)) > 96)
+                for state, covered in glyphs.items():
+                    with self.subTest(theme=theme, px=px, state=state):
+                        self.assertTrue(covered, "the badge has no glyph")
+                        for other, theirs in glyphs.items():
+                            if other != state:
+                                self.assertNotEqual(covered, theirs, f"{state} draws the same glyph as {other}")
 
 
 def reference_filter(kind, line, prev, bpp=4):

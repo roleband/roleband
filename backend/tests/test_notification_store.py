@@ -13,6 +13,7 @@ from datetime import UTC, datetime, time, timedelta
 import pytest
 from sqlalchemy import func, select
 
+from tests.factories import add_pursuit
 from tracker.connectors.recipes.outcome import classify_source_outcome
 from tracker.db.models import (
     Favorite,
@@ -396,8 +397,8 @@ async def test_every_row_of_a_pass_names_the_company_as_the_user_follows_it(db_s
     saved = await _job(db_session, company="acme-labs", title="Staff PM")
     db_session.add(Favorite(job_id=saved.id))
     pursued = await _job(db_session, company="acme-labs", title="Group PM")
-    db_session.add(Pursuit(job_id=pursued.id, stage="applied", priority=1, next_action="Email Sam",
-                           next_action_due=datetime.now(UTC) - timedelta(days=2)))
+    await add_pursuit(db_session, pursued.id, priority=1, next_action="Email Sam",
+                      next_action_due=datetime.now(UTC) - timedelta(days=2))
     fresh = await _job(db_session, company="acme-labs", title="Director of Product")
     await db_session.flush()
     await _event(db_session, run, saved, "closed")
@@ -440,16 +441,10 @@ async def test_a_stopped_scan_rings_scan_stopped_never_couldnt_scan(db_session):
 
 async def test_overdue_pursuit_notifies(db_session):
     job = await _job(db_session, title="Staff PM")
-    db_session.add(
-        Pursuit(
-            job_id=job.id,
-            stage="interviewing",
-            priority=1,
-            next_action="Email the recruiter",
-            next_action_due=datetime.now(UTC) - timedelta(days=3),
-        )
+    await add_pursuit(
+        db_session, job.id, stage="interviewing", priority=1,
+        next_action="Email the recruiter", next_action_due=datetime.now(UTC) - timedelta(days=3),
     )
-    await db_session.flush()
 
     assert await generate_pursuit_due_notifications(db_session) == 1
     row = (
@@ -470,8 +465,8 @@ async def test_a_follow_up_due_exactly_now_is_owed_in_every_live_stage(db_sessio
     """The two product decisions inside `overdue_pursuit_clause`, pinned where
     they are made.
 
-    Neither is visible to the surfaces that COMPARE against the clause: MCP and
-    the notification pass read the same expression, so a test that checks
+    Neither is visible to the surfaces that COMPARE against the clause: the agent
+    reads and the notification pass read the same expression, so a test that checks
     they agree moves with it and can never see the boundary slip. `offer` is not
     terminal — an outstanding offer is the point at which a missed follow-up
     costs the most — and the boundary is `<=`, so a follow-up due exactly on the
@@ -479,11 +474,7 @@ async def test_a_follow_up_due_exactly_now_is_owed_in_every_live_stage(db_sessio
     """
     now = datetime.now(UTC)
     job = await _job(db_session, title=f"Staff PM {stage}")
-    db_session.add(
-        Pursuit(job_id=job.id, stage=stage, priority=1,
-                next_action="Email the recruiter", next_action_due=now)
-    )
-    await db_session.flush()
+    await add_pursuit(db_session, job.id, stage=stage, priority=1, next_action="Email the recruiter", next_action_due=now)
 
     counted = await db_session.scalar(
         select(func.count(Pursuit.id)).where(overdue_pursuit_clause(now))
@@ -504,18 +495,25 @@ async def test_a_pursuit_with_no_follow_up_date_owes_nothing(db_session):
     ) == 0
 
 
+async def test_a_day_with_no_words_is_not_an_owed_follow_up(db_session):
+    """A day with no words is never a step, so a pursuit holding only that owes
+    nothing; the same day with words is owed."""
+    now = datetime.now(UTC)
+    bare = await _job(db_session, title="Staff PM bare")
+    worded = await _job(db_session, title="Staff PM worded")
+    db_session.add(Pursuit(job_id=bare.id, stage="applied", priority=1, next_action_due=now - timedelta(days=1)))
+    db_session.add(Pursuit(job_id=worded.id, stage="applied", priority=1, next_action="Email",
+                           next_action_due=now - timedelta(days=1)))
+    await db_session.flush()
+
+    owed = (await db_session.scalars(select(Pursuit.job_id).where(overdue_pursuit_clause(now)))).all()
+
+    assert list(owed) == [worded.id]
+
+
 async def test_pursuit_not_yet_due_is_silent(db_session):
     job = await _job(db_session, title="Staff PM")
-    db_session.add(
-        Pursuit(
-            job_id=job.id,
-            stage="applied",
-            priority=3,
-            next_action="Follow up",
-            next_action_due=datetime.now(UTC) + timedelta(days=2),
-        )
-    )
-    await db_session.flush()
+    await add_pursuit(db_session, job.id, next_action="Follow up", next_action_due=datetime.now(UTC) + timedelta(days=2))
 
     assert await generate_pursuit_due_notifications(db_session) == 0
 
@@ -523,18 +521,14 @@ async def test_pursuit_not_yet_due_is_silent(db_session):
 async def test_actioned_pursuit_retracts_its_alert(db_session):
     """An alert that outlives its cause is worse than no alert."""
     job = await _job(db_session, title="Staff PM")
-    pursuit = Pursuit(
-        job_id=job.id,
-        stage="interviewing",
-        priority=1,
-        next_action="Email the recruiter",
-        next_action_due=datetime.now(UTC) - timedelta(days=3),
+    pursuit, step = await add_pursuit(
+        db_session, job.id, stage="interviewing", priority=1,
+        next_action="Email the recruiter", next_action_due=datetime.now(UTC) - timedelta(days=3),
     )
-    db_session.add(pursuit)
-    await db_session.flush()
     await generate_pursuit_due_notifications(db_session)
 
-    pursuit.next_action_due = datetime.now(UTC) + timedelta(days=7)
+    assert step is not None
+    step.due = pursuit.next_action_due = datetime.now(UTC) + timedelta(days=7)
     await db_session.flush()
     await generate_pursuit_due_notifications(db_session)
 
@@ -543,15 +537,10 @@ async def test_actioned_pursuit_retracts_its_alert(db_session):
 
 async def test_terminal_stage_stops_nagging(db_session):
     job = await _job(db_session, title="Staff PM")
-    pursuit = Pursuit(
-        job_id=job.id,
-        stage="interviewing",
-        priority=1,
-        next_action="Email the recruiter",
-        next_action_due=datetime.now(UTC) - timedelta(days=3),
+    pursuit, _ = await add_pursuit(
+        db_session, job.id, stage="interviewing", priority=1,
+        next_action="Email the recruiter", next_action_due=datetime.now(UTC) - timedelta(days=3),
     )
-    db_session.add(pursuit)
-    await db_session.flush()
     await generate_pursuit_due_notifications(db_session)
 
     pursuit.stage = "rejected"
@@ -565,32 +554,19 @@ async def test_an_outstanding_offer_still_needs_following_up(db_session):
     """`offer` is deliberately not terminal: it is where a missed follow-up
     costs the most."""
     job = await _job(db_session, title="Staff PM")
-    db_session.add(
-        Pursuit(
-            job_id=job.id,
-            stage="offer",
-            priority=1,
-            next_action="Respond to the offer",
-            next_action_due=datetime.now(UTC) - timedelta(days=1),
-        )
+    await add_pursuit(
+        db_session, job.id, stage="offer", priority=1,
+        next_action="Respond to the offer", next_action_due=datetime.now(UTC) - timedelta(days=1),
     )
-    await db_session.flush()
 
     assert await generate_pursuit_due_notifications(db_session) == 1
 
 
 async def test_repeated_passes_do_not_multiply_the_alert(db_session):
     job = await _job(db_session, title="Staff PM")
-    db_session.add(
-        Pursuit(
-            job_id=job.id,
-            stage="applied",
-            priority=1,
-            next_action="Follow up",
-            next_action_due=datetime.now(UTC) - timedelta(days=1),
-        )
+    await add_pursuit(
+        db_session, job.id, priority=1, next_action="Follow up", next_action_due=datetime.now(UTC) - timedelta(days=1),
     )
-    await db_session.flush()
 
     for _ in range(3):
         await generate_pursuit_due_notifications(db_session)

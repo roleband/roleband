@@ -83,6 +83,11 @@ WINDOWS_SKIPS: tuple[tuple[re.Pattern[str], str], ...] = (
         "Linux lane runs it (tests/test_cli.py)",
     ),
     (
+        re.compile(r"Windows renames without replacing, with no hard link"),
+        "`--output` on a file system without hard links; Windows places a new file with a rename that refuses "
+        "an existing one and never links (tests/test_cli_commands.py)",
+    ),
+    (
         re.compile(r"macOS bundle state redirects through HOME"),
         "the Mac app bundle's state; the Windows package keeps its own (tests/test_windows_state.py)",
     ),
@@ -97,8 +102,13 @@ WINDOWS_SKIPS: tuple[tuple[re.Pattern[str], str], ...] = (
         "(tests/test_command_shim.py)",
     ),
     (
-        re.compile(r"the CLI mode runs POSIX shell commands"),
-        "the agent bench's CLI mode gives a host a POSIX shell script as `roleband` and reads POSIX command "
+        re.compile(r"the app context is written by the Mac app"),
+        "the `app` context the Mac app writes for the `roleband` command, with POSIX file modes and "
+        "links; the Linux lane runs these tests (tests/test_cli_app_context.py)",
+    ),
+    (
+        re.compile(r"the bench runs POSIX shell commands"),
+        "the agent bench gives a host a POSIX shell script as `roleband` and reads POSIX command "
         "lines, and refuses Windows; the Linux lane runs these tests (tests/test_bench_agent_hosts.py)",
     ),
     (
@@ -116,6 +126,10 @@ WINDOWS_SKIPS: tuple[tuple[re.Pattern[str], str], ...] = (
     (
         re.compile(r"the POSIX database start clears a crash's lock files"),
         "Windows starts its database natively and handles its own stale lock file (tracker/platform/windows_db.py)",
+    ),
+    (
+        re.compile(r"the holder record is POSIX's; Windows' runner stops its own clusters"),
+        "Windows starts its database natively and keeps no holder record; its runner stops the clusters it starts",
     ),
     (
         re.compile(r"no zoneinfo file for [A-Za-z_/+-]+ on this machine"),

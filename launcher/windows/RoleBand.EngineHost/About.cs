@@ -31,8 +31,11 @@ public sealed record UpdateResult(string Version, string? Undone = null);
 /// the last check the feed answered, a verified offer and a rate limit. Read from <c>update status</c>,
 /// which asks nothing of the network, or from a check's own answer.</summary>
 /// <param name="Last">The last package update, which says how it ended or that it is being undone.</param>
+/// <param name="Page">The offer's release page, where its notes are.</param>
+/// <param name="Important">The offer carries an important mark its release key signed: its window comes back sooner
+/// and says the update is recommended.</param>
 public sealed record UpdateFacts(bool Available, bool Automatic, DateTimeOffset? CheckedAt, string? Offer, DateTimeOffset? RateLimitedUntil,
-                                 LastUpdate? Last = null)
+                                 LastUpdate? Last = null, string? Page = null, bool Important = false)
 {
     /// <summary>A build that does not update itself, or an app without an engine to ask.</summary>
     public static UpdateFacts Unavailable { get; } = new(false, false, null, null, null);
@@ -50,7 +53,11 @@ public sealed record UpdateFacts(bool Available, bool Automatic, DateTimeOffset?
         } : null;
         return new UpdateFacts(true,
             reply.TryGetProperty("automatic", out var automatic) && automatic.ValueKind == JsonValueKind.True,
-            Moment(reply, "checked_at"), offer, Moment(reply, "rate_limited_until") ?? Moment(reply, "until"), ReadLast(reply));
+            Moment(reply, "checked_at"), offer, Moment(reply, "rate_limited_until") ?? Moment(reply, "until"), ReadLast(reply),
+            offer is not null && reply.TryGetProperty("release_page", out var page) && page.ValueKind == JsonValueKind.String
+                && Uri.TryCreate(page.GetString(), UriKind.Absolute, out var address) && address.Scheme == Uri.UriSchemeHttps
+                ? address.AbsoluteUri : null,
+            offer is not null && reply.TryGetProperty("important", out var important) && important.ValueKind == JsonValueKind.True);
     }
 
     /// <summary>The last update the answer names. A build that does not update itself still names one it left unfinished.</summary>
@@ -166,7 +173,11 @@ public sealed record UpdateRow(UpdateRowKind Kind, string Title, string? Caption
 /// <param name="Percent">How far the download, or Windows' install, has got.</param>
 /// <param name="Cancel">The download can be stopped from the banner.</param>
 public sealed record FlyoutUpdate(string Title, string? Caption, string? Action, string Version, bool Busy, bool Failed, bool WholeState,
-                                  int? Percent = null, bool Cancel = false);
+                                  int? Percent = null, bool Cancel = false)
+{
+    /// <summary>A verified version waits for its Update press: not a download, a failure or Windows' install.</summary>
+    public bool Offers => Action is not null && !Failed && !Busy && !WholeState && !Cancel;
+}
 
 /// <param name="On">Windows' own state; Settings shows what is registered, not a proposal.</param>
 public sealed record LoginRow(bool On, bool Enabled, string CaptionKey, bool Settings, bool Visible);

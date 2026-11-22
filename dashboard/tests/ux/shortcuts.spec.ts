@@ -21,14 +21,12 @@ test("? opens the shortcuts, which name the role list's keys; Escape closes them
   await page.keyboard.press("?");
   const sheet = page.getByRole("dialog", { name: "Keyboard shortcuts" });
   await expect(sheet).toBeVisible();
-  // j and k are listed twice: between a list's rows, and between its postings once one is open.
   for (const key of ["j", "k", "s", "c", "/", "?"]) {
     await expect(sheet.getByText(key, { exact: true }).first(), `the sheet lists ${key}`).toBeVisible();
   }
-  for (const key of ["j", "k"]) await expect(sheet.getByText(key, { exact: true })).toHaveCount(2);
+  for (const key of ["j", "k"]) await expect(sheet.getByText(key, { exact: true })).toHaveCount(1);
   await expect(sheet.getByText("Next role")).toBeVisible();
-  await expect(sheet.getByText(msg("shortcuts-keyboard-shortcuts-in-a-posting"))).toBeVisible();
-  await expect(sheet.getByText(msg("shortcuts-keyboard-shortcuts-next-in-list"))).toBeVisible();
+  await expect(sheet.getByText(/in the list/i), "no keys step between postings").toHaveCount(0);
   await expect(sheet.getByText("Add to Compare, or remove it")).toBeVisible();
 
   await page.keyboard.press("Escape");

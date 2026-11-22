@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { ApplicationCard } from "../../api";
-import { date as formatDate, daysAgo, time as formatTime } from "../../copy/format";
+import { daysAgo, time as formatTime } from "../../copy/format";
 import type { StageSlug } from "../../copy/vocabulary";
 import { companyName } from "../../format";
 import { Badge, Button, CompanyIcon, Content, Icon, MenuItem, dragSurface } from "../../ui";
@@ -10,9 +10,7 @@ import {
   applicationsCardApplied,
   applicationsCardAskOutcome,
   applicationsCardDayTime,
-  applicationsCardDueStep,
   applicationsCardGoneQuiet,
-  applicationsCardOverdue,
   applicationsCardPostingClosed,
   applicationsCardPriority,
   applicationsCardRoundPast,
@@ -20,12 +18,11 @@ import {
   applicationsMenuRemove,
 } from "../../copy/gen/applications";
 import { cardDay } from "./dayWords";
+import { dueText } from "./DueBadge";
 import { useRoleLink } from "./roleLink";
 import {
   boardStage,
-  dayOffset,
   daysInStage,
-  daysOverdue,
   dueState,
   isMoving,
   isStale,
@@ -46,14 +43,14 @@ function leadOf(card: ApplicationCard, now: Date): ReactNode[] {
   const due = stepDue(card);
   const state = due && dueState(due, now);
   const late = due && state === "overdue"
-    ? <span key="late" className="app-tile-late">{applicationsCardOverdue({ days: daysOverdue(due, now) })}</span>
+    ? <span key="late" className="app-tile-late">{dueText(due, now)}</span>
     : null;
   const stage = boardStage(card.stage);
   if (stage === "applied") {
     const days = daysInStage(card, now);
     const after = late
       ?? (due && state === "soon"
-        ? <span key="due">{applicationsCardDueStep({ offset: dayOffset(due.on, now), date: formatDate(due.on, "weekday") })}</span>
+        ? <span key="due">{dueText(due, now)}</span>
         : isStale(card, now) ? <span key="quiet">{applicationsCardGoneQuiet()}</span> : null);
     return [
       days != null && <span key="main" className="app-tile-lead-main">{applicationsCardApplied({ ago: daysAgo(days) })}</span>,

@@ -13,15 +13,19 @@ from typing import Any
 
 from sqlalchemy import Select, and_, exists, func, literal, or_, select, union
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
-from tracker.agents.pursuits import ENDED_STAGES, public_interview
+from tracker.agents.pursuits import priority_chosen, public_interview, steps_of
 from tracker.db.models import (
+    ENDED_STAGES,
+    OWES_NOTHING,
     Favorite,
     Job,
     Pursuit,
     PursuitComment,
     PursuitEvent,
     PursuitInterview,
+    PursuitStep,
 )
 
 #: An interview with no outcome stays the next one until this long after it
@@ -33,19 +37,10 @@ NEXT_INTERVIEW_GRACE = timedelta(hours=12)
 #: end by its hour.
 ALL_DAY_SPAN = timedelta(days=1)
 
-#: The most activity entries one read returns.
-ACTIVITY_LIMIT_MAX = 200
-
 #: The longest span one calendar read covers: a month grid, six whole weeks
 #: from local midnight to local midnight. When a clock goes back inside the
 #: grid, those six weeks are an hour longer than 42 days of 24 hours.
 CALENDAR_SPAN_MAX = timedelta(days=42, hours=1)
-
-#: Endings that owe nothing, so their next step is not on the calendar. An
-#: accepted offer is not one: signing and a start date still carry dates.
-#: The same set as the follow-up reminders (`pursuit_due.TERMINAL_STAGES`).
-OWES_NOTHING = ENDED_STAGES - {"accepted"}
-
 
 def _next_interview(now: datetime) -> Select[tuple[PursuitInterview]]:
     """Each pursuit's soonest round with no outcome, kept until twelve hours
@@ -83,17 +78,6 @@ def _awaiting_outcome(now: datetime) -> Select[tuple[PursuitInterview]]:
     )
 
 
-def priority_chosen(pursuit_id: Any) -> Any:
-    """True when the person, or an agent for them, has ever chosen the
-    pursuit's priority. A new pursuit is written at the column's default, so
-    the stored value alone cannot tell a chosen Medium from one never set: the
-    change log can, since it records every priority a write chose."""
-    return exists().where(
-        PursuitEvent.pursuit_id == pursuit_id,
-        PursuitEvent.detail["changed"].contains(["priority"]),
-    )
-
-
 def card_interview(interview: PursuitInterview) -> dict[str, Any]:
     """A round as a card or a pursuit read names it."""
     return {
@@ -109,14 +93,18 @@ def card_interview(interview: PursuitInterview) -> dict[str, Any]:
 async def pursuit_marks(
     session: AsyncSession, pursuit_ids: list[int], *, now: datetime
 ) -> dict[int, dict[str, Any]]:
-    """What the board reads about each pursuit beyond its row (its next round,
-    the round awaiting its outcome, whether its priority was ever chosen), for
+    """What the board reads about each pursuit beyond its row (its open next
+    steps, its next round, the round awaiting its outcome, whether its
+    priority was ever chosen), for
     a read that is not the board's."""
     marks: dict[int, dict[str, Any]] = {
-        pid: {"next_interview": None, "awaiting_outcome": None, "priority_set": False} for pid in pursuit_ids
+        pid: {"next_interview": None, "awaiting_outcome": None, "priority_set": False, "steps": []}
+        for pid in pursuit_ids
     }
     if not pursuit_ids:
         return marks
+    for pid, steps in (await steps_of(session, pursuit_ids)).items():
+        marks[pid]["steps"] = steps
     for key, query in (("next_interview", _next_interview(now)), ("awaiting_outcome", _awaiting_outcome(now))):
         for interview in (await session.scalars(query.where(PursuitInterview.pursuit_id.in_(pursuit_ids)))).all():
             marks[interview.pursuit_id][key] = card_interview(interview)
@@ -169,8 +157,8 @@ async def board(session: AsyncSession, *, now: datetime, job_id: int | None = No
         .group_by(PursuitComment.pursuit_id)
         .subquery()
     )
-    next_interview = _next_interview(now).subquery()
-    awaiting = _awaiting_outcome(now).subquery()
+    next_interview = aliased(PursuitInterview, _next_interview(now).subquery(), name="next_interview")
+    awaiting = aliased(PursuitInterview, _awaiting_outcome(now).subquery(), name="awaiting")
     interview_touched = (
         select(PursuitInterview.pursuit_id, func.max(PursuitInterview.updated_at).label("last_at"))
         .group_by(PursuitInterview.pursuit_id)
@@ -187,18 +175,8 @@ async def board(session: AsyncSession, *, now: datetime, job_id: int | None = No
             func.coalesce(comments.c.n, 0).label("comment_count"),
             comments.c.last_at.label("last_comment_at"),
             interview_touched.c.last_at.label("last_interview_at"),
-            next_interview.c.id.label("ni_id"),
-            next_interview.c.label.label("ni_label"),
-            next_interview.c.scheduled_at.label("ni_at"),
-            next_interview.c.all_day.label("ni_all_day"),
-            next_interview.c.format.label("ni_format"),
-            next_interview.c.link.label("ni_link"),
-            awaiting.c.id.label("ao_id"),
-            awaiting.c.label.label("ao_label"),
-            awaiting.c.scheduled_at.label("ao_at"),
-            awaiting.c.all_day.label("ao_all_day"),
-            awaiting.c.format.label("ao_format"),
-            awaiting.c.link.label("ao_link"),
+            next_interview,
+            awaiting,
             priority_chosen(Pursuit.id).label("priority_set"),
         )
         .select_from(on_board)
@@ -208,16 +186,18 @@ async def board(session: AsyncSession, *, now: datetime, job_id: int | None = No
         .outerjoin(last_change, last_change.c.pursuit_id == Pursuit.id)
         .outerjoin(ended_from, ended_from.c.pursuit_id == Pursuit.id)
         .outerjoin(comments, comments.c.pursuit_id == Pursuit.id)
-        .outerjoin(next_interview, next_interview.c.pursuit_id == Pursuit.id)
-        .outerjoin(awaiting, awaiting.c.pursuit_id == Pursuit.id)
+        .outerjoin(next_interview, next_interview.pursuit_id == Pursuit.id)
+        .outerjoin(awaiting, awaiting.pursuit_id == Pursuit.id)
         .outerjoin(interview_touched, interview_touched.c.pursuit_id == Pursuit.id)
         .where(or_(Favorite.id.is_not(None), Pursuit.stage != "saved"))
     )
     if job_id is not None:
         stmt = stmt.where(Job.id == job_id)
 
+    rows = (await session.execute(stmt)).all()
+    steps = await steps_of(session, [row.Pursuit.id for row in rows if row.Pursuit is not None])
     cards = []
-    for row in (await session.execute(stmt)).all():
+    for row in rows:
         job: Job = row.Job
         pursuit: Pursuit | None = row.Pursuit
         stage = pursuit.stage if pursuit is not None else "saved"
@@ -242,30 +222,9 @@ async def board(session: AsyncSession, *, now: datetime, job_id: int | None = No
             "posting_status": job.status,
             "next_action": pursuit.next_action if pursuit is not None else None,
             "next_action_due": pursuit.next_action_due if pursuit is not None else None,
-            "next_interview": (
-                {
-                    "id": row.ni_id,
-                    "label": row.ni_label,
-                    "scheduled_at": row.ni_at,
-                    "all_day": row.ni_all_day,
-                    "format": row.ni_format,
-                    "link": row.ni_link,
-                }
-                if row.ni_id is not None
-                else None
-            ),
-            "awaiting_outcome": (
-                {
-                    "id": row.ao_id,
-                    "label": row.ao_label,
-                    "scheduled_at": row.ao_at,
-                    "all_day": row.ao_all_day,
-                    "format": row.ao_format,
-                    "link": row.ao_link,
-                }
-                if row.ao_id is not None
-                else None
-            ),
+            "steps": steps[pursuit.id] if pursuit is not None else [],
+            "next_interview": card_interview(row.next_interview) if row.next_interview is not None else None,
+            "awaiting_outcome": card_interview(row.awaiting) if row.awaiting is not None else None,
             "comment_count": row.comment_count,
             "stage_since": row.stage_since or row.starred_at,
             "last_activity_at": max(touched) if touched else None,
@@ -306,14 +265,31 @@ async def application(session: AsyncSession, job_id: int, *, now: datetime) -> d
     return {"application": card, "interviews": interviews, "stages_reached": reached}
 
 
+# Ids per hydrating read: asyncpg binds at most 32,767 parameters in one
+# statement, and a whole history can hold more entries of one kind.
+_HYDRATE_CHUNK = 10_000
+
+
+async def _rows_by_id[Row: (PursuitEvent, PursuitComment)](
+    session: AsyncSession, model: type[Row], ids: list[int]
+) -> dict[int, Row]:
+    rows: dict[int, Row] = {}
+    for start in range(0, len(ids), _HYDRATE_CHUNK):
+        chunk = ids[start : start + _HYDRATE_CHUNK]
+        rows.update((row.id, row) for row in (await session.scalars(select(model).where(model.id.in_(chunk)))).all())
+    return rows
+
+
 async def activity(
-    session: AsyncSession, job_id: int, *, offset: int = 0, limit: int = 100
+    session: AsyncSession, job_id: int, *, offset: int = 0, limit: int | None = None
 ) -> list[dict] | None:
-    """Comments and events on one application, newest first.
+    """Comments and events on one application, newest first: the whole
+    history unless `limit` asks for a slice. The page shows every entry, so
+    any comment can be read, edited and deleted however long the history.
 
     `None` when the role is not on the board (no star, and no pursuit past
     Considering); an empty list when it has a star and nothing has happened
-    yet. Pages by position, not by time: rows
+    yet. A slice pages by position, not by time: rows
     written in one transaction share its `now()`, so a time cursor would skip
     the rest of a tie a page ended inside. The order breaks every tie."""
     on_board = await session.scalar(
@@ -330,7 +306,6 @@ async def activity(
     if pursuit_id is None:
         return []
 
-    limit = max(1, min(limit, ACTIVITY_LIMIT_MAX))
     events = select(
         literal("event").label("kind"),
         PursuitEvent.id,
@@ -342,25 +317,17 @@ async def activity(
         PursuitComment.created_at,
     ).where(PursuitComment.pursuit_id == pursuit_id)
     feed = union(events, notes).subquery()
-    page = (
-        await session.execute(
-            select(feed.c.kind, feed.c.id)
-            .order_by(feed.c.created_at.desc(), feed.c.kind, feed.c.id.desc())
-            .offset(max(0, offset))
-            .limit(limit)
-        )
-    ).all()
+    ordered = (
+        select(feed.c.kind, feed.c.id)
+        .order_by(feed.c.created_at.desc(), feed.c.kind, feed.c.id.desc())
+        .offset(max(0, offset))
+    )
+    if limit is not None:
+        ordered = ordered.limit(max(1, limit))
+    page = (await session.execute(ordered)).all()
 
-    event_ids = [i for kind, i in page if kind == "event"]
-    comment_ids = [i for kind, i in page if kind == "comment"]
-    event_rows = {
-        e.id: e
-        for e in (await session.scalars(select(PursuitEvent).where(PursuitEvent.id.in_(event_ids)))).all()
-    } if event_ids else {}
-    comment_rows = {
-        c.id: c
-        for c in (await session.scalars(select(PursuitComment).where(PursuitComment.id.in_(comment_ids)))).all()
-    } if comment_ids else {}
+    event_rows = await _rows_by_id(session, PursuitEvent, [i for kind, i in page if kind == "event"])
+    comment_rows = await _rows_by_id(session, PursuitComment, [i for kind, i in page if kind == "comment"])
 
     items: list[dict] = []
     for kind, i in page:
@@ -377,6 +344,7 @@ async def activity(
                 "from_stage": e.from_stage,
                 "to_stage": e.to_stage,
                 "changed": list(detail.get("changed", [])),
+                "step": _event_step(detail.get("step")),
             })
         else:
             c = comment_rows[i]
@@ -392,6 +360,13 @@ async def activity(
     return items
 
 
+def _event_step(step: Any) -> dict | None:
+    """The step an event wrote, as History reads it."""
+    if not isinstance(step, dict):
+        return None
+    return {"id": step["id"], "action": step["action"], "text": step["text"], "due": step.get("due")}
+
+
 def _on_board():
     """A pursuit the board shows: past Considering, or still starred."""
     return or_(
@@ -405,8 +380,8 @@ async def calendar(session: AsyncSession, *, start: datetime, end: datetime) -> 
     application the board shows, soonest first.
 
     An interview stays on its day whatever its outcome, so a past week reads
-    as it ran; a cancelled one is left out. A step is the application's one
-    current next step, so only its due date can fall in a span."""
+    as it ran; a cancelled one is left out. A step is on its day while it is
+    open; a ticked one leaves the calendar."""
     interviews = await session.execute(
         select(PursuitInterview, Pursuit.job_id)
         .join(Pursuit, Pursuit.id == PursuitInterview.pursuit_id)
@@ -418,10 +393,12 @@ async def calendar(session: AsyncSession, *, start: datetime, end: datetime) -> 
         )
     )
     steps = await session.execute(
-        select(Pursuit).where(
-            Pursuit.next_action.is_not(None),
-            Pursuit.next_action_due >= start,
-            Pursuit.next_action_due < end,
+        select(PursuitStep, Pursuit.job_id)
+        .join(Pursuit, Pursuit.id == PursuitStep.pursuit_id)
+        .where(
+            PursuitStep.done_at.is_(None),
+            PursuitStep.due >= start,
+            PursuitStep.due < end,
             Pursuit.stage.not_in(sorted(OWES_NOTHING)),
             _on_board(),
         )
@@ -441,8 +418,8 @@ async def calendar(session: AsyncSession, *, start: datetime, end: datetime) -> 
         for interview, job_id in interviews.all()
     ]
     items += [
-        {"kind": "step", "job_id": p.job_id, "at": p.next_action_due, "step": p.next_action}
-        for p in steps.scalars().all()
+        {"kind": "step", "job_id": job_id, "step_id": step.id, "at": step.due, "step": step.text}
+        for step, job_id in steps.all()
     ]
-    items.sort(key=lambda item: (item["at"], item["job_id"], item["kind"]))
+    items.sort(key=lambda item: (item["at"], item["job_id"], item["kind"], item.get("step_id", 0)))
     return items

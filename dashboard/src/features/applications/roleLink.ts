@@ -17,8 +17,8 @@ export function roleAddress(id: number | string, companySlug?: string | null): s
 }
 
 /** The way to a role from a pipeline view: its posting, opened over the view
- *  as a posting opens over the Radar, so Back returns to the view as it was
- *  left. The tab is in the address, so the link names it. */
+ *  so Back returns to the view as it was left. The tab is in the address, so
+ *  the link names it. */
 export function useRoleLink() {
   const location = useLocation();
   return (card: Pick<ApplicationCard, "job_id" | "company" | "stage">, tab: RoleTab = firstTab(card)) => ({

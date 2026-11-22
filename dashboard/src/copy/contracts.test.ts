@@ -125,15 +125,15 @@ it("editorial review is separate from translation tracking and becomes stale on 
   const root=scratch("# kind=label\nm = One\n","m = Uno\n");
   const src=join(root,"src");mkdirSync(src);
   try {
-    recordReview(root,"es",["m"]);
+    recordReview(root,"es",["m"],src);
     expect(reviewData(root,src).messages[0].locales.es.editorial).toBe("reviewed");
     expect(reviewData(root,src).messages[0].locales.es.status).toBe("stale");
     writeFileSync(join(root,"es/a.ftl"),"m = Dos\n");
     expect(reviewData(root,src).messages[0].locales.es.editorial).toBe("review-stale");
-    recordReview(root,"es",["m"]);
+    recordReview(root,"es",["m"],src);
     writeFileSync(join(root,"es/glossary.yaml"),"register:\n  forbidden: [usted]\n");
     expect(reviewData(root,src).messages[0].locales.es.editorial).toBe("review-stale");
-    recordReview(root,"es",["m"]);
+    recordReview(root,"es",["m"],src);
     writeFileSync(join(root,"en/a.ftl"),"# kind=label\nm = Two\n");
     expect(reviewData(root,src).messages[0].locales.es.editorial).toBe("review-stale");
     expect(checkCatalog(root).reports.some(r=>r.includes("untracked"))).toBe(true);

@@ -188,6 +188,16 @@ def test_a_clean_run_with_no_failure_stays_quiet():
     assert classify_sync_result(_run("ok", CLEAN_SOURCE)) is None
 
 
+def test_a_retry_that_fails_again_rings_nothing():
+    """The full read already told the person about this company's failure; a
+    quiet retry failing the same way is not news. Without the retry mark the
+    same run still speaks up, so the silence is the mark's, not the run's."""
+    failed = {"scanned": 0, "kept": 0, "new": 0, "closed": 0, "errors": ["ReadTimeout"], "list_complete": False}
+    assert classify_sync_result(_run("error", {"lever-co": {**failed, "retry": True}})) is None
+    assert classify_sync_result(_run("partial", {**CLEAN_SOURCE, "lever-co": {**failed, "retry": True}})) is None
+    assert classify_sync_result(_run("error", {"lever-co": failed})) is not None
+
+
 def test_a_partial_run_still_speaks_up():
     """`partial` is a successful refresh AND still worth a word — both hold.
 

@@ -2,8 +2,10 @@
 
 import argparse
 import base64
+import contextlib
 import getpass
 import json
+import os
 import plistlib
 import secrets
 import shutil
@@ -13,8 +15,9 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from cryptography import x509
+from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import ed25519, rsa
+from cryptography.hazmat.primitives.asymmetric import ec, ed25519, rsa
 from cryptography.hazmat.primitives.serialization import pkcs12
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
@@ -130,32 +133,92 @@ def record(directory, root=ROOT, *, replace=False):
     return path
 
 
+@contextlib.contextmanager
+def _filled(data):
+    """A pipe that already holds all of `data` and has no writer left, for a program to read as stdin.
+
+    `security import` reads as many bytes as its stdin holds when it opens it, so bytes written
+    after it starts can be missed. A pipe filled and closed before the program starts reads the
+    same every time.
+    """
+    read, write = os.pipe()
+    try:
+        try:
+            os.set_blocking(write, False)
+            written = os.write(write, data)
+        except BlockingIOError:
+            written = 0
+        finally:
+            os.close(write)
+        if written < len(data):
+            raise ValueError('The signing identity is larger than a pipe to security holds')
+        yield read
+    finally:
+        os.close(read)
+
+
 def import_keychain(directory, keychain, certificate_password=None):
+    """Import the signing identity into a new scratch keychain that codesign may use.
+
+    No password and no key goes on a command line, where every local user can list it. The p12
+    opens here, the key and certificates reach `security` on stdin, and so does the keychain
+    password: with no controlling terminal its prompts fall back to stdin. Each step's stdin is a
+    pipe filled before the step starts. Everything that can fail on the p12 or its size fails
+    before the keychain exists, and a failure or an interruption after that deletes the keychain,
+    so a retry starts from nothing.
+    """
     if keychain.exists():
         raise FileExistsError('The build keychain already exists')
     if certificate_password is None:
         certificate_password = (directory / 'p12-password').read_bytes()
+    failure = 'Could not import the signing identity into the scratch build keychain'
+    try:
+        key, certificate, chain = pkcs12.load_key_and_certificates(
+            (directory / 'signing.p12').read_bytes(), certificate_password)
+    except (ValueError, UnsupportedAlgorithm):
+        raise RuntimeError(failure) from None
+    if key is None or certificate is None:
+        raise RuntimeError(failure)
+    if not isinstance(key, (rsa.RSAPrivateKey, ec.EllipticCurvePrivateKey)):
+        raise ValueError('codesign signs only with an RSA or EC key')
     stored = directory / 'keychain-password'
     # A release keychain is scratch: made, used and deleted while the keys are mounted.
     password = stored.read_text() if stored.exists() else secrets.token_urlsafe(32)
-    commands = [
-        ['security', 'create-keychain', '-p', password, str(keychain)],
-        ['security', 'set-keychain-settings', '-lut', '21600', str(keychain)],
-        ['security', 'unlock-keychain', '-p', password, str(keychain)],
-        ['security', 'import', str(directory / 'signing.p12'), '-k', str(keychain),
-         '-P', certificate_password.decode(), '-T', '/usr/bin/codesign'],
-        ['security', 'set-key-partition-list', '-S', 'apple-tool:,apple:', '-s', '-k', password, str(keychain)],
+    if not password or '\n' in password:
+        raise ValueError('The keychain password must be one non-empty line')
+    line = (password + '\n').encode()
+    # `security` reads a key from a pipe only in the traditional OpenSSL format, not PKCS#8.
+    private = key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.TraditionalOpenSSL,
+                                serialization.NoEncryption())
+    # A certificate imported twice fails the whole import, so each goes in once.
+    unique = {item.fingerprint(hashes.SHA256()): item for item in [certificate, *chain]}
+    certificates = b''.join(item.public_bytes(serialization.Encoding.PEM) for item in unique.values())
+    steps = [
+        (['security', 'create-keychain', str(keychain)], line * 2),
+        (['security', 'set-keychain-settings', '-lut', '21600', str(keychain)], b''),
+        (['security', 'unlock-keychain', str(keychain)], line),
+        (['security', 'import', '/dev/stdin', '-k', str(keychain), '-f', 'openssl', '-t', 'priv',
+          '-T', '/usr/bin/codesign'], private),
+        (['security', 'import', '/dev/stdin', '-k', str(keychain), '-f', 'pemseq', '-t', 'cert'], certificates),
+        (['security', 'set-key-partition-list', '-S', 'apple-tool:,apple:', '-s', str(keychain)], line),
     ]
     created = False
-    try:
-        for command in commands:
-            subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-            created = True
-    except (OSError, subprocess.SubprocessError):
-        if created:
-            subprocess.run(['security', 'delete-keychain', str(keychain)], check=False,
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        raise RuntimeError('Could not import the signing identity into the scratch build keychain') from None
+    with contextlib.ExitStack() as pipes:
+        filled = [(command, pipes.enter_context(_filled(data))) for command, data in steps]
+        try:
+            for command, stdin in filled:
+                try:
+                    # A new session has no terminal, so a password prompt reads the line given here.
+                    subprocess.run(command, stdin=stdin, check=True, start_new_session=True, timeout=120,
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                except (OSError, subprocess.SubprocessError):
+                    raise RuntimeError(f'{failure}: security {command[1]} failed') from None
+                created = True
+        except BaseException:
+            if created or keychain.exists():
+                subprocess.run(['security', 'delete-keychain', str(keychain)], check=False,
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            raise
 
 
 def seal(candidate, destination, identity, keychain, public_key, root=ROOT):

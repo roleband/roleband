@@ -2,8 +2,8 @@ import { useCallback, useEffect } from "react";
 import { Navigate, useLocation, useNavigate, useNavigationType, useParams } from "react-router-dom";
 import { JobDetail, type PostingTab } from "../features/job-detail/JobDetail";
 import { usePostingPipeline } from "../features/applications/usePostingPipeline";
-import { useJobActions, useJobWorkspace, type PostingNeighbour } from "../context/JobWorkspace";
-import { positionPath } from "../routing/paths";
+import { useJobActions, useJobWorkspace } from "../context/JobWorkspace";
+import { pipelineViewUnder, positionPath } from "../routing/paths";
 import { shellNavRadar, shellTabPipelineBoard, shellTabPipelineList, shellTabPipelineUpNext } from "../copy/gen/shell";
 
 /** The views Back names when the posting covers one of them. */
@@ -56,6 +56,9 @@ export function JobRoute({ asOverlay = false }: { asOverlay?: boolean }) {
   // posting that is the page, and nothing more for a step back to the
   // posting this one was opened from.
   const under = typeof background?.pathname === "string" ? background.pathname : null;
+  // Opened from a Pipeline view, the role is a page of the Pipeline: it opens
+  // beside the rail, which keeps that view marked.
+  const besideRail = asOverlay && pipelineViewUnder(location) != null;
   const backTo = hasBackground
     ? (under != null && Object.prototype.hasOwnProperty.call(VIEW_NAME, under) ? VIEW_NAME[under]() : null)
     : steppedFrom ? null : shellNavRadar();
@@ -86,33 +89,13 @@ export function JobRoute({ asOverlay = false }: { asOverlay?: boolean }) {
     [slug, jobId, navigate, location.search, location.state],
   );
 
-  // The list the posting was opened from, when it was opened from one and is
-  // still in it: its place there, and the way to the rows on either side. A
-  // step replaces this history entry, so Back still returns to the list.
-  const postingList = (location.state as { postingList?: readonly PostingNeighbour[] } | null)?.postingList;
-  const at = postingList ? postingList.findIndex((one) => one.id === jobId) : -1;
-  const step = useCallback(
-    (to: PostingNeighbour | undefined) => {
-      if (!to) return;
-      navigate(to.company ? positionPath(to.company, to.id) : `/job/${to.id}`, { replace: true, state: location.state });
-    },
-    [navigate, location.state],
-  );
-  const pager = postingList && at >= 0
-    ? {
-        position: at + 1,
-        count: postingList.length,
-        onPrevious: at > 0 ? () => step(postingList[at - 1]) : undefined,
-        onNext: at < postingList.length - 1 ? () => step(postingList[at + 1]) : undefined,
-      }
-    : undefined;
-
   if (!Number.isInteger(jobId) || jobId <= 0) return <Navigate to="/" replace />;
 
   return (
     <JobDetail
       jobId={jobId}
       asOverlay={asOverlay}
+      besideRail={besideRail}
       onBack={onBack}
       onOpen={openJob}
       onCompare={(ids) => {
@@ -127,7 +110,6 @@ export function JobRoute({ asOverlay = false }: { asOverlay?: boolean }) {
       onViewCompare={openCompare}
       onCompanyResolved={onCompanyResolved}
       usePipeline={usePostingPipeline}
-      pager={pager}
       returning={returning}
       tab={tab}
       onTab={onTab}

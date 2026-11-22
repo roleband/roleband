@@ -1,7 +1,7 @@
 /* ONE FOCUS RING (docs/ui.md "One focus ring"). Wherever
    the keyboard lands, the same ring says so: a solid outline of
    `--app-ring-width` in `--app-action`, the action colour of the surface it
-   sits on (the fixed-dark rail's own `--rail-accent`). Other looks fail: a
+   sits on (the rail's own `--rail-accent`). Other looks fail: a
    soft halo or a tinted outline falls under the 3:1 a focus indicator needs
    (1.4.11), and a left bar on a Board row is the same mark as a row picked
    for Compare.

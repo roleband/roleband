@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import type { ReactElement } from "react";
@@ -6,9 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POSITION_ROUTE, positionPath } from "../../routing/paths";
 import { api, type ApplicationCard } from "../../api";
 import { ToastProvider } from "../../ui/Toast";
-import { applicationCardFixture } from "../../test/fixtures";
+import { applicationCardFixture, stepFixture } from "../../test/fixtures";
 import { msg } from "../../test/msg";
 import { ApplicationsScreen } from "./ApplicationsScreen";
+import { useBoardController } from "./useBoardController";
+import { ApiError } from "../../api/transport";
 import { interviewFrom } from "./InterviewDialog";
 
 /* The board's contracts: every move is reachable from a card's menu, lands at
@@ -22,6 +24,10 @@ vi.mock("../../api", async (importOriginal) => ({
     applications: vi.fn(),
     calendar: vi.fn(async () => ({ items: [] })),
     setPursuit: vi.fn(),
+    updateStep: vi.fn(),
+    updateInterview: vi.fn(),
+    dismissJob: vi.fn(),
+    undismissJob: vi.fn(),
     setFavorite: vi.fn(),
     addInterview: vi.fn(),
     deleteInterview: vi.fn(),
@@ -31,6 +37,8 @@ vi.mock("../../api", async (importOriginal) => ({
 
 const appState = {
   openJob: vi.fn(), refreshStats: vi.fn(), favVersion: 0,
+  // A write that landed bumps the version every surface re-reads on, as the provider does.
+  savedChanged: vi.fn(() => { appState.favVersion += 1; }),
   compareIds: new Set<number>(), viewedIds: new Set<number>(), compareFull: false, compareCap: 3, toggleCompare: vi.fn(),
 };
 vi.mock("../../context/JobWorkspace", () => ({ useJobWorkspace: () => appState, useJobActions: () => appState }));
@@ -67,6 +75,9 @@ let stored: ApplicationCard[] = [];
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
+  // Every column on show, as a person sets it from Columns: these contracts
+  // are about the columns' content. The first visit's choice has its own test.
+  localStorage.setItem("roleband.pipeline-hidden-columns", "[]");
   stored = [considering, applied, rejected];
   vi.mocked(api.applications).mockImplementation(async () => ({ applications: stored.map((card) => ({ ...card })) }));
   vi.mocked(api.setPursuit).mockImplementation(async (jobId, update) => {
@@ -87,6 +98,17 @@ beforeEach(() => {
 });
 
 describe("the board", () => {
+  it("at first shows the stages a role moves through, leaving Considering to the List and hiding the endings", async () => {
+    localStorage.clear();
+    render(withProviders(<ApplicationsScreen />));
+    await screen.findByText("Principal Engineering Manager");
+    expect(screen.getAllByRole("region")).toHaveLength(4);
+    for (const name of ["Researching", "Applied", "Interviewing", "Offer"]) expect(column(name)).toBeInTheDocument();
+    expect(screen.queryByText("Staff Product Manager, API")).toBeNull();
+    expect(screen.queryByText("Head of Platform")).toBeNull();
+    expect(screen.getByRole("button", { name: /^Columns/ })).toHaveAccessibleName(msg("applications-columns-hidden", { count: 3 }));
+  });
+
   it("puts each card in its stage's column, and an ending in its section with the stage it ended at", async () => {
     render(withProviders(<ApplicationsScreen />));
     await screen.findByText("Staff Product Manager, API");
@@ -470,7 +492,7 @@ describe("filtering", () => {
 
     // Up next holds Notion's overdue step, which the board's search hides.
     await userEvent.click(screen.getByRole("tab", { name: msg("shell-tab-pipeline-up-next") }));
-    expect(await screen.findByText(msg("applications-upnext-step", { step: "Send the case study" }))).toBeInTheDocument();
+    expect(await screen.findByText("Send the case study")).toBeInTheDocument();
     expect(search()).toHaveValue("");
     expect(screen.queryByRole("button", { name: msg("applications-filter-reset") })).toBeNull();
     await userEvent.type(search(), "zzz");
@@ -558,7 +580,7 @@ describe("the cards and the tabs", () => {
   it("lists what is due by day under Up next, overdue first, each row opening its application", async () => {
     const now = Date.now();
     stored = [
-      { ...considering, next_action: "Ask for an intro", next_action_due: new Date(now - 3 * 86_400_000).toISOString() },
+      applicationCardFixture({ ...considering, steps: undefined, next_action: "Ask for an intro", next_action_due: new Date(now - 3 * 86_400_000).toISOString() }),
       { ...applied, next_interview: {
         id: 5, label: "Hiring manager call", scheduled_at: new Date(now + 7 * 86_400_000).toISOString(), all_day: false, format: "video", link: null,
       } },
@@ -574,18 +596,55 @@ describe("the cards and the tabs", () => {
     expect(await screen.findByRole("tab", { name: msg("shell-tab-pipeline-up-next") })).toHaveAttribute("aria-selected", "true");
     const days = await screen.findAllByRole("region");
     expect(days[0]).toHaveAccessibleName(msg("applications-upnext-overdue"));
-    expect(within(days[0]).getByText(msg("applications-upnext-step", { step: "Ask for an intro" }))).toBeInTheDocument();
-    expect(within(days[1]).getByText(msg("applications-upnext-interview", { label: "Hiring manager call" }))).toBeInTheDocument();
+    // A row is its words, with what kind it is in its lead: a tick that
+    // finishes a step, or the mark of an interview.
+    expect(within(days[0]).getByText("Ask for an intro")).toBeInTheDocument();
+    expect(within(days[0]).getByRole("button", { name: msg("applications-upnext-done-label", { step: "Ask for an intro" }) })).toBeInTheDocument();
+    expect(within(days[1]).getByText("Hiring manager call")).toBeInTheDocument();
+    expect(within(days[1]).getByRole("img", { name: msg("applications-month-legend-interview") })).toBeInTheDocument();
+    expect(within(days[1]).queryByRole("button", { name: /Hiring manager call/ }), "a round is not ticked off").toBeNull();
     expect(within(days[1]).getByRole("link"), "Up next opens on the Workspace").toHaveAttribute("href", `${positionPath(applied.company, 2)}?tab=workspace`);
     expect(within(days[0]).getByRole("link"), "whatever the stage").toHaveAttribute("href", `${positionPath(considering.company, considering.job_id)}?tab=workspace`);
     expect(screen.queryByText("Head of Platform")).toBeNull();
+  });
+
+  it("ticks only the step whose tick was pressed in Up next, and Undo opens it again", async () => {
+    const now = Date.now();
+    const follow = stepFixture({ id: 11, text: "Follow up", due: new Date(now - 2 * 86_400_000).toISOString() });
+    const intro = stepFixture({ id: 12, text: "Ask for an intro", due: new Date(now - 86_400_000).toISOString() });
+    stored = [applicationCardFixture({ ...considering, steps: [follow, intro] })];
+    vi.mocked(api.updateStep).mockImplementation(async (jobId, stepId, update) => {
+      stored = stored.map((card) => card.job_id !== jobId ? card : {
+        ...card, steps: update.done ? card.steps.filter((one) => one.id !== stepId) : [follow, intro],
+      });
+      return { step: { ...intro, done_at: update.done ? new Date().toISOString() : null } };
+    });
+    render(
+      <ToastProvider>
+        <MemoryRouter initialEntries={["/pipeline/up-next"]}>
+          <Routes><Route path="/pipeline/:tab" element={<ApplicationsScreen />} /></Routes>
+        </MemoryRouter>
+      </ToastProvider>,
+    );
+    const tick = (step: string) => screen.queryByRole("button", { name: msg("applications-upnext-done-label", { step }) });
+    await waitFor(() => expect(tick("Ask for an intro")).toBeInTheDocument());
+
+    await userEvent.click(tick("Ask for an intro")!);
+    await waitFor(() => expect(api.updateStep).toHaveBeenCalledWith(considering.job_id, 12, { done: true }));
+    expect(tick("Ask for an intro"), "the ticked step leaves").toBeNull();
+    expect(tick("Follow up"), "the other step of the same role stays").toBeInTheDocument();
+
+    await userEvent.click(await screen.findByRole("button", { name: msg("applications-move-undo") }));
+    await waitFor(() => expect(api.updateStep).toHaveBeenLastCalledWith(considering.job_id, 12, { done: false }));
+    expect(api.updateStep).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(tick("Ask for an intro")).toBeInTheDocument());
   });
 
   it("brings a day picked in the month into view in Up next and marks its rows; an arrow moves the mark without scrolling", async () => {
     const today = new Date();
     const late = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 58);
     stored = [
-      { ...considering, next_action: "Ask for an intro", next_action_due: new Date(Date.now() - 3 * 86_400_000).toISOString() },
+      applicationCardFixture({ ...considering, steps: undefined, next_action: "Ask for an intro", next_action_due: new Date(Date.now() - 3 * 86_400_000).toISOString() }),
       { ...applied, next_interview: { id: 5, label: "Hiring manager call", scheduled_at: late.toISOString(), all_day: false, format: "video", link: null } },
     ];
     const scrolled: Element[] = [];
@@ -598,11 +657,12 @@ describe("the cards and the tabs", () => {
       </ToastProvider>,
     );
     const row = (text: string) => screen.getByText(text).closest("li")!;
-    await screen.findByText(msg("applications-upnext-interview", { label: "Hiring manager call" }));
-    const interview = row(msg("applications-upnext-interview", { label: "Hiring manager call" }));
-    const overdue = row(msg("applications-upnext-step", { step: "Ask for an intro" }));
-    // Nothing is marked until a day is picked.
-    expect(interview).not.toHaveAttribute("data-picked");
+    await screen.findByText("Hiring manager call");
+    const interview = row("Hiring manager call");
+    const overdue = row("Ask for an intro");
+    // Up next starts on today: today's rows are marked from the first paint, no other day's.
+    expect(interview).toHaveAttribute("data-picked");
+    expect(overdue).not.toHaveAttribute("data-picked");
 
     const key = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
     const cell = document.querySelector<HTMLElement>(`[data-day="${key}"]`)!;
@@ -890,5 +950,84 @@ describe("the pipeline's empty states", () => {
       expect(screen.getByText(msg("applications-no-matches"))).toBeInTheDocument();
       unmount();
     }
+  });
+});
+
+describe("the board's writes", () => {
+  const step = stepFixture({ id: 12, text: "Ask for an intro", due: "2026-11-03T10:00:00Z" });
+  const round = { id: 5, label: "Hiring manager call", scheduled_at: "2026-11-02T10:00:00Z", all_day: false, format: "video" as const, link: null };
+  const settle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 40)); });
+
+  async function renderBoard() {
+    const hook = renderHook(() => useBoardController(), { wrapper: ({ children }) => <ToastProvider>{children}</ToastProvider> });
+    await waitFor(() => expect(hook.result.current.cards).toHaveLength(stored.length));
+    return hook;
+  }
+
+  it("announces a ticked step and a round's outcome to every surface, as the posting's writes are", async () => {
+    stored = [applicationCardFixture({ ...applied, steps: [step], awaiting_outcome: round })];
+    vi.mocked(api.updateStep).mockResolvedValue({ step } as Awaited<ReturnType<typeof api.updateStep>>);
+    vi.mocked(api.updateInterview).mockResolvedValue({} as Awaited<ReturnType<typeof api.updateInterview>>);
+    const { result } = await renderBoard();
+    const card = result.current.cards[0];
+
+    act(() => result.current.finishStep(card, step));
+    await waitFor(() => expect(appState.savedChanged).toHaveBeenCalledWith({ jobId: card.job_id, saved: true }));
+    act(() => result.current.setOutcome(card, round, "passed"));
+    await waitFor(() => expect(appState.savedChanged).toHaveBeenCalledTimes(2));
+  });
+
+  it("holds a tick behind a move of the same role, in the order they were asked for", async () => {
+    stored = [applicationCardFixture({ ...applied, steps: [step] })];
+    let landed: () => void = () => undefined;
+    vi.mocked(api.setPursuit).mockImplementationOnce(() => new Promise((resolve) => {
+      landed = () => resolve({ pursuit: {} } as Awaited<ReturnType<typeof api.setPursuit>>);
+    }));
+    vi.mocked(api.updateStep).mockResolvedValue({ step } as Awaited<ReturnType<typeof api.updateStep>>);
+    const { result } = await renderBoard();
+    const card = result.current.cards[0];
+
+    act(() => { void result.current.move(card, "interviewing", undefined); });
+    await waitFor(() => expect(api.setPursuit).toHaveBeenCalledWith(card.job_id, { stage: "interviewing" }));
+    act(() => result.current.finishStep(card, step));
+    await settle();
+    expect(api.updateStep, "the tick waits for the move").not.toHaveBeenCalled();
+
+    await act(async () => landed());
+    await waitFor(() => expect(api.updateStep).toHaveBeenCalledWith(card.job_id, step.id, { done: true }));
+  });
+
+  it("puts back no outcome when Undo is pressed on a round's outcome, and reads once more only if that fails", async () => {
+    stored = [applicationCardFixture({ ...applied, awaiting_outcome: round })];
+    vi.mocked(api.updateInterview).mockResolvedValue({} as Awaited<ReturnType<typeof api.updateInterview>>);
+    const { result } = await renderBoard();
+    act(() => result.current.setOutcome(result.current.cards[0], round, "passed"));
+    await userEvent.click(await screen.findByRole("button", { name: msg("applications-move-undo") }));
+    await waitFor(() => expect(api.updateInterview).toHaveBeenLastCalledWith(applied.job_id, round.id, { outcome: null }));
+    expect(api.updateInterview).toHaveBeenNthCalledWith(1, applied.job_id, round.id, { outcome: "passed" });
+  });
+
+  it("says a failed Not for me did not save, in the words every other change uses, and restores the posting", async () => {
+    vi.mocked(api.dismissJob).mockResolvedValue({} as Awaited<ReturnType<typeof api.dismissJob>>);
+    vi.mocked(api.undismissJob).mockResolvedValue({} as Awaited<ReturnType<typeof api.undismissJob>>);
+    vi.mocked(api.setFavorite).mockRejectedValue(new ApiError("down", 500));
+    const { result } = await renderBoard();
+    act(() => result.current.dismiss(result.current.cards.find((card) => card.job_id === considering.job_id)!));
+    expect(await screen.findByText(msg("applications-change-failed", { title: considering.title }))).toBeInTheDocument();
+    expect(screen.queryByText(msg("applications-remove-failed", { title: considering.title }))).toBeNull();
+    expect(api.undismissJob, "what was done is taken back").toHaveBeenCalledWith(considering.job_id);
+  });
+
+  it("dismisses the posting again when Undo cannot star the role back, so it is not left unstarred and undismissed", async () => {
+    vi.mocked(api.dismissJob).mockResolvedValue({} as Awaited<ReturnType<typeof api.dismissJob>>);
+    vi.mocked(api.undismissJob).mockResolvedValue({} as Awaited<ReturnType<typeof api.undismissJob>>);
+    vi.mocked(api.setFavorite).mockResolvedValueOnce({ job_id: 1, is_favorite: false });
+    vi.mocked(api.setFavorite).mockRejectedValueOnce(new ApiError("down", 500));
+    const { result } = await renderBoard();
+    act(() => result.current.dismiss(result.current.cards.find((card) => card.job_id === considering.job_id)!));
+    await userEvent.click(await screen.findByRole("button", { name: msg("applications-move-undo") }));
+    expect(await screen.findByText(msg("applications-undo-failed", { title: considering.title }))).toBeInTheDocument();
+    expect(api.dismissJob, "dismissed once, and again after the failed Undo").toHaveBeenCalledTimes(2);
+    expect(api.undismissJob).toHaveBeenCalledTimes(1);
   });
 });

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import socket
 import subprocess
 import sys
@@ -14,7 +15,7 @@ from typing import Any
 
 from tracker import __version__
 from tracker.config import get_settings
-from tracker.platform import command_shim, preparation
+from tracker.platform import cli_context, command_shim, preparation
 from tracker.platform.embedded_db import claim_cluster
 from tracker.platform.launcher import installation_identity
 from tracker.platform.local_http import (
@@ -207,6 +208,21 @@ def write_command_shim(home: Path) -> str:
     return outcome
 
 
+def write_app_context(home: Path, port: int) -> str:
+    """Name this engine as the `app` context of the `roleband` command, on every start of the
+    app's own engine, so the command reaches it without a file the person writes by hand. A
+    context file that cannot be written never stops the engine."""
+    path = cli_context.context_file(os.environ, home)
+    try:
+        outcome = cli_context.write_app_context(path, port)
+    except OSError:
+        logger.warning("the roleband context file %s could not be written", path, exc_info=True)
+        return "failed"
+    if outcome == cli_context.KEPT_FOREIGN:
+        logger.warning("%s is not a context file the roleband command reads; it is left as it is", path)
+    return outcome
+
+
 def run() -> None:
     settings = get_settings()
     if settings.database_url_override or not settings.db_embedded:
@@ -217,6 +233,9 @@ def run() -> None:
     if sys.platform == "darwin":
         write_command_shim(home)
     claim_cluster(settings.embedded_pgdata(), "app")
+    if sys.platform == "darwin":
+        # After the claim: an engine refused its database names no context.
+        write_app_context(home, settings.api_port)
     preparation.update(DATA_DIR, database="creating", service="starting", reason=None)
     # Authenticated discovery follows each server's actual endpoint. A separate
     # preparation port avoids rebinding a Windows exclusive socket in TIME_WAIT.

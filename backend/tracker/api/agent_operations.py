@@ -27,6 +27,11 @@ the `X-RoleBand-Idempotency-Key` header, and runs its domain write through
 another request under the same key, and otherwise runs `apply` and commits
 the write, its audit event and its receipt together (`tracker/agents/receipts.py`).
 The actor a write records comes from the principal, never from the input.
+
+Every operation is listed for the person (`tracker/agents/activity.py`): a
+write lists its change in its own transaction, `AgentRoute` lists a read once
+its answer is built and before it is sent, and a refusal by the person's
+switches once it is decided.
 """
 
 from __future__ import annotations
@@ -35,8 +40,9 @@ import json
 import logging
 import re
 import secrets
-from collections.abc import Awaitable, Callable, Coroutine
-from dataclasses import dataclass
+from collections.abc import AsyncIterator, Awaitable, Callable, Coroutine
+from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 from typing import Any, Literal, TypeVar
 
 from fastapi import Request, Response
@@ -46,20 +52,22 @@ from fastapi.routing import APIRoute
 from pydantic import BaseModel, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tracker.agents import activity
 from tracker.agents.config import AgentAccessConfig, get_agent_access
 from tracker.agents.operations.catalog import CATALOG
-from tracker.agents.operations.descriptor import OperationDescriptor
+from tracker.agents.operations.descriptor import DataClass, OperationDescriptor
 from tracker.agents.operations.envelope import (
     Envelope,
     EnvelopeNotice,
     NextAction,
     OperationError,
     failure,
+    partial,
     request_id_or_new,
     success,
 )
 from tracker.agents.operations.outcomes import outcome
-from tracker.agents.operations.policy import admit
+from tracker.agents.operations.policy import admit, shared
 from tracker.agents.operations.workspace import get_workspace_id
 from tracker.agents.receipts import (
     LEGACY_AGENT_PRINCIPAL,
@@ -69,7 +77,8 @@ from tracker.agents.receipts import (
     execute_once,
     input_hash,
 )
-from tracker.api.deps import SessionDep
+from tracker.api.deps import SessionDep, get_session
+from tracker.platform.agent_hosts import HOST_HEADER, OTHER, caller
 
 log = logging.getLogger(__name__)
 
@@ -99,6 +108,19 @@ def operation_route(descriptor: OperationDescriptor) -> dict[str, Any]:
     return {_OPERATION_KEY: descriptor.id}
 
 
+@dataclass
+class Heard:
+    """What one request did, for its activity row: set by the context as the
+    operation answers, read by `AgentRoute` once the handler returns."""
+
+    #: The categories the answer may hold under the switches that admitted it.
+    categories: tuple[DataClass, ...] = ()
+    #: How many records the answer holds, when it is a list.
+    count: int | None = None
+    #: A write listed its own change in its transaction (or replayed one).
+    written: bool = False
+
+
 def engine_session_id(request: Request) -> str:
     authority = getattr(request.app.state, "local_authority", None)
     return authority.instance if authority is not None else _PROCESS_SESSION
@@ -117,8 +139,12 @@ class OperationContext:
     #: Who is calling, named by the engine. One legacy principal until
     #: assistants have credentials of their own.
     principal_id: str = LEGACY_AGENT_PRINCIPAL
+    #: The host the call names (`agent_hosts.caller`), recorded with its activity row.
+    host: str = OTHER
     #: A write's key from `IDEMPOTENCY_KEY_HEADER`; None on a read.
     idempotency_key: str | None = None
+    #: This request's activity, shared with the route that lists it.
+    heard: Heard = field(default_factory=Heard)
 
     @property
     def actor(self) -> Literal["agent"]:
@@ -126,26 +152,59 @@ class OperationContext:
         principal, so no input field can claim to be the person."""
         return "agent"
 
+    def shares(self, category: DataClass) -> bool:
+        """Whether this call may answer `category` (`policy.shared`)."""
+        return shared(self.switches, category)
+
+    @property
+    def answered_classes(self) -> tuple[DataClass, ...]:
+        """The declared categories this call's answer may hold: a category
+        the person does not share is left out of the answer, and of its meta."""
+        return tuple(category for category in self.descriptor.data_classes if self.shares(category))
+
     def input_as(self, model: type[InputT]) -> InputT:
         if not isinstance(self.input, model):
             raise TypeError(f"{self.descriptor.id} takes {type(self.input).__name__}, not {model.__name__}")
         return self.input
 
     def ok(self, data: BaseModel, *, warnings: list[EnvelopeNotice] | None = None) -> Envelope[Any]:
+        self.heard.count = activity.count_of(data)
         return success(
             self.descriptor.id,
             data,
             request_id=self.request_id,
             workspace_id=self.workspace_id,
-            data_classes=self.descriptor.data_classes,
+            data_classes=self.answered_classes,
             warnings=warnings,
         )
+
+    def partial(
+        self, data: BaseModel, error: OperationError, *, warnings: list[EnvelopeNotice] | None = None,
+        truncated: bool = False,
+    ) -> JSONResponse:
+        """A batch answered in part: `partial_result` with the per-item outcomes
+        in `data`, at the code's HTTP status."""
+        self.heard.count = activity.count_of(data)
+        envelope = partial(
+            self.descriptor.id,
+            data,
+            error,
+            request_id=self.request_id,
+            workspace_id=self.workspace_id,
+            data_classes=self.answered_classes,
+            warnings=warnings,
+            truncated=truncated,
+        )
+        return JSONResponse(envelope.model_dump(mode="json"), status_code=outcome(error.code).http_status)
 
     async def write(
         self,
         apply: Callable[[], Awaitable[BaseModel]],
         *,
         on_revision_conflict: list[NextAction] | None = None,
+        shown: Callable[[Any], BaseModel] | None = None,
+        on_replay: Callable[[Any], Awaitable[BaseModel]] | None = None,
+        described: activity.WriteActivity | None = None,
     ) -> Envelope[Any]:
         """Run one keyed write, or replay its receipt, and commit.
 
@@ -154,6 +213,14 @@ class OperationContext:
         on; only a new execution runs `apply`, which takes the domain lock and
         checks the revision the caller stated. The write, its audit event and
         the receipt commit together, and any failure rolls all three back.
+        The receipt keeps the result whole; `shown`, when given, makes the
+        answer, fresh or replayed, from it under this call's categories.
+        `on_replay` rechecks visibility when it depends on current records.
+
+        A new execution also lists its change on the Activity screen, in the
+        same transaction: `described` says what changed (the fields before
+        and after); without it the row names the operation only. A replay
+        changed nothing and lists nothing.
         """
         descriptor = self.descriptor
         if descriptor.access != "write" or descriptor.idempotency != "required_key" or self.idempotency_key is None:
@@ -164,9 +231,29 @@ class OperationContext:
         )
 
         async def run() -> dict[str, Any]:
+            before = None if described is None else await described.before(self.session)
             result = await apply()
             if not isinstance(result, descriptor.result):
                 raise TypeError(f"{descriptor.id} answers {descriptor.result.__name__}, not {type(result).__name__}")
+            changed = (
+                activity.Changed(activity.changed_said(descriptor))
+                if described is None else described.entry(before, result)
+            )
+            entry = activity.Entry(
+                "change", descriptor.id, changed.said, self.answered_classes, changed.changes,
+                action_group=descriptor.action_group,
+            )
+            await activity.record(
+                self.session,
+                activity.row_of(
+                    entry,
+                    principal_id=self.principal_id,
+                    workspace_id=self.workspace_id,
+                    request_id=self.request_id,
+                    host=self.host,
+                    idempotency_key=self.idempotency_key,
+                ),
+            )
             return result.model_dump(mode="json")
 
         try:
@@ -192,12 +279,16 @@ class OperationContext:
         except BaseException:
             await self.session.rollback()
             raise
+        self.heard.written = True
+        result = descriptor.result.model_validate(executed.result)
+        if executed.replayed and on_replay is not None:
+            result = await on_replay(result)
         return success(
             descriptor.id,
-            descriptor.result.model_validate(executed.result),
+            result if shown is None else shown(result),
             request_id=self.request_id,
             workspace_id=self.workspace_id,
-            data_classes=descriptor.data_classes,
+            data_classes=self.answered_classes,
             idempotency_key=self.idempotency_key,
             replayed=executed.replayed,
         )
@@ -216,6 +307,7 @@ def admitted(descriptor: OperationDescriptor) -> Callable[..., Awaitable[Operati
     lists = list_fields(descriptor)
 
     async def dependency(request: Request, session: SessionDep) -> OperationContext:
+        request.state.agent_session = session
         switches = await get_agent_access(session)
         admit(descriptor, switches)
         workspace_id = await get_workspace_id(session)
@@ -231,7 +323,7 @@ def admitted(descriptor: OperationDescriptor) -> Callable[..., Awaitable[Operati
                     "A write needs an idempotency key: a token of 8 to 128 letters, digits and _.:-",
                     details={"header": IDEMPOTENCY_KEY_HEADER},
                 )
-        return OperationContext(
+        context = OperationContext(
             descriptor,
             request.state.agent_request_id,
             workspace_id,
@@ -239,7 +331,11 @@ def admitted(descriptor: OperationDescriptor) -> Callable[..., Awaitable[Operati
             switches,
             session,
             idempotency_key=key,
+            heard=request.state.agent_heard,
+            host=request.state.agent_host,
         )
+        context.heard.categories = context.answered_classes
+        return context
 
     return dependency
 
@@ -334,12 +430,15 @@ def _parameters(descriptor: OperationDescriptor, path: str, *, body: bool = Fals
     in_path = set(re.findall(r"{([^}:]+)}", path))
     if missing := in_path - set(properties):
         raise ValueError(f"{path} names {sorted(missing)}, which {descriptor.id}'s input does not")
+    # A parameter's schema stands alone: an enum field's `#/$defs/` reference
+    # resolves nowhere in the OpenAPI document, so it is inlined.
+    definitions = schema.get("$defs", {})
     return [
         {
             "name": name,
             "in": "path" if name in in_path else "query",
             "required": name in in_path or name in required,
-            "schema": {key: value for key, value in prop.items() if key != "description"},
+            "schema": {key: value for key, value in _inline(prop, definitions).items() if key != "description"},
             **({"description": prop["description"]} if "description" in prop else {}),
         }
         for name, prop in properties.items()
@@ -403,10 +502,17 @@ class AgentRoute(APIRoute):
 
         async def answer(request: Request) -> Response:
             request.state.agent_request_id = request_id_or_new(request.headers.get(REQUEST_ID_HEADER))
+            request.state.agent_host = caller(request.headers.get(HOST_HEADER))
             request.state.agent_workspace_id = None
             request.state.agent_idempotency_key = idempotency_key_of(request) if keyed else None
+            heard = request.state.agent_heard = Heard()
             try:
-                return await handler(request)
+                response = await handler(request)
+                if not heard.written:
+                    # Listed before it is sent: a read the log cannot hold is not answered.
+                    await _end_request_read(request)
+                    await _list_read(request, descriptor, heard)
+                return response
             except OperationError as error:
                 refused = error
             except RequestValidationError as error:
@@ -417,6 +523,9 @@ class AgentRoute(APIRoute):
             except Exception:
                 log.exception("agent operation %s failed", operation)
                 refused = OperationError("internal_error", "The engine failed to answer this operation.")
+            if refused.code in activity.REFUSALS:
+                await _end_request_read(request)
+                await _list_refusal(request, operation, refused)
             envelope = failure(
                 operation,
                 refused,
@@ -427,3 +536,68 @@ class AgentRoute(APIRoute):
             return JSONResponse(envelope.model_dump(mode="json"), status_code=outcome(refused.code).http_status)
 
         return answer
+
+
+@asynccontextmanager
+async def _own_session(request: Request) -> AsyncIterator[AsyncSession]:
+    """A session apart from the request's, from the app's own session
+    dependency (an override included), for a row that commits on its own."""
+    provider = request.app.dependency_overrides.get(get_session, get_session)
+    sessions = provider()
+    try:
+        yield await anext(sessions)
+    finally:
+        await sessions.aclose()
+
+
+async def _end_request_read(request: Request) -> None:
+    """End the request session's transaction before a row is listed on a
+    session of its own, so one call never holds two pool connections. A read
+    or a refusal leaves nothing to keep: this is the rollback the session's
+    own teardown would do, only sooner."""
+    session = getattr(request.state, "agent_session", None)
+    if session is not None:
+        await session.rollback()
+
+
+async def _list_read(request: Request, descriptor: OperationDescriptor, heard: Heard) -> None:
+    entry = activity.read_entry(descriptor, heard.categories, count=heard.count)
+    async with _own_session(request) as session:
+        await activity.record(
+            session,
+            activity.row_of(
+                entry,
+                principal_id=LEGACY_AGENT_PRINCIPAL,
+                workspace_id=request.state.agent_workspace_id,
+                request_id=request.state.agent_request_id,
+                host=request.state.agent_host,
+            ),
+        )
+        await session.commit()
+
+
+async def _list_refusal(request: Request, operation: str, refused: OperationError) -> None:
+    """List a refusal by the person's switches. The refusal is answered even
+    when its row cannot be written: nothing was shared."""
+    category = refused.details.get("category")
+    group = refused.details.get("group")
+    entry = activity.refused_entry(
+        operation, refused.code,
+        category if isinstance(category, str) else None,
+        group=group if isinstance(group, str) else None,
+    )
+    try:
+        async with _own_session(request) as session:
+            await activity.record(
+                session,
+                activity.row_of(
+                    entry,
+                    principal_id=LEGACY_AGENT_PRINCIPAL,
+                    workspace_id=request.state.agent_workspace_id,
+                    request_id=request.state.agent_request_id,
+                    host=request.state.agent_host,
+                ),
+            )
+            await session.commit()
+    except Exception:
+        log.exception("could not list the refusal of %s", operation)

@@ -70,15 +70,24 @@ def _status(data: dict[str, Any]) -> list[str]:
 def _capabilities(data: dict[str, Any]) -> list[str]:
     source = data["metadata_source"]
     lines = [f"contract {escape(data['contract_version'])}, metadata from {escape(source)}"]
-    for entry in data["operations"]:
-        state = entry["availability"]["state"]
-        lines.append(f"  {escape(entry['operation']):<16} {escape(state):<12} {escape(entry['summary'])}")
-    return lines
+    if "resources" in data:
+        unavailable = data.get("unavailable")
+        for name, resource in data["resources"].items():
+            lines.append(f"  {escape(name)}: {escape(resource['summary'])}")
+            for operation in resource["operations"]:
+                state = "unknown" if unavailable is None else (
+                    "unavailable" if operation in unavailable else "available")
+                lines.append(f"    {escape(operation):<28} {escape(state)}")
+    else:
+        for entry in data["operations"]:
+            state = entry["availability"]["state"]
+            lines.append(f"  {escape(entry['operation']):<16} {escape(state):<12} {escape(entry['summary'])}")
+    return [*lines, "tools for your own agent: roleband tools export --dialect openai|anthropic"]
 
 
 def _describe(data: dict[str, Any]) -> list[str]:
     effects = [name for name, on in data["engine_effects"].items() if on]
-    return [
+    lines = [
         f"{escape(data['operation'])}: {escape(data['summary'])}",
         f"  access         {escape(data['access'])} ({', '.join(escape(s) for s in data['required_scopes'])})",
         f"  availability   {escape(data['availability']['state'])}",
@@ -88,10 +97,20 @@ def _describe(data: dict[str, Any]) -> list[str]:
         f"  tool tiers     {', '.join(escape(t) for t in data['tool_tiers'])}",
         f"  metadata from  {escape(data['metadata_source'])}",
     ]
+    if "output_schema" not in data:
+        offline = " --offline" if data["metadata_source"] == "bundled" else ""
+        lines.append(f"  output schema  roleband describe {escape(data['operation'])} --view full{offline} --json")
+    return lines
 
 
 def _generic(data: object) -> list[str]:
     return [escape(line) for line in json.dumps(data, ensure_ascii=False, indent=2).splitlines()]
+
+
+def _tools(data: dict[str, Any]) -> list[str]:
+    from tracker.cli.tools import human_lines
+
+    return human_lines(data, escape)
 
 
 def _connect(data: dict[str, Any]) -> list[str]:
@@ -129,8 +148,9 @@ def _search(data: dict[str, Any]) -> list[str]:
             row["title"], row["company"], place, row["workplace"], row["level"],
             None if row["listed_days"] is None else f"{row['listed_days']}d",
             None if row["stated_pay"] is None else f"stated {row['stated_pay']}",
-            None if row["estimated_pay"] is None else f"estimate {row['estimated_pay']}",
-            row["pursuit"],
+            # A column of a category the person does not share is absent.
+            None if row.get("estimated_pay") is None else f"estimate {row['estimated_pay']}",
+            row.get("pursuit"),
         ]
         lines.append(f"{escape(row['id']):>7}  " + " · ".join(escape(part) for part in parts if part is not None))
     return lines
@@ -147,6 +167,6 @@ def _vocabulary(data: dict[str, Any]) -> list[str]:
 
 
 _HUMAN = {
-    "status": _status, "capabilities": _capabilities, "describe": _describe, "connect": _connect,
+    "status": _status, "capabilities": _capabilities, "describe": _describe, "connect": _connect, "tools.export": _tools,
     "opportunities.search": _search, "vocabulary.list": _vocabulary,
 }

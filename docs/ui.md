@@ -10,11 +10,11 @@ Wording is a separate system: [copy.md](copy.md).
 The About tab's Updates group opens with a status row: the check result as its title
 (checking, up to date, a version ready, couldn't check, or not checked yet), the last
 successful check time under it, and Check now beside it in every state. The
-automatic-check and notices switches follow. The manual action works with automatic
+automatic-check and update-window switches follow. The manual action works with automatic
 checks off and leaves that choice unchanged. Show an up-to-date result only
 after a successful check; an unchecked state must not imply success.
 
-The login page and preferences use the same automatic-check toggle, initially off. The
+The login page and preferences use the same automatic-check toggle, initially on. The
 toggle remains visible after a change; no separate question or pair of choice
 buttons is needed. A routine update setting does not need a paragraph, privacy
 disclosure, provider name or network details,
@@ -22,11 +22,22 @@ including in an expandable section. Those facts belong in [SECURITY.md](../SECUR
 Add supporting text only when it helps the person choose an action or resolve
 the current state. Keep unrelated setup controls outside the update group.
 
-Turning on notices with automatic checks in About asks macOS for desktop
-notification permission. Setup never asks for it. Automatic checks announce a newer release
-once per version when permission already exists; manual checks show the result
-in the app. A notification opens the available release notes. Denied permission
-keeps the in-app banner working and offers notification settings.
+A release an automatic check finds opens the update window in the middle of the screen:
+the version and its release date, one fixed line ("This update includes improvements and
+bug fixes."), What's new, Later and Update. It floats above other windows without taking
+focus or the keyboard, so typing elsewhere carries on, and its buttons answer the first
+click. Update keeps it open through the download, a failure or the restart, since the
+person it is for may never open the panel. A release's Before you update notice shows on
+the window itself, so Update needs no Read first step there. Later hides that version's
+window for three days; after the third Later only the menu-bar badge carries it, and a
+newer version starts again. A release marked important says instead "This update includes
+important improvements and fixes, and is recommended for all users." and comes back a day
+after each Later, however many there were; like any other, it installs only when the
+person presses Update.
+Check now never opens the window; its answer is the status row.
+The window waits while setup is open or unfinished and while an update runs, and About's
+update-window switch turns it off. A source checkout gets no window: its offer stays in the
+banner and the badge. The app asks macOS for no notification permission.
 
 An offer and every step of an update (download, check, failure, and the result
 on the next open) share one banner above the tabs, on every tab including About;
@@ -48,7 +59,9 @@ download by hand can install it.
 The menu bar shows the product mark in every state, as a template image. A state
 other than at rest (starting or scanning, paused, an engine hold, no engine) adds its
 symbol as a badge in the mark's lower right corner; the accessibility label and
-tooltip say the state in words. The panel header is the gold mark alone, without
+tooltip say the state in words. At rest, an update the person can install takes the
+badge as a download arrow, and the label and tooltip add its version; any other
+state's badge outranks it. The panel header is the gold mark alone, without
 the product name. When the menu-bar item cannot be seen (off screen, or behind the
 camera housing of a notched display), the panel opens as a window instead of a
 popover. The window keeps the panel's width and a fixed height, and scrolls.
@@ -110,7 +123,7 @@ completion do not change login items. A copy that has never registered reads as
 off, not unavailable: macOS reports it as not found until the first registration.
 Show the actual approval state and an inline System Settings action when approval
 is needed. Automatic
-update checks start off and share the same explicit choice as Settings.
+update checks start on and share the same choice as Settings.
 
 Ready is a concise completion page with Open Radar as the primary action and
 Not now as the quiet secondary action. Omit repeated checklists, optional settings,
@@ -129,7 +142,8 @@ leaves the app running if the engine did not stop, with the reason in Settings. 
 data folder: starting it again, from Start or anywhere else, hands the start to the running copy.
 
 **The icon.** One icon for the app's life: the radar mark, with a badge for any state but ready
-(scanning or starting, paused, needs attention, stopped). The glyph, not the colour, carries the
+(scanning or starting, paused, needs attention, stopped, an update waiting). An update's download
+arrow shows only on an idle icon with an offer waiting for Update; every other badge outranks it. The glyph, not the colour, carries the
 state. Each state ships as an .ico per taskbar theme with frames drawn for 16, 20, 24 and 32
 pixels, and the frame drawn for the notification area's size is taken, never a scaled one; the
 icon follows the taskbar's theme and scale as they change, and a contrast theme takes the set
@@ -181,7 +195,8 @@ Updates follow the rules at the top of this page in one card: the status as its 
 and the last check the feed answered as its caption, Check for updates, and the automatic choice,
 labelled with its pinned English words in every language and recording them with their language; it
 reads `update status`, which asks nothing of the network, and a build without a release identity
-says it doesn't update itself and offers neither. On this PC holds Start with Windows as Windows has
+says it doesn't update itself and offers neither. The Update window switch below it turns off the
+window an automatic check opens. On this PC holds Start with Windows as Windows has
 it: a task turned off in Startup apps says so with a link there, one set by policy shows the
 policy's value and cannot be changed, and a copy without a package has no startup task and no row.
 In your browser opens Scan times and All settings. About names where the scan history is kept, that
@@ -190,8 +205,16 @@ folder.
 
 **Updating.** An offer puts Update, the gold press, beside Check for updates. While scanning runs it
 is also a gold-tinted banner under the flyout's summary, with a download glyph, the version and its
-own Update, so it cannot pass unnoticed; the idle icon's tooltip names it; and the menu adds Update
-to the version, in its own group before Settings. Update is the only press: the card and the banner
+own Update, so it cannot pass unnoticed; the idle icon's badge marks it and its tooltip names it; and the menu adds Update
+to the version, in its own group before Settings. A release an automatic check finds also opens the
+update window in the middle of the primary display, with the Mac's words and rules: the version, the
+fixed line, What's new (the release's page), Later and Update. It stays above other windows without
+taking focus or a click's activation, and has no close button: Later is its way out. It follows the
+download, Windows' install or a failure with Try again, as the card does. Later hides that version for
+three days and after the third only the badge carries it; a release marked important says it is recommended
+and comes back a day after each Later, however many. Check for updates never opens it, it waits
+while setup is open or unfinished and while an update or Undo runs, and Settings' switch turns it off.
+Update is the only press: the card and the banner
 follow the download, with how much has arrived of how much and Cancel, which keeps what arrived
 for the next Update. Update and Cancel take each other's place, and focus moves with them; a press
 whose button goes with nothing in its place leaves focus on the next control, never on nothing. A
@@ -451,10 +474,11 @@ writing a screen-local version.
 | Job | Use |
 |---|---|
 | Any button | `Button` (see [Controls](#controls)) |
+| A move to another screen in a button's or a text link's look | `RouterLink` (see [Controls](#controls)) |
 | Floating surface | `Overlay` and its shells `Popover`, `Dialog`, `Sheet` |
 | Escape handling outside an overlay | `useEscapeLayer` (`ui/escapeLayer.ts`) |
 | Status label or count | `Badge` (tone, variant, size); a job row's read-only label is `shape="tag"` |
-| Fetch states | `AsyncBoundary`, `ResourceLoadState` (shows only after 200 ms, so a short load never flashes), `Spinner`, `ProgressBar` |
+| Fetch states | `AsyncBoundary`, `ResourceLoadState` (shows only after 200 ms, so a short load never flashes), `Spinner`, `ProgressBar` (with no value, a running line for a wait nothing can measure) |
 | Empty result | `EmptyState` (`narrowedBy` explains which filters emptied it) |
 | On/off setting | `Switch` |
 | Pick one of a few modes | `Segmented` |
@@ -504,8 +528,11 @@ by converting an existing one, never by raising the number.
 
 ## Controls
 
-Every clickable thing is `ui/Button` or one of the named selection controls
-above. There is no other button class.
+Every clickable thing is `ui/Button`, `ui/RouterLink`, or one of the named
+selection controls above. There is no other button class. `ui/Button` acts;
+`ui/RouterLink` moves to another screen of the app: a router link that takes
+Button's variants and sizes, so it keeps its address, middle-click and the link
+role.
 
 ### Button
 
@@ -540,11 +567,12 @@ never primary; it is a `link` or `ghost`. A dialog's primary is its purpose.
 `tests/ux/job-detail.spec.ts` and `tests/ux/profile.spec.ts` count the visible
 primaries in a browser.
 
-**Never a button that navigates, never an anchor that acts.** An anchor that
-should look like a button wears the classes (`ui-btn ui-btn-primary ui-btn-md`).
-A compact link to a role is `patterns/jobs/JobLinkRow`. A link that leaves
-RoleBand is `ui/ExternalLink` (new tab, an `external` glyph after its words),
-never a bare `<a target="_blank">`.
+**Never a button that navigates, never an anchor that acts.** A move within
+the app that should look like a button or a text link is `ui/RouterLink`
+(`variant="primary"`, `variant="link"`), never a `Link` wearing `ui-btn`
+classes by hand. A compact link to a role is `patterns/jobs/JobLinkRow`. A
+link that leaves RoleBand is `ui/ExternalLink` (new tab, an `external` glyph
+after its words), never a bare `<a target="_blank">`.
 
 ### Control rules
 
@@ -752,6 +780,11 @@ where the ring is drawn:
   browser, so the row it came from is marked when the keyboard closes it.
 - `outline: none` only beside a named carrier, or on an element that only
   script focuses.
+- An entry a jump lands on (the application feed's month menu) takes focus and
+  wears a landing ring for 2.4 s: the same width, hue and place as the focus
+  ring, drawn on its own layer (`::after`), so a pointer jump is marked too and
+  the focus ring underneath never fades with it. It fades out; under reduced
+  motion it holds still until the feed's timer takes it away.
 - In a combobox, focus stays in the field and the active option
   (`aria-activedescendant` or `aria-selected`) wears the ring inside, over the
   hover fill. The command palette's field draws no ring of its own: focus
@@ -780,8 +813,6 @@ carries a control sets `data-above-cover` to join the cover's Tab ring.
   opens the shortcuts sheet (`shell/KeyboardShortcuts.tsx`).
 - On a job list, `j` / `k` (or the arrow keys) move between rows, Enter opens
   the role, `s` saves and `c` adds to Compare.
-- In a posting opened from a list, `j` / `k` open the next and the previous
-  posting of that list, while the keyboard is on the posting itself.
 - Duplicate review answers `d`, `t` and `n` with a verdict.
 - On an application's page, `m` opens the stage menu and `i` adds an interview;
   while a stage menu is open, here or on a Board card, `1` to `5` move to the
@@ -980,6 +1011,15 @@ it opens from. Job detail and Compare use it.
   is a modal `ui/Overlay` with no scrim. Back and Escape pop history.
   `coverBackground()` in `routing/paths.ts` computes the background. Covers do
   not stack, except a role opened from Compare.
+- A role opened from a Pipeline view (`pipelineViewUnder()` in
+  `routing/paths.ts`) opens beside the rail, not over it: the role is a page
+  of the Pipeline, not a reading over a list. The rail stays live and keeps the
+  star and the view under the role marked; pressing that view goes back, as
+  Back does. The cover is not modal then: the rest of the page behind it is
+  inert (`BEHIND_COVER` without `BESIDE_COVER`), the rail keeps its place in
+  the tab order, and Escape goes back. Back lands on the view's link to the
+  role shown last, which takes focus and wears `data-returned` for a moment.
+  A posting opened from the Radar keeps the whole window.
 - Reached by URL, the same body is the page's one `main` landmark. A role
   opened from a role that is the page takes its place as the page, one
   history entry on (`steppedFrom` in its state): nothing is stacked on it,
@@ -1045,7 +1085,7 @@ its primary is View & apply, an anchor wearing the primary classes.
   line, with no heading, no word in the figure's place and no bar. Nothing
   docks.
 - **One posting gives place to another in a cover that stays open**
-  (`postingTurn.ts`): by the pager, or by a link on the posting, whether the
+  (`postingTurn.ts`): by a link on the posting (a similar role, a twin), whether the
   cover is a dialog over a list or the page itself. Both route error
   boundaries are keyed once for every posting, so the cover and its bar are
   never opened again. The posting on show stays, inert, until the
@@ -1054,8 +1094,7 @@ its primary is View & apply, an anchor wearing the primary classes.
   a line running along the bar's foot (`.jd-waiting`), still under reduced
   motion. Then the reading area (`.cover-scroll`) turns in one view
   transition, named for the length of the turn only: the old posting leaves
-  first, the new one comes in the way the list runs (or rises, from a link),
-  at its top, after its own late parts have landed. A posting reached by
+  first, the new one rises in, at its top, after its own late parts have landed. A posting reached by
   going back or forward in history opens where this cover left it. The bar
   stays in place.
   Reduced motion, a browser without view transitions and a window that draws
@@ -1081,17 +1120,30 @@ its primary is View & apply, an anchor wearing the primary classes.
   weight, the likeness muted.
   In one column, at 860 px and narrower, the column follows the description,
   nothing docks and the bar keeps to its controls.
-- **A posting opened from a list knows its place there.** `openJob` takes the
-  list's rows in order and carries them in history state; the bar's pager
-  (and `j` / `k`) replaces the entry with the row on either side, so Back
-  still returns to the list. The Board passes its page of rows; a posting
-  opened by link, or from inside another posting, has no pager.
+- **A posting opened from a list stands alone.** `openJob` carries only the
+  list it covers in history state, so the bar has no way to step to the rows
+  around it and `j` / `k` do nothing on it; the way to another role is Back
+  to the list, or a link on the posting.
 - **A posting ends on applying** (`.jd-end`), under the employer's text,
   however it was opened. The step saves the role, then opens the pipeline
   list in a new tab once the save has landed; a click and a middle click do
   the same. A role already saved opens the list with no second write, and a
-  role already applied ends on nothing. The pager and `j` / `k` still move
-  to the next row.
+  role already applied ends on nothing.
+- **A posting that opened with no text reads it** from the employer's site
+  once the page is shown (`postingText.ts`), when the detail says it can
+  (`description_readable`); the open never waits on the site. Under the
+  Description heading, from 200 ms, a running line (`ProgressBar` with no
+  value) and *Getting the description from Spotify…*; from 6 s the line keeps
+  running, the site is said to be slow and the posting on it is offered in a
+  new tab; a read that found nothing stops the line and offers Try again
+  beside the posting. One live region says each change and stays when the
+  text comes: it then says the text came, never the text itself. The text
+  comes in where the line stood, and the posting is read again behind it,
+  since its text also moves what the pay panel says. A new open of a posting
+  whose read failed asks again, which the server answers from its memory of
+  the failure for ten minutes without asking the site; Try again asks the
+  site at once. A posting nothing can read says *No description for this
+  role.*
 
 Job detail steps up on a wider window, by the width of its own scroll box
 (a container query, `posting`, so no window breakpoint is added) and never by
@@ -1283,6 +1335,7 @@ Unit gates (`npm run test:unit`) are under `dashboard/src/`; UX specs
 | Literal colours only fall | `design/literal-colours.test.ts` |
 | Hand-rolled UI markers, extinct tokens, click targets | `test/ratchet.test.ts` + `ratchet-baseline.json` |
 | Button classes outside `src/ui/` | `test/control-inventory.test.ts` + `control-inventory-baseline.json` |
+| No router `Link` wears `ui-btn` classes by hand | `test/ratchet.test.ts` |
 | Primitive states not repainted | `design/primitive-states.test.ts` |
 | Chosen and on states; the invalid field's edge | `design/state-grammar.test.ts`, `state-grammar.spec.ts`, `welcome.spec.ts`, `companies.spec.ts` |
 | Focus ring | `design/focus-ring.test.ts`, `focus-ring.spec.ts`, `combobox-cursor.spec.ts` |
@@ -1300,8 +1353,9 @@ Unit gates (`npm run test:unit`) are under `dashboard/src/`; UX specs
 | Axe in both themes | `a11y.spec.ts` |
 | Pay split bar: hatch strength, gaps, forced colours; the split label's help mark | `pay-split-bar.spec.ts` |
 | Visible primaries counted | `job-detail.spec.ts`, `profile.spec.ts` |
-| The posting's side column stays in view with no scroll of its own and keeps its first rows, folds More like this, and follows the description in one column; the pay panel's small copy grows with the scroll; a section's heading sticks; the bar carries the role; the pager steps through the list; the posting ends on applying, which saves the role and opens the pipeline list in a new tab; the next posting turns in place, in one cover, with no loading line | `job-detail.spec.ts` |
+| The posting's side column stays in view with no scroll of its own and keeps its first rows, folds More like this, and follows the description in one column; the pay panel's small copy grows with the scroll; a section's heading sticks; the bar carries the role; a posting opened from a list has no way to step to another row; the posting ends on applying, which saves the role and opens the pipeline list in a new tab; the next posting turns in place, in one cover, with no loading line | `job-detail.spec.ts` |
 | A posting steps by its box's width alone: frame, columns and type together, the text across its column, the bar, menus and pop-ups at their size, nothing zoomed | `job-detail-steps.spec.ts` |
+| A posting that opened with no text reads it once and says so under a running line, offers the posting when the site is slow and Try again when the read failed, and asks nothing when nothing can read it | `job-detail.spec.ts`, `features/job-detail/postingText.test.tsx` |
 | First-run setup | `routing/setupMode.test.tsx`, `features/scope/walk/Walk.test.tsx`, `features/companies/SetupCompanies.test.tsx`, `welcome.spec.ts` |
 | First-run setup magnification: the factor, window units, placed pop-ups, the planet's pointer | `features/scope/setupZoom.test.ts`, `features/scope/welcome/globeDrag.test.ts`, `setup-magnification.spec.ts`, `setup-magnification-webkit.spec.ts`, `setup-magnification-unhinted.spec.ts` |
 | The board during and after the first scan | `board-first-scan.spec.ts` |
