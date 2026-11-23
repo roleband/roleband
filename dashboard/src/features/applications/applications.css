@@ -8,33 +8,57 @@
    1200 and centred, the title would start right of every other tab's. */
 .main.app-main > * { max-width: none; }
 
-.app-summary {
-  margin: var(--app-space-1) 0 0;
-  color: var(--app-text-muted);
-  font-size: var(--app-type-meta);
-}
+/* Every view scrolls the way the Radar does: the page scrolls until the
+   toolbar docks at its top, the title and tabs gone. The page always has that
+   much to scroll, however short the list: each view's panel holds its toolbar
+   and is at least the window's height, less the air the toolbar takes from
+   above itself (its negative top margin, surfaces.css), so docked it ends
+   where the content starts.
 
-/* The Board fills the window under its toolbar and scrolls both ways inside
-   its frame, so the page stays still: the sideways scrollbar is always in
-   sight, and each column's head stays above its cards. A window too short
-   for a useful frame lets the page scroll instead. */
-.main.app-main[data-view="board"] {
+   The Board and Considering are tables wider than some windows. Their panel
+   is exactly the window's height, and a frame under the toolbar fills the
+   rest and scrolls both ways inside, so the sideways scrollbar is always in
+   sight and the column heads stay above their rows. A scroll down over the
+   frame moves the page first (usePageScrollsFirst). A window too short for a
+   useful frame lets the page scroll further. */
+/* A column, so the toolbar's negative top margin stays inside the panel
+   rather than passing through it to the panel's own edge. */
+.main.app-main[data-view] {
   display: flex;
   flex-direction: column;
 }
 
-/* Only the panel gives way when the column runs short. The tab row scrolls
-   sideways, so its automatic minimum height is zero: left to shrink, it would
-   collapse under a summary that wraps, and the toolbar would cover its tabs. */
-.main.app-main[data-view="board"] > :not(.app-tabpanel) {
+.main.app-main:is([data-view="board"], [data-view="list"]) {
+  padding-bottom: 0;
+}
+
+/* Nothing above the panel gives way: the page scrolls instead. The tab row
+   scrolls sideways, so its automatic minimum height is zero: left to shrink,
+   it would collapse under a summary that wraps, and the toolbar would cover
+   its tabs. */
+.main.app-main[data-view] > :not(.app-tabpanel) {
   flex-shrink: 0;
 }
 
-.main.app-main[data-view="board"] > .app-tabpanel {
+.main.app-main:is([data-view="board"], [data-view="list"]) > .app-tabpanel {
   display: flex;
-  flex: 1 1 0;
+  flex: none;
   flex-direction: column;
+  height: calc(100% - var(--app-space-2));
   min-height: 340px;
+}
+
+/* Up next is read down the page, with no frame. Below 860 the toolbar does
+   not dock (surfaces.css), so a floor there would only add a blank screen. */
+.main.app-main[data-view="up-next"] > .app-tabpanel {
+  flex: none;
+  min-height: calc(100% - var(--app-space-2));
+}
+
+@media (max-width: 860px) {
+  .main.app-main[data-view="up-next"] > .app-tabpanel {
+    min-height: 0;
+  }
 }
 
 .app-board-frame {
@@ -149,6 +173,37 @@
   gap: var(--app-space-2);
   min-height: var(--app-control-sm);
   padding: 0 var(--app-space-1);
+}
+
+/* A column's stage mark: the ring fills in the action colour over a quiet
+   track; an ending's closed circle is as quiet as the track. */
+.app-stage-ring {
+  display: inline-flex;
+  flex: none;
+  color: var(--app-text-muted);
+}
+
+.app-stage-ring[data-ended] {
+  color: var(--app-text-faint);
+}
+
+.app-stage-ring circle {
+  fill: none;
+  stroke-width: 2.6;
+}
+
+/* Dimmed, so the filled part reads apart from it at 14px. */
+.app-stage-ring-track {
+  stroke: var(--app-text-faint);
+  stroke-opacity: 0.55;
+}
+
+.app-stage-ring-fill {
+  stroke: var(--app-action);
+}
+
+.app-stage-ring[data-quarters="4"] .app-stage-ring-track {
+  stroke: none;
 }
 
 .app-column-name {
@@ -270,28 +325,66 @@
   font-size: var(--app-type-meta);
 }
 
-.app-tile-foot {
+/* The lead line: the one fact the card's column asks about, then the
+   priority at its far end. Its first part reads in the text colour; what
+   follows is quieter, unless it asks something (the action colour) or is late (red). */
+.app-tile-lead {
   display: flex;
+  align-items: flex-end;
+  gap: var(--app-space-2);
+  margin-top: var(--app-space-1);
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+}
+
+/* The facts wrap among themselves; the priority keeps the line's end, beside
+   the last of them. */
+.app-tile-facts {
+  display: flex;
+  flex: 1;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--app-space-2);
-  color: var(--app-text-faint);
+  gap: var(--app-space-1) var(--app-space-2);
+  min-width: 0;
+}
+
+/* Two lines at most, as the title: a long next step ends in an ellipsis and
+   reads whole in the role's Workspace, so one card never outgrows its column. */
+.app-tile-lead-main {
+  display: -webkit-box;
+  overflow: hidden;
+  min-width: 0;
+  color: var(--app-text);
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.app-tile-late {
+  color: var(--app-danger);
+  font-weight: var(--app-weight-name);
+}
+
+/* A due date: words in the row's quiet ink; past its day, the danger ink. */
+.app-due {
+  color: var(--app-text-muted);
   font-size: var(--app-type-meta);
+  white-space: nowrap;
+}
+
+.app-due[data-overdue] {
+  color: var(--app-danger);
+  font-weight: var(--app-weight-name);
+}
+
+.app-tile-ask {
+  color: var(--app-action-text);
+  font-weight: var(--app-weight-name);
 }
 
 .app-tile-spacer {
   flex: 1;
-}
-
-.app-tile-fact {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-}
-
-.app-tile-days[data-stale] {
-  color: var(--app-warning);
-  font-weight: var(--app-weight-name);
 }
 
 .app-tile-priority {
@@ -299,16 +392,16 @@
   gap: 2px;
 }
 
-.app-tile-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 1px var(--app-border-strong);
+.app-tile-lead .app-tile-priority {
+  flex: none;
+  align-items: center;
+  height: 1lh;
 }
 
-.app-tile-dot[data-filled] {
-  background: var(--app-text-muted);
-  box-shadow: none;
+.app-list-priority {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--app-space-2);
 }
 
 /* Under a drag the card rides above every column, and the column a drop
@@ -519,10 +612,86 @@
   font-size: var(--app-type-meta);
 }
 
-.app-interview-error {
+.app-interview-error,
+.app-notes-over {
   margin: var(--app-space-1) 0 0;
   color: var(--app-danger);
   font-size: var(--app-type-meta);
+}
+
+.app-notes-left-out {
+  margin: var(--app-space-1) 0 0;
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+}
+
+/* Under the page: the way to its earlier versions. */
+.app-notes-foot {
+  display: flex;
+  margin-top: var(--app-space-2);
+}
+.app-notes-versions-open.ui-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--app-space-1);
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+  text-decoration: none;
+}
+
+.ui-popover.app-notes-versions .ui-popover-inner {
+  width: 380px;
+  max-width: calc(100vw / var(--page-zoom, 1) - 32px);
+  padding: var(--app-space-4);
+}
+.app-notes-versions h3 {
+  margin: 0 0 var(--app-space-2);
+  font-size: var(--app-type-body);
+  font-weight: var(--app-weight-strong);
+}
+.app-notes-versions-note {
+  margin: 0;
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+}
+.app-notes-versions-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* One version: when and who on top, its first lines, and its button at the
+   end of the row, level with the words. */
+.app-notes-version {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: var(--app-space-3);
+  align-items: center;
+  padding: var(--app-space-2) 0;
+  border-top: 1px solid var(--app-border);
+}
+.app-notes-version:first-child {
+  border-top: 0;
+}
+.app-notes-version > .ui-btn {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+}
+.app-notes-version-head {
+  display: flex;
+  gap: var(--app-space-2);
+  margin: 0;
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+}
+.app-notes-version-text {
+  display: -webkit-box;
+  margin: 2px 0 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  color: var(--app-text);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 /* What may be left empty. Its name rides the rule that parts it from the
@@ -666,27 +835,27 @@
 
 /* A register, as Settings' company list is: no card around it, a header band
    over a strong rule, rows between hairlines, from the toolbar's left edge to
-   its right. It scrolls sideways only when its columns outgrow the page. To
-   the right of both is Radar's ledger margin, where the compare beacon stands
-   level with the role picked last. */
-.app-list-host {
-  position: relative;
-}
-
+   its right. To the right of both is Radar's ledger margin, where the compare
+   beacon stands level with the role picked last. */
 .job-margin-page .app-pipeline-toolbar {
   margin-right: var(--job-margin);
 }
 
-/* A sticky head sticks to its nearest scroller. The frame scrolls sideways
-   only while the table is wider than it; a table that fits leaves the page
-   as the scroller, and the column heads stay under its toolbar as the rows
-   pass. */
-.app-list-scroll {
-  overflow-x: auto;
+/* The list's frame, as the Board's: it fills the panel under the toolbar and
+   is the scroller both ways, so the column heads stick at its top. */
+.app-list-host {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  min-height: 0;
 }
 
-.app-list-scroll:not([data-overflowing]) {
-  overflow-x: visible;
+.app-list-scroll {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  overscroll-behavior-x: contain;
+  padding-bottom: var(--app-space-3);
 }
 
 .app-list th,
@@ -697,7 +866,7 @@
 
 .data-table.app-list thead th {
   position: sticky;
-  top: var(--app-list-toolbar-h, 0px);
+  top: 0;
   z-index: 3;
   background-color: var(--app-canvas);
   background-image: var(--app-ambient-image);
@@ -860,14 +1029,6 @@
   text-align: right;
 }
 
-/* Below this width the toolbar scrolls away (surfaces.css), so the head pins
-   at the page's top. */
-@media (max-width: 860px) {
-  .data-table.app-list thead th {
-    top: 0;
-  }
-}
-
 /* The head's pinned cell sticks both ways, over every row's. */
 .data-table.app-list thead .app-list-actions {
   z-index: 4;
@@ -943,13 +1104,13 @@
     grid-template-columns: minmax(0, 1fr) clamp(320px, 32%, 440px);
   }
 
-  /* Bounded the way the filter rail is (patterns/rail-shell.css): at rest
-     the month fits the window, and a picked day with a long list scrolls
-     its tail into reach. */
+  /* Bounded the way the filter rail is (patterns/rail-shell.css): it sticks
+     under the docked toolbar, at rest the month fits the window, and a
+     picked day with a long list scrolls its tail into reach. */
   .app-month {
     position: sticky;
-    top: var(--app-space-4);
-    max-height: calc(100dvh - 64px - 2 * var(--app-space-4));
+    top: var(--app-upnext-toolbar-h, 0px);
+    max-height: calc(100dvh - var(--app-upnext-toolbar-h, 0px) - 64px);
     overflow: hidden auto;
     scrollbar-width: thin;
     scrollbar-color: var(--app-border-strong) transparent;
@@ -963,9 +1124,9 @@
 }
 
 /* A day picked in the month scrolls its section here; the margin keeps the
-   heading off the window's edge. */
+   heading clear of the docked toolbar (its height, measured by UpNext). */
 .app-upnext-day {
-  scroll-margin-top: var(--app-space-4);
+  scroll-margin-top: calc(var(--app-upnext-toolbar-h, 0px) + var(--app-space-2));
 }
 
 /* A day's heading is a date the person reads, so it is drawn as one: title
@@ -1076,7 +1237,7 @@
 
 /* Today is not a choice, so it never wears the chosen circle: a second
    circle beside the picked day reads as two days picked. Its number is
-   strong and underlined, in its own ink, and the gold stays with the pick. */
+   strong and underlined, in its own ink, and the chosen colour stays with the pick. */
 .app-month-day[aria-current="date"] .app-month-num {
   font-weight: var(--app-weight-strong);
   text-decoration: underline;
@@ -1154,10 +1315,6 @@
   padding-inline: 0;
 }
 
-.app-month-picked .app-upnext-when {
-  flex: none;
-}
-
 .app-month-picked .app-upnext-what {
   width: 100%;
 }
@@ -1198,10 +1355,56 @@
 }
 
 .app-upnext-when {
-  flex: 0 0 96px;
   color: var(--app-text-muted);
   font-size: var(--app-type-meta);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* A row's own controls sit above the link that opens its application, as a
+   card's menu does. */
+.ui-btn.app-upnext-tick,
+.app-upnext-side .ui-btn {
+  position: relative;
+  z-index: 1;
+}
+
+.ui-btn.app-upnext-tick {
+  flex: none;
+}
+
+/* A round's mark, the size of a step's tick so the names line up. */
+.app-upnext-mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--app-radius-sm);
+  background: var(--app-action-soft);
+  color: var(--app-action-text);
+}
+
+.app-upnext-name {
+  overflow: hidden;
+  color: var(--app-text);
+  font-size: var(--app-type-body);
+  font-weight: var(--app-weight-name);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* When a row falls and the one thing to do there, at the row's end. */
+.app-upnext-side {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--app-space-3);
+}
+
+.app-upnext-outcomes {
+  display: flex;
+  gap: var(--app-space-1);
 }
 
 .app-upnext-what {
@@ -1234,78 +1437,7 @@
   max-width: 520px;
 }
 
-/* ---- one application's page ---------------------------------------------- */
-
-.app-page-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--app-space-2);
-  padding: var(--app-space-3) 0;
-}
-
-.app-page-place {
-  color: var(--app-text-muted);
-  font-size: var(--app-type-meta);
-  font-variant-numeric: tabular-nums;
-}
-
-/* An arrow with no neighbour keeps its place, so the other does not move. */
-.app-page-arrow {
-  display: inline-block;
-  width: var(--app-control-sm);
-}
-
-/* The name takes the room, and the stage button wraps under it when the two
-   would not fit side by side: on a phone the title keeps the full width
-   instead of breaking a word to a line beside the button. */
-.app-page-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--app-space-3);
-  padding: var(--app-space-2) 0 var(--app-space-4);
-}
-
-.app-page-name {
-  flex: 1 1 16rem;
-  min-width: 0;
-}
-
-.app-page-name h1 {
-  margin: 0;
-  font-size: var(--app-type-page);
-  font-weight: var(--app-weight-strong);
-  overflow-wrap: break-word;
-}
-
-/* The dot between parts is drawn in the gap before each part, outside it, and
-   the line clips what falls past its start edge: a part that wraps to a line
-   of its own starts with its words, never with a dot. */
-.app-page-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--app-space-1) var(--app-space-4);
-  margin: var(--app-space-1) 0 0;
-  overflow-x: clip;
-  color: var(--app-text-muted);
-  font-size: var(--app-type-meta);
-}
-
-.app-page-meta > span {
-  position: relative;
-}
-
-.app-page-meta > span + span::before {
-  position: absolute;
-  inset-inline-end: 100%;
-  width: var(--app-space-4);
-  text-align: center;
-  content: "·";
-}
-
-.app-stage-button {
-  flex: 0 0 auto;
-}
+/* ---- the Workspace's parts ------------------------------------------------- */
 
 .app-alert {
   display: flex;
@@ -1323,45 +1455,11 @@
   flex: 1;
 }
 
-/* The page's own width decides when the facts column drops below the main
-   one, so the rail and any panel beside the page count. */
-.app-page {
-  container: app-page / inline-size;
-}
-
-.app-page-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
-  gap: var(--app-space-5);
-  align-items: start;
-  max-width: 1200px;
-}
-
-@container app-page (max-width: 860px) {
-  .app-page-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.app-page-main {
-  display: flex;
-  flex-direction: column;
-  gap: var(--app-space-4);
-  min-width: 0;
-}
-
 .app-panel {
   padding: var(--app-space-3) var(--app-space-4);
   border: 1px solid var(--app-border);
   border-radius: var(--app-radius-lg);
   background: var(--app-surface);
-}
-
-.app-panel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--app-space-2);
 }
 
 .app-panel-title {
@@ -1374,34 +1472,9 @@
   text-transform: uppercase;
 }
 
-.app-next-row {
-  display: flex;
-  align-items: center;
-  gap: var(--app-space-2);
-  padding: var(--app-space-2) 0;
-}
-
-.app-next-row + .app-next-row {
-  border-top: 1px solid var(--app-border);
-}
-
-.app-next-what {
-  display: flex;
-  flex: 1;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--app-space-1) var(--app-space-2);
-  min-width: 0;
-}
-
 .app-next-name {
   font-size: var(--app-type-body);
   font-weight: var(--app-weight-name);
-}
-
-.app-next-meta {
-  color: var(--app-text-muted);
-  font-size: var(--app-type-meta);
 }
 
 .app-next-empty {
@@ -1411,22 +1484,6 @@
   font-size: var(--app-type-meta);
 }
 
-.app-next-form,
-.app-notes-form {
-  display: grid;
-  flex: 1;
-  gap: var(--app-space-1);
-}
-
-.app-next-form label {
-  color: var(--app-text-muted);
-  font-size: var(--app-type-meta);
-}
-
-.app-next-form .app-interview-error {
-  margin: 0;
-}
-
 .app-next-actions {
   display: flex;
   justify-content: flex-end;
@@ -1434,23 +1491,10 @@
   padding-top: var(--app-space-1);
 }
 
-.app-notes-text {
-  margin: var(--app-space-2) 0 0;
-  font-size: var(--app-type-body);
-  white-space: pre-wrap;
-}
-
-.app-notes-text[data-clamped] {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-}
-
 .app-composer {
   display: grid;
   gap: var(--app-space-2);
-  margin: var(--app-space-3) 0;
+  margin: 0 0 var(--app-space-3);
 }
 
 .app-composer > .ui-btn {
@@ -1460,10 +1504,11 @@
 /* A month's divider stays at the top of the scroll while its month passes,
    and the next month's pushes it out: each sticks only inside its section.
    Painted as the panel is, its tint over the page ground and wash, so the
-   entries pass under it and it never reads as a plate. */
+   entries pass under it and it never reads as a plate. It stops under
+   whatever the scroll box holds above it (`--held-above`). */
 .app-feed-divider {
   position: sticky;
-  top: 0;
+  top: var(--held-above, 0px);
   z-index: 1;
   display: flex;
   align-items: center;
@@ -1474,7 +1519,6 @@
   background-attachment: scroll, fixed, fixed;
 }
 
-.app-feed-divider::before,
 .app-feed-divider::after {
   content: "";
   flex: 1;
@@ -1482,16 +1526,18 @@
   background: var(--app-border);
 }
 
-.app-feed-divider-button {
+/* A month's name is a caption on its rule, in the blocks' caption voice; it
+   still opens the jump. Its room reaches out to the left, so the words stand
+   on the card's edge. */
+.app-feed-divider-button.ui-btn {
   gap: var(--app-space-1);
-  border-radius: 999px;
-  box-shadow: inset 0 0 0 1px var(--app-border);
-  font-weight: var(--app-weight-name);
+  margin-inline-start: calc(-1 * var(--app-control-sm-pad));
+  color: var(--app-text-faint);
 }
 
 /* A jump lands an entry below its month's divider, not under it. */
 .app-feed-month [data-feed] {
-  scroll-margin-top: calc(var(--app-space-2) * 2 + 32px);
+  scroll-margin-top: calc(var(--held-above, 0px) + var(--app-space-2) * 2 + 32px);
 }
 
 /* The entry a jump landed on wears a ring for a moment, then lets it go. The
@@ -1559,14 +1605,7 @@
   white-space: pre-wrap;
 }
 
-.app-comment-confirm {
-  display: flex;
-  align-items: center;
-  gap: var(--app-space-2);
-  padding-top: var(--app-space-2);
-  font-size: var(--app-type-meta);
-}
-
+/* A recorded change: one quiet line, its time at the end. */
 .app-event {
   display: flex;
   align-items: center;
@@ -1585,85 +1624,78 @@
   color: var(--app-text-faint);
 }
 
-.app-facts {
-  display: flex;
-  flex-direction: column;
-  gap: var(--app-space-4);
-}
-
-.app-facts-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--app-space-2);
-}
-
-.app-facts-group dl {
-  display: flex;
-  flex-direction: column;
-  gap: var(--app-space-1);
-  margin: 0;
-}
-
-.app-fact {
-  display: grid;
-  grid-template-columns: 104px minmax(0, 1fr);
-  gap: var(--app-space-2);
-  align-items: center;
-  font-size: var(--app-type-meta);
-}
-
-.app-fact dt {
-  color: var(--app-text-muted);
-}
-
-.app-fact dd {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--app-space-1);
-  margin: 0;
-}
-
-.app-fact-more {
-  color: var(--app-text-muted);
-}
-
-.app-read-posting {
-  align-self: flex-start;
-}
-
-.app-interviews {
-  display: flex;
-  flex-direction: column;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.app-interview {
-  display: flex;
-  align-items: center;
-  gap: var(--app-space-2);
-  padding: var(--app-space-1) 0;
-}
-
-.app-interview + .app-interview {
+/* A run of changes: one line that opens where it stands, with the run's
+   newest day at its end. Opened, its changes read under it, each its own
+   line with its day. */
+.app-event-run {
   border-top: 1px solid var(--app-border);
 }
 
-.app-interview-what {
-  display: flex;
+.app-event-fold {
+  padding-block: var(--app-space-2);
+}
+
+.app-event-toggle.ui-btn {
   flex: 1;
-  flex-direction: column;
+  justify-content: flex-start;
   min-width: 0;
+  color: inherit;
+  text-align: start;
+  text-decoration: none;
+}
+
+.app-event-run[data-open] .app-event-toggle.ui-btn {
+  color: var(--app-text);
+}
+
+.app-event-changes {
+  padding: 0 0 var(--app-space-2) calc(12px + var(--app-space-2));
+}
+
+/* Folded but searchable: the browser skips its content and keeps its box, so
+   the box takes no room. */
+.app-event-changes[hidden] {
+  padding: 0;
+}
+
+.app-feed-list > .app-event {
+  border-top: 1px solid var(--app-border);
+  padding-block: var(--app-space-2);
+}
+
+.app-event-changes > .app-event {
+  border-top: 0;
+  padding-block: var(--app-space-1);
+}
+
+/* A row's own tools (edit, delete) show while the row is pointed at or holds
+   the focus, so a list of rows reads as its words. */
+.app-row-tool.ui-btn {
+  opacity: 0;
+}
+
+:is(.app-ws-step, .app-ws-round, .app-comment):is(:hover, :focus-within) .app-row-tool.ui-btn {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .app-row-tool.ui-btn {
+    opacity: 1;
+  }
+}
+
+.app-comment-confirm {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  padding-top: var(--app-space-2);
+  font-size: var(--app-type-meta);
 }
 
 .app-interview-actions > .app-interview-delete {
   margin-inline-end: auto;
 }
 
-/* The question before a delete stands where Delete was, at the start of
-   the row, with its two answers where the form's actions were. */
 /* A save that failed says so beside Save, in the line the form already has. */
 .app-interview-actions > .app-interview-failed {
   margin: 0 auto 0 0;
@@ -1671,25 +1703,17 @@
   font-size: var(--app-type-meta);
 }
 
+/* The question before a delete stands where Delete was, at the start of
+   the row, with its two answers where the form's actions were. */
 .app-interview-actions > .app-interview-confirm {
   margin: 0 auto 0 0;
   font-size: var(--app-type-body);
   font-weight: var(--app-weight-name);
 }
 
-.app-page-gone {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--app-space-3);
-  padding: var(--app-space-6) 0;
-}
-
-/* The page's own text fields, in the box the register forms use: the
+/* The Workspace's own text fields, in the box the register forms use: the
    control scale's md rank, the control border, the surface behind. */
-.app-composer textarea,
-.app-notes-form textarea,
-.app-next-form input {
+.app-composer textarea {
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
@@ -1701,22 +1725,772 @@
   color: var(--app-text);
   font: inherit;
   font-size: var(--app-type-body);
-}
-
-.app-composer textarea,
-.app-notes-form textarea {
-  resize: vertical;
+  overflow: hidden;
+  resize: none;
 }
 
 .app-composer textarea::placeholder {
   color: var(--app-text-faint);
 }
 
-/* A card's priority and days keep together, at the end of the footer, and
-   wrap as one when the due field and the comments fill the line. */
-.app-tile-end {
+/* The field's button comes with the first word. */
+.app-composer[data-writing] > .ui-btn {
+  justify-self: end;
+}
+
+/* ---- a role's Workspace ---------------------------------------------------- */
+
+/* Every block is a card: its caption at the top
+   left in the whisper voice, its one action at the top right, its content
+   under them. Pointed at or focused, a block shows a grip in the margin to
+   its left and an eye beside its caption; a drag marks where it would land
+   with the action colour's line in the gap. */
+.app-ws {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-3);
+  container: workspace / inline-size;
+}
+
+.app-ws-card {
+  position: relative;
+  padding: var(--app-space-3) var(--app-space-4) var(--app-space-4);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface);
+}
+
+.app-ws-head {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-1);
+  min-height: var(--app-control-sm);
+}
+
+.app-ws-label {
+  margin: 0;
+  color: var(--app-text-faint);
+  font-family: var(--app-font-mono);
+  font-size: var(--app-type-whisper);
+  font-weight: var(--app-type-whisper-weight);
+  line-height: var(--app-control-sm);
+  letter-spacing: var(--app-type-whisper-track);
+  text-transform: uppercase;
+}
+
+.app-ws-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-3);
+  min-width: 0;
+  margin-top: var(--app-space-2);
+  font-size: var(--app-type-body);
+}
+
+.app-ws-action.ui-btn {
   display: inline-flex;
   align-items: center;
+  gap: var(--app-space-1);
+}
+
+/* The grip stands in the margin left of the card, level with the caption. */
+.app-ws-grip.ui-btn {
+  position: absolute;
+  top: var(--app-space-3);
+  right: calc(100% + var(--app-space-1));
+  cursor: grab;
+}
+
+.app-ws-grip.ui-btn,
+.app-ws-eye.ui-btn {
+  opacity: 0;
+}
+
+.app-ws-card:is(:hover, :focus-within) :is(.app-ws-grip, .app-ws-eye).ui-btn,
+.app-ws-grip.ui-btn[aria-expanded="true"] {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .app-ws-grip.ui-btn,
+  .app-ws-eye.ui-btn {
+    opacity: 1;
+  }
+}
+
+/* While a block is carried, no other block shows its marks, and the one
+   carried leaves a sunk place where it stood. */
+.app-ws[data-dragging] .app-ws-card:not([data-dragged]) :is(.app-ws-grip, .app-ws-eye).ui-btn {
+  opacity: 0;
+}
+
+.app-ws-card[data-dragged] {
+  border-style: dashed;
+  background: var(--app-surface-sunken);
+  opacity: 0.6;
+}
+
+.app-ws-card[data-drop]::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--app-action);
+  pointer-events: none;
+}
+
+.app-ws-card[data-drop="before"]::before {
+  top: calc(-1 * (var(--app-space-3) + 3px) / 2 - 1px);
+}
+
+.app-ws-card[data-drop="after"]::before {
+  bottom: calc(-1 * (var(--app-space-3) + 3px) / 2 - 1px);
+}
+
+/* The way back to a hidden block: one large plus on a rule under the last
+   block, drawn only while something is hidden. */
+.app-ws-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-3);
+  padding-top: var(--app-space-2);
+}
+
+.app-ws-foot::before,
+.app-ws-foot::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--app-border);
+}
+
+.app-ws-add.ui-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+}
+
+/* The next step: the tick, the words, the day, the edit button. The words
+   wrap in their own column, breaking a long unspaced run too, so nothing
+   paints over the day; the controls stay level with the first line, whose
+   box is a small control's height. */
+.app-ws-step {
+  display: flex;
+  align-items: flex-start;
   gap: var(--app-space-2);
-  margin-inline-start: auto;
+}
+
+.app-ws-step-words {
+  flex: 1;
+  min-width: 0;
+  padding-block: calc((var(--app-control-sm) - 1lh) / 2);
+  font-weight: var(--app-weight-name);
+  overflow-wrap: anywhere;
+}
+
+.app-ws-step-due {
+  display: flex;
+  flex: none;
+  align-items: center;
+  min-height: var(--app-control-sm);
+}
+
+/* A step that is done: its words struck through in the quiet ink, the day it
+   was done beside them. */
+.app-ws-step[data-done] .app-ws-step-words {
+  color: var(--app-text-muted);
+  font-weight: var(--app-weight-body);
+  text-decoration: line-through;
+}
+
+.app-ws-step-when {
+  display: flex;
+  flex: none;
+  align-items: center;
+  min-height: var(--app-control-sm);
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The done steps, folded under the line that adds a step. */
+.app-ws-done {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-2);
+}
+
+.app-ws-done-toggle.ui-btn {
+  gap: var(--app-space-1);
+  align-self: flex-start;
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+  text-decoration: none;
+}
+
+/* A done step's delete question, under its words. */
+.app-ws-step-confirm {
+  padding-inline-start: calc(var(--app-control-sm) + var(--app-space-2));
+}
+
+/* The open steps, one under another, and the line that adds the next one
+   under the last. */
+.app-ws-steps,
+.app-ws-step-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-2);
+}
+
+.app-ws-step-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A step being changed keeps its words where the listed steps' words are,
+   past the ticks. */
+.app-ws-step-list .app-ws-step-form {
+  padding-inline-start: calc(var(--app-control-sm) + var(--app-space-2));
+}
+
+/* The line that adds a step, a row like the steps: the plus in the ticks'
+   column, the field where their words are. */
+.app-ws-step-add {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--app-space-2);
+}
+
+.app-ws-step-add > .app-ws-step-form {
+  flex: 1;
+  min-width: 0;
+}
+
+.app-ws-step-plus {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--app-control-sm);
+  height: var(--app-control-sm);
+  color: var(--app-text-faint);
+  cursor: text;
+}
+
+/* Writing a step: the words take the whole width and grow with the text; the
+   day and the buttons sit on the line below. */
+.app-ws-step-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-2);
+}
+
+.app-ws-step-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--app-space-2);
+}
+
+.app-ws-step-due-label {
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+}
+
+/* A step's words and day, in the Workspace's field box. */
+.app-ws-step-input,
+.app-ws-due-field {
+  box-sizing: border-box;
+  min-height: var(--app-control-sm);
+  padding: 0 var(--app-control-sm-pad);
+  border: 1px solid var(--app-border-control);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface);
+  color: var(--app-text);
+  font: inherit;
+  font-size: var(--app-type-body);
+}
+
+.app-ws-step-input {
+  display: block;
+  min-width: 0;
+  padding-block: calc((var(--app-control-sm) - 1lh - 2px) / 2);
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  resize: none;
+}
+
+.app-ws-step-input::placeholder {
+  color: var(--app-text-faint);
+}
+
+/* The day is a field the whole of which opens the month: the icons and the
+   words are one target. It rings inside its edge, as a field does, and while
+   the month is open it takes the edge of an open picker (ui/TimeField.css). */
+.app-ws-due-field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--app-space-1);
+  color: var(--app-text-muted);
+  cursor: pointer;
+  transition: border-color var(--app-duration-fast), background var(--app-duration-fast);
+}
+.app-ws-due-field:hover {
+  border-color: var(--app-text-faint);
+}
+.app-ws-due-field:focus-visible {
+  outline-offset: calc(-1 * var(--app-ring-offset));
+}
+.app-ws-due-field[aria-expanded="true"] {
+  border-color: var(--app-chosen-line);
+  background: var(--app-chosen-wash);
+}
+.app-ws-due-value {
+  color: var(--app-text);
+  font-variant-numeric: tabular-nums;
+}
+.app-ws-due-field[data-empty] .app-ws-due-value {
+  color: var(--app-text-faint);
+}
+
+/* The month a step's day is picked from, at the interview form's size. */
+.ui-popover.app-ws-due-pop .ui-popover-inner {
+  width: 300px;
+  max-width: calc(100vw / var(--page-zoom, 1) - 32px);
+  padding: var(--app-space-3);
+}
+.app-ws-due-foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--app-space-2);
+  padding-top: var(--app-space-2);
+  border-top: 1px solid var(--app-border);
+}
+
+/* Interviews: each round's name opens it; its day and format beside. */
+.app-ws-rounds {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.app-ws-round-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--app-space-1) var(--app-space-3);
+}
+
+.app-ws-round-name {
+  font-weight: var(--app-weight-strong);
+}
+
+.app-ws-round-when,
+.app-ws-round-outcome {
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+}
+
+.app-ws-round-notes {
+  margin: var(--app-space-1) 0 0;
+  color: var(--app-text-muted);
+  white-space: pre-wrap;
+}
+
+/* A coming round with nothing written: the outline its notes start from,
+   as quiet as the notes that would stand in its place. */
+.app-ws-round-prepare {
+  margin-top: var(--app-space-1);
+  font-size: var(--app-type-meta);
+}
+
+/* Notes: the page itself, in the box the Workspace's other fields use, its
+   words at the comment field's inset. It grows with its text, so the page
+   scrolls, never the field. */
+.app-ws-notes {
+  --notes-room-block: var(--app-space-2);
+  --notes-room-inline: var(--app-control-md-pad);
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: calc(1.6em + 2 * var(--notes-room-block) + 2px);
+  margin: 0;
+  padding: var(--notes-room-block) var(--notes-room-inline);
+  border: 1px solid var(--app-border-control);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface);
+  color: var(--app-text);
+  font: inherit;
+  font-size: var(--app-type-body);
+  line-height: 1.6;
+  resize: none;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+/* Focused, the page opens to a few lines to write in. */
+.app-ws-notes:focus {
+  min-height: calc(4 * 1.6em + 2 * var(--notes-room-block) + 2px);
+}
+
+/* The page's own text: Markdown's blocks at the Workspace's measure, the
+   first and last flush with the box so an empty page is one line tall. */
+.app-ws-notes {
+  white-space: pre-wrap;
+}
+
+.app-ws-notes > :first-child {
+  margin-top: 0;
+}
+
+.app-ws-notes > :last-child {
+  margin-bottom: 0;
+}
+
+.app-ws-notes :where(p, ul, ol, blockquote) {
+  margin: 0 0 var(--app-space-2);
+}
+
+.app-ws-notes :where(h1, h2, h3) {
+  margin: var(--app-space-4) 0 var(--app-space-1);
+  color: var(--app-text);
+  font-weight: var(--app-weight-strong);
+}
+
+/* Roles the posting scales with the window as it scales the page's text, so
+   the three levels stay apart from it at every width. */
+.app-ws-notes h1 {
+  font-size: var(--app-type-read-head);
+  line-height: 1.2;
+}
+
+.app-ws-notes h2 {
+  font-size: var(--app-type-read);
+  line-height: 1.25;
+}
+
+.app-ws-notes h3 {
+  font-size: var(--app-type-title);
+  line-height: 1.3;
+}
+
+/* Code in a line: the app's mono voice on a quiet ground, so it reads as
+   something to copy as it stands. */
+.app-ws-notes code {
+  padding: 0.1em 0.3em;
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-sunken);
+  font-family: var(--app-font-mono);
+  font-size: var(--app-type-meta);
+}
+
+/* In a heading, code keeps the heading's size. */
+.app-ws-notes :where(h1, h2, h3) code {
+  font-size: inherit;
+}
+
+.app-ws-notes :where(ul, ol) {
+  padding-left: var(--app-space-5);
+}
+
+.app-ws-notes li > p {
+  margin: 0;
+}
+
+.app-ws-notes blockquote {
+  padding-left: var(--app-space-3);
+  border-left: 2px solid var(--app-border-strong);
+  color: var(--app-text-muted);
+}
+
+.app-ws-notes hr {
+  margin: var(--app-space-3) 0;
+  border: 0;
+  border-top: 1px solid var(--app-border);
+}
+
+.app-ws-notes a {
+  color: var(--app-action);
+}
+
+/* A checklist line: its box on the first line of its words, a ticked line
+   quiet and struck through. */
+.app-ws-notes ul[data-type="taskList"] {
+  padding-left: 0;
+  list-style: none;
+}
+
+.app-ws-notes ul[data-type="taskList"] > li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--app-space-2);
+}
+
+.app-ws-notes ul[data-type="taskList"] > li > label {
+  display: flex;
+  align-items: center;
+  height: 1.6em;
+  flex: none;
+}
+
+.app-ws-notes ul[data-type="taskList"] > li > label > input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--app-action);
+}
+
+.app-ws-notes ul[data-type="taskList"] > li > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.app-ws-notes ul[data-type="taskList"] > li[data-checked="true"] > div {
+  color: var(--app-text-faint);
+  text-decoration: line-through;
+}
+
+/* The hint on an empty page, from the first line's place. An unseen copy of
+   it under the caret's line holds the page open for every line the hint
+   wraps to, so a narrow page does not cut it. */
+.app-ws-notes .is-editor-empty:first-child {
+  position: relative;
+}
+
+.app-ws-notes .is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  position: absolute;
+  inset: 0 0 auto;
+  color: var(--app-text-faint);
+  pointer-events: none;
+}
+
+.app-ws-notes .is-editor-empty:first-child::after {
+  content: attr(data-placeholder);
+  display: block;
+  margin-top: -1lh;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.app-notes {
+  position: relative;
+}
+
+/* The notes' formatting guide: each line names what a mark or a key makes,
+   the mark or key at its end, as the "/" menu shows them. */
+.ui-popover.app-notes-help .ui-popover-inner {
+  width: 520px;
+  max-width: calc(100vw / var(--page-zoom, 1) - 32px);
+  padding: var(--app-space-4);
+}
+
+.app-notes-help-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  column-gap: var(--app-space-5);
+}
+
+.app-notes-help h3 {
+  margin: 0;
+  color: var(--app-text);
+  font-size: var(--app-type-title);
+  font-weight: var(--app-weight-name);
+  line-height: 1.3;
+}
+
+.app-notes-help h4 {
+  margin: var(--app-space-4) 0 var(--app-space-2);
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+  font-weight: var(--app-weight-name);
+}
+
+.app-notes-help dl {
+  display: grid;
+  gap: var(--app-space-1);
+  margin: 0;
+}
+
+.app-notes-help dl > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--app-space-3);
+}
+
+.app-notes-help :is(dt, dd) {
+  margin: 0;
+  color: var(--app-text);
+  font-size: var(--app-type-body);
+}
+
+.app-notes-help p {
+  margin: var(--app-space-2) 0 0;
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+}
+
+/* The "/" menu: the blocks by name, each with the mark that makes it at the
+   start of a line. Drawn as the app's menus are; the row the keyboard is on
+   is lit as a pointed-at row is. */
+.app-notes-menu {
+  position: absolute;
+  z-index: 121;
+  box-sizing: border-box;
+  min-width: 220px;
+  padding: var(--app-space-1);
+  background: var(--app-surface-glass);
+  backdrop-filter: blur(28px) saturate(160%);
+  border: 1px solid var(--app-border-strong);
+  border-radius: var(--app-radius-xl);
+  box-shadow: var(--app-shadow-pop);
+  color: var(--app-text);
+  font-family: var(--app-font-sans);
+}
+
+.app-notes-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--app-space-3);
+  min-height: var(--app-control-sm);
+  padding: 0 var(--app-control-sm-pad);
+  border-radius: var(--app-radius-sm);
+  font-size: var(--app-type-meta);
+  cursor: default;
+}
+
+.app-notes-option[data-active] {
+  background: var(--app-surface-hover);
+}
+
+.app-notes-mark {
+  color: var(--app-text-faint);
+  font-family: var(--app-font-mono);
+  font-size: var(--app-type-meta);
+}
+
+.app-notes-none {
+  margin: 0;
+  padding: var(--app-space-1) var(--app-control-sm-pad);
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+}
+
+/* The bar over selected words (NotesToolbar): one row of small buttons on the
+   "/" menu's glass, the kind of line first, a hairline between the groups.
+   Tiptap places it from the selection's box and takes it out of the page
+   while nothing is selected. */
+.app-notes-bar {
+  z-index: 121;
+  width: max-content;
+  max-width: calc(100% - var(--app-space-2));
+}
+
+.app-notes-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  box-sizing: border-box;
+  padding: 3px;
+  background: var(--app-surface-glass);
+  backdrop-filter: blur(28px) saturate(160%);
+  border: 1px solid var(--app-border-strong);
+  border-radius: var(--app-radius-lg);
+  box-shadow: var(--app-shadow-pop);
+  color: var(--app-text);
+  font-family: var(--app-font-sans);
+}
+
+.app-notes-bar-row > .ui-btn {
+  gap: var(--app-space-1);
+  white-space: nowrap;
+}
+
+/* A style's letter drawn in the style it gives, as a writer's bar shows them. */
+.app-notes-bar-letter {
+  font-size: var(--app-type-body);
+  line-height: 1;
+}
+.app-notes-bar-letter > b { font-weight: var(--app-weight-strong); }
+.app-notes-bar-letter > u { text-underline-offset: 2px; }
+.app-notes-bar-letter > code { font-family: var(--app-font-mono); font-size: var(--app-type-meta); }
+
+.app-notes-bar-rule {
+  align-self: stretch;
+  width: 1px;
+  margin: 4px 2px;
+  background: var(--app-border);
+}
+
+.app-notes-bar-link {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--app-space-1);
+}
+
+.app-notes-bar-field {
+  box-sizing: border-box;
+  width: 260px;
+  min-height: var(--app-control-sm);
+  padding: 0 var(--app-control-sm-pad);
+  border: 1px solid var(--app-border-control);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface);
+  color: var(--app-text);
+  font: inherit;
+  font-size: var(--app-type-meta);
+}
+
+.app-notes-bar-field::placeholder {
+  color: var(--app-text-faint);
+}
+
+.app-notes-bar-error {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 0 var(--app-space-1) 2px;
+  color: var(--app-danger);
+  font-size: var(--app-type-meta);
+}
+
+/* Outcome. */
+.app-ws-outcome {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--app-space-2);
+  margin: 0;
+}
+
+.app-ws-outcome strong {
+  font-weight: var(--app-weight-strong);
+}
+
+
+/* Back from a role opened here: the card or row it was opened from, or the
+   one a link on its posting swapped in, wears the ring for a moment, so the eye finds
+   where it was (patterns/Cover marks the link with data-returned). */
+:is(.app-tile, .app-list-row, .app-upnext-item):has(a[data-returned]) {
+  outline: var(--app-ring-width) solid var(--app-action);
+  outline-offset: var(--app-ring-offset);
+  animation: app-returned 2.4s ease-out forwards;
+}
+
+@keyframes app-returned {
+  0%, 60% { outline-color: var(--app-action); }
+  100% { outline-color: transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.app-tile, .app-list-row, .app-upnext-item):has(a[data-returned]) {
+    animation: none;
+  }
 }

@@ -18,7 +18,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.factories import make_job
-from tracker.db.models import Favorite, Job, Pursuit, PursuitEvent
+from tracker.db.models import Favorite, Job, Pursuit, PursuitEvent, PursuitStep
 
 NOW = datetime(2026, 7, 20, 15, 0, tzinfo=UTC)
 
@@ -47,7 +47,7 @@ async def seed_profile(session: AsyncSession) -> SeededProfile:
     j = {key: row.id for key, row in jobs.items()}
 
     pursuits = {
-        "applied": Pursuit(job_id=j["applied"], stage="applied", priority=1, notes="Referred by a former colleague.",
+        "applied": Pursuit(job_id=j["applied"], stage="applied", priority=5, notes="Referred by a former colleague.",
                            next_action="Prepare the product sense interview", next_action_due=NOW + timedelta(days=3),
                            created_at=NOW - timedelta(days=6), updated_at=NOW - timedelta(days=1)),
         "interviewing": Pursuit(job_id=j["interviewing"], stage="interviewing", priority=2,
@@ -58,10 +58,16 @@ async def seed_profile(session: AsyncSession) -> SeededProfile:
     session.add_all(pursuits.values())
     await session.flush()
     p = {key: row.id for key, row in pursuits.items()}
+    # The applied pursuit's next step, which its soonest-step columns name.
+    session.add(PursuitStep(pursuit_id=p["applied"], text="Prepare the product sense interview",
+                            due=NOW + timedelta(days=3), created_at=NOW - timedelta(days=1)))
 
+    # A pursuit's creation logs the priority it was written with, as every
+    # write does, so each seeded priority reads as chosen.
     def event(pursuit: str, from_stage: str | None, to_stage: str, days_ago: int) -> PursuitEvent:
+        changed = ["priority", "stage"] if from_stage is None else ["stage"]
         return PursuitEvent(pursuit_id=p[pursuit], actor="user", event_type="created" if from_stage is None else "updated",
-                            from_stage=from_stage, to_stage=to_stage, detail={"changed": ["stage"]},
+                            from_stage=from_stage, to_stage=to_stage, detail={"changed": changed},
                             created_at=NOW - timedelta(days=days_ago))
 
     def saved(job: str, at: datetime) -> Favorite:

@@ -37,6 +37,9 @@ export type StoredPersonaProfile = Schemas["StoredPersonaProfile"];
 
 export type ProfileState = Schemas["ProfileStateResponse"];
 
+/** How the person arranged what the screens show, by choice name. */
+export type ViewChoices = Schemas["ViewChoices"];
+
 export type ScopeTrack = Schemas["ScopeTrack"];
 
 
@@ -117,4 +120,6 @@ export const scopeApi = {
   retention: () => getJSON<RetentionState>("/api/settings/retention"),
   saveRetention: (update: RetentionUpdate) => putJSON<RetentionState>("/api/settings/retention", update),
   saveLocale: (choice: LocaleSettings) => putJSON<LocaleSettings>("/api/settings/locale", choice),
+  saveViewChoice: (name: string, value: unknown) =>
+    putJSON<Schemas["ViewChoice"]>(`/api/settings/view-choices/${encodeURIComponent(name)}`, { value }),
 };

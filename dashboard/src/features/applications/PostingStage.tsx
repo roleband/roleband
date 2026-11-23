@@ -24,14 +24,19 @@ const InterviewDialog = lazy(() => import("./InterviewDialogLazy"));
 export function PostingStage({
   application,
   onSave,
+  open,
+  onOpen,
 }: {
   application: PostingApplication;
   /** Saves a role that is not on the board. */
   onSave: () => void;
+  /** The stage menu is open: the M key opens it too. */
+  open: boolean;
+  onOpen: (open: boolean) => void;
 }) {
   const { card, reached, move, remove } = application;
   const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null);
-  const [open, setOpen] = useState(false);
+  const setOpen = onOpen;
   const [asking, setAsking] = useState(false);
 
   if (!card) return <StarButton on={false} onToggle={onSave} size={20} />;
@@ -60,7 +65,8 @@ export function PostingStage({
         data-ended={ending ? "" : undefined}
         aria-haspopup="dialog"
         aria-expanded={open}
-        onClick={() => setOpen((was) => !was)}
+        aria-keyshortcuts="m"
+        onClick={() => setOpen(!open)}
       >
         {/* The saved star, as the radar row draws it: the role is in the
             pipeline because it is saved, at every stage and after an ending. */}
@@ -72,6 +78,7 @@ export function PostingStage({
       </Button>
       <StageMenu
         current={card.stage}
+        endedAt={card.ended_at_stage}
         label={applicationsStageMenuLabel({ title: card.title })}
         anchor={anchor}
         isOpen={open}

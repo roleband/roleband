@@ -33,6 +33,10 @@ function Harness({ onPick = () => undefined }: { onPick?: (what: string) => void
           <MenuItem current detail="Nov 2" onSelect={() => onPick("applied")}>Applied</MenuItem>
           <MenuItem onSelect={() => onPick("reset")}>Show all columns</MenuItem>
         </MenuGroup>
+        <MenuGroup>
+          <MenuItem onSelect={() => onPick("notes")} hint="What you know and who you met">Notes</MenuItem>
+          <MenuItem onSelect={() => onPick("activity")} hint="Comments and what changed">Activity</MenuItem>
+        </MenuGroup>
       </Menu>
     </>
   );
@@ -56,24 +60,29 @@ describe("Menu", () => {
     expect(within(menu).getByRole("radio", { name: "Show only matches" }))
       .toHaveAccessibleDescription("What doesn't match leaves.");
     expect(within(menu).getByRole("button", { name: /^Applied/ })).toHaveAttribute("aria-current", "true");
+    // An action's line under its name describes it; the name stays its words.
+    const notes = within(menu).getByRole("button", { name: "Notes" });
+    expect(notes).toHaveAccessibleDescription("What you know and who you met");
+    expect(notes).toHaveAttribute("data-hinted");
+    expect(within(menu).getByRole("button", { name: "Show all columns" })).not.toHaveAttribute("data-hinted");
   });
 
   it("walks the rows with the arrows, skipping a row that is off, and Home and End go to the ends", async () => {
     render(<Harness />);
     await openMenu();
     const overdue = screen.getByRole("checkbox", { name: "Overdue" });
-    const showAll = screen.getByRole("button", { name: "Show all columns" });
+    const last = screen.getByRole("button", { name: "Activity" });
 
     await userEvent.keyboard("{ArrowDown}");
     expect(overdue).toHaveFocus();
     await userEvent.keyboard("{ArrowDown}");
     expect(screen.getByRole("radio", { name: "Show only matches" })).toHaveFocus();
     await userEvent.keyboard("{End}");
-    expect(showAll).toHaveFocus();
+    expect(last).toHaveFocus();
     await userEvent.keyboard("{ArrowDown}");
     expect(overdue).toHaveFocus();
     await userEvent.keyboard("{ArrowUp}");
-    expect(showAll).toHaveFocus();
+    expect(last).toHaveFocus();
     await userEvent.keyboard("{Home}");
     expect(overdue).toHaveFocus();
   });

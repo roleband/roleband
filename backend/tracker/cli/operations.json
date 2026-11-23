@@ -94,6 +94,16 @@
       "additionalProperties": false,
       "description": "One application as the board shows it, keyed by its opportunity's id.",
       "properties": {
+       "awaiting_outcome": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/BoardNextInterview"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
        "comment_count": {
         "title": "Comment Count",
         "type": "integer"
@@ -199,6 +209,10 @@
         "title": "Priority",
         "type": "integer"
        },
+       "priority_set": {
+        "title": "Priority Set",
+        "type": "boolean"
+       },
        "pursuit_id": {
         "anyOf": [
          {
@@ -244,6 +258,13 @@
         "title": "Starred",
         "type": "boolean"
        },
+       "steps": {
+        "items": {
+         "$ref": "#/$defs/PursuitNextStep"
+        },
+        "title": "Steps",
+        "type": "array"
+       },
        "title": {
         "title": "Title",
         "type": "string",
@@ -255,10 +276,13 @@
        "pursuit_id",
        "stage",
        "priority",
+       "priority_set",
        "starred",
        "next_action",
        "next_action_due",
+       "steps",
        "next_interview",
+       "awaiting_outcome",
        "comment_count",
        "stage_since",
        "last_activity_at",
@@ -300,6 +324,18 @@
         "type": "string",
         "x-text": "content"
        },
+       "link": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Link",
+        "x-text": "identifier"
+       },
        "scheduled_at": {
         "format": "date-time",
         "title": "Scheduled At",
@@ -311,9 +347,63 @@
        "label",
        "scheduled_at",
        "all_day",
-       "format"
+       "format",
+       "link"
       ],
       "title": "BoardNextInterview",
+      "type": "object"
+     },
+     "PursuitNextStep": {
+      "additionalProperties": false,
+      "description": "One next step the person owes: `steps.edit`, `steps.done` and\n`steps.undo` take its id.",
+      "properties": {
+       "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+       },
+       "done_at": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Done At"
+       },
+       "due": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Due"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "text": {
+        "title": "Text",
+        "type": "string",
+        "x-text": "content"
+       }
+      },
+      "required": [
+       "id",
+       "text",
+       "due",
+       "created_at",
+       "done_at"
+      ],
+      "title": "PursuitNextStep",
       "type": "object"
      }
     },
@@ -483,6 +573,18 @@
         "type": "string",
         "x-text": "content"
        },
+       "link": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Link",
+        "x-text": "identifier"
+       },
        "outcome": {
         "anyOf": [
          {
@@ -509,6 +611,7 @@
        "label",
        "all_day",
        "format",
+       "link",
        "outcome"
       ],
       "title": "CalendarInterviewEntry",
@@ -536,11 +639,16 @@
         "title": "Step",
         "type": "string",
         "x-text": "content"
+       },
+       "step_id": {
+        "title": "Step Id",
+        "type": "integer"
        }
       },
       "required": [
        "kind",
        "job_id",
+       "step_id",
        "at",
        "step"
       ],
@@ -15964,10 +16072,136 @@
       ],
       "title": "PursuedOpportunity",
       "type": "object"
+     },
+     "PursuitNextStep": {
+      "additionalProperties": false,
+      "description": "One next step the person owes: `steps.edit`, `steps.done` and\n`steps.undo` take its id.",
+      "properties": {
+       "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+       },
+       "done_at": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Done At"
+       },
+       "due": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Due"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "text": {
+        "title": "Text",
+        "type": "string",
+        "x-text": "content"
+       }
+      },
+      "required": [
+       "id",
+       "text",
+       "due",
+       "created_at",
+       "done_at"
+      ],
+      "title": "PursuitNextStep",
+      "type": "object"
+     },
+     "PursuitRound": {
+      "additionalProperties": false,
+      "description": "An interview round, as the pipeline's card names it.",
+      "properties": {
+       "all_day": {
+        "title": "All Day",
+        "type": "boolean"
+       },
+       "format": {
+        "anyOf": [
+         {
+          "enum": [
+           "video",
+           "phone",
+           "onsite"
+          ],
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Format",
+        "x-text": "code"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "label": {
+        "title": "Label",
+        "type": "string",
+        "x-text": "content"
+       },
+       "link": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Link",
+        "x-text": "identifier"
+       },
+       "scheduled_at": {
+        "format": "date-time",
+        "title": "Scheduled At",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id",
+       "label",
+       "scheduled_at",
+       "all_day",
+       "format",
+       "link"
+      ],
+      "title": "PursuitRound",
+      "type": "object"
      }
     },
     "additionalProperties": false,
     "properties": {
+     "awaiting_outcome": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/PursuitRound"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "created_at": {
       "format": "date-time",
       "title": "Created At",
@@ -15997,6 +16231,16 @@
       ],
       "title": "Next Action Due"
      },
+     "next_interview": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/PursuitRound"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "notes": {
       "anyOf": [
        {
@@ -16023,6 +16267,10 @@
       "title": "Priority",
       "type": "integer"
      },
+     "priority_set": {
+      "title": "Priority Set",
+      "type": "boolean"
+     },
      "revision": {
       "minimum": 1,
       "title": "Revision",
@@ -16046,6 +16294,13 @@
       "type": "string",
       "x-text": "code"
      },
+     "steps": {
+      "items": {
+       "$ref": "#/$defs/PursuitNextStep"
+      },
+      "title": "Steps",
+      "type": "array"
+     },
      "updated_at": {
       "format": "date-time",
       "title": "Updated At",
@@ -16061,7 +16316,11 @@
      "next_action_due",
      "created_at",
      "updated_at",
-     "revision"
+     "revision",
+     "steps",
+     "next_interview",
+     "awaiting_outcome",
+     "priority_set"
     ],
     "title": "PursuitItem",
     "type": "object"
@@ -16200,6 +16459,16 @@
      "PursuitItem": {
       "additionalProperties": false,
       "properties": {
+       "awaiting_outcome": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/PursuitRound"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
        "created_at": {
         "format": "date-time",
         "title": "Created At",
@@ -16229,6 +16498,16 @@
         ],
         "title": "Next Action Due"
        },
+       "next_interview": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/PursuitRound"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
        "notes": {
         "anyOf": [
          {
@@ -16255,6 +16534,10 @@
         "title": "Priority",
         "type": "integer"
        },
+       "priority_set": {
+        "title": "Priority Set",
+        "type": "boolean"
+       },
        "revision": {
         "minimum": 1,
         "title": "Revision",
@@ -16278,6 +16561,13 @@
         "type": "string",
         "x-text": "code"
        },
+       "steps": {
+        "items": {
+         "$ref": "#/$defs/PursuitNextStep"
+        },
+        "title": "Steps",
+        "type": "array"
+       },
        "updated_at": {
         "format": "date-time",
         "title": "Updated At",
@@ -16293,9 +16583,129 @@
        "next_action_due",
        "created_at",
        "updated_at",
-       "revision"
+       "revision",
+       "steps",
+       "next_interview",
+       "awaiting_outcome",
+       "priority_set"
       ],
       "title": "PursuitItem",
+      "type": "object"
+     },
+     "PursuitNextStep": {
+      "additionalProperties": false,
+      "description": "One next step the person owes: `steps.edit`, `steps.done` and\n`steps.undo` take its id.",
+      "properties": {
+       "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+       },
+       "done_at": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Done At"
+       },
+       "due": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Due"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "text": {
+        "title": "Text",
+        "type": "string",
+        "x-text": "content"
+       }
+      },
+      "required": [
+       "id",
+       "text",
+       "due",
+       "created_at",
+       "done_at"
+      ],
+      "title": "PursuitNextStep",
+      "type": "object"
+     },
+     "PursuitRound": {
+      "additionalProperties": false,
+      "description": "An interview round, as the pipeline's card names it.",
+      "properties": {
+       "all_day": {
+        "title": "All Day",
+        "type": "boolean"
+       },
+       "format": {
+        "anyOf": [
+         {
+          "enum": [
+           "video",
+           "phone",
+           "onsite"
+          ],
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Format",
+        "x-text": "code"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "label": {
+        "title": "Label",
+        "type": "string",
+        "x-text": "content"
+       },
+       "link": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Link",
+        "x-text": "identifier"
+       },
+       "scheduled_at": {
+        "format": "date-time",
+        "title": "Scheduled At",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id",
+       "label",
+       "scheduled_at",
+       "all_day",
+       "format",
+       "link"
+      ],
+      "title": "PursuitRound",
       "type": "object"
      }
     },
@@ -16325,7 +16735,7 @@
    "required_scopes": [
     "agent_access.enabled"
    ],
-   "summary": "List the pursuits with their stage, priority, notes and next action, by priority.",
+   "summary": "List the pursuits with their stage, priority, notes and next action, the most urgent first.",
    "supports_dry_run": false,
    "tool_tiers": [
     "small",
@@ -16426,7 +16836,7 @@
      },
      "priority": {
       "default": null,
-      "description": "1 to 5. Cannot be null.",
+      "description": "5 Urgent, 4 High, 3 Medium, 2 Low, 1 No priority. Cannot be null.",
       "maximum": 5,
       "minimum": 1,
       "title": "Priority",
@@ -16497,10 +16907,136 @@
       ],
       "title": "PursuedOpportunity",
       "type": "object"
+     },
+     "PursuitNextStep": {
+      "additionalProperties": false,
+      "description": "One next step the person owes: `steps.edit`, `steps.done` and\n`steps.undo` take its id.",
+      "properties": {
+       "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+       },
+       "done_at": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Done At"
+       },
+       "due": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Due"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "text": {
+        "title": "Text",
+        "type": "string",
+        "x-text": "content"
+       }
+      },
+      "required": [
+       "id",
+       "text",
+       "due",
+       "created_at",
+       "done_at"
+      ],
+      "title": "PursuitNextStep",
+      "type": "object"
+     },
+     "PursuitRound": {
+      "additionalProperties": false,
+      "description": "An interview round, as the pipeline's card names it.",
+      "properties": {
+       "all_day": {
+        "title": "All Day",
+        "type": "boolean"
+       },
+       "format": {
+        "anyOf": [
+         {
+          "enum": [
+           "video",
+           "phone",
+           "onsite"
+          ],
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Format",
+        "x-text": "code"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "label": {
+        "title": "Label",
+        "type": "string",
+        "x-text": "content"
+       },
+       "link": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Link",
+        "x-text": "identifier"
+       },
+       "scheduled_at": {
+        "format": "date-time",
+        "title": "Scheduled At",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id",
+       "label",
+       "scheduled_at",
+       "all_day",
+       "format",
+       "link"
+      ],
+      "title": "PursuitRound",
+      "type": "object"
      }
     },
     "additionalProperties": false,
     "properties": {
+     "awaiting_outcome": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/PursuitRound"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "created_at": {
       "format": "date-time",
       "title": "Created At",
@@ -16530,6 +17066,16 @@
       ],
       "title": "Next Action Due"
      },
+     "next_interview": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/PursuitRound"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "notes": {
       "anyOf": [
        {
@@ -16556,6 +17102,10 @@
       "title": "Priority",
       "type": "integer"
      },
+     "priority_set": {
+      "title": "Priority Set",
+      "type": "boolean"
+     },
      "revision": {
       "minimum": 1,
       "title": "Revision",
@@ -16579,6 +17129,13 @@
       "type": "string",
       "x-text": "code"
      },
+     "steps": {
+      "items": {
+       "$ref": "#/$defs/PursuitNextStep"
+      },
+      "title": "Steps",
+      "type": "array"
+     },
      "updated_at": {
       "format": "date-time",
       "title": "Updated At",
@@ -16594,7 +17151,11 @@
      "next_action_due",
      "created_at",
      "updated_at",
-     "revision"
+     "revision",
+     "steps",
+     "next_interview",
+     "awaiting_outcome",
+     "priority_set"
     ],
     "title": "PursuitItem",
     "type": "object"
@@ -16659,7 +17220,7 @@
      },
      "priority": {
       "default": null,
-      "description": "1 to 5. A new pursuit starts at 3; an existing one keeps its own unless this is given.",
+      "description": "5 Urgent, 4 High, 3 Medium, 2 Low, 1 No priority. A new pursuit has no priority chosen; an existing one keeps its own unless this is given.",
       "maximum": 5,
       "minimum": 1,
       "title": "Priority",
@@ -16709,10 +17270,136 @@
       ],
       "title": "PursuedOpportunity",
       "type": "object"
+     },
+     "PursuitNextStep": {
+      "additionalProperties": false,
+      "description": "One next step the person owes: `steps.edit`, `steps.done` and\n`steps.undo` take its id.",
+      "properties": {
+       "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+       },
+       "done_at": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Done At"
+       },
+       "due": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Due"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "text": {
+        "title": "Text",
+        "type": "string",
+        "x-text": "content"
+       }
+      },
+      "required": [
+       "id",
+       "text",
+       "due",
+       "created_at",
+       "done_at"
+      ],
+      "title": "PursuitNextStep",
+      "type": "object"
+     },
+     "PursuitRound": {
+      "additionalProperties": false,
+      "description": "An interview round, as the pipeline's card names it.",
+      "properties": {
+       "all_day": {
+        "title": "All Day",
+        "type": "boolean"
+       },
+       "format": {
+        "anyOf": [
+         {
+          "enum": [
+           "video",
+           "phone",
+           "onsite"
+          ],
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Format",
+        "x-text": "code"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "label": {
+        "title": "Label",
+        "type": "string",
+        "x-text": "content"
+       },
+       "link": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Link",
+        "x-text": "identifier"
+       },
+       "scheduled_at": {
+        "format": "date-time",
+        "title": "Scheduled At",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id",
+       "label",
+       "scheduled_at",
+       "all_day",
+       "format",
+       "link"
+      ],
+      "title": "PursuitRound",
+      "type": "object"
      }
     },
     "additionalProperties": false,
     "properties": {
+     "awaiting_outcome": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/PursuitRound"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "created_at": {
       "format": "date-time",
       "title": "Created At",
@@ -16742,6 +17429,16 @@
       ],
       "title": "Next Action Due"
      },
+     "next_interview": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/PursuitRound"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "notes": {
       "anyOf": [
        {
@@ -16768,6 +17465,10 @@
       "title": "Priority",
       "type": "integer"
      },
+     "priority_set": {
+      "title": "Priority Set",
+      "type": "boolean"
+     },
      "revision": {
       "minimum": 1,
       "title": "Revision",
@@ -16791,6 +17492,13 @@
       "type": "string",
       "x-text": "code"
      },
+     "steps": {
+      "items": {
+       "$ref": "#/$defs/PursuitNextStep"
+      },
+      "title": "Steps",
+      "type": "array"
+     },
      "updated_at": {
       "format": "date-time",
       "title": "Updated At",
@@ -16806,7 +17514,11 @@
      "next_action_due",
      "created_at",
      "updated_at",
-     "revision"
+     "revision",
+     "steps",
+     "next_interview",
+     "awaiting_outcome",
+     "priority_set"
     ],
     "title": "PursuitItem",
     "type": "object"
@@ -17532,6 +18244,1488 @@
    ]
   },
   {
+   "access": "write",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "private_pursuit",
+    "public_posting"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": true
+   },
+   "examples": [
+    {
+     "due": "2026-12-01T09:00:00Z",
+     "if_revision": 12,
+     "opportunity_id": 4821,
+     "text": "Send the portfolio"
+    },
+    {
+     "if_revision": 13,
+     "opportunity_id": 4821,
+     "text": "Ask Sam about the team"
+    }
+   ],
+   "idempotency": "required_key",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "due": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "The day it is due by, with its UTC offset. Leave it out for a step with no day.",
+      "title": "Due"
+     },
+     "if_revision": {
+      "description": "The pursuit's revision you read (pursuits.get); 0 when the role has no pursuit yet. A pursuit that moved since is not changed.",
+      "minimum": 0,
+      "title": "If Revision",
+      "type": "integer"
+     },
+     "opportunity_id": {
+      "description": "The opportunity the pursuit is about.",
+      "minimum": 1,
+      "title": "Opportunity Id",
+      "type": "integer"
+     },
+     "text": {
+      "description": "What to do.",
+      "maxLength": 2000,
+      "minLength": 1,
+      "title": "Text",
+      "type": "string",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "opportunity_id",
+     "if_revision",
+     "text"
+    ],
+    "title": "StepAddInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "steps.add",
+   "output_schema": {
+    "$defs": {
+     "PursuedOpportunity": {
+      "additionalProperties": false,
+      "properties": {
+       "company": {
+        "title": "Company",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "status": {
+        "title": "Status",
+        "type": "string",
+        "x-text": "code"
+       },
+       "title": {
+        "title": "Title",
+        "type": "string",
+        "x-text": "content"
+       },
+       "url": {
+        "title": "Url",
+        "type": "string",
+        "x-text": "identifier"
+       }
+      },
+      "required": [
+       "title",
+       "company",
+       "status",
+       "url"
+      ],
+      "title": "PursuedOpportunity",
+      "type": "object"
+     },
+     "PursuitNextStep": {
+      "additionalProperties": false,
+      "description": "One next step the person owes: `steps.edit`, `steps.done` and\n`steps.undo` take its id.",
+      "properties": {
+       "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+       },
+       "done_at": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Done At"
+       },
+       "due": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Due"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "text": {
+        "title": "Text",
+        "type": "string",
+        "x-text": "content"
+       }
+      },
+      "required": [
+       "id",
+       "text",
+       "due",
+       "created_at",
+       "done_at"
+      ],
+      "title": "PursuitNextStep",
+      "type": "object"
+     },
+     "PursuitRound": {
+      "additionalProperties": false,
+      "description": "An interview round, as the pipeline's card names it.",
+      "properties": {
+       "all_day": {
+        "title": "All Day",
+        "type": "boolean"
+       },
+       "format": {
+        "anyOf": [
+         {
+          "enum": [
+           "video",
+           "phone",
+           "onsite"
+          ],
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Format",
+        "x-text": "code"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "label": {
+        "title": "Label",
+        "type": "string",
+        "x-text": "content"
+       },
+       "link": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Link",
+        "x-text": "identifier"
+       },
+       "scheduled_at": {
+        "format": "date-time",
+        "title": "Scheduled At",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id",
+       "label",
+       "scheduled_at",
+       "all_day",
+       "format",
+       "link"
+      ],
+      "title": "PursuitRound",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "awaiting_outcome": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/PursuitRound"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "next_action": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Action",
+      "x-text": "content"
+     },
+     "next_action_due": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Action Due"
+     },
+     "next_interview": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/PursuitRound"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "notes": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Notes",
+      "x-text": "content"
+     },
+     "opportunity": {
+      "$ref": "#/$defs/PursuedOpportunity",
+      "title": "Opportunity"
+     },
+     "opportunity_id": {
+      "title": "Opportunity Id",
+      "type": "integer"
+     },
+     "priority": {
+      "maximum": 5,
+      "minimum": 1,
+      "title": "Priority",
+      "type": "integer"
+     },
+     "priority_set": {
+      "title": "Priority Set",
+      "type": "boolean"
+     },
+     "revision": {
+      "minimum": 1,
+      "title": "Revision",
+      "type": "integer"
+     },
+     "stage": {
+      "enum": [
+       "saved",
+       "researching",
+       "networking",
+       "applied",
+       "interviewing",
+       "offer",
+       "accepted",
+       "declined",
+       "withdrawn",
+       "rejected",
+       "role_closed"
+      ],
+      "title": "Stage",
+      "type": "string",
+      "x-text": "code"
+     },
+     "steps": {
+      "items": {
+       "$ref": "#/$defs/PursuitNextStep"
+      },
+      "title": "Steps",
+      "type": "array"
+     },
+     "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "opportunity_id",
+     "stage",
+     "priority",
+     "notes",
+     "next_action",
+     "next_action_due",
+     "created_at",
+     "updated_at",
+     "revision",
+     "steps",
+     "next_interview",
+     "awaiting_outcome",
+     "priority_set"
+    ],
+    "title": "PursuitItem",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled",
+    "agent_access.allow_writes"
+   ],
+   "summary": "Add a next step to a pursuit, with the day it is due by or none, against the revision read.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "write",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "private_pursuit",
+    "public_posting"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": true
+   },
+   "examples": [
+    {
+     "if_revision": 15,
+     "opportunity_id": 4821,
+     "step_id": 7
+    }
+   ],
+   "idempotency": "required_key",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "if_revision": {
+      "description": "The pursuit's revision you read (pursuits.get). A pursuit that moved since is not changed.",
+      "minimum": 1,
+      "title": "If Revision",
+      "type": "integer"
+     },
+     "opportunity_id": {
+      "description": "The opportunity the pursuit is about.",
+      "minimum": 1,
+      "title": "Opportunity Id",
+      "type": "integer"
+     },
+     "step_id": {
+      "description": "The step's id, from the pursuit's steps (pursuits.get).",
+      "minimum": 1,
+      "title": "Step Id",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "opportunity_id",
+     "step_id",
+     "if_revision"
+    ],
+    "title": "StepInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "steps.done",
+   "output_schema": {
+    "$defs": {
+     "PursuedOpportunity": {
+      "additionalProperties": false,
+      "properties": {
+       "company": {
+        "title": "Company",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "status": {
+        "title": "Status",
+        "type": "string",
+        "x-text": "code"
+       },
+       "title": {
+        "title": "Title",
+        "type": "string",
+        "x-text": "content"
+       },
+       "url": {
+        "title": "Url",
+        "type": "string",
+        "x-text": "identifier"
+       }
+      },
+      "required": [
+       "title",
+       "company",
+       "status",
+       "url"
+      ],
+      "title": "PursuedOpportunity",
+      "type": "object"
+     },
+     "PursuitNextStep": {
+      "additionalProperties": false,
+      "description": "One next step the person owes: `steps.edit`, `steps.done` and\n`steps.undo` take its id.",
+      "properties": {
+       "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+       },
+       "done_at": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Done At"
+       },
+       "due": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Due"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "text": {
+        "title": "Text",
+        "type": "string",
+        "x-text": "content"
+       }
+      },
+      "required": [
+       "id",
+       "text",
+       "due",
+       "created_at",
+       "done_at"
+      ],
+      "title": "PursuitNextStep",
+      "type": "object"
+     },
+     "PursuitRound": {
+      "additionalProperties": false,
+      "description": "An interview round, as the pipeline's card names it.",
+      "properties": {
+       "all_day": {
+        "title": "All Day",
+        "type": "boolean"
+       },
+       "format": {
+        "anyOf": [
+         {
+          "enum": [
+           "video",
+           "phone",
+           "onsite"
+          ],
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Format",
+        "x-text": "code"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "label": {
+        "title": "Label",
+        "type": "string",
+        "x-text": "content"
+       },
+       "link": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Link",
+        "x-text": "identifier"
+       },
+       "scheduled_at": {
+        "format": "date-time",
+        "title": "Scheduled At",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id",
+       "label",
+       "scheduled_at",
+       "all_day",
+       "format",
+       "link"
+      ],
+      "title": "PursuitRound",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "awaiting_outcome": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/PursuitRound"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "next_action": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Action",
+      "x-text": "content"
+     },
+     "next_action_due": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Action Due"
+     },
+     "next_interview": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/PursuitRound"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "notes": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Notes",
+      "x-text": "content"
+     },
+     "opportunity": {
+      "$ref": "#/$defs/PursuedOpportunity",
+      "title": "Opportunity"
+     },
+     "opportunity_id": {
+      "title": "Opportunity Id",
+      "type": "integer"
+     },
+     "priority": {
+      "maximum": 5,
+      "minimum": 1,
+      "title": "Priority",
+      "type": "integer"
+     },
+     "priority_set": {
+      "title": "Priority Set",
+      "type": "boolean"
+     },
+     "revision": {
+      "minimum": 1,
+      "title": "Revision",
+      "type": "integer"
+     },
+     "stage": {
+      "enum": [
+       "saved",
+       "researching",
+       "networking",
+       "applied",
+       "interviewing",
+       "offer",
+       "accepted",
+       "declined",
+       "withdrawn",
+       "rejected",
+       "role_closed"
+      ],
+      "title": "Stage",
+      "type": "string",
+      "x-text": "code"
+     },
+     "steps": {
+      "items": {
+       "$ref": "#/$defs/PursuitNextStep"
+      },
+      "title": "Steps",
+      "type": "array"
+     },
+     "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "opportunity_id",
+     "stage",
+     "priority",
+     "notes",
+     "next_action",
+     "next_action_due",
+     "created_at",
+     "updated_at",
+     "revision",
+     "steps",
+     "next_interview",
+     "awaiting_outcome",
+     "priority_set"
+    ],
+    "title": "PursuitItem",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled",
+    "agent_access.allow_writes"
+   ],
+   "summary": "Tick a next step done: it leaves the open steps and stays in the pursuit's history.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "write",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "private_pursuit",
+    "public_posting"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": true
+   },
+   "examples": [
+    {
+     "due": "2026-12-03T09:00:00Z",
+     "if_revision": 14,
+     "opportunity_id": 4821,
+     "step_id": 7
+    }
+   ],
+   "idempotency": "required_key",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "due": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "The step's new day, with its UTC offset. null takes its day off; leave the field out to keep it.",
+      "title": "Due"
+     },
+     "if_revision": {
+      "description": "The pursuit's revision you read (pursuits.get). A pursuit that moved since is not changed.",
+      "minimum": 1,
+      "title": "If Revision",
+      "type": "integer"
+     },
+     "opportunity_id": {
+      "description": "The opportunity the pursuit is about.",
+      "minimum": 1,
+      "title": "Opportunity Id",
+      "type": "integer"
+     },
+     "step_id": {
+      "description": "The step's id, from the pursuit's steps (pursuits.get).",
+      "minimum": 1,
+      "title": "Step Id",
+      "type": "integer"
+     },
+     "text": {
+      "default": null,
+      "description": "The step's new words. Cannot be null.",
+      "maxLength": 2000,
+      "minLength": 1,
+      "title": "Text",
+      "type": "string",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "opportunity_id",
+     "step_id",
+     "if_revision"
+    ],
+    "title": "StepEditInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "steps.edit",
+   "output_schema": {
+    "$defs": {
+     "PursuedOpportunity": {
+      "additionalProperties": false,
+      "properties": {
+       "company": {
+        "title": "Company",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "status": {
+        "title": "Status",
+        "type": "string",
+        "x-text": "code"
+       },
+       "title": {
+        "title": "Title",
+        "type": "string",
+        "x-text": "content"
+       },
+       "url": {
+        "title": "Url",
+        "type": "string",
+        "x-text": "identifier"
+       }
+      },
+      "required": [
+       "title",
+       "company",
+       "status",
+       "url"
+      ],
+      "title": "PursuedOpportunity",
+      "type": "object"
+     },
+     "PursuitNextStep": {
+      "additionalProperties": false,
+      "description": "One next step the person owes: `steps.edit`, `steps.done` and\n`steps.undo` take its id.",
+      "properties": {
+       "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+       },
+       "done_at": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Done At"
+       },
+       "due": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Due"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "text": {
+        "title": "Text",
+        "type": "string",
+        "x-text": "content"
+       }
+      },
+      "required": [
+       "id",
+       "text",
+       "due",
+       "created_at",
+       "done_at"
+      ],
+      "title": "PursuitNextStep",
+      "type": "object"
+     },
+     "PursuitRound": {
+      "additionalProperties": false,
+      "description": "An interview round, as the pipeline's card names it.",
+      "properties": {
+       "all_day": {
+        "title": "All Day",
+        "type": "boolean"
+       },
+       "format": {
+        "anyOf": [
+         {
+          "enum": [
+           "video",
+           "phone",
+           "onsite"
+          ],
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Format",
+        "x-text": "code"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "label": {
+        "title": "Label",
+        "type": "string",
+        "x-text": "content"
+       },
+       "link": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Link",
+        "x-text": "identifier"
+       },
+       "scheduled_at": {
+        "format": "date-time",
+        "title": "Scheduled At",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id",
+       "label",
+       "scheduled_at",
+       "all_day",
+       "format",
+       "link"
+      ],
+      "title": "PursuitRound",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "awaiting_outcome": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/PursuitRound"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "next_action": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Action",
+      "x-text": "content"
+     },
+     "next_action_due": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Action Due"
+     },
+     "next_interview": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/PursuitRound"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "notes": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Notes",
+      "x-text": "content"
+     },
+     "opportunity": {
+      "$ref": "#/$defs/PursuedOpportunity",
+      "title": "Opportunity"
+     },
+     "opportunity_id": {
+      "title": "Opportunity Id",
+      "type": "integer"
+     },
+     "priority": {
+      "maximum": 5,
+      "minimum": 1,
+      "title": "Priority",
+      "type": "integer"
+     },
+     "priority_set": {
+      "title": "Priority Set",
+      "type": "boolean"
+     },
+     "revision": {
+      "minimum": 1,
+      "title": "Revision",
+      "type": "integer"
+     },
+     "stage": {
+      "enum": [
+       "saved",
+       "researching",
+       "networking",
+       "applied",
+       "interviewing",
+       "offer",
+       "accepted",
+       "declined",
+       "withdrawn",
+       "rejected",
+       "role_closed"
+      ],
+      "title": "Stage",
+      "type": "string",
+      "x-text": "code"
+     },
+     "steps": {
+      "items": {
+       "$ref": "#/$defs/PursuitNextStep"
+      },
+      "title": "Steps",
+      "type": "array"
+     },
+     "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "opportunity_id",
+     "stage",
+     "priority",
+     "notes",
+     "next_action",
+     "next_action_due",
+     "created_at",
+     "updated_at",
+     "revision",
+     "steps",
+     "next_interview",
+     "awaiting_outcome",
+     "priority_set"
+    ],
+    "title": "PursuitItem",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled",
+    "agent_access.allow_writes"
+   ],
+   "summary": "Change a next step's words or day against the revision read. A day sent as null is taken off.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "write",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "private_pursuit",
+    "public_posting"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": true
+   },
+   "examples": [
+    {
+     "if_revision": 16,
+     "opportunity_id": 4821,
+     "step_id": 7
+    }
+   ],
+   "idempotency": "required_key",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "if_revision": {
+      "description": "The pursuit's revision you read (pursuits.get). A pursuit that moved since is not changed.",
+      "minimum": 1,
+      "title": "If Revision",
+      "type": "integer"
+     },
+     "opportunity_id": {
+      "description": "The opportunity the pursuit is about.",
+      "minimum": 1,
+      "title": "Opportunity Id",
+      "type": "integer"
+     },
+     "step_id": {
+      "description": "The step's id, from the pursuit's steps (pursuits.get).",
+      "minimum": 1,
+      "title": "Step Id",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "opportunity_id",
+     "step_id",
+     "if_revision"
+    ],
+    "title": "StepInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "steps.undo",
+   "output_schema": {
+    "$defs": {
+     "PursuedOpportunity": {
+      "additionalProperties": false,
+      "properties": {
+       "company": {
+        "title": "Company",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "status": {
+        "title": "Status",
+        "type": "string",
+        "x-text": "code"
+       },
+       "title": {
+        "title": "Title",
+        "type": "string",
+        "x-text": "content"
+       },
+       "url": {
+        "title": "Url",
+        "type": "string",
+        "x-text": "identifier"
+       }
+      },
+      "required": [
+       "title",
+       "company",
+       "status",
+       "url"
+      ],
+      "title": "PursuedOpportunity",
+      "type": "object"
+     },
+     "PursuitNextStep": {
+      "additionalProperties": false,
+      "description": "One next step the person owes: `steps.edit`, `steps.done` and\n`steps.undo` take its id.",
+      "properties": {
+       "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+       },
+       "done_at": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Done At"
+       },
+       "due": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Due"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "text": {
+        "title": "Text",
+        "type": "string",
+        "x-text": "content"
+       }
+      },
+      "required": [
+       "id",
+       "text",
+       "due",
+       "created_at",
+       "done_at"
+      ],
+      "title": "PursuitNextStep",
+      "type": "object"
+     },
+     "PursuitRound": {
+      "additionalProperties": false,
+      "description": "An interview round, as the pipeline's card names it.",
+      "properties": {
+       "all_day": {
+        "title": "All Day",
+        "type": "boolean"
+       },
+       "format": {
+        "anyOf": [
+         {
+          "enum": [
+           "video",
+           "phone",
+           "onsite"
+          ],
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Format",
+        "x-text": "code"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "label": {
+        "title": "Label",
+        "type": "string",
+        "x-text": "content"
+       },
+       "link": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Link",
+        "x-text": "identifier"
+       },
+       "scheduled_at": {
+        "format": "date-time",
+        "title": "Scheduled At",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id",
+       "label",
+       "scheduled_at",
+       "all_day",
+       "format",
+       "link"
+      ],
+      "title": "PursuitRound",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "awaiting_outcome": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/PursuitRound"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "next_action": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Action",
+      "x-text": "content"
+     },
+     "next_action_due": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Action Due"
+     },
+     "next_interview": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/PursuitRound"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "notes": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Notes",
+      "x-text": "content"
+     },
+     "opportunity": {
+      "$ref": "#/$defs/PursuedOpportunity",
+      "title": "Opportunity"
+     },
+     "opportunity_id": {
+      "title": "Opportunity Id",
+      "type": "integer"
+     },
+     "priority": {
+      "maximum": 5,
+      "minimum": 1,
+      "title": "Priority",
+      "type": "integer"
+     },
+     "priority_set": {
+      "title": "Priority Set",
+      "type": "boolean"
+     },
+     "revision": {
+      "minimum": 1,
+      "title": "Revision",
+      "type": "integer"
+     },
+     "stage": {
+      "enum": [
+       "saved",
+       "researching",
+       "networking",
+       "applied",
+       "interviewing",
+       "offer",
+       "accepted",
+       "declined",
+       "withdrawn",
+       "rejected",
+       "role_closed"
+      ],
+      "title": "Stage",
+      "type": "string",
+      "x-text": "code"
+     },
+     "steps": {
+      "items": {
+       "$ref": "#/$defs/PursuitNextStep"
+      },
+      "title": "Steps",
+      "type": "array"
+     },
+     "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "opportunity_id",
+     "stage",
+     "priority",
+     "notes",
+     "next_action",
+     "next_action_due",
+     "created_at",
+     "updated_at",
+     "revision",
+     "steps",
+     "next_interview",
+     "awaiting_outcome",
+     "priority_set"
+    ],
+    "title": "PursuitItem",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled",
+    "agent_access.allow_writes"
+   ],
+   "summary": "Open a next step ticked done again.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "small",
+    "standard",
+    "full"
+   ]
+  },
+  {
    "access": "read",
    "availability": {
     "reason": "offline",
@@ -17726,23 +19920,24 @@
   }
  ],
  "resources": {
-  "applications": "The person's applications: the board of stages and the calendar of interviews.",
+  "applications": "Applications: the board of stages and the interview calendar.",
   "capabilities": "The operations this engine offers.",
-  "changes": "What changed after a position: postings, stated pay, follow-ups due, source health.",
-  "companies": "Companies the person follows: profiles, facts with their sources, share prices.",
-  "context": "Everything about one opportunity as one hashed packet.",
+  "changes": "What changed after a position: postings, stated pay, steps due, source health.",
+  "companies": "Followed companies: profiles, sourced facts, share prices.",
+  "context": "One opportunity as one hashed packet.",
   "describe": "How to call one operation.",
   "doctor": "The engine's checks and settings.",
-  "duplicates": "Duplicate postings: the pairs worth deciding, and verdicts on them.",
-  "insights": "Market figures: open roles, pay by level and country, trends, skills asked for.",
+  "duplicates": "Duplicate postings: pairs worth deciding, and verdicts.",
+  "insights": "Market figures: open roles, pay by level and country, trends, skills.",
   "offer": "The person's own offer.",
-  "opportunities": "Open roles: search, one posting, its history, similar and duplicate postings.",
-  "pursuits": "Roles the person saved or pursues: stage, priority, notes, next action.",
-  "radar": "Counts of open and saved roles, pursuits by stage, overdue follow-ups.",
+  "opportunities": "Open roles: search, one posting, its history, similar and duplicates.",
+  "pursuits": "Saved and pursued roles: stage, priority, notes, next steps.",
+  "radar": "Counts of open and saved roles, pursuits by stage, overdue steps.",
   "receipts": "What a write sent under an idempotency key did.",
-  "recipes": "Listing recipes for a careers site: the contract, a live preview, drafts.",
+  "recipes": "Careers-site listing recipes: the contract, a live preview, drafts.",
   "sources": "One public careers page, fetched.",
   "status": "The workspace and engine answering.",
+  "steps": "A pursuit's next steps: add, change, tick done, open again.",
   "vocabulary": "The values a search filter accepts."
  },
  "routes": {
@@ -17921,6 +20116,22 @@
   "status": {
    "method": "GET",
    "path": "/api/agent/v1/status"
+  },
+  "steps.add": {
+   "method": "POST",
+   "path": "/api/agent/v1/pursuits/{opportunity_id}/steps"
+  },
+  "steps.done": {
+   "method": "POST",
+   "path": "/api/agent/v1/pursuits/{opportunity_id}/steps/{step_id}/done"
+  },
+  "steps.edit": {
+   "method": "PATCH",
+   "path": "/api/agent/v1/pursuits/{opportunity_id}/steps/{step_id}"
+  },
+  "steps.undo": {
+   "method": "POST",
+   "path": "/api/agent/v1/pursuits/{opportunity_id}/steps/{step_id}/undo"
   },
   "vocabulary.list": {
    "method": "GET",

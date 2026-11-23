@@ -1,0 +1,31 @@
+/* The priority mark, drawn wherever a priority is: the pipeline's views and
+   a posting's Pipeline section. */
+
+/* A priority's mark: bars lit in the text's quiet ink over unlit ones, a
+   warning square for Urgent, faint dashes for none. */
+.app-priority-mark {
+  flex: none;
+  color: var(--app-text-muted);
+}
+
+.app-priority-bar {
+  fill: var(--app-border-strong);
+}
+
+.app-priority-bar[data-lit] {
+  fill: currentColor;
+}
+
+.app-priority-dash {
+  fill: var(--app-text-faint);
+}
+
+.app-priority-urgent {
+  fill: var(--app-warning);
+}
+
+/* The page's canvas, solid in both themes: the surface tint is see-through
+   in the dark one, which would let the square show through its own mark. */
+.app-priority-urgent-glyph {
+  fill: var(--app-canvas);
+}

@@ -93,6 +93,10 @@ export interface MenuItemProps {
   icon?: IconName;
   /** Quiet text at the row's end, such as a date. */
   detail?: ReactNode;
+  /** A line under the name that says what the row holds. Rows that carry
+   *  one are taller and parted by a hairline, so each reads as its own
+   *  choice. */
+  hint?: ReactNode;
   /** The option already in force: a tick at the end, and `aria-current`. */
   current?: boolean;
   disabled?: boolean;
@@ -102,7 +106,8 @@ export interface MenuItemProps {
   shortcut?: string;
 }
 
-export function MenuItem({ onSelect, children, lead, icon, detail, current, disabled, title, shortcut }: MenuItemProps) {
+export function MenuItem({ onSelect, children, lead, icon, detail, hint, current, disabled, title, shortcut }: MenuItemProps) {
+  const hintId = useId();
   return (
     <Button
       variant="ghost"
@@ -110,6 +115,8 @@ export function MenuItem({ onSelect, children, lead, icon, detail, current, disa
       className="ui-menu-item"
       aria-current={current || undefined}
       aria-keyshortcuts={shortcut}
+      data-hinted={hint != null ? "" : undefined}
+      aria-describedby={hint != null ? hintId : undefined}
       disabled={disabled}
       title={title}
       onClick={onSelect}
@@ -117,7 +124,10 @@ export function MenuItem({ onSelect, children, lead, icon, detail, current, disa
       {(icon || lead != null) && (
         <span className="ui-menu-lead" aria-hidden="true">{icon ? <Icon name={icon} size={14} /> : lead}</span>
       )}
-      <span className="ui-menu-label">{children}</span>
+      <span className="ui-menu-label">
+        {children}
+        {hint != null && <span id={hintId} className="ui-menu-hint" aria-hidden="true">{hint}</span>}
+      </span>
       {detail != null && <span className="ui-menu-detail">{detail}</span>}
       {current && <Icon name="check" size={14} />}
     </Button>

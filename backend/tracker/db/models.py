@@ -1302,6 +1302,20 @@ class Pursuit(Base):
     )
 
 
+#: The user's own endings: each can be reversed, and Withdrawn can re-engage
+#: while the posting is open.
+DECIDED_STAGES = frozenset({"accepted", "declined", "withdrawn"})
+#: Endings the company or the world decided. Only these never move again.
+CLOSED_STAGES = frozenset({"rejected", "role_closed"})
+#: A role at one of these has left the moving stages.
+ENDED_STAGES = DECIDED_STAGES | CLOSED_STAGES
+#: Endings that owe nothing: no follow-up is owed and a next step is not on
+#: the calendar. An accepted offer is not one, since signing and a start date
+#: still carry dates the person set; nor is `offer`, the stage where a missed
+#: follow-up costs the most.
+OWES_NOTHING = ENDED_STAGES - {"accepted"}
+
+
 class ProfileClaim(Base):
     """One provenance-tracked fact about the candidate.
 
@@ -1428,6 +1442,33 @@ class PursuitComment(Base):
 
     __table_args__ = (
         CheckConstraint("actor IN ('user','agent')", name="ck_pursuit_comment_actor"),
+    )
+
+
+class PursuitStep(Base):
+    """One next step the person owes on a pursuit, open until `done_at`.
+
+    A pursuit's open steps read soonest first, steps with no day last in the
+    order they were added. `pursuits.next_action` and `next_action_due` hold
+    the first of them, written by the step writes only, for readers that know
+    one step per pursuit."""
+
+    __tablename__ = "pursuit_steps"
+    __mapper_args__ = {"eager_defaults": True}
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    pursuit_id: Mapped[int] = mapped_column(
+        ForeignKey("pursuits.id", ondelete="CASCADE"), index=True
+    )
+    text: Mapped[str] = mapped_column(Text)
+    due: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("text <> ''", name="ck_pursuit_step_text"),
     )
 
 

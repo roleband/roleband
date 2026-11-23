@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from functools import partial
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
@@ -32,6 +32,7 @@ from tracker.agents.operations import (
     recipes,
     relations,
     search,
+    steps,
     vocabulary,
 )
 from tracker.agents.operations.catalog import CATALOG, resources
@@ -274,6 +275,62 @@ async def pursuit_patch(
         shown=partial(pursuits.shown, postings=op.shares("public_posting")),
         described=pursuits.PursuitActivity(params.opportunity_id, saving=False),
     )
+
+
+@router.post(
+    f"{PREFIX}/pursuits/{{opportunity_id}}/steps",
+    response_model=Envelope[pursuits.PursuitItem],
+    openapi_extra=operation_route(steps.STEPS_ADD),
+)
+async def step_add(
+    op: Annotated[OperationContext, Depends(admitted(steps.STEPS_ADD))],
+) -> Envelope[Any]:
+    params = op.input_as(steps.StepAddInput)
+    return await op.write(
+        lambda: steps.add(op.session, params, actor=op.actor),
+        on_revision_conflict=pursuits.reread(params.opportunity_id),
+        shown=partial(pursuits.shown, postings=op.shares("public_posting")),
+        described=steps.StepActivity(params.opportunity_id, "add"),
+    )
+
+
+async def _step_write(
+    op: OperationContext, model: type[steps.StepInput], action: Literal["edit", "done", "undo"]
+) -> Envelope[Any]:
+    params = op.input_as(model)
+    return await op.write(
+        lambda: steps.change(op.session, params, actor=op.actor, action=action),
+        on_revision_conflict=pursuits.reread(params.opportunity_id),
+        shown=partial(pursuits.shown, postings=op.shares("public_posting")),
+        described=steps.StepActivity(params.opportunity_id, action, params.step_id, steps.edited_fields(params)),
+    )
+
+
+@router.patch(
+    f"{PREFIX}/pursuits/{{opportunity_id}}/steps/{{step_id}}",
+    response_model=Envelope[pursuits.PursuitItem],
+    openapi_extra=operation_route(steps.STEPS_EDIT),
+)
+async def step_edit(op: Annotated[OperationContext, Depends(admitted(steps.STEPS_EDIT))]) -> Envelope[Any]:
+    return await _step_write(op, steps.StepEditInput, "edit")
+
+
+@router.post(
+    f"{PREFIX}/pursuits/{{opportunity_id}}/steps/{{step_id}}/done",
+    response_model=Envelope[pursuits.PursuitItem],
+    openapi_extra=operation_route(steps.STEPS_DONE),
+)
+async def step_done(op: Annotated[OperationContext, Depends(admitted(steps.STEPS_DONE))]) -> Envelope[Any]:
+    return await _step_write(op, steps.StepInput, "done")
+
+
+@router.post(
+    f"{PREFIX}/pursuits/{{opportunity_id}}/steps/{{step_id}}/undo",
+    response_model=Envelope[pursuits.PursuitItem],
+    openapi_extra=operation_route(steps.STEPS_UNDO),
+)
+async def step_undo(op: Annotated[OperationContext, Depends(admitted(steps.STEPS_UNDO))]) -> Envelope[Any]:
+    return await _step_write(op, steps.StepInput, "undo")
 
 
 @router.get(

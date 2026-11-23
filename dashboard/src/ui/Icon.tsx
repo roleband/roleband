@@ -13,6 +13,7 @@
 // aliases still resolve but are deprecated upstream.
 import {
   Activity,
+  Link,
   Ellipsis,
   MessageSquare,
   SquareKanban,
@@ -36,15 +37,19 @@ import {
   CircleCheck,
   CircleHelp,
   CircleX,
+  CalendarClock,
   CalendarDays,
+  CircleDashed,
   Clock,
   Columns2,
   Compass,
   Copy,
+  GitCompareArrows,
   Laptop,
   ExternalLink,
   Eye,
   EyeOff,
+  GripVertical,
   Files,
   Gem,
   Globe,
@@ -94,6 +99,12 @@ const ICONS = {
   bell: Bell,
   building: Building2,
   calendar: CalendarDays,
+  // What is due, by day: the pipeline's Up next.
+  calendarClock: CalendarClock,
+  // Not started yet: the pipeline's Considering.
+  circleDashed: CircleDashed,
+  // A link on the bar over words selected in the notes.
+  link: Link,
   chart: ChartColumn,
   check: Check,
   checkCircle: CircleCheck,
@@ -104,6 +115,8 @@ const ICONS = {
   clock: Clock,
   close: X,
   columns: Columns2,
+  // Roles side by side. Not `columns`, which is a table's column picker.
+  compare: GitCompareArrows,
   undo: Undo2,
   compass: Compass,
   copy: Copy,
@@ -112,6 +125,7 @@ const ICONS = {
   external: ExternalLink,
   eye: Eye,
   eyeOff: EyeOff,
+  grip: GripVertical,
   // Two postings stacked: the Duplicates tab. `copy` is the copy action.
   files: Files,
   gear: Settings,
@@ -130,8 +144,8 @@ const ICONS = {
   cloud: Cloud,
   laptop: Laptop,
   pause: Pause,
-  // Columns of cards: the application pipeline.
-  pipeline: SquareKanban,
+  // Columns of cards: the pipeline's Board.
+  board: SquareKanban,
   play: Play,
   // A plugin: an add-on piece that fits into RoleBand.
   plugin: Puzzle,

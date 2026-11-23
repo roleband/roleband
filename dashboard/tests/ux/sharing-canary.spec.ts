@@ -1,5 +1,5 @@
 import { gunzipSync } from "node:zlib";
-import { expect, test } from "./fixtures";
+import { expect, test, viewChoices } from "./fixtures";
 import type { Page } from "./fixtures";
 import type { Request } from "@playwright/test";
 import {
@@ -89,6 +89,7 @@ test.beforeEach(async ({ page }) => {
     await route.abort("blockedbyclient");
     throw new Error(`Unmocked sharing-canary API request: ${route.request().method()} ${route.request().url()}`);
   });
+  await viewChoices(page);
   await page.route("/api/companies/names", (route) => route.fulfill({ json: { names: { [COMPANY]: "Zyxwv Robotics" } } }));
   await page.route("/api/compare-selection**", (route) => route.fulfill({ json: { job_ids: [] } }));
   await page.route("/api/settings/locale", (route) => route.fulfill({ json: { language: "en", region: null } }));

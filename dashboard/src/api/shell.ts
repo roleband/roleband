@@ -9,6 +9,6 @@ export type { CompareScope, CompareSelection, JobViewResult } from "./jobs";
 export type { CompanyNames } from "./companies";
 export type { Notification, NotificationList, NotificationParams } from "./notifications";
 export type { SyncCancelResult, SyncResult, SystemStatus } from "./ops";
-export type { LocaleSettings, ProfileState } from "./scope";
+export type { LocaleSettings, ProfileState, ViewChoices } from "./scope";
 export type { Stats } from "./statistics";
 export type { UsageState } from "./usage";

@@ -1,8 +1,8 @@
 import type { Page } from "./fixtures";
 import { mockGet } from "./fixtures";
-import { installBoardRoutes } from "./boardHarness";
+import { installBoardRoutes, installJobDetailRoutes } from "./boardHarness";
 import { activityPage } from "./activityFixtures";
-import { applicationCardFixture, applicationDetailFixture, historyFixture, overviewFixture } from "../../src/test/fixtures";
+import { applicationCardFixture, applicationDetailFixture, historyFixture, jobFixture, overviewFixture } from "../../src/test/fixtures";
 import { companyDiscovery, companyOpenCounts } from "./settingsHarness";
 import { companyList, scopeCatalog, scopePreview } from "./scopeFixtures";
 
@@ -48,8 +48,11 @@ export async function installEveryRoute(page: Page) {
   await page.route("/api/sync/targets", (route) =>
     route.fulfill({ json: { companies: [], freshness_max_hours: 24 } }));
   await installBoardRoutes(page);
+  await installJobDetailRoutes(page);
   // After the board's routes: the most recent route answers first, and the
-  // board answers an empty pipeline.
+  // board answers an empty pipeline. Role 101 is in it, so its posting reads
+  // in two tabs.
+  await page.route("/api/jobs/101", (route) => route.fulfill({ json: { ...jobFixture, is_favorite: true } }));
   await page.route("/api/applications", (route) =>
     route.fulfill({ json: { applications: [applicationCardFixture()] } }));
   await page.route("/api/applications/101", (route) =>

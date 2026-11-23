@@ -1,7 +1,7 @@
 /* ONE FOCUS RING (docs/ui.md "One focus ring"). Wherever
    the keyboard lands, the same ring says so: a solid outline of
    `--app-ring-width` in `--app-action`, the action colour of the surface it
-   sits on (the fixed-dark rail's own `--rail-accent`). Other looks fail: a
+   sits on (the rail's own `--rail-accent`). Other looks fail: a
    soft halo or a tinted outline falls under the 3:1 a focus indicator needs
    (1.4.11), and a left bar on a Board row is the same mark as a row picked
    for Compare.
@@ -18,7 +18,9 @@
    line where the border was, never the border and a ring outside it with a gap
    between, which reads as two or three lines. */
 
-import { expect, test, type Page } from "./fixtures";
+import { applicationCardFixture, applicationDetailFixture, jobFixture } from "../../src/test/fixtures";
+import { msg } from "../../src/test/msg";
+import { expect, mockGet, test, type Page } from "./fixtures";
 import { installEveryRoute } from "./routesHarness";
 import { installSettingsRoutes } from "./settingsHarness";
 
@@ -35,14 +37,41 @@ const SCREENS = [
   "/review",
   "/notifications",
   "/welcome",
+  "/pipeline/list",
+  "/pipeline/board",
+  "/pipeline/up-next",
+  // A role's page: its posting, then its Workspace with the notes page and
+  // the next steps' fields.
+  "/company/openai/job/101",
+  "/company/openai/job/101?tab=workspace",
 ];
 
-/** Focused element -> the ancestor that draws its ring. Kept in step with the
- *  carrier list in `src/design/focus-ring.test.ts`. */
+/** The dialogs a person opens most, each judged stop by stop like a screen:
+ *  where it opens, and how. */
+const DIALOGS: { name: string; path: string; open: (page: Page) => Promise<unknown> }[] = [
+  { name: "the interview form", path: "/company/openai/job/101?tab=workspace",
+    open: (page) => page.getByRole("button", { name: msg("applications-interview-add") }).click() },
+  { name: "the notes' earlier versions", path: "/company/openai/job/101?tab=workspace",
+    open: (page) => page.getByRole("button", { name: msg("applications-notes-versions") }).click() },
+  { name: "the stage menu", path: "/company/openai/job/101",
+    open: async (page) => {
+      // M answers once the role's card has loaded and drawn its stage button.
+      await expect(page.locator('[aria-keyshortcuts="m"]')).toBeVisible();
+      await page.keyboard.press("m");
+    } },
+  { name: "the command palette", path: "/", open: (page) => page.keyboard.press("ControlOrMeta+k") },
+  { name: "the keyboard shortcuts", path: "/", open: (page) => page.keyboard.press("?") },
+];
+
+/** Focused element -> the element that draws its ring. Kept in step with the
+ *  carrier list in `src/design/focus-ring.test.ts`. Most are an ancestor; the
+ *  palette's field never loses focus while the palette is open, so its
+ *  highlighted option, where Enter acts, wears the ring instead. */
 const CARRIERS: [string, string][] = [
   [".ui-search-input", ".ui-search"],
   [".filter-search-row input", ".filter-search-row"],
   [".ui-timefield-framed input", ".ui-timefield-framed"],
+  [".palette-input input", ".palette-item.is-cursor"],
 ];
 
 async function focusedRing(page: Page) {
@@ -52,7 +81,9 @@ async function focusedRing(page: Page) {
     const box = el.getBoundingClientRect();
     if (box.width === 0 && box.height === 0) return null;
     const owners = carriers.flatMap(([focused, carrier]) => {
-      const owner = el.matches(focused) ? el.closest(carrier) : null;
+      const owner = el.matches(focused)
+        ? el.closest(carrier) ?? el.closest('[role="dialog"]')?.querySelector(carrier) ?? null
+        : null;
       return owner ? [owner] : [];
     });
     // Computed styles flush pending transitions before their completion is awaited.
@@ -72,9 +103,12 @@ async function focusedRing(page: Page) {
     const gold = getComputedStyle(probe).color;
     probe.remove();
 
+    // Judged as drawn: under CSS zoom (the interview form, magnified setup) the
+    // engine snaps the ring to whole pixels and reports it divided by the zoom.
     const rings = (node: Element) => {
       const cs = getComputedStyle(node);
-      return cs.outlineStyle === "solid" && parseFloat(cs.outlineWidth) >= 2 && cs.outlineColor === gold;
+      const zoom = (node as Element & { currentCSSZoom?: number }).currentCSSZoom ?? 1;
+      return cs.outlineStyle === "solid" && parseFloat(cs.outlineWidth) * zoom >= 1.99 && cs.outlineColor === gold;
     };
     const describe = (node: Element) => {
       const cs = getComputedStyle(node);
@@ -85,8 +119,8 @@ async function focusedRing(page: Page) {
     // the field's border: the outline spans [offset, offset + width] outward
     // from the border box, the border [-border, 0]. The fields are listed
     // here, not read from shell.css, so a field dropped from that rule is
-    // still checked.
-    const FIELD = 'input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="button"], [type="submit"], [type="reset"], [type="image"]), select, textarea';
+    // still checked. An editable page is a field: a `div` the person types in.
+    const FIELD = 'input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="button"], [type="submit"], [type="reset"], [type="image"]), select, textarea, [contenteditable="true"]';
     const onEdge = (node: Element) => {
       const cs = getComputedStyle(node);
       const border = parseFloat(cs.borderTopWidth);
@@ -110,7 +144,29 @@ async function focusedRing(page: Page) {
   }, CARRIERS);
 }
 
+/** Role 101 on the board as interviewing: the posting carries its pursuit, so
+ *  the role's page draws its stage button and its Workspace, with one earlier
+ *  version of the notes to offer back. */
+async function routeRoleOnBoard(page: Page) {
+  const card = applicationCardFixture({ job_id: 101, pursuit_id: 7, stage: "interviewing" });
+  await mockGet(page, "/api/jobs/101", (route) => route.fulfill({ json: {
+    ...jobFixture, is_favorite: true,
+    pursuit: { id: 7, job_id: 101, stage: card.stage, priority: card.priority, notes: null,
+      next_action: null, next_action_due: null, created_at: "2026-10-20T09:00:00Z", updated_at: "2026-11-04T12:00:00Z" },
+  } }));
+  await mockGet(page, "/api/applications/101", (route) => route.fulfill({
+    json: applicationDetailFixture({ application: card }),
+  }));
+  await mockGet(page, "/api/applications", (route) => route.fulfill({ json: { applications: [card] } }));
+  await mockGet(page, "/api/applications/101/notes/versions", (route) => route.fulfill({
+    json: { versions: [{ actor: "user", at: "2026-11-20T10:00:00Z", text: "Ask Sam" }] },
+  }));
+}
+const isRolePage = (path: string) => path.startsWith("/company/") && path.includes("/job/");
+
 const STOPS = 60;
+/** A role's page holds the most stops: the rail, its bar, then the page. */
+const stopsOn = (path: string) => (isRolePage(path) ? 110 : STOPS);
 
 test.use({ reducedMotion: "reduce" });
 
@@ -124,14 +180,16 @@ for (const theme of ["light", "dark"] as const) {
     test(`every keyboard stop on ${path} wears the one ring (${theme})`, async ({ page, isMobile }) => {
       test.skip(isMobile, "Tab order is a desktop keyboard contract; WebKit's Tab skips links by default");
       test.setTimeout(60_000);
+      if (isRolePage(path)) await routeRoleOnBoard(page);
       await page.addInitScript((t) => localStorage.setItem("theme", t), theme);
       await page.setViewportSize({ width: 1440, height: 900 });
       await page.goto(path);
       await expect(page.locator("h1").first()).toBeVisible();
+      if (path.includes("tab=workspace")) await expect(page.locator('[contenteditable="true"]').first()).toBeVisible();
 
       const failures = new Map<string, string>();
       let judged = 0;
-      for (let i = 0; i < STOPS; i++) {
+      for (let i = 0; i < stopsOn(path); i++) {
         await page.keyboard.press("Tab");
         // Read on the rendering frame; reduced motion removes transition-duration waits.
         await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
@@ -144,6 +202,44 @@ for (const theme of ["light", "dark"] as const) {
       // A sweep that judged nothing would pass every screen.
       expect(judged, `${path}: the keyboard reached nothing`).toBeGreaterThan(5);
       expect([...failures].map(([sig, what]) => `${sig}: ${what}`), `${path} (${theme})`).toEqual([]);
+    });
+  }
+}
+
+for (const theme of ["light", "dark"] as const) {
+  for (const dialog of DIALOGS) {
+    test(`every keyboard stop in ${dialog.name} wears the one ring (${theme})`, async ({ page, isMobile }) => {
+      test.skip(isMobile, "Tab order is a desktop keyboard contract; WebKit's Tab skips links by default");
+      test.setTimeout(60_000);
+      await routeRoleOnBoard(page);
+      await page.addInitScript((t) => localStorage.setItem("theme", t), theme);
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.goto(dialog.path);
+      await expect(page.locator("h1").first()).toBeVisible();
+      await dialog.open(page);
+      const opened = page.getByRole("dialog").last();
+      await expect(opened).toBeVisible();
+
+      const failures = new Map<string, string>();
+      let judged = 0;
+      // The first stop is where the dialog puts the keyboard as it opens.
+      for (let i = 0; i < 30; i++) {
+        if (i > 0) await page.keyboard.press("Tab");
+        await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+        const where = await opened.evaluate((box) => (box.contains(document.activeElement)
+          ? document.activeElement === box || document.activeElement?.getAttribute("role") === "dialog" ? "box" : "inside"
+          : "out")).catch(() => "out");
+        if (where === "out") break;
+        // The dialog's own box holds the keyboard as it opens; it is not a control.
+        if (where === "box") continue;
+        const verdict = await focusedRing(page);
+        if (!verdict) continue;
+        judged++;
+        if (!verdict.ok && !failures.has(verdict.sig)) failures.set(verdict.sig, verdict.what!);
+      }
+
+      expect(judged, `${dialog.name}: the keyboard reached nothing in it`).toBeGreaterThan(0);
+      expect([...failures].map(([sig, what]) => `${sig}: ${what}`), `${dialog.name} (${theme})`).toEqual([]);
     });
   }
 }

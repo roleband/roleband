@@ -1,6 +1,6 @@
 import { usageStateFixture } from "../../src/test/fixtures";
 import { test as base, expect } from "@playwright/test";
-import type { Page, Request } from "@playwright/test";
+import type { BrowserContext, Page, Request } from "@playwright/test";
 
 export { expect };
 export type { Page } from "@playwright/test";
@@ -81,6 +81,9 @@ export const test = base.extend<{ apiGuard: void }>({
       route.request().method() === "GET"
         ? route.fulfill({ json: { size: 0, following: false, since: null, checked: 0, to_check: 0, with_roles: 0, waiting_for_power: false } })
         : route.fallback());
+    /* The person's view choices, none made yet; a spec that seeds some, or
+       reads what was saved, calls `viewChoices`. */
+    await routeViewChoices(context, {});
     /* An approval reads each declared site's robots rules: none here,
        so no consent is offered; a spec about the rules routes its own. */
     await context.route("/api/plugins/*/robots", (route) =>
@@ -112,6 +115,28 @@ export const test = base.extend<{ apiGuard: void }>({
     await use();
   }, { auto: true }],
 });
+
+/** The person's view choices as the database keeps them (the Workspace's
+ *  blocks, the Pipeline's columns, each screen's filters): seeded with
+ *  `initial`, and every change saved into the object returned, so a choice
+ *  holds over a reload and a spec can read what was saved. Routed on the page,
+ *  so it outranks the context's empty default. */
+export async function viewChoices(page: Page, initial: Record<string, unknown> = {}) {
+  return routeViewChoices(page, initial);
+}
+
+async function routeViewChoices(target: Page | BrowserContext, initial: Record<string, unknown>) {
+  const held: Record<string, unknown> = { ...initial };
+  await target.route("/api/settings/view-choices**", (route) => {
+    const request = route.request();
+    if (request.method() === "GET") return route.fulfill({ json: { choices: held } });
+    if (request.method() !== "PUT") return route.fallback();
+    const name = decodeURIComponent(new URL(request.url()).pathname.split("/").pop()!);
+    held[name] = (request.postDataJSON() as { value: unknown }).value;
+    return route.fulfill({ json: { name, value: held[name] } });
+  });
+  return held;
+}
 
 /** A read fixture must not accidentally acknowledge a write to the same URL. */
 export function mockApi(

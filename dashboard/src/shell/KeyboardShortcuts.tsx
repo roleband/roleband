@@ -7,11 +7,14 @@ import {
   shortcutsKeyboardShortcutsClose,
   shortcutsKeyboardShortcutsCloseWhatIsOnTop,
   shortcutsKeyboardShortcutsChangeStage,
+  shortcutsKeyboardShortcutsAltF10,
   shortcutsKeyboardShortcutsCtrlK,
   shortcutsKeyboardShortcutsDifferentRoles,
   shortcutsKeyboardShortcutsKeyboardShortcuts,
   shortcutsKeyboardShortcutsKeyboardShortcuts2,
+  shortcutsKeyboardShortcutsLinkWords,
   shortcutsKeyboardShortcutsNextRole,
+  shortcutsKeyboardShortcutsNotes,
   shortcutsKeyboardShortcutsOnARoleInA,
   shortcutsKeyboardShortcutsOpenTheCommandPalette,
   shortcutsKeyboardShortcutsOpenTheRole,
@@ -24,9 +27,7 @@ import {
   shortcutsKeyboardShortcutsSaveItOrUnsaveIt,
   shortcutsKeyboardShortcutsSearchRoles,
   shortcutsKeyboardShortcutsShowTheseShortcuts,
-  shortcutsKeyboardShortcutsInAPosting,
-  shortcutsKeyboardShortcutsNextInList,
-  shortcutsKeyboardShortcutsPreviousInList,
+  shortcutsKeyboardShortcutsToTheBar,
 } from "../copy/gen/shortcuts";
 
 /* Every key the app answers to, in one sheet (docs/ui.md "Keys"), so `j`/`k`,
@@ -35,8 +36,8 @@ import {
  *
  * The shell loads this lazily on first open, so the list costs the startup
  * chunk nothing. The keys themselves are answered where they act — App (the
- * palette, `/`, `?`), JobList (`j`/`k`), JobCard (Enter, `s`, `c`), JobDetail (`j`/`k` between a list's postings),
- * ReviewScreen (D/T/N), ApplicationPage (`m`, `i`) and StageMenu (1 to 5), so a key added there belongs here in the same change.
+ * palette, `/`, `?`), JobList (`j`/`k`), JobCard (Enter, `s`, `c`),
+ * ReviewScreen (D/T/N), the notes page (⌘ K over selected words, Alt F10, features/applications/NotesEditor.tsx), the pipeline's part of a posting (`m`, `i`, features/applications/usePostingPipeline.tsx) and StageMenu (1 to 5), so a key added there belongs here in the same change.
  */
 
 interface Shortcut {
@@ -65,18 +66,18 @@ const GROUPS: Array<{ title: string; shortcuts: Shortcut[] }> = [
     ],
   },
   {
-    get title() { return shortcutsKeyboardShortcutsInAPosting(); },
-    shortcuts: [
-      { keys: ["j"], get does() { return shortcutsKeyboardShortcutsNextInList(); } },
-      { keys: ["k"], get does() { return shortcutsKeyboardShortcutsPreviousInList(); } },
-    ],
-  },
-  {
     get title() { return shortcutsKeyboardShortcutsPipeline(); },
     shortcuts: [
       { keys: ["m"], get does() { return shortcutsKeyboardShortcutsChangeStage(); } },
       { keys: ["1–5"], get does() { return shortcutsKeyboardShortcutsPickStage(); } },
       { keys: ["i"], get does() { return shortcutsKeyboardShortcutsAddInterview(); } },
+    ],
+  },
+  {
+    get title() { return shortcutsKeyboardShortcutsNotes(); },
+    shortcuts: [
+      { get keys() { return ["⌘ K", shortcutsKeyboardShortcutsCtrlK()]; }, get does() { return shortcutsKeyboardShortcutsLinkWords(); } },
+      { get keys() { return [shortcutsKeyboardShortcutsAltF10()]; }, get does() { return shortcutsKeyboardShortcutsToTheBar(); } },
     ],
   },
   {

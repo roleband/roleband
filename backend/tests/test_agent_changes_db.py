@@ -22,7 +22,7 @@ import pytest_asyncio
 from sqlalchemy import func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from tests.factories import make_company, make_job
+from tests.factories import add_pursuit, make_company, make_job
 from tracker.agents.config import AgentAccessConfig, set_agent_access
 from tracker.agents.operations.changes import (
     CHANGES_LIST,
@@ -32,7 +32,14 @@ from tracker.agents.operations.changes import (
 )
 from tracker.agents.operations.outcomes import outcome
 from tracker.agents.operations.workspace import ensure_workspace_id
-from tracker.agents.pursuits import PursuitUpdate, upsert_pursuit
+from tracker.agents.pursuits import (
+    PursuitUpdate,
+    StepUpdate,
+    StepWrite,
+    add_step,
+    update_step,
+    upsert_pursuit,
+)
 from tracker.agents.receipts import LEGACY_AGENT_PRINCIPAL
 from tracker.api.agent_operations import PREFIX
 from tracker.db.models import (
@@ -41,7 +48,6 @@ from tracker.db.models import (
     PluginInstall,
     PluginRun,
     PluginRunEnd,
-    Pursuit,
     ScrapeRun,
     ScrapeSourceRun,
     SourceBinding,
@@ -200,7 +206,7 @@ async def test_each_kind_appears_once_from_a_seeded_change_with_how_it_is_known(
     await _plugin_run(feed, plugin, "error")
     async with _factory(feed)() as session:
         due_at = (await session.execute(text("SELECT clock_timestamp()"))).scalar_one()
-        session.add(Pursuit(job_id=pursued, stage="applied", next_action="Write back", next_action_due=due_at))
+        await add_pursuit(session, pursued, stage="applied", next_action="Write back", next_action_due=due_at)
         await session.commit()
 
     events, _ = await _drain(api_client, since=since)
@@ -354,14 +360,35 @@ async def test_a_pursuit_due_time_that_passes_is_reported_once_and_a_terminal_on
     since = await _start(api_client, kinds=["pursuit_due"])
     async with _factory(feed)() as session:
         now = (await session.execute(text("SELECT clock_timestamp()"))).scalar_one()
-        session.add_all([
-            Pursuit(job_id=owed, stage="interviewing", next_action="Thank-you note", next_action_due=now),
-            Pursuit(job_id=done, stage="rejected", next_action="Nothing", next_action_due=now),
-            Pursuit(job_id=later, stage="applied", next_action="Chase", next_action_due=now + timedelta(days=3)),
-        ])
+        await add_pursuit(session, owed, stage="interviewing", next_action="Thank-you note", next_action_due=now)
+        await add_pursuit(session, done, stage="rejected", next_action="Nothing", next_action_due=now)
+        await add_pursuit(session, later, stage="applied", next_action="Chase", next_action_due=now + timedelta(days=3))
         await session.commit()
     events, since = await _drain(api_client, since=since, kinds=["pursuit_due"])
     assert [(e["kind"], e["opportunity_id"]) for e in events] == [("pursuit_due", owed)]
+    assert (await _drain(api_client, since=since, kinds=["pursuit_due"]))[0] == []
+
+
+async def test_each_step_that_falls_due_is_its_own_event_and_a_ticked_one_is_none(api_client, feed):
+    job = await _posting(feed, "several-steps")
+    since = await _start(api_client, kinds=["pursuit_due"])
+    async with _factory(feed)() as writer:
+        now = (await writer.execute(text("SELECT clock_timestamp()"))).scalar_one()
+        await upsert_pursuit(writer, job, PursuitUpdate(stage="applied", next_action="Thank-you note",
+                                                        next_action_due=now), actor="user")
+        _, chase = await add_step(writer, job, StepWrite(text="Chase", due=now), actor="user")
+        _, ticked = await add_step(writer, job, StepWrite(text="Nothing", due=now), actor="user")
+        await update_step(writer, job, ticked.id, StepUpdate(done=True), actor="user")
+        await add_step(writer, job, StepWrite(text="Later", due=now + timedelta(days=3)), actor="user")
+        await writer.commit()
+
+    events, since = await _drain(api_client, since=since, kinds=["pursuit_due"])
+
+    assert [event["opportunity_id"] for event in events] == [job, job]
+    sequences = [event["sequence"] for event in events]
+    assert len(set(sequences)) == 2 and all(seq.startswith("step_due:") for seq in sequences)
+    assert any(seq.startswith(f"step_due:{chase.id}:") for seq in sequences)
+    assert not any(seq.startswith(f"step_due:{ticked.id}:") for seq in sequences)
     assert (await _drain(api_client, since=since, kinds=["pursuit_due"]))[0] == []
 
 
@@ -372,9 +399,9 @@ async def test_due_waits_for_the_transaction_and_delivers_once_after_commit(api_
     async with _factory(feed)() as writer:
         now = (await writer.execute(text("SELECT clock_timestamp()"))).scalar_one()
         if change == "reschedule":
-            await upsert_pursuit(writer, job, PursuitUpdate(next_action_due=now + timedelta(days=1)), actor="user")
+            await upsert_pursuit(writer, job, PursuitUpdate(next_action="Chase", next_action_due=now + timedelta(days=1)), actor="user")
         elif change == "reactivate":
-            await upsert_pursuit(writer, job, PursuitUpdate(stage="withdrawn", next_action_due=now), actor="user")
+            await upsert_pursuit(writer, job, PursuitUpdate(stage="withdrawn", next_action="Chase", next_action_due=now), actor="user")
         await writer.commit()
     since = await _start(api_client, kinds=kinds)
 
@@ -383,7 +410,7 @@ async def test_due_waits_for_the_transaction_and_delivers_once_after_commit(api_
             payload = PursuitUpdate(stage="applied")
         else:
             due = (await writer.execute(text("SELECT clock_timestamp()"))).scalar_one()
-            payload = PursuitUpdate(next_action_due=due)
+            payload = PursuitUpdate(next_action="Chase", next_action_due=due)
         await upsert_pursuit(writer, job, payload, actor="user")
         events, since = await _drain(api_client, since=since, kinds=kinds)
         assert events == []
@@ -407,7 +434,7 @@ async def test_due_can_be_saved_overdue_but_respects_the_original_start_time(api
 
     async with _factory(feed)() as writer:
         for job, hours in ((included, 1), (excluded, 3)):
-            await upsert_pursuit(writer, job, PursuitUpdate(next_action_due=now - timedelta(hours=hours)), actor="user")
+            await upsert_pursuit(writer, job, PursuitUpdate(next_action="Chase", next_action_due=now - timedelta(hours=hours)), actor="user")
         await writer.commit()
 
     events, since = await _drain(api_client, since=since, kinds=kinds)
@@ -424,7 +451,7 @@ async def test_a_start_time_still_ahead_keeps_earlier_due_times_out_of_later_win
     async with _factory(feed)() as session:
         # Due after the first window ended, and before start_time.
         due = (await session.execute(text("SELECT clock_timestamp()"))).scalar_one()
-        session.add(Pursuit(job_id=owed, stage="applied", next_action="Chase", next_action_due=due))
+        await add_pursuit(session, owed, stage="applied", next_action="Chase", next_action_due=due)
         await session.commit()
     assert (await _drain(api_client, since=since, kinds=["pursuit_due"]))[0] == []
 
@@ -442,8 +469,8 @@ async def test_pursuit_changes_are_absent_while_the_person_does_not_share_pursui
     since = await _start(api_client)
     await _event(feed, opened, "opened")
     async with _factory(feed)() as session:
-        session.add(Pursuit(job_id=pursued, stage="applied", next_action="x",
-                            next_action_due=(await session.execute(text("SELECT clock_timestamp()"))).scalar_one()))
+        due = (await session.execute(text("SELECT clock_timestamp()"))).scalar_one()
+        await add_pursuit(session, pursued, stage="applied", next_action="x", next_action_due=due)
         await session.commit()
 
     await _share_pursuits(feed, "not_shared")
@@ -468,8 +495,8 @@ async def test_due_times_that_passed_while_pursuits_were_not_shared_are_not_caug
     pursued = await _posting(feed, "unshared-due")
     since = await _start(api_client)
     async with _factory(feed)() as session:
-        session.add(Pursuit(job_id=pursued, stage="applied", next_action="x",
-                            next_action_due=(await session.execute(text("SELECT clock_timestamp()"))).scalar_one()))
+        due = (await session.execute(text("SELECT clock_timestamp()"))).scalar_one()
+        await add_pursuit(session, pursued, stage="applied", next_action="x", next_action_due=due)
         await session.commit()
     await _share_pursuits(feed, "not_shared")
     unshared, since = await _drain(api_client, since=since)
@@ -494,8 +521,8 @@ async def test_an_unshared_read_that_finishes_an_open_window_leaves_later_due_ti
     page = (await _page(api_client, since=since, limit=1))["data"]
     assert page["caught_up"] is False and len(page["events"]) == 1
     async with _factory(feed)() as session:
-        session.add(Pursuit(job_id=pursued, stage="applied", next_action="x",
-                            next_action_due=(await session.execute(text("SELECT clock_timestamp()"))).scalar_one()))
+        due = (await session.execute(text("SELECT clock_timestamp()"))).scalar_one()
+        await add_pursuit(session, pursued, stage="applied", next_action="x", next_action_due=due)
         await session.commit()
     await _share_pursuits(feed, "not_shared")
     rest, since = await _drain(api_client, since=page["next_since"], limit=1)
@@ -717,6 +744,8 @@ async def test_a_since_that_cannot_continue_is_refused_with_a_lookup_never_reset
     # The cluster that gave it is gone: a restore into a new one.
     hint = await _refused(api_client, "expired", since=_rewrite(since, c="1"))
     assert datetime.fromisoformat(hint["start_time"]) <= datetime.now(UTC)
+    # A position whose due times named pursuits, not steps.
+    assert await _refused(api_client, "expired", since=_rewrite(since, f=1)) == hint
     assert await _refused(api_client, "malformed", since=_rewrite(since, lo=10**15)) == {}
     # A window that ends past the snapshot, or before it starts, is not one a read gave.
     lo = json.loads(base64.urlsafe_b64decode(since + "=" * (-len(since) % 4)))["lo"]

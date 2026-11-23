@@ -86,6 +86,9 @@ const CHARTER: Record<string, FactClass> = {
   // which one render cannot show (it re-renders the same either way).
   "context/provider-values.test.ts": "ownership",
   "design/card-inset.test.ts": "token-vocabulary",
+  // Which ground tokens a held band paints over the base colour: the plate
+  // shows only where the wash is strong, a corner no fixed viewport promises.
+  "design/held-ground.test.ts": "token-vocabulary",
   "design/dead-rules.test.ts": "selector-absence",
   "design/filter-grammar.test.ts": "token-vocabulary",
   "design/font-weights.test.ts": "token-vocabulary",

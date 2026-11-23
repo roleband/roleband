@@ -1,9 +1,9 @@
-import { useCallback, useLayoutEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
-import { useMeasuredCssSize } from "../../hooks/useMeasuredCssSize";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import type { ApplicationCard } from "../../api";
 import { useJobActions, useJobWorkspace } from "../../context/JobWorkspace";
 import type { StageSlug } from "../../copy/vocabulary";
+import { daysAgo } from "../../copy/format";
 import { BAND_LABEL, companyName, relDays } from "../../format";
 import { usePayCoverage } from "../../payCoverage";
 import { baseShown } from "../../payShown";
@@ -11,8 +11,7 @@ import { CompareBeacon } from "../../patterns/jobs/CompareBeacon";
 import { StarButton } from "../../patterns/jobs/JobControls";
 import { primaryLocation } from "../../patterns/jobs/location";
 import { SortButton } from "../../patterns/jobs/SortButton";
-import { AsyncBoundary, Badge, Button, CompanyIcon, Content, EmptyState, Icon, Menu, MenuGroup, MenuItem } from "../../ui";
-import { Abbr } from "../../ui/Abbr";
+import { AsyncBoundary, Badge, Button, CompanyIcon, Content, EmptyState, Icon, MenuItem } from "../../ui";
 import {
   jobsCompare,
   jobsCompareFull,
@@ -26,17 +25,14 @@ import {
   applicationsFactPayNone,
   applicationsBoardLoadFailed,
   applicationsCardActions,
-  applicationsCardDaysInStage,
-  applicationsCardDaysShort,
   applicationsCardPostingClosed,
-  applicationsCardPriority,
   applicationsColumnHide,
   applicationsColumnMenu,
-  applicationsFactDays,
   applicationsFactLastActivity,
   applicationsFactLevel,
   applicationsFactPriority,
   applicationsFactsPosting,
+  applicationsFactStarred,
   applicationsListColumnLeft,
   applicationsListClear,
   applicationsListClearBoard,
@@ -44,12 +40,13 @@ import {
   applicationsListHeadActions,
   applicationsListHeadNext,
   applicationsMenuLabel,
-  applicationsMenuRemove,
 } from "../../copy/gen/applications";
 import { beside, useFocusAfter } from "./focusAfter";
+import { PRIORITY_LABEL, priorityOf } from "./priority";
+import { PriorityMark } from "./PriorityMark";
 import { NoMatches, PipelineEmpty } from "./PipelineEmpty";
-import { useOriginState } from "./pageOrigin";
-import { applicationPath, daysToSay, dueOf } from "./board";
+import { useRoleLink } from "./roleLink";
+import { dueOf } from "./board";
 import { DueBadge } from "./DueBadge";
 import { VIEW_FILTERS, isFiltering, matches, quickCounts } from "./filters";
 import {
@@ -72,11 +69,12 @@ import {
 import { PipelineToolbar } from "./PipelineToolbar";
 import { StageMenu } from "./StageMenu";
 import type { useBoardController } from "./useBoardController";
+import { usePageScrollsFirst } from "./usePageScrollsFirst";
 import { usePostings } from "./usePostings";
 import { useStageAsk } from "./useStageAsk";
+import { useReorder, ReorderMenu } from "./useReorder";
 import { useViewFilter } from "./useViewFilter";
 
-const PRIORITY_STEPS = [1, 2, 3, 4, 5] as const;
 
 /** Each column's header, and the sort it chooses. A city is not a rank, so
  *  Location sorts nothing. */
@@ -87,8 +85,8 @@ const HEAD: Record<ListColumn, { name: () => string; sort?: ListSort; num?: bool
   level: { name: applicationsFactLevel, sort: "level" },
   next: { name: applicationsListHeadNext, sort: "next" },
   posting: { name: applicationsFactsPosting, sort: "posting" },
+  saved: { name: applicationsFactStarred, sort: "saved" },
   priority: { name: applicationsFactPriority, sort: "priority" },
-  in_stage: { name: applicationsFactDays, sort: "in_stage", num: true },
   activity: { name: applicationsFactLastActivity, sort: "activity" },
 };
 
@@ -123,59 +121,9 @@ function NextStep({ card, now }: { card: ApplicationCard; now: Date }) {
   );
 }
 
-/** A column header's ⋯ menu: move the column one place either way among the
- *  columns shown, or hide it. The keyboard's way to do what a drag does. */
-function ColumnMenu({ name, first, last, canHide, onStep, onHide }: {
-  name: string;
-  first: boolean;
-  last: boolean;
-  canHide: boolean;
-  onStep: (by: -1 | 1) => void;
-  onHide: () => void;
-}) {
-  const [button, setButton] = useState<HTMLButtonElement | null>(null);
-  const [open, setOpen] = useState(false);
-  const label = applicationsColumnMenu({ column: name });
-  const pick = (act: () => void) => () => {
-    setOpen(false);
-    act();
-  };
-  return (
-    <>
-      <Button
-        ref={setButton}
-        variant="icon"
-        size="sm"
-        className="app-list-head-menu"
-        aria-label={label}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        draggable={false}
-        onClick={() => setOpen((was) => !was)}
-      >
-        <Icon name="more" size={14} />
-      </Button>
-      <Menu isOpen={open} onClose={() => setOpen(false)} anchor={button} label={label}>
-        <MenuGroup>
-          <MenuItem icon="arrowLeft" disabled={first} onSelect={pick(() => onStep(-1))}>
-            {applicationsListColumnLeft()}
-          </MenuItem>
-          <MenuItem icon="arrowRight" disabled={last} onSelect={pick(() => onStep(1))}>
-            {applicationsListColumnRight()}
-          </MenuItem>
-        </MenuGroup>
-        {canHide && (
-          <MenuGroup>
-            <MenuItem icon="eyeOff" onSelect={pick(onHide)}>{applicationsColumnHide()}</MenuItem>
-          </MenuGroup>
-        )}
-      </Menu>
-    </>
-  );
-}
-
 interface RowActions {
   onMove: (card: ApplicationCard, stage: StageSlug) => void;
+  /** The star: the role leaves the pipeline. */
   onRemove: (card: ApplicationCard) => void;
   onNotForMe: (card: ApplicationCard) => void;
 }
@@ -193,7 +141,7 @@ function Row({ row, now, columns, actions, match }: {
   const cover = usePayCoverage();
   const [menuButton, setMenuButton] = useState<HTMLButtonElement | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const origin = useOriginState();
+  const role = useRoleLink();
   const company = companyName(card.company);
   const unread = job != null && job.viewed_at == null && !viewedIds.has(card.job_id);
   const compareOn = compareIds.has(card.job_id);
@@ -203,7 +151,10 @@ function Row({ row, now, columns, actions, match }: {
   const base = job ? baseShown(job, cover) : null;
   const where = job ? primaryLocation(job.locations) : null;
   const band = placedBand(job);
-  const days = daysToSay(card, now);
+  // In Considering the stage began when the role was saved.
+  const savedFor = card.stage_since
+    ? Math.max(0, Math.floor((now.getTime() - new Date(card.stage_since).getTime()) / 86_400_000))
+    : null;
   const quietFor = card.last_activity_at
     ? Math.floor((now.getTime() - new Date(card.last_activity_at).getTime()) / 86_400_000)
     : null;
@@ -215,7 +166,7 @@ function Row({ row, now, columns, actions, match }: {
           <CompanyIcon slug={card.company} display={company} size={16} />
           <span data-selection="content"><Content text={company} /></span>
         </span>
-        <Link to={applicationPath(card.job_id)} state={origin} className="app-list-title" data-selection="content">
+        <Link {...role(card)} className="app-list-title" data-selection="content">
           <Content text={card.title} />
         </Link>
       </th>
@@ -240,15 +191,14 @@ function Row({ row, now, columns, actions, match }: {
       ? <Badge tone="warning" variant="tint" size="sm">{applicationsCardPostingClosed()}</Badge>
       : job && <span className="app-list-age">{relDays(job.listed_days)}</span>,
     priority: () => (
-      <span className="app-tile-priority" role="img" aria-label={applicationsCardPriority({ priority: card.priority })}>
-        {PRIORITY_STEPS.map((step) => (
-          <span key={step} className="app-tile-dot" data-filled={step <= card.priority || undefined} aria-hidden="true" />
-        ))}
-      </span>
+      priorityOf(card) !== "none" && (
+        <span className="app-list-priority">
+          <PriorityMark level={priorityOf(card)} />
+          {PRIORITY_LABEL[priorityOf(card)]()}
+        </span>
+      )
     ),
-    in_stage: () => days != null && (
-      <Abbr short={applicationsCardDaysShort({ days })} full={applicationsCardDaysInStage({ days })} />
-    ),
+    saved: () => savedFor != null && <span className="app-list-age">{daysAgo(savedFor)}</span>,
     activity: () => quietFor != null && relDays(quietFor),
   };
 
@@ -262,18 +212,11 @@ function Row({ row, now, columns, actions, match }: {
       {columns.map((column) => column === "role"
         ? cells.role()
         : <td key={column} className={HEAD[column].num ? "num" : undefined} data-col={column}>{cells[column]()}</td>)}
-      {/* Radar's row actions, in Radar's order: Not for me, Compare, the star. */}
+      {/* Compare and the star stay in reach; every move, Not for me among
+          them, is in the menu. The star takes the role out of the pipeline,
+          so the menu does not offer that again. */}
       <td className="app-list-actions">
         <span className="app-list-actions-set">
-          <Button
-            variant="icon"
-            size="sm"
-            aria-label={sharedNotForMe()}
-            title={sharedNotForMe()}
-            onClick={() => actions.onNotForMe(card)}
-          >
-            <Icon name="eyeOff" size={14} />
-          </Button>
           {/* Full: still focusable, with the reason as its description. */}
           <Button
             variant="icon"
@@ -287,7 +230,7 @@ function Row({ row, now, columns, actions, match }: {
               if (!full) toggleCompare(card.job_id);
             }}
           >
-            <Icon name={compareOn ? "check" : "columns"} size={14} />
+            <Icon name={compareOn ? "check" : "compare"} size={14} />
           </Button>
           {full && <span id={fullReasonId} className="sr-only">{fullReason}</span>}
           <StarButton on={card.starred} size={16} onToggle={() => actions.onRemove(card)} />
@@ -314,16 +257,14 @@ function Row({ row, now, columns, actions, match }: {
               actions.onMove(card, next);
             }}
           >
-            {card.starred && (
-              <MenuItem
-                onSelect={() => {
-                  setMenuOpen(false);
-                  actions.onRemove(card);
-                }}
-              >
-                {applicationsMenuRemove()}
-              </MenuItem>
-            )}
+            <MenuItem
+              onSelect={() => {
+                setMenuOpen(false);
+                actions.onNotForMe(card);
+              }}
+            >
+              {sharedNotForMe()}
+            </MenuItem>
           </StageMenu>
         </span>
       </td>
@@ -331,7 +272,7 @@ function Row({ row, now, columns, actions, match }: {
   );
 }
 
-/** The List's columns: their order and which are hidden, this browser's. */
+/** The List's columns: their order and which are hidden, as the person left them. */
 function useListLayout() {
   const [layout, setLayoutState] = useState<ListLayout>(readListLayout);
   const setLayout = useCallback((next: ListLayout) => {
@@ -357,19 +298,12 @@ function useOverflowing(node: HTMLDivElement | null, version: unknown) {
   return overflowing;
 }
 
-/** Where a dragged header would land: before `before`, or last when null. */
-interface Drop {
-  over: ListColumn;
-  side: "before" | "after";
-  before: ListColumn | null;
-}
-
 /** The List: the backlog, every role still in Considering, as a row of a
  * table with its posting's facts beside it. A role leaves it the moment work
  * on it starts, for the Board. It owns its filter, its sort and its columns;
  * the page lends it only the applications. A row's title opens the
- * application, and its last cell holds Radar's row actions and a menu with
- * the same moves a card's menu holds. A header sorts, drags to a new place,
+ * application, and its last cell holds Compare, the star and a menu with
+ * the moves a role in Considering can make. A header sorts, drags to a new place,
  * and its menu moves or hides it. */
 export function ListView({ board, now }: {
   board: ReturnType<typeof useBoardController>;
@@ -377,15 +311,13 @@ export function ListView({ board, now }: {
   now: Date;
 }) {
   const { resource, move, remove, dismiss } = board;
-  const cards = board.cards.filter((card) => card.stage === "saved");
+  const cards = useMemo(() => board.cards.filter((card) => card.stage === "saved"), [board.cards]);
   const [filter, setFilter] = useViewFilter("list");
   const { sort, order, choose } = useListSort();
   const [layout, setLayout] = useListLayout();
+  const counts = useMemo(() => quickCounts(cards, now, VIEW_FILTERS.list), [cards, now]);
   const postings = usePostings(cards);
   const host = useRef<HTMLDivElement>(null);
-  // The column heads pin under the toolbar, which pins at the page's top.
-  const toolbar = useRef<HTMLDivElement>(null);
-  useMeasuredCssSize({ rootRef: host, elementRef: toolbar, property: "--app-list-toolbar-h" });
   // A row that leaves the List hands focus to the role beside it, or to the
   // search when it was the last; a hidden column to the column beside it.
   const focusAfter = useFocusAfter();
@@ -417,12 +349,11 @@ export function ListView({ board, now }: {
   };
   const { ask, dialog } = useStageAsk(moveKeepingFocus);
   const [frame, setFrame] = useState<HTMLDivElement | null>(null);
-  const [dragged, setDragged] = useState<ListColumn | null>(null);
-  const [drop, setDrop] = useState<Drop | null>(null);
   const filtering = isFiltering(filter);
   const highlight = filtering && filter.mode === "highlight";
   const shown = layout.order.filter((column) => !layout.hidden.includes(column));
   const overflowing = useOverflowing(frame, shown.join());
+  usePageScrollsFirst(frame);
   const asFirst = layout.order.join() === DEFAULT_LAYOUT.order.join()
     && [...layout.hidden].sort().join() === [...DEFAULT_LAYOUT.hidden].sort().join();
 
@@ -448,24 +379,13 @@ export function ListView({ board, now }: {
   const all = sortRows(cards.map((card) => ({ card, job: postings.get(card.job_id) })), sort, order, now, companyName);
   const rows = filtering && !highlight ? all.filter((row) => matches(row.card, filter, now)) : all;
 
-  const endDrag = () => {
-    setDragged(null);
-    setDrop(null);
-  };
-  const dragOver = (column: ListColumn) => (event: DragEvent<HTMLTableCellElement>) => {
-    if (dragged == null) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-    const box = event.currentTarget.getBoundingClientRect();
-    const side = event.clientX < box.left + box.width / 2 ? "before" : "after";
-    const before = side === "before" ? column : shown[shown.indexOf(column) + 1] ?? null;
-    if (drop?.over !== column || drop.side !== side) setDrop({ over: column, side, before });
-  };
-  const dropped = (event: DragEvent<HTMLTableCellElement>) => {
-    event.preventDefault();
-    if (dragged != null && drop != null) setLayout({ ...layout, order: moveColumn(layout.order, dragged, drop.before) });
-    endDrag();
-  };
+  const dnd = useReorder<ListColumn>({
+    axis: "x",
+    onPlace: (column, over, side) => {
+      const before = side === "before" ? over : shown[shown.indexOf(over) + 1] ?? null;
+      setLayout({ ...layout, order: moveColumn(layout.order, column, before) });
+    },
+  });
 
   const head = (column: ListColumn, index: number) => {
     const { name, sort: key, num } = HEAD[column];
@@ -478,29 +398,23 @@ export function ListView({ board, now }: {
         className={num ? "num" : undefined}
         data-col={column}
         aria-sort={active ? (order === "asc" ? "ascending" : "descending") : undefined}
-        draggable
-        data-dragged={dragged === column || undefined}
-        data-drop={drop?.over === column && dragged !== column ? drop.side : undefined}
-        onDragStart={(event) => {
-          event.dataTransfer.effectAllowed = "move";
-          event.dataTransfer.setData("text/plain", column);
-          setDragged(column);
-        }}
-        onDragOver={dragOver(column)}
-        onDrop={dropped}
-        onDragEnd={endDrag}
+        {...dnd.itemProps(column)}
       >
         <span className="app-list-head">
           {key ? (
             <SortButton shown={label} spoken={label} active={active} order={order} onSort={() => choose(key)} />
           ) : <span className="app-list-head-name">{label}</span>}
-          <ColumnMenu
-            name={label}
+          <ReorderMenu
+            label={applicationsColumnMenu({ column: label })}
+            icon="more"
+            className="app-list-head-menu"
+            back={{ icon: "arrowLeft", text: applicationsListColumnLeft() }}
+            forward={{ icon: "arrowRight", text: applicationsListColumnRight() }}
             first={index === 0}
             last={index === shown.length - 1}
-            canHide={column !== ALWAYS_SHOWN}
+            draggable={false}
             onStep={(by) => setLayout({ ...layout, order: stepColumn(layout, column, by) })}
-            onHide={() => hideKeepingFocus(column)}
+            extra={column === ALWAYS_SHOWN ? undefined : { icon: "eyeOff", text: applicationsColumnHide(), onSelect: () => hideKeepingFocus(column) }}
           />
         </span>
       </th>
@@ -510,10 +424,9 @@ export function ListView({ board, now }: {
   return (
     <>
       <PipelineToolbar
-        toolbarRef={toolbar}
         filter={filter}
         onFilter={setFilter}
-        quickCounts={quickCounts(cards, now, VIEW_FILTERS.list)}
+        quickCounts={counts}
         columns={{
           all: layout.order.filter((column) => column !== ALWAYS_SHOWN).map((column) => ({ id: column, name: HEAD[column].name() })),
           hidden: layout.hidden,
@@ -538,7 +451,7 @@ export function ListView({ board, now }: {
         ) : (
           <div className="app-list-host job-margin-host" ref={host}>
             <div className="app-list-scroll" ref={setFrame} data-overflowing={overflowing || undefined}>
-              <table className="data-table app-list" data-highlight={highlight ? "" : undefined} data-dragging={dragged ? "" : undefined}>
+              <table className="data-table app-list" data-highlight={highlight ? "" : undefined} data-dragging={dnd.dragging ? "" : undefined}>
                 <thead data-selection="chrome">
                   <tr>
                     {shown.map(head)}

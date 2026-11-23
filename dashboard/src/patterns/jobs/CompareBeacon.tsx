@@ -121,7 +121,7 @@ export function CompareBeacon({
       label={(full ? jobsCompareBeaconAriaFull : jobsCompareBeaconAria)({ count })}
       pill={
         <>
-          <Icon name="columns" size={14} />
+          <Icon name="compare" size={14} />
           <span className="ui-beacon-count">{count}</span>
           {full && <span>{jobsCompareFullPill()}</span>}
         </>

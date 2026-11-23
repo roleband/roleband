@@ -26,11 +26,36 @@ describe("a quick filter", () => {
     expect(matchesQuick(applicationCardFixture({ stage: "applied", next_action: "Chase", next_action_due: day(0) }), "overdue", NOW)).toBe(false);
   });
 
+  it("finds an overdue next step behind a round that comes before it", () => {
+    const round = { id: 9, label: "Screen", scheduled_at: new Date(NOW.getTime() - 2 * 86_400_000 - 3 * 3_600_000).toISOString(), all_day: false, format: null, link: null };
+    const card = applicationCardFixture({ stage: "interviewing", next_action: "Chase", next_action_due: day(-2), next_interview: round });
+    expect(matchesQuick(card, "overdue", NOW)).toBe(true);
+  });
+
   it("counts what falls due within seven days, not what is already overdue or further out", () => {
     const due = (at: string) => applicationCardFixture({ stage: "applied", next_action: "Chase", next_action_due: at });
     expect(matchesQuick(due(day(3)), "due_week", NOW)).toBe(true);
     expect(matchesQuick(due(day(-2)), "due_week", NOW)).toBe(false);
     expect(matchesQuick(due(day(12)), "due_week", NOW)).toBe(false);
+  });
+
+  it("matches an accepted offer's dated step, as Up next lists it, and no step of an ending that owes nothing", () => {
+    const step = (stage: ApplicationCard["stage"], at: string) =>
+      applicationCardFixture({ stage, next_action: "Sign the offer", next_action_due: at });
+    expect(matchesQuick(step("accepted", day(-2)), "overdue", NOW)).toBe(true);
+    expect(matchesQuick(step("accepted", day(3)), "due_week", NOW)).toBe(true);
+    for (const stage of ["declined", "withdrawn", "rejected", "role_closed"] as const) {
+      expect(matchesQuick(step(stage, day(-2)), "overdue", NOW), stage).toBe(false);
+      expect(matchesQuick(step(stage, day(3)), "due_week", NOW), stage).toBe(false);
+    }
+  });
+
+  it("keeps every row under Up next's Overdue heading when the Overdue filter is turned on", () => {
+    const cards = (["applied", "offer", "accepted"] as const).map((stage, index) =>
+      applicationCardFixture({ job_id: index + 1, stage, next_action: "Chase", next_action_due: day(-2) }));
+    const overdueRows = upNext(cards, NOW).find((group) => group.key === "overdue")!.items.map((item) => item.card.job_id);
+    expect(overdueRows).toEqual([1, 2, 3]);
+    expect(cards.filter((card) => matchesQuick(card, "overdue", NOW)).map((card) => card.job_id)).toEqual(overdueRows);
   });
 
   it("finds a card past Considering with nothing next, but not one in Considering", () => {
@@ -45,14 +70,16 @@ describe("a quick filter", () => {
   });
 
   it("finds priority 4 and 5, and a closed posting", () => {
-    expect(matchesQuick(applicationCardFixture({ priority: 4 }), "high_priority", NOW)).toBe(true);
-    expect(matchesQuick(applicationCardFixture({ priority: 3 }), "high_priority", NOW)).toBe(false);
+    expect(matchesQuick(applicationCardFixture({ priority: 4, priority_set: true }), "high_priority", NOW)).toBe(true);
+    expect(matchesQuick(applicationCardFixture({ priority: 3, priority_set: true }), "high_priority", NOW)).toBe(false);
+    // A stored number the person never chose is no priority at all.
+    expect(matchesQuick(applicationCardFixture({ priority: 5, priority_set: false }), "high_priority", NOW)).toBe(false);
     expect(matchesQuick(applicationCardFixture({ posting_status: "closed" }), "posting_closed", NOW)).toBe(true);
     expect(matchesQuick(applicationCardFixture({ posting_status: "open" }), "posting_closed", NOW)).toBe(false);
   });
 
   it("never matches an application that has ended", () => {
-    const ended = applicationCardFixture({ stage: "rejected", priority: 5, posting_status: "closed", last_activity_at: day(-90) });
+    const ended = applicationCardFixture({ stage: "rejected", priority: 5, priority_set: true, posting_status: "closed", last_activity_at: day(-90) });
     for (const quick of ["high_priority", "posting_closed", "quiet", "needs_next"] as const) {
       expect(matchesQuick(ended, quick, NOW)).toBe(false);
     }
@@ -73,7 +100,7 @@ describe("the search", () => {
   });
 
   it("must pass with every quick filter that is on", () => {
-    const card = applicationCardFixture({ stage: "applied", priority: 5, company: "stripe" });
+    const card = applicationCardFixture({ stage: "applied", priority: 5, priority_set: true, company: "stripe" });
     const filter = (over: Partial<BoardFilter>): BoardFilter => ({ quick: [], query: "", mode: "only", ...over });
     expect(matches(card, filter({ quick: ["high_priority", "needs_next"], query: "stripe" }), NOW)).toBe(true);
     expect(matches(card, filter({ quick: ["high_priority", "posting_closed"] }), NOW)).toBe(false);
@@ -103,8 +130,8 @@ describe("each view's own filters", () => {
     applicationCardFixture({ stage, stage_since: day(-90), last_activity_at: day(-90) }),
     applicationCardFixture({ stage, next_action: "Chase", next_action_due: day(-2) }),
     applicationCardFixture({ stage, next_action: "Chase", next_action_due: day(3), stage_since: day(-90), last_activity_at: day(-90) }),
-    applicationCardFixture({ stage, next_interview: { id: 1, label: "Screen", scheduled_at: day(2), all_day: false, format: "video" } }),
-    applicationCardFixture({ stage, priority: 5, next_action: "Chase", next_action_due: day(1) }),
+    applicationCardFixture({ stage, next_interview: { id: 1, label: "Screen", scheduled_at: day(2), all_day: false, format: "video", link: null } }),
+    applicationCardFixture({ stage, priority: 5, priority_set: true, next_action: "Chase", next_action_due: day(1) }),
     applicationCardFixture({ stage, posting_status: "closed", next_action: "Chase", next_action_due: day(1) }),
   ];
   const matchable = (cards: readonly ApplicationCard[]) =>

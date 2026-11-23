@@ -869,6 +869,16 @@
     "additionalProperties": false,
     "description": "One application as the board shows it.",
     "properties": {
+     "awaiting_outcome": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ApplicationCardInterview"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "comment_count": {
       "title": "Comment Count",
       "type": "integer"
@@ -957,7 +967,7 @@
      "next_interview": {
       "anyOf": [
        {
-        "$ref": "#/components/schemas/ApplicationNextInterview"
+        "$ref": "#/components/schemas/ApplicationCardInterview"
        },
        {
         "type": "null"
@@ -972,6 +982,10 @@
      "priority": {
       "title": "Priority",
       "type": "integer"
+     },
+     "priority_set": {
+      "title": "Priority Set",
+      "type": "boolean"
      },
      "pursuit_id": {
       "anyOf": [
@@ -1017,6 +1031,13 @@
       "title": "Starred",
       "type": "boolean"
      },
+     "steps": {
+      "items": {
+       "$ref": "#/components/schemas/ApplicationStep"
+      },
+      "title": "Steps",
+      "type": "array"
+     },
      "title": {
       "title": "Title",
       "type": "string",
@@ -1028,6 +1049,7 @@
      "pursuit_id",
      "stage",
      "priority",
+     "priority_set",
      "starred",
      "company",
      "title",
@@ -1035,13 +1057,77 @@
      "posting_status",
      "next_action",
      "next_action_due",
+     "steps",
      "next_interview",
+     "awaiting_outcome",
      "comment_count",
      "stage_since",
      "last_activity_at",
      "ended_at_stage"
     ],
     "title": "ApplicationCard",
+    "type": "object"
+   },
+   "ApplicationCardInterview": {
+    "additionalProperties": false,
+    "description": "A round as the card names it.",
+    "properties": {
+     "all_day": {
+      "title": "All Day",
+      "type": "boolean"
+     },
+     "format": {
+      "anyOf": [
+       {
+        "enum": [
+         "video",
+         "phone",
+         "onsite"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Format"
+     },
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string",
+      "x-text": "content"
+     },
+     "link": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Link",
+      "x-text": "identifier"
+     },
+     "scheduled_at": {
+      "format": "date-time",
+      "title": "Scheduled At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "label",
+     "scheduled_at",
+     "all_day",
+     "format",
+     "link"
+    ],
+    "title": "ApplicationCardInterview",
     "type": "object"
    },
    "ApplicationComment": {
@@ -1138,10 +1224,17 @@
    },
    "ApplicationDetailResponse": {
     "additionalProperties": false,
-    "description": "`GET /api/applications/{job_id}`: interviews newest first, stages in the order reached.",
+    "description": "`GET /api/applications/{job_id}`: interviews newest first, stages in the\norder reached, and the steps ticked done, the latest done first.",
     "properties": {
      "application": {
       "$ref": "#/components/schemas/ApplicationCard"
+     },
+     "done_steps": {
+      "items": {
+       "$ref": "#/components/schemas/ApplicationStep"
+      },
+      "title": "Done Steps",
+      "type": "array"
      },
      "interviews": {
       "items": {
@@ -1161,7 +1254,8 @@
     "required": [
      "application",
      "interviews",
-     "stages_reached"
+     "stages_reached",
+     "done_steps"
     ],
     "title": "ApplicationDetailResponse",
     "type": "object"
@@ -1232,6 +1326,16 @@
       "title": "Source",
       "type": "string",
       "x-text": "code"
+     },
+     "step": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EventStep"
+       },
+       {
+        "type": "null"
+       }
+      ]
      },
      "to_stage": {
       "enum": [
@@ -1423,52 +1527,70 @@
     "title": "ApplicationInterviewResponse",
     "type": "object"
    },
-   "ApplicationNextInterview": {
+   "ApplicationStep": {
     "additionalProperties": false,
+    "description": "One next step the person owes.",
     "properties": {
-     "all_day": {
-      "title": "All Day",
-      "type": "boolean"
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
      },
-     "format": {
+     "done_at": {
       "anyOf": [
        {
-        "enum": [
-         "video",
-         "phone",
-         "onsite"
-        ],
+        "format": "date-time",
         "type": "string"
        },
        {
         "type": "null"
        }
       ],
-      "title": "Format"
+      "title": "Done At"
+     },
+     "due": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Due"
      },
      "id": {
       "title": "Id",
       "type": "integer"
      },
-     "label": {
-      "title": "Label",
+     "text": {
+      "title": "Text",
       "type": "string",
       "x-text": "content"
-     },
-     "scheduled_at": {
-      "format": "date-time",
-      "title": "Scheduled At",
-      "type": "string"
      }
     },
     "required": [
      "id",
-     "label",
-     "scheduled_at",
-     "all_day",
-     "format"
+     "text",
+     "due",
+     "created_at",
+     "done_at"
     ],
-    "title": "ApplicationNextInterview",
+    "title": "ApplicationStep",
+    "type": "object"
+   },
+   "ApplicationStepResponse": {
+    "additionalProperties": false,
+    "properties": {
+     "step": {
+      "$ref": "#/components/schemas/ApplicationStep"
+     }
+    },
+    "required": [
+     "step"
+    ],
+    "title": "ApplicationStepResponse",
     "type": "object"
    },
    "AvailabilityShape": {
@@ -1820,6 +1942,16 @@
     "additionalProperties": false,
     "description": "One application as the board shows it, keyed by its opportunity's id.",
     "properties": {
+     "awaiting_outcome": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/BoardNextInterview"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "comment_count": {
       "title": "Comment Count",
       "type": "integer"
@@ -1925,6 +2057,10 @@
       "title": "Priority",
       "type": "integer"
      },
+     "priority_set": {
+      "title": "Priority Set",
+      "type": "boolean"
+     },
      "pursuit_id": {
       "anyOf": [
        {
@@ -1970,6 +2106,13 @@
       "title": "Starred",
       "type": "boolean"
      },
+     "steps": {
+      "items": {
+       "$ref": "#/components/schemas/PursuitNextStep"
+      },
+      "title": "Steps",
+      "type": "array"
+     },
      "title": {
       "title": "Title",
       "type": "string",
@@ -1981,10 +2124,13 @@
      "pursuit_id",
      "stage",
      "priority",
+     "priority_set",
      "starred",
      "next_action",
      "next_action_due",
+     "steps",
      "next_interview",
+     "awaiting_outcome",
      "comment_count",
      "stage_since",
      "last_activity_at",
@@ -2026,6 +2172,18 @@
       "type": "string",
       "x-text": "content"
      },
+     "link": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Link",
+      "x-text": "identifier"
+     },
      "scheduled_at": {
       "format": "date-time",
       "title": "Scheduled At",
@@ -2037,7 +2195,8 @@
      "label",
      "scheduled_at",
      "all_day",
-     "format"
+     "format",
+     "link"
     ],
     "title": "BoardNextInterview",
     "type": "object"
@@ -2184,6 +2343,18 @@
       "type": "string",
       "x-text": "content"
      },
+     "link": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Link",
+      "x-text": "identifier"
+     },
      "outcome": {
       "anyOf": [
        {
@@ -2208,6 +2379,7 @@
      "label",
      "all_day",
      "format",
+     "link",
      "outcome"
     ],
     "title": "CalendarInterview",
@@ -2261,6 +2433,18 @@
       "type": "string",
       "x-text": "content"
      },
+     "link": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Link",
+      "x-text": "identifier"
+     },
      "outcome": {
       "anyOf": [
        {
@@ -2287,6 +2471,7 @@
      "label",
      "all_day",
      "format",
+     "link",
      "outcome"
     ],
     "title": "CalendarInterviewEntry",
@@ -2314,10 +2499,15 @@
       "title": "Step",
       "type": "string",
       "x-text": "content"
+     },
+     "step_id": {
+      "title": "Step Id",
+      "type": "integer"
      }
     },
     "required": [
      "job_id",
+     "step_id",
      "at",
      "step"
     ],
@@ -2346,11 +2536,16 @@
       "title": "Step",
       "type": "string",
       "x-text": "content"
+     },
+     "step_id": {
+      "title": "Step Id",
+      "type": "integer"
      }
     },
     "required": [
      "kind",
      "job_id",
+     "step_id",
      "at",
      "step"
     ],
@@ -11461,6 +11656,7 @@
      "application-not-found",
      "comment-not-found",
      "interview-not-found",
+     "step-not-found",
      "plugin-not-found",
      "invalid-input",
      "careers-page-refused",
@@ -11504,7 +11700,8 @@
      "recipe-conflict",
      "usage-catalogue-changed",
      "comment-not-yours",
-     "application-under-way"
+     "application-under-way",
+     "notes-moved"
     ],
     "title": "ErrorCode",
     "type": "string"
@@ -11721,6 +11918,51 @@
      "provenance"
     ],
     "title": "EstimatedTotalComp",
+    "type": "object"
+   },
+   "EventStep": {
+    "additionalProperties": false,
+    "properties": {
+     "action": {
+      "enum": [
+       "added",
+       "edited",
+       "done",
+       "reopened",
+       "removed"
+      ],
+      "title": "Action",
+      "type": "string"
+     },
+     "due": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Due"
+     },
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "id",
+     "action",
+     "text",
+     "due"
+    ],
+    "title": "EventStep",
     "type": "object"
    },
    "Evidence": {
@@ -17103,6 +17345,30 @@
      "pay_source": {
       "$ref": "#/components/schemas/SectionSource"
      },
+     "pipeline_stage": {
+      "anyOf": [
+       {
+        "enum": [
+         "saved",
+         "researching",
+         "networking",
+         "applied",
+         "interviewing",
+         "offer",
+         "accepted",
+         "declined",
+         "withdrawn",
+         "rejected",
+         "role_closed"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Pipeline Stage"
+     },
      "place_count": {
       "anyOf": [
        {
@@ -17282,6 +17548,7 @@
     "required": [
      "id",
      "is_favorite",
+     "pipeline_stage",
      "is_dismissed",
      "company_unfollowed",
      "company",
@@ -17732,6 +17999,30 @@
       "title": "New Listing",
       "type": "boolean"
      },
+     "pipeline_stage": {
+      "anyOf": [
+       {
+        "enum": [
+         "saved",
+         "researching",
+         "networking",
+         "applied",
+         "interviewing",
+         "offer",
+         "accepted",
+         "declined",
+         "withdrawn",
+         "rejected",
+         "role_closed"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Pipeline Stage"
+     },
      "place_count": {
       "anyOf": [
        {
@@ -17836,6 +18127,7 @@
     "required": [
      "id",
      "is_favorite",
+     "pipeline_stage",
      "is_dismissed",
      "company_unfollowed",
      "company",
@@ -18283,6 +18575,30 @@
       "title": "New Listing",
       "type": "boolean"
      },
+     "pipeline_stage": {
+      "anyOf": [
+       {
+        "enum": [
+         "saved",
+         "researching",
+         "networking",
+         "applied",
+         "interviewing",
+         "offer",
+         "accepted",
+         "declined",
+         "withdrawn",
+         "rejected",
+         "role_closed"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Pipeline Stage"
+     },
      "place_count": {
       "anyOf": [
        {
@@ -18420,6 +18736,7 @@
     "required": [
      "id",
      "is_favorite",
+     "pipeline_stage",
      "is_dismissed",
      "company_unfollowed",
      "company",
@@ -19189,6 +19506,30 @@
       "title": "New Listing",
       "type": "boolean"
      },
+     "pipeline_stage": {
+      "anyOf": [
+       {
+        "enum": [
+         "saved",
+         "researching",
+         "networking",
+         "applied",
+         "interviewing",
+         "offer",
+         "accepted",
+         "declined",
+         "withdrawn",
+         "rejected",
+         "role_closed"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Pipeline Stage"
+     },
      "place_count": {
       "anyOf": [
        {
@@ -19293,6 +19634,7 @@
     "required": [
      "id",
      "is_favorite",
+     "pipeline_stage",
      "is_dismissed",
      "company_unfollowed",
      "company",
@@ -22521,6 +22863,55 @@
      "members"
     ],
     "title": "NoLineage",
+    "type": "object"
+   },
+   "NotesVersion": {
+    "additionalProperties": false,
+    "description": "The notes as one writing session left them.",
+    "properties": {
+     "actor": {
+      "enum": [
+       "user",
+       "agent"
+      ],
+      "title": "Actor",
+      "type": "string"
+     },
+     "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "at",
+     "actor",
+     "text"
+    ],
+    "title": "NotesVersion",
+    "type": "object"
+   },
+   "NotesVersionsResponse": {
+    "additionalProperties": false,
+    "description": "`GET /api/applications/{job_id}/notes/versions`: the notes' earlier\nversions, newest first; the notes as they are now are not among them.",
+    "properties": {
+     "versions": {
+      "items": {
+       "$ref": "#/components/schemas/NotesVersion"
+      },
+      "title": "Versions",
+      "type": "array"
+     }
+    },
+    "required": [
+     "versions"
+    ],
+    "title": "NotesVersionsResponse",
     "type": "object"
    },
    "NotificationListResponse": {
@@ -30010,6 +30401,16 @@
    "PursuitItem": {
     "additionalProperties": false,
     "properties": {
+     "awaiting_outcome": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PursuitRound"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "created_at": {
       "format": "date-time",
       "title": "Created At",
@@ -30039,6 +30440,16 @@
       ],
       "title": "Next Action Due"
      },
+     "next_interview": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PursuitRound"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "notes": {
       "anyOf": [
        {
@@ -30065,6 +30476,10 @@
       "title": "Priority",
       "type": "integer"
      },
+     "priority_set": {
+      "title": "Priority Set",
+      "type": "boolean"
+     },
      "revision": {
       "minimum": 1.0,
       "title": "Revision",
@@ -30088,6 +30503,13 @@
       "type": "string",
       "x-text": "code"
      },
+     "steps": {
+      "items": {
+       "$ref": "#/components/schemas/PursuitNextStep"
+      },
+      "title": "Steps",
+      "type": "array"
+     },
      "updated_at": {
       "format": "date-time",
       "title": "Updated At",
@@ -30103,7 +30525,11 @@
      "next_action_due",
      "created_at",
      "updated_at",
-     "revision"
+     "revision",
+     "steps",
+     "next_interview",
+     "awaiting_outcome",
+     "priority_set"
     ],
     "title": "PursuitItem",
     "type": "object"
@@ -30246,6 +30672,59 @@
     "title": "PursuitListResponse",
     "type": "object"
    },
+   "PursuitNextStep": {
+    "additionalProperties": false,
+    "description": "One next step the person owes: `steps.edit`, `steps.done` and\n`steps.undo` take its id.",
+    "properties": {
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "done_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Done At"
+     },
+     "due": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Due"
+     },
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "id",
+     "text",
+     "due",
+     "created_at",
+     "done_at"
+    ],
+    "title": "PursuitNextStep",
+    "type": "object"
+   },
    "PursuitOpportunity": {
     "additionalProperties": false,
     "properties": {
@@ -30274,6 +30753,69 @@
      "url"
     ],
     "title": "PursuitOpportunity",
+    "type": "object"
+   },
+   "PursuitRound": {
+    "additionalProperties": false,
+    "description": "An interview round, as the pipeline's card names it.",
+    "properties": {
+     "all_day": {
+      "title": "All Day",
+      "type": "boolean"
+     },
+     "format": {
+      "anyOf": [
+       {
+        "enum": [
+         "video",
+         "phone",
+         "onsite"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Format",
+      "x-text": "code"
+     },
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string",
+      "x-text": "content"
+     },
+     "link": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Link",
+      "x-text": "identifier"
+     },
+     "scheduled_at": {
+      "format": "date-time",
+      "title": "Scheduled At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "label",
+     "scheduled_at",
+     "all_day",
+     "format",
+     "link"
+    ],
+    "title": "PursuitRound",
     "type": "object"
    },
    "PursuitState": {
@@ -30374,7 +30916,9 @@
     "title": "PursuitState",
     "type": "object"
    },
-   "PursuitUpdate": {
+   "PursuitWrite": {
+    "additionalProperties": false,
+    "description": "`PUT /api/jobs/{job_id}/pursuit`: the fields to change, and for new\nnotes the text they were written over.",
     "properties": {
      "next_action": {
       "anyOf": [
@@ -30411,6 +30955,30 @@
        }
       ],
       "title": "Notes",
+      "x-text": "content"
+     },
+     "notes_put_back": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Notes Put Back"
+     },
+     "notes_was": {
+      "anyOf": [
+       {
+        "maxLength": 20000,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Notes Was",
       "x-text": "content"
      },
      "priority": {
@@ -30451,7 +31019,7 @@
       "title": "Stage"
      }
     },
-    "title": "PursuitUpdate",
+    "title": "PursuitWrite",
     "type": "object"
    },
    "PursuitWriteResponse": {
@@ -35377,6 +35945,30 @@
       "title": "New Listing",
       "type": "boolean"
      },
+     "pipeline_stage": {
+      "anyOf": [
+       {
+        "enum": [
+         "saved",
+         "researching",
+         "networking",
+         "applied",
+         "interviewing",
+         "offer",
+         "accepted",
+         "declined",
+         "withdrawn",
+         "rejected",
+         "role_closed"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Pipeline Stage"
+     },
      "place_count": {
       "anyOf": [
        {
@@ -35485,6 +36077,7 @@
     "required": [
      "id",
      "is_favorite",
+     "pipeline_stage",
      "is_dismissed",
      "company_unfollowed",
      "company",
@@ -36036,6 +36629,77 @@
      "access"
     ],
     "title": "StatusResult",
+    "type": "object"
+   },
+   "StepUpdate": {
+    "properties": {
+     "done": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Done"
+     },
+     "due": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Due"
+     },
+     "text": {
+      "anyOf": [
+       {
+        "maxLength": 2000,
+        "minLength": 1,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Text",
+      "x-text": "content"
+     }
+    },
+    "title": "StepUpdate",
+    "type": "object"
+   },
+   "StepWrite": {
+    "properties": {
+     "due": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Due"
+     },
+     "text": {
+      "maxLength": 2000,
+      "minLength": 1,
+      "title": "Text",
+      "type": "string",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "text"
+    ],
+    "title": "StepWrite",
     "type": "object"
    },
    "StoredOffer": {
@@ -38717,6 +39381,56 @@
      "by_company"
     ],
     "title": "VelocityOut",
+    "type": "object"
+   },
+   "ViewChoice": {
+    "description": "One choice as stored: duplicates dropped, in the order given.",
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string",
+      "x-text": "code"
+     },
+     "value": {
+      "$ref": "#/components/schemas/JsonValue"
+     }
+    },
+    "required": [
+     "name",
+     "value"
+    ],
+    "title": "ViewChoice",
+    "type": "object"
+   },
+   "ViewChoiceWrite": {
+    "additionalProperties": false,
+    "description": "One choice's new value.",
+    "properties": {
+     "value": {
+      "$ref": "#/components/schemas/JsonValue"
+     }
+    },
+    "required": [
+     "value"
+    ],
+    "title": "ViewChoiceWrite",
+    "type": "object"
+   },
+   "ViewChoices": {
+    "description": "Every choice the person has made, by name; a choice absent here shows\nthe screen's own default.",
+    "properties": {
+     "choices": {
+      "additionalProperties": {
+       "$ref": "#/components/schemas/JsonValue"
+      },
+      "title": "Choices",
+      "type": "object"
+     }
+    },
+    "required": [
+     "choices"
+    ],
+    "title": "ViewChoices",
     "type": "object"
    },
    "VocabFacetOption": {
@@ -42216,7 +42930,7 @@
           "x-text": "content"
          },
          "priority": {
-          "description": "1 to 5. Cannot be null.",
+          "description": "5 Urgent, 4 High, 3 Medium, 2 Low, 1 No priority. Cannot be null.",
           "maximum": 5,
           "minimum": 1,
           "title": "Priority",
@@ -42306,7 +43020,7 @@
           "type": "integer"
          },
          "priority": {
-          "description": "1 to 5. A new pursuit starts at 3; an existing one keeps its own unless this is given.",
+          "description": "5 Urgent, 4 High, 3 Medium, 2 Low, 1 No priority. A new pursuit has no priority chosen; an existing one keeps its own unless this is given.",
           "maximum": 5,
           "minimum": 1,
           "title": "Priority",
@@ -42338,6 +43052,346 @@
      "agent"
     ],
     "x-operation": "pursuits.save"
+   }
+  },
+  "/api/agent/v1/pursuits/{opportunity_id}/steps": {
+   "post": {
+    "operationId": "step_add_api_agent_v1_pursuits__opportunity_id__steps_post",
+    "parameters": [
+     {
+      "description": "The opportunity the pursuit is about.",
+      "in": "path",
+      "name": "opportunity_id",
+      "required": true,
+      "schema": {
+       "minimum": 1,
+       "title": "Opportunity Id",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "header",
+      "name": "X-RoleBand-Idempotency-Key",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": false,
+        "properties": {
+         "due": {
+          "anyOf": [
+           {
+            "format": "date-time",
+            "type": "string"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "The day it is due by, with its UTC offset. Leave it out for a step with no day.",
+          "title": "Due"
+         },
+         "if_revision": {
+          "description": "The pursuit's revision you read (pursuits.get); 0 when the role has no pursuit yet. A pursuit that moved since is not changed.",
+          "minimum": 0,
+          "title": "If Revision",
+          "type": "integer"
+         },
+         "text": {
+          "description": "What to do.",
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string",
+          "x-text": "content"
+         }
+        },
+        "required": [
+         "if_revision",
+         "text"
+        ],
+        "title": "StepAddInput",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_PursuitItem_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Step Add",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "steps.add"
+   }
+  },
+  "/api/agent/v1/pursuits/{opportunity_id}/steps/{step_id}": {
+   "patch": {
+    "operationId": "step_edit_api_agent_v1_pursuits__opportunity_id__steps__step_id__patch",
+    "parameters": [
+     {
+      "description": "The opportunity the pursuit is about.",
+      "in": "path",
+      "name": "opportunity_id",
+      "required": true,
+      "schema": {
+       "minimum": 1,
+       "title": "Opportunity Id",
+       "type": "integer"
+      }
+     },
+     {
+      "description": "The step's id, from the pursuit's steps (pursuits.get).",
+      "in": "path",
+      "name": "step_id",
+      "required": true,
+      "schema": {
+       "minimum": 1,
+       "title": "Step Id",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "header",
+      "name": "X-RoleBand-Idempotency-Key",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": false,
+        "properties": {
+         "due": {
+          "anyOf": [
+           {
+            "format": "date-time",
+            "type": "string"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "The step's new day, with its UTC offset. null takes its day off; leave the field out to keep it.",
+          "title": "Due"
+         },
+         "if_revision": {
+          "description": "The pursuit's revision you read (pursuits.get). A pursuit that moved since is not changed.",
+          "minimum": 1,
+          "title": "If Revision",
+          "type": "integer"
+         },
+         "text": {
+          "description": "The step's new words. Cannot be null.",
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string",
+          "x-text": "content"
+         }
+        },
+        "required": [
+         "if_revision"
+        ],
+        "title": "StepEditInput",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_PursuitItem_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Step Edit",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "steps.edit"
+   }
+  },
+  "/api/agent/v1/pursuits/{opportunity_id}/steps/{step_id}/done": {
+   "post": {
+    "operationId": "step_done_api_agent_v1_pursuits__opportunity_id__steps__step_id__done_post",
+    "parameters": [
+     {
+      "description": "The opportunity the pursuit is about.",
+      "in": "path",
+      "name": "opportunity_id",
+      "required": true,
+      "schema": {
+       "minimum": 1,
+       "title": "Opportunity Id",
+       "type": "integer"
+      }
+     },
+     {
+      "description": "The step's id, from the pursuit's steps (pursuits.get).",
+      "in": "path",
+      "name": "step_id",
+      "required": true,
+      "schema": {
+       "minimum": 1,
+       "title": "Step Id",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "header",
+      "name": "X-RoleBand-Idempotency-Key",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": false,
+        "properties": {
+         "if_revision": {
+          "description": "The pursuit's revision you read (pursuits.get). A pursuit that moved since is not changed.",
+          "minimum": 1,
+          "title": "If Revision",
+          "type": "integer"
+         }
+        },
+        "required": [
+         "if_revision"
+        ],
+        "title": "StepInput",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_PursuitItem_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Step Done",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "steps.done"
+   }
+  },
+  "/api/agent/v1/pursuits/{opportunity_id}/steps/{step_id}/undo": {
+   "post": {
+    "operationId": "step_undo_api_agent_v1_pursuits__opportunity_id__steps__step_id__undo_post",
+    "parameters": [
+     {
+      "description": "The opportunity the pursuit is about.",
+      "in": "path",
+      "name": "opportunity_id",
+      "required": true,
+      "schema": {
+       "minimum": 1,
+       "title": "Opportunity Id",
+       "type": "integer"
+      }
+     },
+     {
+      "description": "The step's id, from the pursuit's steps (pursuits.get).",
+      "in": "path",
+      "name": "step_id",
+      "required": true,
+      "schema": {
+       "minimum": 1,
+       "title": "Step Id",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "header",
+      "name": "X-RoleBand-Idempotency-Key",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": false,
+        "properties": {
+         "if_revision": {
+          "description": "The pursuit's revision you read (pursuits.get). A pursuit that moved since is not changed.",
+          "minimum": 1,
+          "title": "If Revision",
+          "type": "integer"
+         }
+        },
+        "required": [
+         "if_revision"
+        ],
+        "title": "StepInput",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_PursuitItem_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Step Undo",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "steps.undo"
    }
   },
   "/api/agent/v1/radar/summary": {
@@ -42886,6 +43940,45 @@
      }
     },
     "summary": "Activity Ep"
+   }
+  },
+  "/api/applications/{job_id}/notes/versions": {
+   "get": {
+    "operationId": "notes_versions_ep_api_applications__job_id__notes_versions_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "job_id",
+      "required": true,
+      "schema": {
+       "title": "Job Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/NotesVersionsResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Notes Versions Ep"
    }
   },
   "/api/companies": {
@@ -46111,7 +47204,7 @@
      "content": {
       "application/json": {
        "schema": {
-        "$ref": "#/components/schemas/PursuitUpdate"
+        "$ref": "#/components/schemas/PursuitWrite"
        }
       }
      },
@@ -46446,6 +47539,159 @@
      }
     },
     "summary": "Update Interview Ep"
+   }
+  },
+  "/api/jobs/{job_id}/pursuit/steps": {
+   "post": {
+    "operationId": "add_step_ep_api_jobs__job_id__pursuit_steps_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "job_id",
+      "required": true,
+      "schema": {
+       "title": "Job Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/StepWrite"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ApplicationStepResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Add Step Ep"
+   }
+  },
+  "/api/jobs/{job_id}/pursuit/steps/{step_id}": {
+   "delete": {
+    "operationId": "delete_step_ep_api_jobs__job_id__pursuit_steps__step_id__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "job_id",
+      "required": true,
+      "schema": {
+       "title": "Job Id",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "path",
+      "name": "step_id",
+      "required": true,
+      "schema": {
+       "title": "Step Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ApplicationDeleted"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Delete Step Ep"
+   },
+   "patch": {
+    "operationId": "update_step_ep_api_jobs__job_id__pursuit_steps__step_id__patch",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "job_id",
+      "required": true,
+      "schema": {
+       "title": "Job Id",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "path",
+      "name": "step_id",
+      "required": true,
+      "schema": {
+       "title": "Step Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/StepUpdate"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ApplicationStepResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Update Step Ep"
    }
   },
   "/api/jobs/{job_id}/similar": {
@@ -49063,6 +50309,75 @@
      }
     },
     "summary": "Put Retention Ep"
+   }
+  },
+  "/api/settings/view-choices": {
+   "get": {
+    "description": "How the person arranged what the screens show, by choice.",
+    "operationId": "get_view_choices_ep_api_settings_view_choices_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ViewChoices"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get View Choices Ep"
+   }
+  },
+  "/api/settings/view-choices/{name}": {
+   "put": {
+    "description": "Save one choice. A name the screens do not have, or a value that does\nnot fit it, is refused (422) and the saved choice stays as it was.",
+    "operationId": "put_view_choice_ep_api_settings_view_choices__name__put",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "name",
+      "required": true,
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ViewChoiceWrite"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ViewChoice"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Put View Choice Ep"
    }
   },
   "/api/skills/top": {

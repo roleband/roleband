@@ -94,7 +94,7 @@ async def test_pursuits_list_highest_priority_first_with_the_opportunity_each_tr
     assert all(list(item) == _fields(contract.PursuitListItem) for item in body["pursuits"])
     assert _fields(contract.PursuitListItem) == [*_fields(JobPursuit), "opportunity"]
     assert body["pursuits"][0] == {
-        "id": p["applied"], "job_id": j["applied"], "stage": "applied", "priority": 1,
+        "id": p["applied"], "job_id": j["applied"], "stage": "applied", "priority": 5,
         "notes": "Referred by a former colleague.", "next_action": "Prepare the product sense interview",
         "next_action_due": "2026-07-23T15:00:00Z", "created_at": "2026-07-14T15:00:00Z",
         "updated_at": "2026-07-19T15:00:00Z",
@@ -132,14 +132,15 @@ async def test_an_unknown_stage_is_refused(api_client, seeded):
 async def test_a_pursuit_write_answers_the_row_without_its_opportunity(api_client, seeded):
     j, p = seeded.jobs, seeded.pursuits
     created = await _send(api_client, "PUT", f"/api/jobs/{j['saved']}/pursuit", {
-        "stage": "researching", "priority": 2, "next_action_due": "2026-07-25T09:00:00Z",
+        "stage": "researching", "priority": 2, "next_action": "Ask for a referral",
+        "next_action_due": "2026-07-25T09:00:00Z",
     })
     assert list(created) == _fields(contract.PursuitWriteResponse)
     row = created["pursuit"]
     assert list(row) == _fields(JobPursuit)
     assert {k: row[k] for k in ("job_id", "stage", "priority", "notes", "next_action", "next_action_due")} == {
-        "job_id": j["saved"], "stage": "researching", "priority": 2, "notes": None, "next_action": None,
-        "next_action_due": "2026-07-25T09:00:00Z",
+        "job_id": j["saved"], "stage": "researching", "priority": 2, "notes": None,
+        "next_action": "Ask for a referral", "next_action_due": "2026-07-25T09:00:00Z",
     }
     assert datetime.fromisoformat(row["created_at"]).tzinfo is not None
 

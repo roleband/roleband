@@ -23,7 +23,7 @@ from tracker.agents.config import AgentAccessConfig, set_agent_access
 from tracker.agents.operations.workspace import ensure_workspace_id
 from tracker.api.agent_operations import PREFIX
 from tracker.company_store import off_board_company_slugs
-from tracker.db.models import Favorite, Job, JobFeedback, Pursuit, TrackedCompany
+from tracker.db.models import Favorite, Job, JobFeedback, Pursuit, PursuitEvent, TrackedCompany
 from tracker.db.queries.jobs import open_in_scope_count_stmt
 from tracker.enrich.classify import location_slugs_for
 from tracker.notifications.pursuit_due import overdue_pursuit_clause
@@ -482,9 +482,18 @@ async def test_a_base_only_estimate_is_a_base_never_an_empty_total(api_client, s
 
 async def _seed_pursuits(session) -> dict[str, int]:
     ids = await _seed_board(session)
-    session.add_all([
+    pursuits = [
         Pursuit(job_id=ids["newest"], stage="applied", priority=2, updated_at=NOW),
-        Pursuit(job_id=ids["richest"], stage="offer", priority=1, updated_at=NOW),
+        Pursuit(job_id=ids["richest"], stage="offer", priority=4, updated_at=NOW),
+    ]
+    session.add_all(pursuits)
+    await session.flush()
+    # Each priority was chosen, as the change log records it: one never chosen
+    # reads as No priority, whatever the column holds.
+    session.add_all([
+        PursuitEvent(pursuit_id=pursuit.id, actor="user", event_type="created", to_stage=pursuit.stage,
+                     detail={"changed": ["priority", "stage"]})
+        for pursuit in pursuits
     ])
     await session.commit()
     return ids
@@ -590,11 +599,11 @@ async def test_an_overdue_offer_follow_up_is_owed_like_any_other(api_client, ses
     ids = await _seed_board(session)
     session.add_all([
         Pursuit(job_id=ids["newest"], stage="offer", priority=1,
-                next_action_due=NOW - timedelta(days=2), updated_at=NOW),
+                next_action="Reply to the offer", next_action_due=NOW - timedelta(days=2), updated_at=NOW),
         Pursuit(job_id=ids["richest"], stage="applied", priority=2,
-                next_action_due=datetime.now(UTC) + timedelta(days=5), updated_at=NOW),
+                next_action="Follow up", next_action_due=datetime.now(UTC) + timedelta(days=5), updated_at=NOW),
         Pursuit(job_id=ids["hidden_company"], stage="withdrawn", priority=2,
-                next_action_due=NOW - timedelta(days=9), updated_at=NOW),
+                next_action="Say thanks", next_action_due=NOW - timedelta(days=9), updated_at=NOW),
     ])
     await session.commit()
 

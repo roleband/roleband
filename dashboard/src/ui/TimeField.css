@@ -67,7 +67,7 @@
 .ui-timefield-list:focus-visible { outline: none; }
 
 /* A time is a row of FilterSelect's list: muted ink, the hover fill, and the
-   chosen time marked by a tick and the gold name (docs/ui.md "Two states"). */
+   chosen time marked by a tick and the chosen name (docs/ui.md "Two states"). */
 .ui-timefield-option {
   display: flex;
   align-items: baseline;

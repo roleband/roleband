@@ -22,6 +22,7 @@ shortcuts-keyboard-shortcuts-close = Cerrar
 
 ## shell/KeyboardShortcuts.tsx
 shortcuts-keyboard-shortcuts-ctrl-k = Ctrl K
+shortcuts-keyboard-shortcuts-alt-f10 = Alt F10
 
 shortcuts-keyboard-shortcuts-pipeline = En una candidatura
 
@@ -30,3 +31,6 @@ shortcuts-keyboard-shortcuts-change-stage = Abrir el menú de etapas
 shortcuts-keyboard-shortcuts-pick-stage = Elegir esa etapa
 
 shortcuts-keyboard-shortcuts-add-interview = Añadir una entrevista
+shortcuts-keyboard-shortcuts-notes = En las notas de un puesto
+shortcuts-keyboard-shortcuts-link-words = Enlazar las palabras seleccionadas
+shortcuts-keyboard-shortcuts-to-the-bar = Ir a la barra de formato

@@ -17,7 +17,21 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal, TypedDict, cast, get_args
 
-from sqlalchemy import Select, and_, case, exists, false, func, not_, nullslast, or_, select, text
+from sqlalchemy import (
+    Select,
+    and_,
+    case,
+    exists,
+    false,
+    func,
+    not_,
+    null,
+    nullslast,
+    or_,
+    select,
+    text,
+    union_all,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, defer
 
@@ -35,6 +49,7 @@ from tracker.db.models import (
     JobLifecycleEvent,
     JobLineage,
     JobPlaceSetMember,
+    Pursuit,
     TrackedCompany,
 )
 from tracker.db.queries.companies import is_followed
@@ -795,6 +810,9 @@ class RowContext(TypedDict):
     shows. Its keys are the keyword arguments `serialize_job` takes."""
 
     favorite_ids: set[int]
+    #: The stage each row's role is at in the pipeline, for a role the
+    #: pipeline shows: starred, or moved past Considering.
+    pipeline_stages: dict[int, str]
     dismissed_ids: set[int]
     lineage_meta: dict[int, JobLineage]
     twin_counts: dict[int, int]
@@ -831,9 +849,29 @@ async def row_context(
     `JobRow` elsewhere does not carry the sign, so its two reads are skipped.
     """
     ids = [job.id for job in jobs]
-    fav_ids = set(
-        (await session.scalars(select(Favorite.job_id).where(Favorite.job_id.in_(ids)))).all()
-    ) if ids else set()
+    # Stars and pursuits in one round trip, each side filtered by its own
+    # indexed job id: a row can have either without the other, and a join over
+    # both could use neither index. A star's row has no stage; a pursuit's
+    # always has one.
+    starred_or_pursued = (
+        (
+            await session.execute(
+                union_all(
+                    select(Favorite.job_id, null().label("stage")).where(Favorite.job_id.in_(ids)),
+                    select(Pursuit.job_id, Pursuit.stage).where(Pursuit.job_id.in_(ids)),
+                )
+            )
+        ).tuples().all()
+        if ids
+        else []
+    )
+    fav_ids = {job_id for job_id, stage in starred_or_pursued if stage is None}
+    # The board's own rule: a star with no pursuit is at Considering, and a
+    # pursuit still at Considering whose star was taken away is off it.
+    pipeline_stages: dict[int, str] = dict.fromkeys(fav_ids, "saved")
+    for job_id, stage in starred_or_pursued:
+        if stage is not None and (job_id in fav_ids or stage != "saved"):
+            pipeline_stages[job_id] = stage
     dis_ids = set(
         (await session.scalars(select(JobFeedback.job_id).where(JobFeedback.job_id.in_(ids)))).all()
     ) if ids else set()
@@ -841,6 +879,7 @@ async def row_context(
     twin_counts, place_counts = await relation_counts_for(session, jobs)
     return {
         "favorite_ids": fav_ids,
+        "pipeline_stages": pipeline_stages,
         "dismissed_ids": dis_ids,
         "lineage_meta": lineage_meta,
         "twin_counts": twin_counts,

@@ -20,6 +20,7 @@ from typing import Any
 
 import pytest
 import pytest_asyncio
+from pydantic import ValidationError
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -28,7 +29,7 @@ from tests.test_recipe_adapter import RECIPE
 from tracker.agents.config import AgentAccessConfig, set_agent_access
 from tracker.agents.operations.catalog import CATALOG
 from tracker.agents.operations.outcomes import EXIT_NOT_FOUND, outcome
-from tracker.agents.operations.pursuits import VIA
+from tracker.agents.operations.pursuits import VIA, PursuitItem
 from tracker.agents.operations.workspace import ensure_workspace_id
 from tracker.agents.receipts import LEGACY_AGENT_PRINCIPAL, ReceiptKey, lock_key
 from tracker.api.agent_operations import IDEMPOTENCY_KEY_HEADER, PREFIX
@@ -162,6 +163,9 @@ async def test_save_answers_the_stored_pursuit_and_a_repeat_changes_nothing(api_
         row.job_id, row.stage, row.priority, row.notes, row.revision
     ) == (job_id, "saved", 2, None, 1)
 
+    # The role has no rounds booked, and its priority was given.
+    assert (data["next_interview"], data["awaiting_outcome"], data["priority_set"]) == (None, None, True)
+
     # Saving again with the priority it already has, under another key, is no change.
     again = _data(*await _save(api_client, job_id, {"priority": 2}, key=OTHER_KEY))
 
@@ -279,6 +283,46 @@ async def test_a_receipt_stored_with_the_row_keys_replays_in_the_record_shape(ap
     assert len(await _events(db_session, job_id)) == 1
 
 
+@pytest.mark.parametrize("write", ["save", "patch"])
+async def test_a_receipt_answered_under_the_one_step_contract_replays_without_writing_again(
+    api_client, db_session, roles, write
+):
+    """A receipt kept from before a pursuit's answer named its steps, rounds
+    and priority mark replays with none of them, and writes nothing again."""
+    job_id, _ = roles
+    body = {"priority": 2} if write == "save" else {"if_revision": 0, "notes": "first"}
+    send = _save if write == "save" else _patch
+    first = _data(*await send(api_client, job_id, body))
+    one_step = ("steps", "next_interview", "awaiting_outcome", "priority_set")
+    async with _fresh(db_session) as session:
+        receipt = await session.scalar(select(CommandReceipt))
+        receipt.result = {key: value for key, value in receipt.result.items() if key not in one_step}
+        await session.commit()
+
+    response, replayed = await send(api_client, job_id, body)
+
+    assert replayed["meta"]["replayed"] is True, replayed
+    data = _data(response, replayed)
+    assert (data["steps"], data["next_interview"], data["awaiting_outcome"], data["priority_set"]) == (
+        [], None, None, True,
+    )
+    assert {key: value for key, value in data.items() if key not in one_step} == {
+        key: value for key, value in first.items() if key not in one_step
+    }
+    assert len(await _events(db_session, job_id)) == 1
+
+
+async def test_a_pursuit_answer_that_names_some_step_fields_must_name_all():
+    answer = {
+        "opportunity_id": 7, "stage": "applied", "priority": 3, "notes": None, "next_action": None,
+        "next_action_due": None, "created_at": "2030-01-01T00:00:00Z", "updated_at": "2030-01-01T00:00:00Z",
+        "revision": 1, "steps": [],
+    }
+
+    with pytest.raises(ValidationError):
+        PursuitItem.model_validate(answer)
+
+
 async def test_two_identical_saves_at_once_write_once(api_client, db_session, roles):
     """Both saves queue on the key's lock, held here until both wait, so they
     truly overlap: one writes, the other replays its receipt."""
@@ -375,12 +419,16 @@ async def test_null_clears_the_notes_and_the_next_action(api_client, db_session,
 
     data = _data(*await _patch(api_client, job_id, {"if_revision": revision, "notes": None, "next_action": None}))
 
-    assert (data["notes"], data["next_action"]) == (None, None)
+    assert (data["notes"], data["next_action"], data["steps"]) == (None, None, [])
+    # Clearing the one step a client knows ticks it done, its day with it: the
+    # step stays in the history rather than being lost.
     pursuit = await _pursuit(db_session, job_id)
-    assert (pursuit.notes, pursuit.next_action, pursuit.next_action_due) == (None, None, DUE)
+    assert (pursuit.notes, pursuit.next_action, pursuit.next_action_due) == (None, None, None)
     *_, (actor, _, detail) = await _events(db_session, job_id)
-    assert actor == "agent" and detail["changed"] == ["next_action", "notes"] and detail["via"] == VIA
-    assert detail["before"] == {"next_action": "Follow up", "notes": "Referred by Sam"}
+    assert actor == "agent" and detail["via"] == VIA
+    assert detail["changed"] == ["next_action", "next_action_due", "notes", "steps"]
+    assert detail["step"]["action"] == "done" and detail["step"]["text"] == "Follow up"
+    assert detail["before"]["next_action"] == "Follow up" and detail["before"]["notes"] == "Referred by Sam"
 
 
 async def test_a_patch_of_one_field_leaves_the_others_as_they_were(api_client, db_session, roles):

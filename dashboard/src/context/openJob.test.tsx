@@ -39,20 +39,19 @@ function mountAt(entry: Entry) {
   );
 }
 
-const state = () => here.state as { backgroundLocation?: { pathname: string }; steppedFrom?: string; postingList?: unknown } | null;
+const state = () => here.state as { backgroundLocation?: { pathname: string }; steppedFrom?: string } | null;
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
 describe("openJob", () => {
-  it("from a list, opens a cover over that list and carries the list's rows", () => {
+  it("from a list, opens a cover over that list and carries nothing but the list it covers", () => {
     mountAt("/");
-    const list = [{ id: 7, company: "acme" }, { id: 8, company: "acme" }];
-    act(() => verbs.openJob(7, "acme", list));
+    act(() => verbs.openJob(7, "acme"));
     expect(here.pathname).toBe("/company/acme/job/7");
     expect(state()?.backgroundLocation?.pathname).toBe("/");
-    expect(state()?.postingList).toEqual(list);
+    expect(Object.keys(here.state as object), "no rows to step along travel with the cover").toEqual(["backgroundLocation"]);
     expect(state()?.steppedFrom).toBeUndefined();
     expect(api.markJobViewed).toHaveBeenCalledWith(7);
   });

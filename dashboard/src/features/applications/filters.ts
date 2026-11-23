@@ -9,7 +9,8 @@
 
 import type { ApplicationCard } from "../../api";
 import { companyName } from "../../format";
-import { dueOf, dueState, isMoving, isStale, needsNextStep } from "./board";
+import { dayOffset, dueOf, dueState, isStale, needsNextStep, owesNothing, stepDue } from "./board";
+import { priorityOf } from "./priority";
 
 export const QUICK_FILTERS = [
   "overdue",
@@ -43,24 +44,28 @@ export interface BoardFilter {
   mode: FilterMode;
 }
 
-const WEEK = 7 * 86_400_000;
+/** Calendar days ahead that still count as this week. */
+const WEEK_DAYS = 7;
 
-/** A quick filter is about work in motion: an application that has ended
- *  matches none of them. */
+/** A quick filter is about work that is owed: an application that has ended
+ *  with nothing owed matches none of them. */
 export function matchesQuick(card: ApplicationCard, filter: QuickFilter, now: Date): boolean {
-  if (!isMoving(card)) return false;
+  if (owesNothing(card)) return false;
   const due = dueOf(card);
   switch (filter) {
-    case "overdue":
-      return due != null && dueState(due, now) === "overdue";
+    case "overdue": {
+      // A round is never overdue, so one that comes first must not hide a step that is.
+      const step = stepDue(card);
+      return step != null && dueState(step, now) === "overdue";
+    }
     case "due_week":
-      return due != null && dueState(due, now) !== "overdue" && due.at.getTime() - now.getTime() <= WEEK;
+      return due != null && dueState(due, now) !== "overdue" && dayOffset(due.on, now) <= WEEK_DAYS;
     case "needs_next":
       return needsNextStep(card);
     case "quiet":
       return isStale(card, now);
     case "high_priority":
-      return card.priority >= 4;
+      return ["urgent", "high"].includes(priorityOf(card));
     case "posting_closed":
       return card.posting_status === "closed";
   }

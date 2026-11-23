@@ -2,18 +2,19 @@
  * which of them a browser hides, and how rows sort. A row is a role still in
  * Considering and, when the posting has been read, the posting's own facts
  * beside it.
- * The column layout is a preference of this browser, as the board's columns
- * are; storage can throw, so a failed read shows the default layout and a
- * failed write is dropped. */
+ * The column layout is one of the person's view choices (hooks/viewChoices),
+ * as the board's columns are, so it holds in any browser. */
 
 import type { ApplicationCard, Job } from "../../api";
 import { compare } from "../../copy/format";
+import { setViewChoice, viewChoice } from "../../hooks/viewChoices";
 import { BAND_ORDER } from "../../format";
-import { dueOf, sortColumn } from "./board";
+import { DAY, dueOf, sortColumn } from "./board";
+import { priorityOf, priorityRank } from "./priority";
 
 /** The columns the List can show, in their first order. */
 const LIST_COLUMNS = [
-  "role", "pay", "location", "level", "next", "posting", "priority", "in_stage", "activity",
+  "role", "pay", "location", "level", "posting", "saved", "next", "priority", "activity",
 ] as const;
 export type ListColumn = (typeof LIST_COLUMNS)[number];
 
@@ -26,14 +27,15 @@ export interface ListLayout {
   hidden: ListColumn[];
 }
 
-/** A first visit: what a card on the board shows, with priority, days in
- *  stage and last activity left to the reader to add. */
+/** A first visit: the facts a decision is made on, and how long the role has
+ *  waited for it. The next step, priority and last activity track work that
+ *  has not started, so they are left to the reader to add. */
 export const DEFAULT_LAYOUT: ListLayout = {
   order: [...LIST_COLUMNS],
-  hidden: ["priority", "in_stage", "activity"],
+  hidden: ["next", "priority", "activity"],
 };
 
-const KEY = "roleband.pipeline-list-columns";
+const CHOICE = "pipeline.list-layout";
 
 const isColumn = (value: unknown): value is ListColumn => (LIST_COLUMNS as readonly unknown[]).includes(value);
 
@@ -48,15 +50,7 @@ function settle(order: readonly unknown[], hidden: readonly unknown[]): ListLayo
 }
 
 export function readListLayout(): ListLayout {
-  let stored: unknown;
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (raw == null) return { order: [...DEFAULT_LAYOUT.order], hidden: [...DEFAULT_LAYOUT.hidden] };
-    stored = JSON.parse(raw);
-  } catch {
-    return { order: [...DEFAULT_LAYOUT.order], hidden: [...DEFAULT_LAYOUT.hidden] };
-  }
-  const value = stored as Partial<Record<keyof ListLayout, unknown>> | null;
+  const value = viewChoice(CHOICE) as Partial<Record<keyof ListLayout, unknown>> | null;
   if (!value || !Array.isArray(value.order) || !Array.isArray(value.hidden)) {
     return { order: [...DEFAULT_LAYOUT.order], hidden: [...DEFAULT_LAYOUT.hidden] };
   }
@@ -64,11 +58,7 @@ export function readListLayout(): ListLayout {
 }
 
 export function writeListLayout(layout: ListLayout): void {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(settle(layout.order, layout.hidden)));
-  } catch {
-    // Not remembered: the next visit shows the columns as they were.
-  }
+  void setViewChoice(CHOICE, settle(layout.order, layout.hidden));
 }
 
 /** The order with `column` moved to stand before `before`, or last when
@@ -99,7 +89,7 @@ export interface ListRow {
   job: Job | undefined;
 }
 
-const LIST_SORTS = ["board", "role", "pay", "level", "next", "posting", "priority", "in_stage", "activity"] as const;
+const LIST_SORTS = ["board", "role", "pay", "level", "next", "posting", "saved", "priority", "activity"] as const;
 export type ListSort = (typeof LIST_SORTS)[number];
 export type ListOrder = "asc" | "desc";
 
@@ -111,8 +101,8 @@ export const FIRST_ORDER: Record<ListSort, ListOrder> = {
   level: "desc",
   next: "asc",
   posting: "asc",
+  saved: "asc",
   priority: "desc",
-  in_stage: "desc",
   activity: "desc",
 };
 
@@ -141,7 +131,6 @@ export function writeSort(params: URLSearchParams, sort: ListSort, order: ListOr
 }
 
 const BAND_RANK = new Map(BAND_ORDER.map((band, index) => [band, index]));
-const DAY = 86_400_000;
 
 /** A posting's level, when it names one the bands can place. A level the
  *  posting does not state, or states in words no band maps to, is no level. */
@@ -174,10 +163,10 @@ function key(row: ListRow, sort: Exclude<ListSort, "board" | "role">, now: Date)
       return dueOf(card)?.at.getTime() ?? null;
     case "posting":
       return job?.listed_days ?? null;
-    case "priority":
-      return card.priority;
-    case "in_stage":
+    case "saved":
       return card.stage_since ? (now.getTime() - new Date(card.stage_since).getTime()) / DAY : null;
+    case "priority":
+      return priorityRank(priorityOf(card)) || null;
     case "activity":
       return card.last_activity_at ? new Date(card.last_activity_at).getTime() : null;
   }

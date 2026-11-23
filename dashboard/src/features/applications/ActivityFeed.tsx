@@ -1,7 +1,8 @@
-import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ActivityItem, ApplicationDetail } from "../../api";
 import { date as formatDate, list, relative, timestamp } from "../../copy/format";
-import { Button, Content, Icon, Menu, MenuGroup, MenuItem, Segmented } from "../../ui";
+import { recordDay } from "./recordDays";
+import { Button, Content, Icon, Menu, MenuGroup, MenuItem, ResourceLoadState, useEscapeLayer } from "../../ui";
 import {
   applicationsCommentAuthorAgent,
   applicationsCommentAuthorYou,
@@ -17,6 +18,7 @@ import {
   applicationsInterviewCancel,
   applicationsFeedByAgent,
   applicationsFeedEmpty,
+  applicationsFeedLoadFailed,
   applicationsFeedFold,
   applicationsFeedJumpApplied,
   applicationsFeedJumpBeginning,
@@ -26,13 +28,9 @@ import {
   applicationsFeedJumpMonth,
   applicationsFeedJumpOffer,
   applicationsFeedJumpRecent,
-  applicationsFeedModeAll,
-  applicationsFeedModeComments,
-  applicationsFeedModeLabel,
-  applicationsFeedTitle,
 } from "../../copy/gen/applications";
-import { useFocusAfter } from "./focusAfter";
-import { useFocusWhen } from "./ApplicationPanels";
+import { useFocusAfter, useFocusWhen } from "./focusAfter";
+import { GrowField } from "./GrowField";
 import {
   eventChanges,
   feedMonths,
@@ -42,7 +40,6 @@ import {
   runOpened,
   type ActivityComment,
   type ActivityEvent,
-  type FeedMode,
   type JumpKind,
 } from "./activity";
 
@@ -80,8 +77,46 @@ function EventLine({ event, now }: { event: ActivityEvent; now: Date }) {
   );
 }
 
+/** Whether the browser can search text it keeps hidden (`hidden="until-found"`)
+ *  and says when a match is found in it. */
+const findsHidden = () => typeof HTMLElement !== "undefined" && "onbeforematch" in HTMLElement.prototype;
+
+/** A run's changes. Folded, they stay on the page hidden in a way the
+ *  browser's find still searches, and a match there opens the run; a browser
+ *  that cannot search hidden text leaves them out until the run opens. React
+ *  writes `hidden` as a plain on or off, so the value is set on the element. */
+function RunChanges({ events, open, onFound, now }: {
+  events: readonly ActivityEvent[];
+  open: boolean;
+  onFound: () => void;
+  now: Date;
+}) {
+  const list = useRef<HTMLOListElement>(null);
+  useLayoutEffect(() => {
+    const element = list.current;
+    if (!element) return;
+    if (open) {
+      element.removeAttribute("hidden");
+      return;
+    }
+    element.setAttribute("hidden", "until-found");
+    element.addEventListener("beforematch", onFound);
+    return () => element.removeEventListener("beforematch", onFound);
+  }, [open, onFound]);
+  if (!open && !findsHidden()) return null;
+  return (
+    <ol ref={list} className="app-feed-list app-event-changes">
+      {events.map((event) => <EventLine key={`event-${event.id}`} event={event} now={now} />)}
+    </ol>
+  );
+}
+
 export interface ActivityFeedProps {
   items: readonly ActivityItem[];
+  /** Set when the feed could not be read: said in place of the feed, never
+   *  as an empty one, with `onRetry` to read it again. */
+  failed?: Error | null;
+  onRetry?: () => void;
   /** When the application reached each stage, and its interviews: the
    *  moments the jump menu offers. */
   detail: Pick<ApplicationDetail, "stages_reached" | "interviews">;
@@ -91,20 +126,23 @@ export interface ActivityFeedProps {
   onDelete: (id: number) => Promise<boolean>;
 }
 
-/** The application's whole history: comments and recorded changes, newest
- *  first, with the composer above the newest. Comments lead; the changes
- *  between two comments fold into one line until opened, and All activity
- *  opens every one. Every month has a divider that stays at the top while
- *  its entries pass, and opens a menu that jumps to another month or to a
- *  moment of the application. Nothing is held back, so the browser's own
- *  find reaches every entry. */
-export function ActivityFeed({ items, detail, now, onAdd, onEdit, onDelete }: ActivityFeedProps) {
-  const [mode, setMode] = useState<FeedMode>("comments");
+/** The application's whole history as one stream: comments and recorded
+ *  changes, newest first, with the field to write in above the newest.
+ *  Comments read whole; the changes between two comments fold into one line
+ *  that opens and folds again where it stands, so the person never picks a
+ *  view first. Once the history runs past one month, each month has a
+ *  divider that stays at the top while its entries pass, and opens a menu
+ *  that jumps to another month or to a moment of the application. Nothing is
+ *  held back, so the browser's own find reaches every entry. */
+export function ActivityFeed({ items, failed, onRetry, detail, now, onAdd, onEdit, onDelete }: ActivityFeedProps) {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  // Read by the handler, not the render: two quick Enters see one post.
+  const posting = useRef(false);
   // The ids of the changes in every run the reader opened.
   const [opened, setOpened] = useState<ReadonlySet<number>>(new Set());
-  const months = feedMonths(items, mode);
+  const months = feedMonths(items);
+  const dated = months.length > 1;
   const points = jumpPoints(items, detail, now);
   // The divider whose menu is open, and the entry the last jump asked for.
   const [jumpFrom, setJumpFrom] = useState<HTMLElement | null>(null);
@@ -139,102 +177,93 @@ export function ActivityFeed({ items, detail, now, onAdd, onEdit, onDelete }: Ac
     };
   }, [landing]);
 
-  const post = async () => {
-    if (!draft.trim() || sending) return;
-    setSending(true);
-    const saved = await onAdd(draft);
-    setSending(false);
-    if (saved) setDraft("");
-  };
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
-    void post();
-  };
-  // Cmd or Ctrl and Enter posts, as in every comment box that keeps Enter for a new line.
-  const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-      event.preventDefault();
-      void post();
+    if (!draft.trim() || posting.current) return;
+    posting.current = true;
+    setSending(true);
+    try {
+      if (await onAdd(draft)) setDraft("");
+    } finally {
+      posting.current = false;
+      setSending(false);
     }
   };
+  const toggleRun = (events: readonly ActivityEvent[], open: boolean) => setOpened((was) => {
+    const next = new Set(was);
+    for (const event of events) {
+      if (open) next.add(event.id);
+      else next.delete(event.id);
+    }
+    return next;
+  });
+
+  const entries = (month: (typeof months)[number]) => month.entries.map((entry) => {
+    if (entry.kind === "comment") {
+      return <CommentItem key={`comment-${entry.comment.id}`} comment={entry.comment} now={now} onEdit={onEdit} onDelete={onDelete} />;
+    }
+    if (entry.events.length === 1) return <EventLine key={`event-${entry.events[0].id}`} event={entry.events[0]} now={now} />;
+    const open = runOpened(entry.events, opened);
+    return (
+      <li key={entry.key} className="app-event-run" data-open={open || undefined}>
+        <div className="app-event app-event-fold" data-feed={entry.events.map(itemKey).join(" ")} tabIndex={-1}>
+          <Icon name="activity" size={12} />
+          <Button variant="link" className="ui-btn-quiet app-event-toggle" aria-expanded={open} onClick={() => toggleRun(entry.events, !open)}>
+            {applicationsFeedFold({ count: entry.events.length, changes: list(runChanges(entry.events)) })}
+          </Button>
+          <When iso={entry.events[0].created_at} now={now} />
+          <Icon name={open ? "chevronDown" : "chevronRight"} size={12} />
+        </div>
+        <RunChanges events={entry.events} open={open} onFound={() => toggleRun(entry.events, true)} now={now} />
+      </li>
+    );
+  });
 
   return (
-    <section className="app-panel app-feed" aria-labelledby="app-feed-title">
-      <div className="app-panel-head">
-        <h2 id="app-feed-title" className="app-panel-title">{applicationsFeedTitle()}</h2>
-        <Segmented
-          label={applicationsFeedModeLabel()}
-          value={mode}
-          onChange={setMode}
-          options={[
-            { value: "comments", label: applicationsFeedModeComments() },
-            { value: "all", label: applicationsFeedModeAll() },
-          ]}
-        />
-      </div>
-      <form className="app-composer" onSubmit={submit}>
-        <textarea
+    <div className="app-feed">
+      <form className="app-composer" data-writing={draft.trim() ? "" : undefined} onSubmit={submit}>
+        <GrowField
           aria-label={applicationsCommentLabel()}
           placeholder={applicationsCommentPlaceholder()}
-          rows={2}
+          rows={1}
           maxLength={20_000}
           value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={onKeyDown}
+          onChange={setDraft}
         />
-        <Button variant="ghost" size="sm" className="ui-btn-strong" type="submit" disabled={!draft.trim() || sending}>
-          {applicationsCommentSubmit()}
-        </Button>
+        {draft.trim() && (
+          <Button variant="primary" size="sm" type="submit" disabled={sending}>
+            {applicationsCommentSubmit()}
+          </Button>
+        )}
       </form>
-      {months.length === 0 ? (
+      {failed ? (
+        <ResourceLoadState error={failed} failed={applicationsFeedLoadFailed()} onRetry={onRetry} />
+      ) : months.length === 0 ? (
         <p className="app-next-empty">{applicationsFeedEmpty()}</p>
       ) : (
         <div className="app-feed-months" ref={feedList}>
           {months.map((month) => {
             const name = monthName(month.start, now);
             return (
-              <section key={month.key} className="app-feed-month" aria-label={name} data-month={month.key}>
-                <div className="app-feed-divider">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="app-feed-divider-button"
-                    aria-haspopup="dialog"
-                    aria-expanded={jumpFrom?.dataset.month === month.key}
-                    aria-label={applicationsFeedJumpMonth({ month: name })}
-                    data-month={month.key}
-                    onClick={(event) => setJumpFrom(event.currentTarget)}
-                  >
-                    {name}
-                    <Icon name="chevronDown" size={12} />
-                  </Button>
-                </div>
-                <ol className="app-feed-list">
-                  {month.entries.map((entry) => {
-            if (entry.kind === "comment") {
-              return (
-                <CommentItem key={`comment-${entry.comment.id}`} comment={entry.comment} now={now} onEdit={onEdit} onDelete={onDelete} />
-              );
-            }
-            const folded = mode === "comments" && entry.events.length > 1 && !runOpened(entry.events, opened);
-            if (folded) {
-              return (
-                <li key={entry.key} className="app-event app-event-fold" data-feed={entry.events.map(itemKey).join(" ")} tabIndex={-1}>
-                  <Icon name="activity" size={12} />
-                  <Button
-                    variant="link"
-                    className="ui-btn-quiet"
-                    aria-expanded={false}
-                    onClick={() => setOpened((open) => new Set([...open, ...entry.events.map((event) => event.id)]))}
-                  >
-                    {applicationsFeedFold({ count: entry.events.length, changes: list(runChanges(entry.events)) })}
-                  </Button>
-                </li>
-              );
-            }
-            return entry.events.map((event) => <EventLine key={`event-${event.id}`} event={event} now={now} />);
-                  })}
-                </ol>
+              <section key={month.key} className="app-feed-month" aria-label={dated ? name : undefined} data-month={month.key}>
+                {dated && (
+                  <div className="app-feed-divider">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="app-feed-divider-button"
+                      aria-haspopup="dialog"
+                      aria-expanded={jumpFrom?.dataset.month === month.key}
+                      aria-label={applicationsFeedJumpMonth({ month: name })}
+                      data-month={month.key}
+                      onClick={(event) => setJumpFrom(event.currentTarget)}
+                    >
+                      {name}
+                      <Icon name="chevronDown" size={12} />
+                    </Button>
+                  </div>
+                )}
+                <ol className="app-feed-list">{entries(month)}</ol>
               </section>
             );
           })}
@@ -243,7 +272,7 @@ export function ActivityFeed({ items, detail, now, onAdd, onEdit, onDelete }: Ac
       <Menu isOpen={jumpFrom != null} onClose={() => setJumpFrom(null)} anchor={jumpFrom} label={applicationsFeedJumpLabel()} align="start">
         <MenuGroup>
           {points.filter((point) => point.kind !== "beginning").map((point) => (
-            <MenuItem key={point.kind} onSelect={() => jump(point.item)} detail={formatDate(point.at, "day")}>
+            <MenuItem key={point.kind} onSelect={() => jump(point.item)} detail={recordDay(point.at, now)}>
               {JUMP_LABEL[point.kind]()}
             </MenuItem>
           ))}
@@ -268,7 +297,7 @@ export function ActivityFeed({ items, detail, now, onAdd, onEdit, onDelete }: Ac
           </MenuGroup>
         ))}
       </Menu>
-    </section>
+    </div>
   );
 }
 
@@ -283,17 +312,36 @@ function CommentItem({ comment, now, onEdit, onDelete }: {
   const field = useFocusWhen<HTMLTextAreaElement>(editing != null);
   const editButton = useRef<HTMLButtonElement>(null);
   const focusAfter = useFocusAfter();
+  const saving = useRef(false);
+  // Moves on each time the edit opens or closes: a save that lands after the
+  // edit was left and opened again closes nothing.
+  const session = useRef(0);
+  const open = () => {
+    session.current += 1;
+    setEditing(comment.body);
+  };
   const close = () => {
+    session.current += 1;
     focusAfter(() => editButton.current);
     setEditing(null);
   };
+  // While an edit or its delete question is open, Escape leaves just that,
+  // and the posting under it stays.
+  useEscapeLayer(editing != null, close);
+  useEscapeLayer(confirming, () => setConfirming(false));
   // An agent's comment is the agent's record: the person reads it, and does not rewrite it.
   const own = comment.actor === "user";
 
   const save = async (event: FormEvent) => {
     event.preventDefault();
-    if (editing == null || !editing.trim()) return;
-    if (await onEdit(comment.id, editing)) close();
+    if (editing == null || !editing.trim() || saving.current) return;
+    saving.current = true;
+    const mine = session.current;
+    try {
+      if ((await onEdit(comment.id, editing)) && session.current === mine) close();
+    } finally {
+      saving.current = false;
+    }
   };
 
   return (
@@ -307,10 +355,10 @@ function CommentItem({ comment, now, onEdit, onDelete }: {
         <span className="app-tile-spacer" />
         {own && editing == null && (
           <>
-            <Button ref={editButton} variant="icon" size="sm" aria-label={applicationsCommentEdit()} onClick={() => setEditing(comment.body)}>
+            <Button ref={editButton} variant="icon" size="sm" className="app-row-tool" aria-label={applicationsCommentEdit()} onClick={open}>
               <Icon name="edit" size={14} />
             </Button>
-            <Button variant="icon" size="sm" aria-label={applicationsCommentDeleteLabel()} onClick={() => setConfirming(true)}>
+            <Button variant="icon" size="sm" className="app-row-tool" aria-label={applicationsCommentDeleteLabel()} onClick={() => setConfirming(true)}>
               <Icon name="trash" size={14} />
             </Button>
           </>
@@ -318,13 +366,13 @@ function CommentItem({ comment, now, onEdit, onDelete }: {
       </div>
       {editing != null ? (
         <form className="app-composer" onSubmit={save}>
-          <textarea
+          <GrowField
             aria-label={applicationsCommentLabel()}
-            ref={field}
+            fieldRef={field}
             rows={3}
             maxLength={20_000}
             value={editing}
-            onChange={(event) => setEditing(event.target.value)}
+            onChange={setEditing}
           />
           <div className="app-next-actions">
             <Button variant="ghost" size="sm" onClick={close}>{applicationsInterviewCancel()}</Button>

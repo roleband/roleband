@@ -130,6 +130,13 @@ activity-saved-role = Saved { $title } at { $company }
 activity-moved-role = Moved { $title } at { $company } to { $stage }
 # kind=status
 activity-updated-role = Updated { $title } at { $company }
+# kind=status note="An app changed a next step on a role; $action says what it did to it"
+activity-step-role = { $action ->
+        [add] Added a next step to { $title } at { $company }
+        [done] Ticked a next step done on { $title } at { $company }
+        [undo] Opened a next step again on { $title } at { $company }
+       *[edit] Changed a next step on { $title } at { $company }
+    }
 # kind=status note="A collection recipe drafted for a careers site; $recipe names the recipe"
 activity-drafted-recipe = Drafted a recipe for { $recipe }
 # kind=status note="An AI assistant gave verdicts on pairs of postings that may be the same role"

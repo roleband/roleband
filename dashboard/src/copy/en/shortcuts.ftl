@@ -15,12 +15,6 @@ shortcuts-keyboard-shortcuts-show-these-shortcuts = Show these shortcuts
 shortcuts-keyboard-shortcuts-close-what-is-on-top = Close what is on top
 # kind=tooltip wording=as-is
 shortcuts-keyboard-shortcuts-on-a-role-in-a = On a role in a list
-# kind=tooltip note="Heading in the keyboard shortcuts sheet: the keys that work while a posting opened from a list is on screen"
-shortcuts-keyboard-shortcuts-in-a-posting = In a posting opened from a list
-# kind=tooltip note="Keyboard shortcuts sheet: what the J key does while a posting opened from a list is on screen"
-shortcuts-keyboard-shortcuts-next-in-list = Next in the list
-# kind=tooltip note="Keyboard shortcuts sheet: what the K key does while a posting opened from a list is on screen"
-shortcuts-keyboard-shortcuts-previous-in-list = Previous in the list
 # kind=label wording=as-is
 shortcuts-keyboard-shortcuts-next-role = Next role
 # kind=label wording=as-is
@@ -55,3 +49,11 @@ shortcuts-keyboard-shortcuts-close = Close
 ## shell/KeyboardShortcuts.tsx (by hand)
 # kind=label wording=as-is
 shortcuts-keyboard-shortcuts-ctrl-k = Ctrl K
+# kind=label note="A key name in the shortcuts sheet, the same on every keyboard"
+shortcuts-keyboard-shortcuts-alt-f10 = Alt F10
+# kind=heading note="The shortcuts sheet's group for the keys of a role's notes page"
+shortcuts-keyboard-shortcuts-notes = In a role's notes
+# kind=label note="In the shortcuts sheet: ⌘ K with words selected in the notes opens the link field for them, in place of the command palette"
+shortcuts-keyboard-shortcuts-link-words = Link the selected words
+# kind=label note="In the shortcuts sheet: Alt F10 moves the keyboard into the bar of styles over the selected words"
+shortcuts-keyboard-shortcuts-to-the-bar = Focus the formatting bar

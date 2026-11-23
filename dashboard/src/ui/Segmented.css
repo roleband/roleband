@@ -41,8 +41,8 @@
   background: var(--app-surface-hover);
 }
 
-/* The chosen segment is CHOSEN like every other option in the app: the gold
-   wash and the gold name of a tab or a chip, so a Board facet and the filter
+/* The chosen segment is CHOSEN like every other option in the app: the chosen
+   wash and the chosen name of a tab or a chip, so a Board facet and the filter
    chip beside it say "chosen" in one look. The sunken track stays; it is what makes the row read as one control.
    Keyed off the attribute, never a class. */
 .ui-seg-btn[aria-pressed="true"] {

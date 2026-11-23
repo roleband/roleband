@@ -1,11 +1,3 @@
-applications-board-summary = En curso: { $moving } · Decididos: { $decided } · Rechazados o cerrados: { $closed } · { $needNext }
-
-applications-board-need-next = { $count ->
-        [one] { $count } necesita
-        [many] { $count } necesitan
-       *[other] { $count } necesitan
-    } un siguiente paso
-
 applications-board-load-failed = No se pudo cargar tu seguimiento
 
 applications-board-scroll-back = Mostrar columnas anteriores
@@ -60,7 +52,7 @@ applications-quick-needs-next = Necesita un siguiente paso
 
 applications-quick-quiet = Sin noticias
 
-applications-quick-high-priority = Prioridad 4+
+applications-quick-high-priority = Prioridad alta
 
 applications-filter-while = Al filtrar
 
@@ -104,33 +96,33 @@ applications-card-overdue = { $days ->
        *[other] { $days } días de retraso
     }
 
+applications-card-applied = Enviada { $ago }
+
+applications-card-gone-quiet = Sin novedades
+
+applications-card-day-time = { $day }, { $time }
+
+applications-card-round-past = { $label }, { $day }
+
+applications-card-ask-outcome = ¿Cómo te fue?
+
 applications-card-posting-closed = Oferta cerrada
 
-applications-card-comments = { $count ->
-        [one] { $count } comentario
-        [many] { $count } de comentarios
-       *[other] { $count } comentarios
-    }
+applications-card-priority = Prioridad: { $level }
 
-applications-card-priority = Prioridad { $priority } de 5
+applications-priority-none = Sin prioridad
 
-applications-card-days-short = { $days } d
+applications-priority-urgent = Urgente
 
-applications-card-days-in-stage = { $days ->
-        [one] { $days } día en esta etapa
-        [many] { $days } de días en esta etapa
-       *[other] { $days } días en esta etapa
-    }
+applications-priority-high = Alta
 
-applications-card-quiet = { $days ->
-        [one] { $days } día en esta etapa
-        [many] { $days } de días en esta etapa
-       *[other] { $days } días en esta etapa
-    }, sin noticias desde hace { $quiet ->
-        [one] { $quiet } día
-        [many] { $quiet } de días
-       *[other] { $quiet } días
-    }
+applications-priority-medium = Media
+
+applications-priority-low = Baja
+
+applications-priority-menu = Prioridad de { $title }
+
+
 
 applications-card-ended = { $ending } en la etapa { $stage }
 
@@ -234,9 +226,17 @@ applications-interview-outcome-not-passed = No superada
 
 applications-interview-outcome-cancelled = Cancelada
 
+applications-interview-prompt-people = Con quién hablarás
+applications-interview-prompt-questions = Preguntas que hacer
+applications-interview-prompt-points = Puntos que transmitir
+applications-ws-round-prepare = Con quién hablarás, preguntas que hacer, puntos que transmitir
 applications-interview-notes = Notas
 
 applications-interview-failed = No se pudo guardar la entrevista. Inténtalo de nuevo.
+applications-interview-calendar = Añadir al calendario
+applications-interview-calendar-label = Añadir { $label } a tu calendario
+applications-interview-calendar-title = { $label } con { $company }
+applications-ws-layout-failed = No se pudo guardar la disposición del espacio de trabajo. Inténtalo de nuevo.
 
 applications-interview-delete-failed = No se pudo eliminar la entrevista. Inténtalo de nuevo.
 
@@ -276,6 +276,20 @@ applications-upnext-step-when = Antes del final del día
 
 applications-upnext-empty = No hay nada pendiente. Fija un siguiente paso o añade una entrevista a una candidatura y aparecerá aquí.
 
+applications-upnext-all-day = Todo el día
+
+applications-upnext-done-label = Marcar como hecho: { $step }
+
+applications-upnext-done = Hecho · { $step }
+
+applications-upnext-outcome = ¿Cómo te fue?
+
+applications-upnext-outcome-label = Resultado de { $label }
+
+applications-upnext-outcome-set = { $label }: { $outcome }
+
+applications-upnext-undo-failed = No se pudo deshacer ese cambio en { $title }. Inténtalo de nuevo.
+
 applications-month-label = Calendario
 
 applications-month-prev = Mes anterior
@@ -306,33 +320,19 @@ applications-month-day-empty = No hay nada este día.
 
 applications-month-failed = No se pudo cargar el calendario
 
-applications-page-bar = Candidatura
 
-applications-page-back = Seguimiento / { $view }
 
-applications-page-back-board = Abrir el Tablero
 
-applications-page-load-failed = No se pudo cargar esta candidatura
 
-applications-page-place = { $index } de { $total }
 
-applications-page-previous = Anterior en esta columna: { $title }
 
-applications-page-next = Siguiente en esta columna: { $title }
 
-applications-page-more = Más acciones
 
-applications-page-more-label = Más acciones para esta candidatura
 
-applications-page-copy-link = Copiar enlace
 
-applications-page-withdraw = Retirar candidatura
 
-applications-link-copied = Enlace copiado
 
-applications-link-copy-failed = No se pudo copiar el enlace. Cópialo desde la barra de direcciones.
 
-applications-stage-button = { $stage } · { $days }
 
 applications-stage-menu-label = Cambiar la etapa de { $title }
 
@@ -361,7 +361,6 @@ applications-crossing-pay = { $days ->
 
 applications-crossing-dismiss = Descartar
 
-applications-next-title = Lo siguiente
 
 applications-next-interview-none = No tienes ninguna entrevista programada.
 
@@ -375,55 +374,31 @@ applications-next-interview-join = Unirse
 
 applications-next-interview-join-label = Unirse a { $label }
 
-applications-next-interview-edit = Editar entrevista
 
-applications-next-empty = Aún no hay un siguiente paso.
 
-applications-next-set = Fijar siguiente paso
 
-applications-next-edit = Editar paso
 
-applications-next-done = Marcar como hecho
 
-applications-next-prompt = ¿Cuál es el siguiente paso?
 
-applications-next-due = Fecha límite (opcional)
 
-applications-next-required = Escribe el siguiente paso o pulsa Cancelar.
 
 applications-next-save = Guardar paso
 
 applications-notes-title = Notas
 
-applications-notes-add = Añadir notas
 
-applications-notes-edit = Editar notas
 
-applications-notes-empty = Aún no hay notas.
 
 applications-notes-label = Notas
 
-applications-notes-more = Mostrar todo
 
-applications-notes-less = Mostrar menos
 
-applications-notes-save = Guardar notas
 
-applications-feed-title = Actividad
 
-applications-feed-mode-label = Mostrar
 
-applications-feed-mode-comments = Comentarios
 
-applications-feed-mode-all = Toda la actividad
 
-applications-feed-empty = Aún no hay comentarios ni cambios.
 
-applications-feed-fold = { $count ->
-    [one] { $count } actualización: { $changes }
-    [many] { $count } de actualizaciones: { $changes }
-   *[other] { $count } actualizaciones: { $changes }
-}
 
 applications-feed-added = Añadido a tu seguimiento
 
@@ -436,10 +411,19 @@ applications-feed-priority = Prioridad cambiada
 applications-feed-notes = Notas editadas
 
 applications-feed-next-step = Siguiente paso cambiado
+# kind=status note="A recorded change: a next step was added; $step is the step, as the person wrote it"
+applications-feed-step-added = Siguiente paso añadido: { $step }
+# kind=status note="A recorded change: a next step's words or day changed; $step is the step after the change"
+applications-feed-step-edited = Siguiente paso cambiado: { $step }
+# kind=status note="A recorded change: a next step was ticked done; $step is the step"
+applications-feed-step-done = Hecho: { $step }
+# kind=status note="A recorded change: a next step ticked done was opened again; $step is the step"
+applications-feed-step-reopened = Siguiente paso abierto de nuevo: { $step }
+# kind=status note="A recorded change: a next step was removed; $step is the step"
+applications-feed-step-removed = Siguiente paso quitado: { $step }
 
 applications-feed-updated = Actualizado
 
-applications-feed-by-agent = por una app de asistente
 
 applications-feed-jump-label = Ir a
 
@@ -463,9 +447,7 @@ applications-feed-jump-comments = { $count ->
 
 applications-comment-label = Comentario
 
-applications-comment-placeholder = Escribe lo que pasó
 
-applications-comment-submit = Comentar
 
 applications-comment-author-you = Tú
 
@@ -487,7 +469,6 @@ applications-comment-failed = No se pudo guardar tu comentario. Inténtalo de nu
 
 applications-comment-delete-failed = No se pudo eliminar ese comentario. Inténtalo de nuevo.
 
-applications-facts-application = Candidatura
 
 applications-facts-posting = Oferta
 
@@ -503,39 +484,27 @@ applications-fact-days-value = { $days ->
    *[other] { $days } días
 }
 
-applications-fact-applied = Enviada
 
-applications-fact-applied-not = Aún no
 
 applications-fact-starred = Guardado
 
-applications-fact-starred-yes = Sí
 
-applications-fact-starred-no = No
 
 applications-fact-last-activity = Última actividad
 
-applications-fact-status = Estado
 
-applications-fact-status-open = Abierta
 
-applications-fact-status-closed = Cerrada
 
 applications-fact-pay = Rango publicado
 
 applications-fact-pay-none = No publicado
 
-applications-fact-pay-changed = Cambiado
 
 applications-fact-level = Nivel
 
-applications-fact-location = Ubicación
 
-applications-fact-location-more = y { $count } más
 
-applications-fact-first-seen = Visto por primera vez
 
-applications-fact-listed-for = Publicado durante
 
 applications-read-posting = Ver la oferta
 
@@ -555,7 +524,6 @@ applications-posting-interview = Entrevista
 
 applications-posting-next-step = Siguiente paso
 
-applications-posting-open = Abrir la candidatura
 
 applications-posting-due = Vence
 
@@ -576,3 +544,102 @@ applications-posting-history-now = { $days ->
     [many] { $stage }, { $days } de días
    *[other] { $stage }, { $days } días
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+applications-ws-load-failed = No se pudo cargar el espacio de trabajo
+
+applications-ws-next = Siguientes pasos
+
+
+
+applications-ws-next-add = Añadir un siguiente paso
+
+applications-ws-next-edit = Editar el siguiente paso: { $step }
+
+applications-ws-next-due = Vence
+
+applications-ws-next-due-none = Aún sin día
+
+applications-ws-next-due-clear = Quitar el día
+# kind=button note="In a next step's edit, takes the step off the list with nothing kept, for one added by mistake"
+applications-ws-next-remove = Quitar
+applications-ws-next-done-fold = Hechos: { $count }
+applications-ws-next-delete-label = Eliminar el paso: { $step }
+applications-ws-next-delete-confirm = ¿Eliminar este paso?
+applications-ws-next-delete = Eliminar
+
+applications-ws-notes-hint = Escribe lo que sabes y a quién conociste. Escribe / para títulos, listas y listas de tareas.
+applications-notes-too-long = Sin guardar: { $over } caracteres por encima del límite.
+applications-notes-pictures-left-out = { $count ->
+        [one] La imagen no se guardó: las notas guardan texto y enlaces.
+        [many] { $count } de imágenes no se guardaron: las notas guardan texto y enlaces.
+       *[other] { $count } imágenes no se guardaron: las notas guardan texto y enlaces.
+    }
+applications-notes-picture = Imagen
+applications-notes-merged = Estas notas también se cambiaron en otro lugar. Se guardan ambas versiones.
+applications-notes-versions = Versiones anteriores
+applications-notes-versions-loading = Leyendo las versiones anteriores…
+applications-notes-versions-none = Ninguna todavía. Se guarda una versión cada vez que vuelves a escribir.
+applications-notes-versions-failed = No se pudieron leer las versiones anteriores. Inténtalo de nuevo.
+applications-notes-version-put-back = Restaurar
+applications-notes-version-put-back-label = Restaurar la versión del { $when }
+applications-notes-version-back = Se restauró la versión del { $when }. Deshacer devuelve la página como estaba.
+applications-notes-blocks = Bloques
+applications-notes-block-text = Texto
+applications-notes-block-heading = Título { $level }
+applications-notes-block-bullets = Lista con viñetas
+applications-notes-block-numbers = Lista numerada
+applications-notes-block-checklist = Lista de tareas
+applications-notes-block-quote = Cita
+applications-notes-block-divider = Separador
+applications-notes-block-none = Ningún bloque con ese nombre.
+applications-notes-help = Ayuda de formato
+applications-notes-help-title = Formato
+applications-notes-help-lines = Empieza una línea con
+applications-notes-help-words = Estilo del texto
+applications-notes-style-bold = Negrita
+applications-notes-style-italic = Cursiva
+applications-notes-style-strike = Tachado
+applications-notes-style-code = Código
+applications-notes-help-slash = O escribe / y elige un bloque por su nombre.
+applications-notes-help-links = Selecciona palabras y pulsa { $link }, o pega un enlace sobre ellas, para enlazarlas. Mantén { $key } y haz clic en un enlace para abrirlo.
+applications-notes-key-ctrl = Ctrl
+applications-notes-key-shift = Mayús
+applications-notes-help-select = O selecciona palabras y elige un estilo en la barra que aparece sobre ellas.
+applications-notes-bar = Dar estilo a la selección
+applications-notes-turn-into = Convertir en
+applications-notes-turn-into-label = Convertir en, ahora { $block }
+applications-notes-style-tip = { $name } ({ $keys })
+applications-notes-link = Enlace
+applications-notes-link-field = Dirección del enlace
+applications-notes-link-placeholder = Pega un enlace
+applications-notes-link-remove = Quitar enlace
+applications-notes-link-invalid = Usa una dirección web o de correo.
+applications-notes-check = { $checked ->
+    [yes] Hecho: { $line }
+   *[no] Pendiente: { $line }
+}
+
+applications-ws-ask-outcome = ¿Cómo te fue?
+
+applications-feed-title = Actividad
+applications-feed-empty = Aún no hay comentarios ni cambios.
+applications-feed-load-failed = No se pudo cargar la actividad
+applications-feed-fold = { $count ->
+    [one] { $count } actualización: { $changes }
+    [many] { $count } de actualizaciones: { $changes }
+   *[other] { $count } actualizaciones: { $changes }
+}
+applications-comment-placeholder = Escribe lo que pasó
+applications-comment-submit = Comentar

@@ -294,6 +294,55 @@ def test_a_downgrade_past_the_application_pipeline_refuses_what_it_would_lose(
     assert run_psql(dsn, bin_dir, "select version_num from alembic_version") == "a7d2f4c9e1b6"
 
 
+@pytest.mark.parametrize(
+    ("write", "said"),
+    [
+        (
+            "insert into pursuit_steps (pursuit_id, text, done_at) select id, 'Sent', now() from pursuits",
+            "ticked next steps would be lost",
+        ),
+        (
+            "insert into pursuit_steps (pursuit_id, text) select id, 'One' from pursuits;"
+            " insert into pursuit_steps (pursuit_id, text) select id, 'Two' from pursuits",
+            "pursuits with several next steps would be lost",
+        ),
+    ],
+    ids=["ticked", "several"],
+)
+def test_a_downgrade_past_pursuit_steps_refuses_the_steps_it_would_drop(baseline_database, write, said):
+    """The old columns hold one step: a ticked step or a second one has no
+    place there, so the downgrade stops with every step in place."""
+    env, dsn, bin_dir = baseline_database
+    result = run_alembic(env, "upgrade", "4597fa526e25")
+    assert result.returncode == 0, (result.stderr + result.stdout)[-2000:]
+    _seed(dsn, bin_dir)
+    run_psql(dsn, bin_dir, write)
+    held = run_psql(dsn, bin_dir, "select count(*) from pursuit_steps")
+
+    result = run_alembic(env, "downgrade", "-1")
+
+    assert result.returncode != 0
+    assert said in result.stderr
+    assert run_psql(dsn, bin_dir, "select count(*) from pursuit_steps") == held
+    assert run_psql(dsn, bin_dir, "select version_num from alembic_version") == "4597fa526e25"
+
+
+def test_a_downgrade_past_pursuit_steps_runs_when_it_loses_nothing(baseline_database):
+    env, dsn, bin_dir = baseline_database
+    result = run_alembic(env, "upgrade", "4597fa526e25")
+    assert result.returncode == 0, (result.stderr + result.stdout)[-2000:]
+    _seed(dsn, bin_dir)
+    run_psql(dsn, bin_dir, "insert into pursuit_steps (pursuit_id, text) select id, 'Only' from pursuits")
+
+    result = run_alembic(env, "downgrade", "-1")
+
+    assert result.returncode == 0, (result.stderr + result.stdout)[-2000:]
+    assert run_psql(dsn, bin_dir, "select to_regclass('pursuit_steps') is null") == "t"
+    # The step, written without its columns, is in them once the table is gone.
+    assert run_psql(dsn, bin_dir, "select count(*) from pursuits where next_action is distinct from 'Only'") == "0"
+    assert run_psql(dsn, bin_dir, "select count(*) from pursuits") != "0"
+
+
 def test_keep_scanning_starts_off_and_a_downgrade_keeps_the_choice_once_made(baseline_database):
     """Every stored company takes "read when asked", how a company on a
     user-directed source was treated; once a person chose regular scans, the

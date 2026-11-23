@@ -586,9 +586,9 @@ _PURSUIT_FIELDS = ("stage", "priority", "notes", "next_action", "revision")
 
 async def _stored_pursuits(session, stage: str | None = None) -> list[dict]:
     """The pursuits as the rows hold them, in the order the list promises:
-    by priority, the latest change first within one, then by row."""
+    the most urgent first, the latest change first within one, then by row."""
     session.expire_all()
-    stmt = select(Pursuit).order_by(Pursuit.priority.asc(), Pursuit.updated_at.desc(), Pursuit.id.asc())
+    stmt = select(Pursuit).order_by(Pursuit.priority.desc(), Pursuit.updated_at.desc(), Pursuit.id.asc())
     if stage:
         stmt = stmt.where(Pursuit.stage == stage)
     return [
@@ -662,8 +662,8 @@ async def test_a_cursor_reads_the_list_as_it_stands_and_the_first_page_reads_it_
     cursor = first["meta"]["next_cursor"]
     rest_before = _data((await _get(api_client, "/pursuits", limit=100, cursor=cursor))[1])["items"]
     moved = rest_before[-1]["opportunity_id"]
-    lowest = min(item["priority"] for item in _data(first)["items"])
-    await workspace.execute(update(Pursuit).where(Pursuit.job_id == moved).values(priority=lowest - 1))
+    highest = max(item["priority"] for item in _data(first)["items"])
+    await workspace.execute(update(Pursuit).where(Pursuit.job_id == moved).values(priority=highest + 1))
     await workspace.commit()
 
     rest_after = _data((await _get(api_client, "/pursuits", limit=100, cursor=cursor))[1])["items"]
@@ -672,6 +672,30 @@ async def test_a_cursor_reads_the_list_as_it_stands_and_the_first_page_reads_it_
     assert moved not in [item["opportunity_id"] for item in rest_after]
     assert restarted[0]["opportunity_id"] == moved
     assert len(restarted) == len(_data(first)["items"]) + len(rest_before)
+
+
+async def test_a_pursuit_with_no_priority_chosen_ranks_below_a_chosen_low_on_every_page(api_client, workspace):
+    """Its stored number is the column's default, Medium; it is listed as No
+    priority all the same, below a chosen Low, and paging agrees."""
+    pursued = set(await workspace.scalars(select(Pursuit.job_id)))
+    unchosen, low = [job_id for job_id in await _visible_ids(workspace) if job_id not in pursued][:2]
+    await upsert_pursuit(workspace, unchosen, PursuitUpdate(stage="applied"), actor="user")
+    await upsert_pursuit(workspace, low, PursuitUpdate(stage="applied", priority=2), actor="user")
+    await workspace.commit()
+    assert await workspace.scalar(select(Pursuit.priority).where(Pursuit.job_id == unchosen)) == 3
+
+    whole = [item["opportunity_id"] for item in _data((await _get(api_client, "/pursuits", limit=100))[1])["items"]]
+    paged: list[int] = []
+    cursor = None
+    while True:
+        _, body = await _get(api_client, "/pursuits", limit=1, **({"cursor": cursor} if cursor else {}))
+        paged.extend(item["opportunity_id"] for item in _data(body)["items"])
+        cursor = body["meta"]["next_cursor"]
+        if cursor is None:
+            break
+
+    assert whole.index(low) < whole.index(unchosen)
+    assert paged == whole
 
 
 async def test_a_full_last_page_hands_out_no_cursor(api_client, workspace):

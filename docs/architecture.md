@@ -1480,14 +1480,36 @@ that a command could be given instead. A patch states the revision it read
 role with no pursuit is `not_found` with the revision 0, never a conflict
 that reading again cannot resolve; it points to `pursuits.list` for the ids
 and never suggests creating one, since the likely cause is a wrong id. It
-reads its fields by presence: null clears the notes,
-the next action or its due date, a field left out is untouched, and a null
-stage or priority is an input error. A save may state the revision; without
+reads its fields by presence: null clears the notes, a field left out is
+untouched, and a null stage or priority is an input error. Its `next_action`
+and `next_action_due` change the soonest open next step, add one when there is
+none, and null words tick it done. A save may state the revision; without
 one it is last-writer-wins on priority. `receipts.get` reads a write's receipt
 back by operation and key, in this workspace and for the engine's principal;
 it is a read, so it answers with writes off.
+A pursuit's next steps are rows of `pursuit_steps`, listed soonest first in
+`steps` by `pursuits.get`, `applications.board` and `applications.calendar`
+([0025](decisions/0025-several-next-steps-per-role.md)). `steps.add`,
+`steps.edit`, `steps.done` and `steps.undo` (`agents/operations/steps.py`)
+write through `tracker/agents/pursuits.py` against the pursuit's revision and
+answer the pursuit as `pursuits.get` does; a ticked step stays in the history
+and `steps.undo` opens it again. No operation deletes a step. The server keeps
+`pursuits.next_action` and `next_action_due` as the soonest open step in the
+same transaction as every step write.
 `backend/tests/test_agent_pursuit_and_draft_writes.py` holds each write to
 the rows it changes.
+The role's page saves the notes over the text it started from (`notes_was`):
+notes written elsewhere meanwhile are refused with `notes-moved`, and the page
+merges the two and saves again. The person's saves from the page fold into
+writing sessions in History, and each session's last text is an earlier
+version the page can put back
+([0026](decisions/0026-notes-saved-over-what-they-started-from.md));
+`backend/tests/test_pursuit_notes_db.py` holds both.
+How the person arranges the screens (the Workspace's blocks per stage, the
+Pipeline's columns, crossings dismissed, folded sections, the Insights view,
+each screen's filters) is kept in `app_settings`, one row per view choice, not
+in the browser ([0027](decisions/0027-view-choices-in-local-database.md));
+`backend/tests/test_view_choices.py` holds it.
 The company reads (`companies.list`, `companies.get`, `companies.facts.list`,
 `companies.prices.get`, `agents/operations/companies.py`) and the posting
 relations (`opportunities.similar`, `opportunities.duplicates`,
@@ -1515,9 +1537,9 @@ after a position, in commit order: openings, closings, reopenings and reposts
 from `job_lifecycle_events`, stated-pay changes from its `disclosed_base`
 detail, source health from `scrape_source_runs`, a plugin job's health from
 `plugin_run_ends` (one row per plugin run closed since the table exists,
-inserted by the transaction that closes it), and pursuit actions falling due from
-`pursuits.next_action_due` and the `pursuit_events` that scheduled or reactivated
-them. Each event says whether it is recorded or derived
+inserted by the transaction that closes it), and next steps falling due from
+`pursuit_steps.due` and the `pursuit_events` that scheduled or reactivated
+them, one event per open step. Each event says whether it is recorded or derived
 at the read (a repost label, a health move, a due time). The records carry the
 inserting transaction (`change_xact`, `xid8`, and `change_cluster`), and a read
 stops below the oldest transaction of the database still running, so a row that

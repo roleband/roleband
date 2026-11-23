@@ -3,9 +3,6 @@ import { Link } from "react-router-dom";
 import { api, type ApplicationCalendarItem, type ApplicationCard } from "../../api";
 import { date as formatDate, list, time as formatTime, timestamp, weekday } from "../../copy/format";
 import {
-  applicationsInterviewOutcomeCancelled,
-  applicationsInterviewOutcomeNotPassed,
-  applicationsInterviewOutcomePassed,
   applicationsMonthDay,
   applicationsMonthDayEmpty,
   applicationsMonthFailed,
@@ -26,18 +23,12 @@ import { companyName } from "../../format";
 import { useAsyncResource, useRefetchOn } from "../../hooks/useAsyncResource";
 import { commonTryAgain } from "../../copy/gen/common";
 import { Badge, Button, CompanyIcon, Content, Icon } from "../../ui";
-import { useOriginState } from "./pageOrigin";
-import { applicationPath } from "./board";
+import { useRoleLink } from "./roleLink";
+import { OUTCOME_LABEL } from "./interviewWords";
 import { dayKey, fromDayKey, itemsByDay, monthOf, monthSpan, monthWeeks, shiftDay, shiftMonth } from "./monthGrid";
 
-const OUTCOME = {
-  passed: applicationsInterviewOutcomePassed,
-  not_passed: applicationsInterviewOutcomeNotPassed,
-  cancelled: applicationsInterviewOutcomeCancelled,
-} as const;
-
 function DayItem({ item, card, match }: { item: ApplicationCalendarItem; card: ApplicationCard; match?: boolean }) {
-  const origin = useOriginState();
+  const role = useRoleLink();
   const company = companyName(card.company);
   const at = new Date(item.at);
   const when = item.kind === "interview"
@@ -52,14 +43,14 @@ function DayItem({ item, card, match }: { item: ApplicationCalendarItem; card: A
             ? applicationsUpnextInterview({ label: item.label })
             : applicationsUpnextStep({ step: item.step })}
         </span>
-        <Link to={applicationPath(card.job_id)} state={origin} className="app-tile-open app-upnext-role">
+        <Link {...role(card, "workspace")} className="app-tile-open app-upnext-role">
           <CompanyIcon slug={card.company} display={company} size={16} />
           <span>{company}</span>
           <span className="app-upnext-title"><Content text={card.title} /></span>
         </Link>
       </div>
       {item.kind === "interview" && item.outcome && (
-        <Badge tone={item.outcome === "passed" ? "success" : "neutral"} size="sm">{OUTCOME[item.outcome]()}</Badge>
+        <Badge tone={item.outcome === "passed" ? "success" : "neutral"} size="sm">{OUTCOME_LABEL[item.outcome]()}</Badge>
       )}
     </li>
   );
@@ -71,9 +62,12 @@ function DayItem({ item, card, match }: { item: ApplicationCalendarItem; card: A
  *  past round, a later round of the same role) is listed under the grid. It
  *  reads its own span; a role is named from the board's cards, so an item
  *  whose application the board does not show is not drawn. */
-export function UpNextMonth({ cards, now, keep, inAgenda, onPickDay }: {
+export function UpNextMonth({ cards, now, picked, keep, inAgenda, onPickDay }: {
   cards: readonly ApplicationCard[];
   now: Date;
+  /** The picked day, "YYYY-MM-DD": the caller owns it, as it owns what the
+   *  pick brings into view. */
+  picked: string;
   /** The view's filter: false drops the item's application, undefined keeps
    *  every item, true or false on a highlight dims the ones that miss. */
   keep: (card: ApplicationCard) => { shown: boolean; match?: boolean };
@@ -85,7 +79,6 @@ export function UpNextMonth({ cards, now, keep, inAgenda, onPickDay }: {
 }) {
   const today = dayKey(now);
   const [month, setMonth] = useState(() => monthOf(now));
-  const [picked, setPicked] = useState(today);
   const grid = useRef<HTMLTableElement>(null);
   const titleId = useId();
   // The day an arrow moved to, focused once its month has rendered.
@@ -106,13 +99,15 @@ export function UpNextMonth({ cards, now, keep, inAgenda, onPickDay }: {
   const byJob = useMemo(() => new Map(cards.map((card) => [card.job_id, card])), [cards]);
   const days = itemsByDay((resource.data?.items ?? []).filter((item) => {
     const card = byJob.get(item.job_id);
-    return card != null && keep(card).shown;
+    if (card == null || !keep(card).shown) return false;
+    // A card lists every open step, and a tick leaves it at once; the month
+    // keeps its last answer until it reads again.
+    return item.kind !== "step" || card.steps.some((one) => one.id === item.step_id);
   }));
   const weeks = monthWeeks(month);
 
   const pick = (day: Date, { scroll = true, focus = false } = {}) => {
     const key = dayKey(day);
-    setPicked(key);
     if (day.getMonth() !== month.getMonth() || day.getFullYear() !== month.getFullYear()) setMonth(monthOf(day));
     onPickDay(day, { scroll });
     if (focus) focusDay.current = key;
@@ -229,7 +224,7 @@ export function UpNextMonth({ cards, now, keep, inAgenda, onPickDay }: {
                 const card = byJob.get(item.job_id)!;
                 return (
                   <DayItem
-                    key={item.kind === "interview" ? `i-${item.interview_id}` : `s-${item.job_id}`}
+                    key={item.kind === "interview" ? `i-${item.interview_id}` : `s-${item.step_id}`}
                     item={item}
                     card={card}
                     match={keep(card).match}

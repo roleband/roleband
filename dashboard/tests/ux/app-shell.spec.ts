@@ -10,6 +10,7 @@
 import { expect, mockGet, test, type Page } from "./fixtures";
 import { msg } from "../../src/test/msg";
 import { installBoardRoutes } from "./boardHarness";
+import { openPipelineView } from "./pipelineRail";
 import { installEveryRoute } from "./routesHarness";
 import { historyFixture, overviewFixture, statsFixture, statusFixture } from "../../src/test/fixtures";
 
@@ -41,7 +42,7 @@ async function openPipelineWithADeadChunk(page: Page) {
 
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Radar", level: 1 })).toBeVisible();
-  await page.getByRole("link", { name: "Pipeline", exact: true }).click();
+  await openPipelineView(page, msg("shell-tab-pipeline-list"));
   const alert = page.getByRole("alert");
   /* The failure must have happened before a caller lets the chunk through,
      or the import can race the switch and load, and there is nothing to retry. */
@@ -81,13 +82,13 @@ test("trying again after a dead route chunk recovers the screen", async ({ page 
   const { alert, letThrough } = await openPipelineWithADeadChunk(page);
   letThrough();
   await alert.getByRole("button", { name: "Try again" }).click();
-  await expect(page.getByRole("heading", { name: "Pipeline", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: msg("shell-nav-pipeline"), level: 1 })).toBeVisible();
 });
 
 test("a dead chunk does not poison the routes either side of it", async ({ page }) => {
   await page.route(/ApplicationsScreen/, (route) => route.abort("failed"));
   await page.goto("/");
-  await page.getByRole("link", { name: "Pipeline", exact: true }).click();
+  await openPipelineView(page, msg("shell-tab-pipeline-list"));
   await expect(page.getByRole("alert")).toBeVisible();
 
   // Navigating away must clear the boundary — otherwise one bad chunk blanks
@@ -163,6 +164,8 @@ test("every route offers exactly one main landmark", async ({ page }) => {
    label. Each route gets one three windows down, so the check does not depend on
    how long a fixture happens to make the page. */
 test("a hidden label far down a screen cannot make the window scroll", async ({ page, isMobile }) => {
+  // Seven screens, each loaded, filled and scrolled to its end.
+  test.slow();
   await installEveryRoute(page);
   for (const path of ["/", "/pipeline/list", "/statistics", "/company", "/review", "/notifications", "/settings"]) {
     await page.goto(path);
@@ -289,7 +292,8 @@ test("the mobile dock keeps legal touch targets and labels inside their boxes", 
   test.skip(testInfo.project.name !== "mobile", "phone-width layout");
 
   await page.goto("/");
-  const items = page.locator(".nav-rail .rail-item");
+  // What the dock draws: the Pipeline's star stays out of it, its views stand in.
+  const items = page.locator(".nav-rail .rail-item:visible");
   // `count()` does not wait: read it once the dock has drawn.
   await expect(items.first()).toBeVisible();
   const count = await items.count();
@@ -346,7 +350,8 @@ test("the mobile dock's destinations do not overlap each other", async ({
   test.skip(testInfo.project.name !== "mobile", "phone-width layout");
 
   await page.goto("/");
-  const items = page.locator(".nav-rail .rail-item");
+  // What the dock draws: the Pipeline's star stays out of it, its views stand in.
+  const items = page.locator(".nav-rail .rail-item:visible");
   // `count()` does not wait: read it once the dock has drawn.
   await expect(items.first()).toBeVisible();
   const count = await items.count();
@@ -448,7 +453,7 @@ test("the bell caps the same count the same way", async ({ page, isMobile }) => 
 });
 
 /* The top bar's counts are readable in every shape and state. Two of
- * the four chips are <button>s, and a button's user-agent colour is black: a
+ * the three chips are <button>s, and a button's user-agent colour is black: a
  * chip that does not inherit its ink paints its count black on the dark glass.
  * Pinned in the browser, because a stylesheet gate cannot see what a
  * UA default paints over. */
@@ -475,15 +480,9 @@ test("every count in the top bar wears the bar's ink, chosen or not, and its uni
     msg("shell-stat-open-aria", { count: 2004 }),
     msg("shell-stat-new-aria", { count: 873 }),
     msg("shell-stat-reposted-aria", { count: 49 }),
-    msg("shell-stat-saved-aria", { count: 4 }),
   ]);
-  // The count is every starred role, and the Board is where they all are.
-  await expect(page.getByRole("link", { name: msg("shell-stat-saved-aria", { count: 4 }) }))
-    .toHaveAttribute("href", "/pipeline/board");
-  // No chip paints its number in the UA's black; the reposted button reads
-  // exactly like the saved link beside it.
+  // No chip paints its number in the UA's black.
   for (const c of at_rest) expect(c.n, c.label!).not.toBe("rgb(0, 0, 0)");
-  expect(at_rest[2].n).toBe(at_rest[3].n);
   for (const c of at_rest) {
     expect(c.unitPx, c.label!).toBeGreaterThanOrEqual(9);
     expect(c.numeralWeight, c.label!).toBeLessThanOrEqual(600);
@@ -501,7 +500,8 @@ test("every count in the top bar wears the bar's ink, chosen or not, and its uni
   expect((await read())[0].n).toBe(chosen[2].n);
 });
 
-test("a running matching-model switch shows in the top bar and leads to Settings > AI", async ({ page }) => {
+test("a running matching-model switch shows in the top bar and leads to Settings > AI", async ({ page, isMobile }) => {
+  test.skip(isMobile, "phones are not supported: the compact bar leaves out the top bar's chips");
   await mockGet(page, "/api/status", (route) => route.fulfill({ json: { ...statusFixture, matching_switch: "converting" } }));
   await page.goto("/");
   const chip = page.getByRole("link", { name: msg("shell-model-switch-aria", { phase: "converting" }) });

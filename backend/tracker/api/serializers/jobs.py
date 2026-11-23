@@ -56,6 +56,7 @@ def serialize_job(
     *,
     detail: bool = False,
     favorite_ids: set[int] | None = None,
+    pipeline_stages: dict[int, str] | None = None,
     dismissed_ids: set[int] | None = None,
     lineage_meta: dict[int, JobLineage] | None = None,
     twin_counts: dict[int, int] | None = None,
@@ -91,6 +92,7 @@ def serialize_job(
     data = {
         "id": job.id,
         "is_favorite": job.id in favorite_ids if favorite_ids is not None else False,
+        "pipeline_stage": pipeline_stages.get(job.id) if pipeline_stages is not None else None,
         "is_dismissed": job.id in dismissed_ids if dismissed_ids is not None else False,
         # A row at a company the user stopped following: reachable as Saved or
         # by id, and not checked any more. False unless told.

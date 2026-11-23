@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ApplicationCalendarItem } from "../../api";
-import { dayKey, fromDayKey, itemsByDay, monthSpan, monthWeeks, shiftDay, shiftMonth, sixWeeks } from "./monthGrid";
+import { dayKey, dueFromDay, fromDayKey, itemsByDay, monthSpan, monthWeeks, shiftDay, shiftMonth, sixWeeks } from "./monthGrid";
 
 /* The month grid's contracts: Monday-first whole weeks that cover the month
  * and nothing past its last week, a read span the API accepts for any month,
@@ -88,7 +88,7 @@ describe("monthSpan", () => {
 describe("itemsByDay", () => {
   const item = (at: Date, label: string): ApplicationCalendarItem => ({
     kind: "interview", job_id: 1, at: at.toISOString(), interview_id: 1, label, all_day: false,
-    format: null, outcome: null,
+    format: null, link: null, outcome: null,
   });
 
   it("files an item under the reader's own day, late evening included", () => {
@@ -115,5 +115,17 @@ describe("day keys", () => {
   it("a day shifted across a month's end lands on the next month", () => {
     expect(dayKey(shiftDay(new Date(2026, 10, 30), 1))).toBe("2026-12-01");
     expect(dayKey(shiftDay(new Date(2026, 0, 1), -1))).toBe("2025-12-31");
+  });
+});
+
+describe("dueFromDay", () => {
+  it("is the end of the picked day in the reader's zone, so a step due today is not late this morning", () => {
+    const due = new Date(dueFromDay("2026-11-04"));
+    expect([due.getFullYear(), due.getMonth(), due.getDate(), due.getHours(), due.getMinutes()]).toEqual([2026, 10, 4, 23, 59]);
+    expect(due.getTime()).toBeGreaterThan(new Date(2026, 10, 4, 10, 0).getTime());
+  });
+
+  it("reads back as the day it was made from", () => {
+    expect(dayKey(new Date(dueFromDay("2026-03-29")))).toBe("2026-03-29");
   });
 });

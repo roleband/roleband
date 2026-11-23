@@ -31,6 +31,7 @@ import {
   errorApplicationNotFound,
   errorCommentNotFound,
   errorInterviewNotFound,
+  errorStepNotFound,
   errorCareersPageRefused,
   errorCareersPageUnreachable,
   errorCompanyConflict,
@@ -67,6 +68,7 @@ import {
   errorUsageCatalogueChanged,
   errorCommentNotYours,
   errorApplicationUnderWay,
+  errorNotesMoved,
 } from "../copy/gen/errors";
 import { ApiError, type ErrorCode, type ErrorParams } from "./transport";
 
@@ -104,6 +106,7 @@ const BY_CODE: Record<ErrorCode, (params: ErrorParams) => string> = {
   "application-not-found": () => errorApplicationNotFound(),
   "comment-not-found": () => errorCommentNotFound(),
   "interview-not-found": () => errorInterviewNotFound(),
+  "step-not-found": () => errorStepNotFound(),
   "plugin-not-found": () => errorPluginNotFound(),
   "plugin-not-runnable": () => errorPluginNotRunnable(),
   "plugin-running": () => errorPluginRunning(),
@@ -150,6 +153,7 @@ const BY_CODE: Record<ErrorCode, (params: ErrorParams) => string> = {
   "usage-catalogue-changed": () => errorUsageCatalogueChanged(),
   "comment-not-yours": () => errorCommentNotYours(),
   "application-under-way": () => errorApplicationUnderWay(),
+  "notes-moved": () => errorNotesMoved(),
   aborted: () => errorGeneric(),
   unknown: () => errorGeneric(),
 };

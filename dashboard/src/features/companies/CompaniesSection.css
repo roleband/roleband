@@ -282,7 +282,7 @@
 }
 
 /* Same reflow, same fix: bolding the current sector would shift its own
-   count. The current sector is CHOSEN: gold wash, gold name, like a tab. */
+   count. The current sector is CHOSEN: the chosen wash and name, like a tab. */
 .ledger-index button[aria-current="true"] {
   background: var(--app-chosen-wash);
   color: var(--app-chosen-text);

@@ -22,7 +22,7 @@ from __future__ import annotations
 import base64
 import binascii
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 
 from pydantic import (
@@ -40,12 +40,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.agents.activity import Changed, FieldChange, Said
+from tracker.agents.applications import pursuit_marks
 from tracker.agents.operations.descriptor import EngineEffects, OperationDescriptor, Shape, ToolTier
 from tracker.agents.operations.envelope import NextAction, OperationError
 from tracker.agents.pursuits import (
+    UNCHOSEN_PRIORITY,
     PursuitListKey,
     PursuitStage,
     PursuitUpdate,
+    StepNeedsWords,
     list_pursuits,
     lock_role_writes,
     public_pursuit,
@@ -53,7 +56,6 @@ from tracker.agents.pursuits import (
 )
 from tracker.agents.receipts import RevisionConflict
 from tracker.db.models import Job, Pursuit
-from tracker.notifications.pursuit_due import generate_pursuit_due_notifications
 
 _CODE: JsonDict = {"x-text": "code"}
 _IDENTIFIER: JsonDict = {"x-text": "identifier"}
@@ -64,7 +66,9 @@ _EVERY_TIER: tuple[ToolTier, ...] = ("small", "standard", "full")
 DEFAULT_LIMIT = 50
 MAX_LIMIT = 100
 #: The cursor's own format; a cursor of another format is refused, never guessed at.
-_CURSOR_FORMAT = 1
+#: A cursor's priority is the rank `list_pursuits` orders by; format 1 held the
+#: stored number, which a pursuit with no priority chosen does not rank by.
+_CURSOR_FORMAT = 2
 
 
 class PursuitState(Shape):
@@ -73,6 +77,7 @@ class PursuitState(Shape):
     #: The opportunity this pursuit is about: the id every pursuit operation takes.
     opportunity_id: int
     stage: PursuitStage = Field(json_schema_extra=_CODE)
+    #: 5 Urgent, 4 High, 3 Medium, 2 Low, 1 No priority.
     priority: int = Field(ge=1, le=5)
     #: The person's own notes. Text an agent wrote here earlier reads back too.
     notes: str | None = Field(json_schema_extra=_CONTENT)
@@ -102,9 +107,62 @@ class PursuedOpportunity(Shape):
     url: str = Field(json_schema_extra=_IDENTIFIER)
 
 
+class PursuitRound(Shape):
+    """An interview round, as the pipeline's card names it."""
+
+    id: int
+    label: str = Field(json_schema_extra=_CONTENT)
+    scheduled_at: datetime
+    all_day: bool
+    format: Literal["video", "phone", "onsite"] | None = Field(json_schema_extra=_CODE)
+    #: Where the round is held: a call's address, as the person entered it.
+    link: str | None = Field(json_schema_extra=_IDENTIFIER)
+
+
+class PursuitNextStep(Shape):
+    """One next step the person owes: `steps.edit`, `steps.done` and
+    `steps.undo` take its id."""
+
+    id: int
+    text: str = Field(json_schema_extra=_CONTENT)
+    #: The day it is due by; none for a step with no day.
+    due: datetime | None
+    created_at: datetime
+    #: When it was ticked done; none while it is open.
+    done_at: datetime | None
+
+
 class PursuitItem(PursuitState):
+    #: Every open next step, soonest first; steps with no day last, in the
+    #: order added. `next_action` and `next_action_due` are the first of them.
+    steps: list[PursuitNextStep]
+    #: The soonest round with no outcome, until twelve hours after it began.
+    next_interview: PursuitRound | None
+    #: The latest round that has taken place with no outcome given: a timed
+    #: round once it began, an all-day round once its day is over. In the
+    #: hours after it began it is also `next_interview`.
+    awaiting_outcome: PursuitRound | None
+    #: False until a priority is chosen for the pursuit: read its priority as
+    #: no priority until then, whatever the stored number.
+    priority_set: bool
     #: Absent when the person does not share postings with assistants.
     opportunity: PursuedOpportunity | MISSING = MISSING
+
+    @model_validator(mode="before")
+    @classmethod
+    def _from_one_step_receipt(cls, data: Any) -> Any:
+        """A write's receipt keeps the result it answered, and one answered
+        under the one-step contract names none of the steps, the rounds or the
+        priority mark; a same-key retry replays it with none of them, its
+        priority read as chosen, as that contract read every priority. A
+        result that names any of them must name all."""
+        if isinstance(data, dict) and not data.keys() & _STEP_CONTRACT_FIELDS:
+            return {**data, "steps": [], "next_interview": None, "awaiting_outcome": None, "priority_set": True}
+        return data
+
+
+#: What a pursuit's answer gained with several next steps per role.
+_STEP_CONTRACT_FIELDS = frozenset({"steps", "next_interview", "awaiting_outcome", "priority_set"})
 
 
 class PursuitListInput(Shape):
@@ -132,7 +190,7 @@ class PursuitGetInput(Shape):
 
 PURSUITS_LIST = OperationDescriptor(
     id="pursuits.list",
-    summary="List the pursuits with their stage, priority, notes and next action, by priority.",
+    summary="List the pursuits with their stage, priority, notes and next action, the most urgent first.",
     input=PursuitListInput,
     result=PursuitList,
     access="read",
@@ -179,7 +237,10 @@ class PursuitSaveInput(Shape):
     # default stands for "not given", and an explicit null is refused below.
     priority: _Priority | SkipJsonSchema[None] = Field(
         default=None,
-        description="1 to 5. A new pursuit starts at 3; an existing one keeps its own unless this is given.",
+        description=(
+            "5 Urgent, 4 High, 3 Medium, 2 Low, 1 No priority. A new pursuit has no priority chosen; "
+            "an existing one keeps its own unless this is given."
+        ),
     )
     if_revision: Annotated[int, Field(ge=0)] | SkipJsonSchema[None] = Field(
         default=None,
@@ -195,7 +256,9 @@ class PursuitPatchInput(Shape):
     stage: PursuitStage | SkipJsonSchema[None] = Field(
         default=None, json_schema_extra=_CODE, description="The new stage. Cannot be null."
     )
-    priority: _Priority | SkipJsonSchema[None] = Field(default=None, description="1 to 5. Cannot be null.")
+    priority: _Priority | SkipJsonSchema[None] = Field(
+        default=None, description="5 Urgent, 4 High, 3 Medium, 2 Low, 1 No priority. Cannot be null."
+    )
     notes: str | None = Field(
         default=None, max_length=20_000, json_schema_extra=_CONTENT,
         description="Replaces the notes. null clears them; leave the field out to keep them.",
@@ -324,10 +387,13 @@ async def pursuit_page(
         session, stage=params.stage, limit=params.limit + 1, after=after, with_revision=True
     )
     page, more = rows[: params.limit], len(rows) > params.limit
-    next_cursor = (
-        encode_cursor(workspace_id=workspace_id, stage=params.stage, last=page[-1]) if more and page else None
-    )
-    items = [item_of(agent_fields(row), postings=postings) for row in page]
+    marks = await pursuit_marks(session, [row["id"] for row in page], now=datetime.now(UTC))
+    next_cursor = None
+    if more and page:
+        last = page[-1]
+        rank = last["priority"] if marks[last["id"]]["priority_set"] else UNCHOSEN_PRIORITY
+        next_cursor = encode_cursor(workspace_id=workspace_id, stage=params.stage, last={**last, "priority": rank})
+    items = [item_of({**agent_fields(row), **marks[row["id"]]}, postings=postings) for row in page]
     return PursuitList(count=len(items), items=items), next_cursor
 
 
@@ -344,7 +410,7 @@ async def pursuit_of(session: AsyncSession, opportunity_id: int, *, postings: bo
             details={"opportunity_id": opportunity_id},
         )
     pursuit, job = row
-    return item_of(state_of(pursuit, job), postings=postings)
+    return await pursuit_item(session, pursuit, job, postings=postings)
 
 
 def item_of(fields: dict[str, Any], *, postings: bool) -> PursuitItem:
@@ -371,6 +437,11 @@ def agent_fields(fields: dict[str, Any]) -> dict[str, Any]:
 def state_of(pursuit: Pursuit, job: Job | None = None) -> dict[str, Any]:
     """A pursuit's agent fields and its revision, from one read of its row."""
     return agent_fields({**public_pursuit(pursuit, job), "revision": pursuit.revision})
+
+
+async def pursuit_item(session: AsyncSession, pursuit: Pursuit, job: Job | None, *, postings: bool = True) -> PursuitItem:
+    marks = await pursuit_marks(session, [pursuit.id], now=datetime.now(UTC))
+    return item_of({**state_of(pursuit, job), **marks[pursuit.id]}, postings=postings)
 
 
 def reread(opportunity_id: int) -> list[NextAction]:
@@ -408,10 +479,13 @@ async def _write(
         if conflict.current != 0:
             raise
         raise no_pursuit(opportunity_id, conflict.expected) from None
-    # A reminder follows its pursuit in the same transaction, as every pursuit write's does.
-    await generate_pursuit_due_notifications(session)
+    except StepNeedsWords as refused:
+        raise OperationError(
+            "invalid_input", f"{refused}. Send next_action with it, or add a step with steps.add.",
+            details={"field": "next_action", "reason": "missing"},
+        ) from None
     job = await session.get(Job, opportunity_id)
-    return PursuitItem.model_validate(state_of(pursuit, job))
+    return await pursuit_item(session, pursuit, job)
 
 
 async def save_pursuit(session: AsyncSession, params: PursuitSaveInput, *, actor: Literal["agent"]) -> PursuitItem:
@@ -446,7 +520,7 @@ class PursuitActivity:
         )
         if pursuit is None:
             return None
-        return PursuitItem.model_validate(state_of(pursuit)).model_dump(mode="json", include=set(PATCH_FIELDS))
+        return PursuitState.model_validate(state_of(pursuit)).model_dump(mode="json", include=set(PATCH_FIELDS))
 
     def entry(self, before: Any, result: BaseModel) -> Changed:
         if not isinstance(result, PursuitItem):

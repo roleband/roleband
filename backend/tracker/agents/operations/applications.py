@@ -29,6 +29,7 @@ from tracker.agents.operations import cursor
 from tracker.agents.operations.descriptor import EngineEffects, OperationDescriptor, Shape, ToolTier
 from tracker.agents.operations.envelope import OperationError
 from tracker.agents.operations.offer import fitting, size_of
+from tracker.agents.operations.pursuits import PursuitNextStep
 from tracker.agents.operations.search import PAGE_BUDGET_BYTES
 from tracker.agents.pursuits import PursuitStage
 
@@ -50,6 +51,8 @@ class BoardNextInterview(Shape):
     scheduled_at: datetime
     all_day: bool
     format: InterviewFormat | None = Field(json_schema_extra=_CODE)
+    #: Where the round is held: a call's address, as the person entered it.
+    link: str | None = Field(json_schema_extra=_IDENTIFIER)
 
 
 class BoardCard(Shape):
@@ -58,7 +61,11 @@ class BoardCard(Shape):
     job_id: int
     pursuit_id: int | None
     stage: PursuitStage = Field(json_schema_extra=_CODE)
+    #: 5 Urgent, 4 High, 3 Medium, 2 Low, 1 No priority.
     priority: int
+    #: False until a priority is chosen: read the role as having none, whatever
+    #: the stored number.
+    priority_set: bool
     #: False for a role moved past Considering whose star was later taken away.
     starred: bool
     #: The posting's facts; the four are absent when the person does not share postings.
@@ -66,10 +73,16 @@ class BoardCard(Shape):
     title: str | MISSING = Field(default=MISSING, json_schema_extra=_CONTENT)
     level_band: str | None | MISSING = Field(default=MISSING, json_schema_extra=_CODE)
     posting_status: str | MISSING = Field(default=MISSING, json_schema_extra=_CODE)
+    #: The first of `steps`.
     next_action: str | None = Field(json_schema_extra=_CONTENT)
     next_action_due: datetime | None
+    #: Every open next step, soonest first; steps with no day last, in the order added.
+    steps: list[PursuitNextStep]
     #: The soonest round with no outcome, until twelve hours after it began.
     next_interview: BoardNextInterview | None
+    #: The latest round that has taken place with no outcome given. In the
+    #: hours after it began it is also `next_interview`.
+    awaiting_outcome: BoardNextInterview | None
     comment_count: int
     #: When the application entered its current stage.
     stage_since: datetime | None
@@ -103,12 +116,15 @@ class CalendarInterviewEntry(Shape):
     label: str = Field(json_schema_extra=_CONTENT)
     all_day: bool
     format: InterviewFormat | None = Field(json_schema_extra=_CODE)
+    link: str | None = Field(json_schema_extra=_IDENTIFIER)
     outcome: InterviewOutcome | None = Field(json_schema_extra=_CODE)
 
 
 class CalendarStepEntry(Shape):
     kind: Literal["step"] = Field(json_schema_extra=_CODE)
     job_id: int
+    #: The id `steps.edit` and `steps.done` take.
+    step_id: int
     #: The day the step is due by.
     at: datetime
     step: str = Field(json_schema_extra=_CONTENT)

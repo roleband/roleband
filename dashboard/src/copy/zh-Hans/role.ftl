@@ -41,11 +41,10 @@ role-job-description-no-description-captured = 这个职位没有描述。
 role-job-detail-back = 返回
 role-job-detail-1-in-compare-pick-one = 对比中 1 个 · 再选一个
 role-job-detail-compare-roles = 对比 { $compareCount } 个职位
-role-job-detail-view-apply = 查看并申请
+role-job-detail-view-apply = 申请
 role-job-detail-postings = { $lineage_size } 条招聘信息
 role-job-detail-reposted = 重新发布 ×{ $repost_count }
 role-job-detail-description = 职位描述
-role-job-detail-view-posting = 查看招聘信息
 role-job-detail-details = 详情
 role-job-detail-team = 团队
 role-job-detail-workplace = 办公方式
@@ -59,6 +58,10 @@ role-job-detail-role = { $choice ->
    *[no] 职位
 }
 role-job-detail-back-2 = 返回
+role-job-detail-back-to = 返回{ $view }
+role-job-detail-tabs = 职位和工作区
+role-job-detail-tab-posting = 职位
+role-job-detail-tab-workspace = 工作区
 role-job-detail-compare-is-full-max = 对比已满：最多 { $compareCap } 个
 role-job-detail-compare = { $choice ->
     [yes] 对比中

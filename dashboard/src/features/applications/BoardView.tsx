@@ -1,6 +1,7 @@
-import { useCallback, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { ApplicationCard } from "../../api";
 import { STAGE_LABEL } from "../../copy/vocabulary";
+import { useViewChoices } from "../../hooks/viewChoices";
 import { AsyncBoundary, Button, Icon, Menu, MenuGroup, MenuItem } from "../../ui";
 import {
   applicationsBoardLoadFailed,
@@ -21,8 +22,10 @@ import { VIEW_FILTERS, isFiltering, matches, quickCounts } from "./filters";
 import { beside, useFocusAfter } from "./focusAfter";
 import { NoMatches, PipelineEmpty } from "./PipelineEmpty";
 import { PipelineToolbar } from "./PipelineToolbar";
+import { StageRing } from "./StageRing";
 import type { useBoardController } from "./useBoardController";
 import { useCardDrag } from "./useCardDrag";
+import { usePageScrollsFirst } from "./usePageScrollsFirst";
 import { stepColumns, useScrollEdges } from "./useScrollEdges";
 import { useStageAsk } from "./useStageAsk";
 import { useViewFilter } from "./useViewFilter";
@@ -76,8 +79,12 @@ export function BoardView({ board, now }: {
 }) {
   const { cards, resource, move, remove } = board;
   const [filter, setFilter] = useViewFilter("board");
-  const [hidden, setHiddenState] = useState<ColumnId[]>(readHiddenColumns);
-  const groups = byStage(cards, now);
+  // Read each render from the view choices, so a read that answers after the
+  // board drew hides the columns the person hid.
+  useViewChoices();
+  const hidden = readHiddenColumns();
+  const groups = useMemo(() => byStage(cards, now), [cards, now]);
+  const counts = useMemo(() => quickCounts(cards, now, VIEW_FILTERS.board), [cards, now]);
   const filtering = isFiltering(filter);
   const highlight = filter.mode === "highlight";
   /** Cards that do not match leave the board, rather than fade. */
@@ -86,10 +93,7 @@ export function BoardView({ board, now }: {
   /** The filters leave nothing on the whole board: one line says so above
    *  it, in place of a "No matches." in every column. */
   const nothingMatches = narrowed && cards.length > 0 && !cards.some(hits);
-  const setHidden = (next: ColumnId[]) => {
-    writeHiddenColumns(next);
-    setHiddenState(next);
-  };
+  const setHidden = (next: ColumnId[]) => writeHiddenColumns(next);
 
   // A card that leaves its column takes focus with it: the moved card's menu
   // takes it in its new column, or, where it is not drawn (a hidden column, a
@@ -101,6 +105,7 @@ export function BoardView({ board, now }: {
     setScrollNode(node);
   }, []);
   const edges = useScrollEdges(scrollNode);
+  usePageScrollsFirst(scrollNode);
   const focusAfter = useFocusAfter();
   const besideCard = (jobId: number) => {
     const tile = scroller.current?.querySelector(`.app-tile[data-job-id="${jobId}"]`);
@@ -151,7 +156,7 @@ export function BoardView({ board, now }: {
       <PipelineToolbar
         filter={filter}
         onFilter={setFilter}
-        quickCounts={quickCounts(cards, now, VIEW_FILTERS.board)}
+        quickCounts={counts}
         columns={{
           all: COLUMNS.map((column) => ({ id: column.id, name: columnName(column.id), count: columnTotal(column) })),
           hidden,
@@ -194,6 +199,7 @@ export function BoardView({ board, now }: {
                         data-drop-target={!sectioned && landing != null && column.stages.includes(landing) ? "" : undefined}
                       >
                         <div className="app-column-head">
+                          <StageRing stage={column.stages[0]} />
                           <h2 id={`app-column-${column.id}`} className="app-column-name">{name}</h2>
                           <span className="app-column-count">
                             {filtering ? applicationsColumnCountOf({ count: matched, total: all }) : all}

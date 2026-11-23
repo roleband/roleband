@@ -8,15 +8,15 @@ import { forgetTurnSpeed, turnPosting, useHeld, useShownPosting } from "./postin
 const first: Job = { ...jobFixture, id: 101, title: "First" };
 const second: Job = { ...jobFixture, id: 202, title: "Second" };
 
-type Inputs = { fresh: Job | null; wanted: number; loading: boolean; failed?: boolean; place?: number | null; returning?: boolean };
+type Inputs = { fresh: Job | null; wanted: number; loading: boolean; failed?: boolean; returning?: boolean };
 
 /** The hook over a real scroll box, as the posting screen uses it. */
 function shownPosting(initial: Inputs) {
   const box = { current: document.createElement("div") };
   document.body.appendChild(box.current);
   const hook = renderHook(
-    ({ fresh, wanted, loading, failed = false, place = null, returning = false }: Inputs) =>
-      useShownPosting(fresh, { wanted, loading, failed, place, box, returning }),
+    ({ fresh, wanted, loading, failed = false, returning = false }: Inputs) =>
+      useShownPosting(fresh, { wanted, loading, failed, box, returning }),
     { initialProps: initial },
   );
   return { ...hook, box: box.current };
@@ -53,7 +53,7 @@ describe("useShownPosting", () => {
     expect(box.scrollTop).toBe(0);
   });
 
-  it("a posting gone back to opens where it was left; one stepped to again opens at its top", async () => {
+  it("a posting gone back to opens where it was left; one opened again by a link opens at its top", async () => {
     const { result, rerender, box } = shownPosting({ fresh: first, wanted: 101, loading: false });
     const turnTo = async (inputs: Inputs) => {
       await act(async () => {
@@ -96,18 +96,18 @@ describe("useShownPosting", () => {
     expect(result.current.job).toBeNull();
   });
 
-  it("steps along the list the way the list runs, and opens a link with no way", async () => {
-    const ways: string[] = [];
+  it("turns to a posting opened by a link on the one on show, and leaves nothing on the root", async () => {
+    const marks: (string | undefined)[] = [];
     Object.defineProperty(document, "startViewTransition", {
       configurable: true,
       value: (update: () => Promise<void>) => {
-        ways.push(document.documentElement.dataset.postingTurn ?? "none");
+        marks.push(document.documentElement.dataset.postingTurn);
         const done = Promise.resolve().then(update);
         return { ready: done, finished: done, updateCallbackDone: done, skipTransition: () => undefined };
       },
     });
     const third: Job = { ...jobFixture, id: 303, title: "Third" };
-    const { result, rerender } = shownPosting({ fresh: first, wanted: 101, loading: false, place: 4 });
+    const { result, rerender } = shownPosting({ fresh: first, wanted: 101, loading: false });
     const turnTo = async (inputs: Inputs) => {
       vi.useFakeTimers();
       rerender(inputs);
@@ -116,11 +116,9 @@ describe("useShownPosting", () => {
       });
       vi.useRealTimers();
     };
-    await turnTo({ fresh: second, wanted: 202, loading: false, place: 5 });
-    await turnTo({ fresh: first, wanted: 101, loading: false, place: 4 });
-    // Opened from a link on the posting: it has no place in a list.
-    await turnTo({ fresh: third, wanted: 303, loading: false, place: null });
-    expect(ways).toEqual(["next", "previous", "open"]);
+    await turnTo({ fresh: second, wanted: 202, loading: false });
+    await turnTo({ fresh: third, wanted: 303, loading: false });
+    expect(marks, "each change of posting is one turn, marked for its styles").toEqual(["open", "open"]);
     expect(result.current.job).toBe(third);
     expect(document.documentElement.dataset.postingTurn, "nothing left on the root").toBeUndefined();
   });
@@ -141,7 +139,7 @@ describe("turnPosting", () => {
     const box = document.body.appendChild(document.createElement("div"));
     const other = document.body.appendChild(document.createElement("div"));
     const commit = vi.fn();
-    turnPosting(box, "next", commit);
+    turnPosting(box, commit);
     expect(box.style.getPropertyValue("view-transition-name")).toBe("posting");
     expect(other.style.getPropertyValue("view-transition-name")).toBe("");
     expect(commit, "the document changes inside the turn").not.toHaveBeenCalled();
@@ -172,7 +170,7 @@ describe("turnPosting", () => {
     });
     const box = document.body.appendChild(document.createElement("div"));
     const commit = vi.fn();
-    const cancel = turnPosting(box, "next", commit);
+    const cancel = turnPosting(box, commit);
     cancel();
     expect(skipped).toEqual([0]);
     await updates[0]();
@@ -191,7 +189,7 @@ describe("turnPosting", () => {
       },
     });
     const commit = vi.fn();
-    const cancel = turnPosting(document.body.appendChild(document.createElement("div")), "next", commit);
+    const cancel = turnPosting(document.body.appendChild(document.createElement("div")), commit);
     vi.useFakeTimers();
     const updated = update!();
     // What React does when the change is drawn: the effect that began the turn cleans up.
@@ -218,11 +216,11 @@ describe("turnPosting", () => {
     const box = document.body.appendChild(document.createElement("div"));
     vi.useFakeTimers();
     // Begun on time: the next one is a turn too.
-    turnPosting(box, "next", () => undefined);
+    turnPosting(box, () => undefined);
     vi.advanceTimersByTime(20);
     void update!();
     await vi.runAllTimersAsync();
-    turnPosting(box, "next", () => undefined);
+    turnPosting(box, () => undefined);
     expect(started).toHaveBeenCalledTimes(2);
     // Two seconds with nothing running, not even the timer that guards the turn.
     vi.setSystemTime(Date.now() + 2000);
@@ -233,7 +231,7 @@ describe("turnPosting", () => {
     vi.useRealTimers();
 
     const commit = vi.fn();
-    turnPosting(box, "next", commit);
+    turnPosting(box, commit);
     expect(started, "no third turn was asked for").toHaveBeenCalledTimes(2);
     expect(commit, "the posting changes at once").toHaveBeenCalledTimes(1);
   });
@@ -248,7 +246,7 @@ describe("turnPosting", () => {
       },
     });
     vi.useFakeTimers();
-    turnPosting(document.body.appendChild(document.createElement("div")), "open", () => undefined);
+    turnPosting(document.body.appendChild(document.createElement("div")), () => undefined);
     vi.advanceTimersByTime(150);
     expect(skip).not.toHaveBeenCalled();
     vi.advanceTimersByTime(100);
@@ -258,7 +256,7 @@ describe("turnPosting", () => {
 
   it("with no view transitions, changes the posting at once", () => {
     const commit = vi.fn();
-    turnPosting(document.body.appendChild(document.createElement("div")), "next", commit);
+    turnPosting(document.body.appendChild(document.createElement("div")), commit);
     expect(commit).toHaveBeenCalledTimes(1);
   });
 
@@ -279,7 +277,7 @@ describe("turnPosting", () => {
     gone.focus();
     expect(document.activeElement).toBe(gone);
 
-    turnPosting(box, "next", () => gone.remove());
+    turnPosting(box, () => gone.remove());
     await Promise.resolve();
 
     expect(document.activeElement).toBe(holder);
@@ -290,15 +288,15 @@ describe("turnPosting", () => {
     holder.className = "cover";
     holder.tabIndex = -1;
     const box = holder.appendChild(document.createElement("div"));
-    // The pager lives in the bar, outside the reading area and inside the
+    // A control in the bar sits outside the reading area and inside the
     // cover: it survives the turn, so it keeps the keyboard.
-    const pager = holder.appendChild(document.createElement("button"));
-    pager.focus();
+    const barButton = holder.appendChild(document.createElement("button"));
+    barButton.focus();
 
-    turnPosting(box, "next", () => undefined);
+    turnPosting(box, () => undefined);
     await Promise.resolve();
 
-    expect(document.activeElement).toBe(pager);
+    expect(document.activeElement).toBe(barButton);
   });
 });
 

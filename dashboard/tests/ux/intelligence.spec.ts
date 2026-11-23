@@ -350,6 +350,9 @@ test("assistants: one switch lets apps connect, and Customize holds back the res
       const b = (await box)!;
       return b.x + b.width / 2;
     };
+    // The dialog grows in as it opens: read positions once it has settled, or
+    // two readings land on different frames of its scale.
+    await expect.poll(() => customize.evaluate((el) => el.getAnimations().every((one) => one.playState === "finished"))).toBe(true);
     const heading = await centre(customize.getByRole("columnheader", { name: msg("ai-access-dialog-not-shared") }).boundingBox());
     const offer = await centre(customize.getByRole("radio", { name: offerKept }).boundingBox());
     expect(Math.abs(heading - offer)).toBeLessThan(3);

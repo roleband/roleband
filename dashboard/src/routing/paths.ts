@@ -29,6 +29,16 @@ export function coverBackground(location: { pathname: string; state: unknown }):
 
 export const COMPARE_ROUTE = "/compare";
 
+/** The Pipeline view a role was opened over, or null. A role opened from
+ *  Considering, the Board or Up next is a page of the Pipeline: it opens
+ *  beside the rail, which keeps the view marked, rather than over the whole
+ *  window as a posting opened from the Radar does. */
+export function pipelineViewUnder(location: { pathname: string; state: unknown }): string | null {
+  if (!positionKey(location.pathname)) return null;
+  const under = (location.state as { backgroundLocation?: { pathname?: unknown } } | null)?.backgroundLocation?.pathname;
+  return typeof under === "string" && under.startsWith("/pipeline/") ? under : null;
+}
+
 /** Settings › AI › Activity: what connected assistant apps read, changed and were refused. */
 export const ACTIVITY_ROUTE = "/settings/intelligence/activity";
 

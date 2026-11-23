@@ -96,7 +96,7 @@ export type {
 } from "./companies";
 export type { Notification, NotificationList, NotificationParams } from "./notifications";
 export type {
-  DecoderCell, LocaleSettings, ProfileState, RetentionChoice, RetentionState, RetentionUpdate,
+  DecoderCell, LocaleSettings, ProfileState, RetentionChoice, RetentionState, RetentionUpdate, ViewChoices,
   PlaceResult, PlaceSearch, ScopeAxes, ScopeCatalog, ScopeCatalogCompany, ScopePreview, ScopeCategory, ScopeCells,
   ScopeDomain, ScopeLevel, ScopeLocation, ScopeRefreshResult, ScopeRoleGroup, ScopeRule, UnionResult,
   ScopeRulePayload, ScopeSettingsPayload, ScopeSettingsSaveResult, ScopeTrack,
@@ -113,13 +113,18 @@ export type {
 } from "./intelligence";
 export type {
   ActivityItem,
+  NotesVersion,
   ApplicationBoard,
   ApplicationCalendarItem,
   ApplicationCard,
+  ApplicationCardInterview,
   ApplicationDetail,
   ApplicationInterview,
+  ApplicationStep,
   InterviewUpdate,
   InterviewWrite,
+  StepUpdate,
+  StepWrite,
 } from "./applications";
 export type {
   OfferAnswers, OfferDraft, OfferStep, ValuationDraft,

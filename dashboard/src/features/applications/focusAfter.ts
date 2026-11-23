@@ -44,3 +44,13 @@ export function beside(item: Element | null | undefined, items: Iterable<Element
   const other = all[at + 1] ?? all[at - 1];
   return other?.querySelector<HTMLElement>(control) ?? null;
 }
+
+/** A field that takes focus when the form around it opens, so the person
+ *  types where they asked to. */
+export function useFocusWhen<T extends HTMLElement>(open: boolean) {
+  const ref = useRef<T>(null);
+  useEffect(() => {
+    if (open) ref.current?.focus();
+  }, [open]);
+  return ref;
+}

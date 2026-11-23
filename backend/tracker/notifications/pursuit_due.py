@@ -1,11 +1,12 @@
-"""Overdue follow-ups on active pursuits (`pursuits.next_action_due`).
+"""Overdue next steps on active pursuits (`pursuit_steps.due`).
 
 The one notification whose absence costs the user an opportunity: a follow-up
 they owe and forgot.
 
 Reconciled, not appended. Each pass rewrites the set of open `pursuit_due` rows
-to match reality: overdue pursuits get a row, pursuits that are not overdue any
-more (actioned, rescheduled, or advanced to a terminal stage) lose theirs. That is
+to match reality: each overdue open step gets a row, and a step that is not
+overdue any more (ticked, rescheduled, removed, or its pursuit advanced to a
+terminal stage) loses its own. That is
 what makes it safe to run on every scrape -- the alternative, insert-and-dedupe,
 would leave a stale "3d overdue" row standing after the user had already done the
 thing, and an alert that outlives its cause is worse than no alert.
@@ -19,19 +20,13 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import DateTime, and_, cast, delete, not_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracker.db.models import Job, Notification, Pursuit
+from tracker.db.models import OWES_NOTHING, Job, Notification, Pursuit, PursuitStep
 from tracker.db.queries.companies import display_names
 from tracker.notifications import say as S
 from tracker.notifications.channels import deliver
 from tracker.notifications.events import ClassifiedNotif, _said
 from tracker.notifications.render import company_namer
 from tracker.platform.locks import advisory_xact_lock
-
-#: Stages where a follow-up is not owed, from the stage vocabulary in
-#: `agents/pursuits.py::PursuitStage`. `offer` is deliberately NOT terminal:
-#: an outstanding offer is the point at which a missed follow-up costs the most.
-#: Nor is `accepted`: signing and a start date still carry dates the user set.
-TERMINAL_STAGES = frozenset({"declined", "withdrawn", "rejected", "role_closed"})
 
 
 def classify_pursuit_due(
@@ -101,18 +96,24 @@ def classify_pursuit_quiet(
 
 
 def overdue_pursuit_clause(now: datetime):
-    """One definition of "a follow-up is owed", for every surface that counts them.
+    """One definition of "a follow-up is owed", for every surface that counts
+    pursuits that owe one.
 
     Three decisions live in here and none of them is obvious enough to restate:
-    a pursuit with no `next_action_due` owes nothing; `<=` means a follow-up due
-    exactly now IS owed; and `offer` is not terminal. Every counter, the agent
-    radar summary included, reads it here, so none can miss the overdue
-    follow-up the product considers most expensive.
+    a pursuit with no `next_action_due` (or no words) owes nothing; `<=` means a follow-up due
+    exactly now IS owed; and `offer` is not terminal. `next_action_due` is the
+    pursuit's soonest open step, so a pursuit owes one exactly when any of its
+    open steps is overdue. Every counter, the agent radar summary included,
+    reads it here, so none can miss the overdue follow-up the product
+    considers most expensive.
     """
     return and_(
+        # A day with no words is not a step, so it is never owed.
+        Pursuit.next_action.isnot(None),
+        Pursuit.next_action != "",
         Pursuit.next_action_due.isnot(None),
         Pursuit.next_action_due <= now,
-        Pursuit.stage.not_in(TERMINAL_STAGES),
+        Pursuit.stage.not_in(OWES_NOTHING),
     )
 
 
@@ -140,10 +141,11 @@ PURSUIT_DUE_LOCK_KEY = 91246
 async def generate_pursuit_due_notifications(
     session: AsyncSession, *, names: dict[str, str] | None = None
 ) -> int:
-    """Reconcile `pursuit_due` rows against currently-overdue pursuits.
+    """Reconcile `pursuit_due` rows against the open steps now overdue, one row
+    per step (`source_type` "step").
 
-    Callers: every run's finalization, every pursuit write (HTTP
-    and agent, in the write's transaction, so ending a pursuit retracts its
+    Callers: every run's finalization, every pursuit write (`_write_pursuit`,
+    in the write's transaction, so ending a pursuit retracts its
     reminder with the write), and the scheduler's idle tick, so a follow-up
     that falls due rings with no scan. Serialized by `PURSUIT_DUE_LOCK_KEY`.
     `names` is the register's `slug -> display`, read here when not passed.
@@ -153,43 +155,54 @@ async def generate_pursuit_due_notifications(
 
     rows = (
         await session.execute(
-            select(Pursuit, Job)
+            select(PursuitStep, Pursuit, Job)
+            .join(Pursuit, Pursuit.id == PursuitStep.pursuit_id)
             .join(Job, Job.id == Pursuit.job_id)
-            .where(overdue_pursuit_clause(now))
-            .order_by(Pursuit.next_action_due.asc())
+            .where(
+                PursuitStep.done_at.is_(None),
+                PursuitStep.due.isnot(None),
+                PursuitStep.due <= now,
+                Pursuit.stage.not_in(OWES_NOTHING),
+            )
+            .order_by(PursuitStep.due.asc(), PursuitStep.id.asc())
         )
     ).all()
 
-    overdue_ids = {pursuit.id for pursuit, _ in rows}
+    overdue_ids = {step.id for step, _, _ in rows}
     if names is None and rows:
         names = await display_names(session)
 
-    # Retract first. A pursuit that was actioned since the last pass must lose
+    # Retract first. A step that was actioned since the last pass must lose
     # its row in the same transaction that would otherwise re-assert it.
-    stale = delete(Notification).where(Notification.source_type == "pursuit")
+    stale = delete(Notification).where(Notification.source_type == "step")
     if overdue_ids:
         stale = stale.where(Notification.source_id.not_in(overdue_ids))
     await session.execute(stale)
+    # A reminder raised for a whole pursuit, before steps had rows of their own,
+    # and not carried onto a step: it stands for no step, so it is retracted.
+    await session.execute(
+        delete(Notification).where(Notification.source_type == "pursuit", Notification.category == "pursuit_due")
+    )
 
     written = 0
-    for pursuit, job in rows:
-        # In UTC, as the database answers it: a pursuit written in this
+    for step, pursuit, job in rows:
+        # In UTC, as the database answers it: a step written in this
         # transaction still holds the offset its writer sent, and the same
         # instant must give the same `due_at` on every pass.
-        due = pursuit.next_action_due.astimezone(UTC) if pursuit.next_action_due else None
+        due = step.due.astimezone(UTC) if step.due else None
         days_overdue = max(0, (now - due).days) if due else 0
         classified = classify_pursuit_due(
-            job.company, job.title, pursuit.stage, pursuit.next_action, days_overdue, names=names
+            job.company, job.title, pursuit.stage, step.text, days_overdue, names=names
         )
-        # A row that stands for an EARLIER follow-up (another due time) is not
-        # this one: delete it, so the new debt rings unread instead of
-        # inheriting the read or dismissed state the person gave the old one.
-        # The same due time keeps its row, and the person's word. Compared as
-        # instants: a row may hold the same moment written with another offset.
+        # A row that stands for an EARLIER due time of this step is not this
+        # one: delete it, so the new debt rings unread instead of inheriting
+        # the read or dismissed state the person gave the old one. The same
+        # due time keeps its row, and the person's word. Compared as instants:
+        # a row may hold the same moment written with another offset.
         await session.execute(
             delete(Notification).where(
-                Notification.source_type == "pursuit",
-                Notification.source_id == pursuit.id,
+                Notification.source_type == "step",
+                Notification.source_id == step.id,
                 Notification.category == classified.category,
                 cast(Notification.meta["due_at"].astext, DateTime(timezone=True)).is_distinct_from(due),
             )
@@ -208,8 +221,8 @@ async def generate_pursuit_due_notifications(
                 "body": classified.body,
                 "job_id": job.id,
                 "run_id": None,
-                "source_type": "pursuit",
-                "source_id": pursuit.id,
+                "source_type": "step",
+                "source_id": step.id,
                 "meta": {
                     **(classified.meta or {}),
                     "due_at": due.isoformat() if due else None,

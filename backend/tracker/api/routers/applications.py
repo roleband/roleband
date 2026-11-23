@@ -1,5 +1,5 @@
 """The application pipeline: the board, one application, its activity, and the
-comment and interview writes on it.
+comment, interview and next-step writes on it.
 
 Writes go through `agents/pursuits.py`, the same store the agent operations use; the
 reads are `agents/applications.py`. Stage moves stay on `PUT /api/jobs/{job_id}/pursuit`.
@@ -18,14 +18,20 @@ from tracker.agents.pursuits import (
     CommentWrite,
     InterviewUpdate,
     InterviewWrite,
+    StepUpdate,
+    StepWrite,
     add_comment,
     add_interview,
+    add_step,
     delete_comment,
     delete_interview,
+    delete_step,
     edit_comment,
     public_comment,
     public_interview,
+    public_step,
     update_interview,
+    update_step,
 )
 from tracker.api.deps import Offset, SessionDep
 from tracker.api.errors import ErrorCode, api_error
@@ -37,6 +43,8 @@ from tracker.api.schemas.applications import (
     ApplicationDeleted,
     ApplicationDetailResponse,
     ApplicationInterviewResponse,
+    ApplicationStepResponse,
+    NotesVersionsResponse,
 )
 
 router = APIRouter()
@@ -85,6 +93,14 @@ async def activity_ep(
     if items is None:
         raise api_error(404, ErrorCode.APPLICATION_NOT_FOUND, "role is not on the board")
     return {"items": items}
+
+
+@router.get("/api/applications/{job_id}/notes/versions", response_model=NotesVersionsResponse)
+async def notes_versions_ep(job_id: int, session: SessionDep) -> dict:
+    versions = await reads.notes_versions(session, job_id)
+    if versions is None:
+        raise api_error(404, ErrorCode.APPLICATION_NOT_FOUND, "role is not on the board")
+    return {"versions": versions}
 
 
 # --- comments ------------------------------------------------------------------
@@ -168,3 +184,37 @@ async def delete_interview_ep(job_id: int, interview_id: int, session: SessionDe
         raise api_error(404, ErrorCode.INTERVIEW_NOT_FOUND, str(err)) from err
     await session.commit()
     return {"id": interview_id, "deleted": True}
+
+
+# --- next steps ----------------------------------------------------------------
+# Each write reconciles the reminders in its transaction (the store does it).
+
+
+@router.post("/api/jobs/{job_id}/pursuit/steps", response_model=ApplicationStepResponse)
+async def add_step_ep(job_id: int, payload: StepWrite, session: SessionDep) -> dict:
+    try:
+        _, step = await add_step(session, job_id, payload, actor="user")
+    except LookupError as err:
+        raise api_error(404, ErrorCode.JOB_NOT_FOUND, str(err)) from err
+    await session.commit()
+    return {"step": public_step(step)}
+
+
+@router.patch("/api/jobs/{job_id}/pursuit/steps/{step_id}", response_model=ApplicationStepResponse)
+async def update_step_ep(job_id: int, step_id: int, payload: StepUpdate, session: SessionDep) -> dict:
+    try:
+        _, step = await update_step(session, job_id, step_id, payload, actor="user")
+    except LookupError as err:
+        raise api_error(404, ErrorCode.STEP_NOT_FOUND, str(err)) from err
+    await session.commit()
+    return {"step": public_step(step)}
+
+
+@router.delete("/api/jobs/{job_id}/pursuit/steps/{step_id}", response_model=ApplicationDeleted)
+async def delete_step_ep(job_id: int, step_id: int, session: SessionDep) -> dict:
+    try:
+        await delete_step(session, job_id, step_id, actor="user")
+    except LookupError as err:
+        raise api_error(404, ErrorCode.STEP_NOT_FOUND, str(err)) from err
+    await session.commit()
+    return {"id": step_id, "deleted": True}

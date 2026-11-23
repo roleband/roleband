@@ -635,6 +635,74 @@ export interface paths {
         patch: operations["pursuit_patch_api_agent_v1_pursuits__opportunity_id__patch"];
         trace?: never;
     };
+    "/api/agent/v1/pursuits/{opportunity_id}/steps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Step Add */
+        post: operations["step_add_api_agent_v1_pursuits__opportunity_id__steps_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/pursuits/{opportunity_id}/steps/{step_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Step Edit */
+        patch: operations["step_edit_api_agent_v1_pursuits__opportunity_id__steps__step_id__patch"];
+        trace?: never;
+    };
+    "/api/agent/v1/pursuits/{opportunity_id}/steps/{step_id}/done": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Step Done */
+        post: operations["step_done_api_agent_v1_pursuits__opportunity_id__steps__step_id__done_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/pursuits/{opportunity_id}/steps/{step_id}/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Step Undo */
+        post: operations["step_undo_api_agent_v1_pursuits__opportunity_id__steps__step_id__undo_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/v1/radar/summary": {
         parameters: {
             query?: never;
@@ -831,6 +899,23 @@ export interface paths {
         };
         /** Activity Ep */
         get: operations["activity_ep_api_applications__job_id__activity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{job_id}/notes/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Notes Versions Ep */
+        get: operations["notes_versions_ep_api_applications__job_id__notes_versions_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2260,6 +2345,41 @@ export interface paths {
         patch: operations["update_interview_ep_api_jobs__job_id__pursuit_interviews__interview_id__patch"];
         trace?: never;
     };
+    "/api/jobs/{job_id}/pursuit/steps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Step Ep */
+        post: operations["add_step_ep_api_jobs__job_id__pursuit_steps_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{job_id}/pursuit/steps/{step_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Step Ep */
+        delete: operations["delete_step_ep_api_jobs__job_id__pursuit_steps__step_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Step Ep */
+        patch: operations["update_step_ep_api_jobs__job_id__pursuit_steps__step_id__patch"];
+        trace?: never;
+    };
     "/api/jobs/{job_id}/similar": {
         parameters: {
             query?: never;
@@ -3393,6 +3513,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/settings/view-choices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get View Choices Ep
+         * @description How the person arranged what the screens show, by choice.
+         */
+        get: operations["get_view_choices_ep_api_settings_view_choices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/view-choices/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put View Choice Ep
+         * @description Save one choice. A name the screens do not have, or a value that does
+         *     not fit it, is refused (422) and the saved choice stays as it was.
+         */
+        put: operations["put_view_choice_ep_api_settings_view_choices__name__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/skills/top": {
         parameters: {
             query?: never;
@@ -4317,6 +4478,7 @@ export interface components {
          * @description One application as the board shows it.
          */
         ApplicationCard: {
+            awaiting_outcome: components["schemas"]["ApplicationCardInterview"] | null;
             /** Comment Count */
             comment_count: number;
             /** Company */
@@ -4333,11 +4495,13 @@ export interface components {
             next_action: string | null;
             /** Next Action Due */
             next_action_due: string | null;
-            next_interview: components["schemas"]["ApplicationNextInterview"] | null;
+            next_interview: components["schemas"]["ApplicationCardInterview"] | null;
             /** Posting Status */
             posting_status: string;
             /** Priority */
             priority: number;
+            /** Priority Set */
+            priority_set: boolean;
             /** Pursuit Id */
             pursuit_id: number | null;
             /**
@@ -4349,8 +4513,31 @@ export interface components {
             stage_since: string | null;
             /** Starred */
             starred: boolean;
+            /** Steps */
+            steps: components["schemas"]["ApplicationStep"][];
             /** Title */
             title: string;
+        };
+        /**
+         * ApplicationCardInterview
+         * @description A round as the card names it.
+         */
+        ApplicationCardInterview: {
+            /** All Day */
+            all_day: boolean;
+            /** Format */
+            format: ("video" | "phone" | "onsite") | null;
+            /** Id */
+            id: number;
+            /** Label */
+            label: string;
+            /** Link */
+            link: string | null;
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
         };
         /** ApplicationComment */
         ApplicationComment: {
@@ -4391,10 +4578,13 @@ export interface components {
         };
         /**
          * ApplicationDetailResponse
-         * @description `GET /api/applications/{job_id}`: interviews newest first, stages in the order reached.
+         * @description `GET /api/applications/{job_id}`: interviews newest first, stages in the
+         *     order reached, and the steps ticked done, the latest done first.
          */
         ApplicationDetailResponse: {
             application: components["schemas"]["ApplicationCard"];
+            /** Done Steps */
+            done_steps: components["schemas"]["ApplicationStep"][];
             /** Interviews */
             interviews: components["schemas"]["ApplicationInterview"][];
             /** Stages Reached */
@@ -4427,6 +4617,7 @@ export interface components {
             kind: "event";
             /** Source */
             source: string;
+            step?: components["schemas"]["EventStep"] | null;
             /**
              * To Stage
              * @enum {string}
@@ -4488,21 +4679,28 @@ export interface components {
         ApplicationInterviewResponse: {
             interview: components["schemas"]["ApplicationInterview"];
         };
-        /** ApplicationNextInterview */
-        ApplicationNextInterview: {
-            /** All Day */
-            all_day: boolean;
-            /** Format */
-            format: ("video" | "phone" | "onsite") | null;
-            /** Id */
-            id: number;
-            /** Label */
-            label: string;
+        /**
+         * ApplicationStep
+         * @description One next step the person owes.
+         */
+        ApplicationStep: {
             /**
-             * Scheduled At
+             * Created At
              * Format: date-time
              */
-            scheduled_at: string;
+            created_at: string;
+            /** Done At */
+            done_at: string | null;
+            /** Due */
+            due: string | null;
+            /** Id */
+            id: number;
+            /** Text */
+            text: string;
+        };
+        /** ApplicationStepResponse */
+        ApplicationStepResponse: {
+            step: components["schemas"]["ApplicationStep"];
         };
         /** AvailabilityShape */
         AvailabilityShape: {
@@ -4616,6 +4814,7 @@ export interface components {
          * @description One application as the board shows it, keyed by its opportunity's id.
          */
         BoardCard: {
+            awaiting_outcome: components["schemas"]["BoardNextInterview"] | null;
             /** Comment Count */
             comment_count: number;
             /** Company */
@@ -4637,6 +4836,8 @@ export interface components {
             posting_status?: string;
             /** Priority */
             priority: number;
+            /** Priority Set */
+            priority_set: boolean;
             /** Pursuit Id */
             pursuit_id: number | null;
             /**
@@ -4648,6 +4849,8 @@ export interface components {
             stage_since: string | null;
             /** Starred */
             starred: boolean;
+            /** Steps */
+            steps: components["schemas"]["PursuitNextStep"][];
             /** Title */
             title?: string;
         };
@@ -4661,6 +4864,8 @@ export interface components {
             id: number;
             /** Label */
             label: string;
+            /** Link */
+            link: string | null;
             /**
              * Scheduled At
              * Format: date-time
@@ -4740,6 +4945,8 @@ export interface components {
             kind: "interview";
             /** Label */
             label: string;
+            /** Link */
+            link: string | null;
             /** Outcome */
             outcome: ("passed" | "not_passed" | "cancelled") | null;
         };
@@ -4765,6 +4972,8 @@ export interface components {
             kind: "interview";
             /** Label */
             label: string;
+            /** Link */
+            link: string | null;
             /** Outcome */
             outcome: ("passed" | "not_passed" | "cancelled") | null;
         };
@@ -4784,6 +4993,8 @@ export interface components {
             kind: "step";
             /** Step */
             step: string;
+            /** Step Id */
+            step_id: number;
         };
         /** CalendarStepEntry */
         CalendarStepEntry: {
@@ -4801,6 +5012,8 @@ export interface components {
             kind: "step";
             /** Step */
             step: string;
+            /** Step Id */
+            step_id: number;
         };
         /** CapabilitiesFull */
         CapabilitiesFull: {
@@ -7612,7 +7825,7 @@ export interface components {
          * ErrorCode
          * @enum {string}
          */
-        ErrorCode: "engine-locked" | "job-not-found" | "company-not-found" | "company-profile-not-found" | "local-model-not-found" | "cloud-model-not-found" | "notification-not-found" | "activity-entry-not-found" | "link-not-found" | "suggestion-not-found" | "recipe-not-found" | "rule-not-found" | "fit-band-not-found" | "schedule-not-found" | "page-not-found" | "application-not-found" | "comment-not-found" | "interview-not-found" | "plugin-not-found" | "invalid-input" | "careers-page-refused" | "careers-page-unreachable" | "company-conflict" | "company-refused" | "consent-required" | "scope-refused" | "schedule-refused" | "scheduling-unavailable" | "discovery-unsupported" | "manual-scan-queued" | "switch-running" | "switch-not-started" | "no-switch-running" | "switch-not-stopped" | "price-key-refused" | "switch-not-managed" | "server-not-managed" | "model-unreachable" | "local-models-off" | "ai-egress-off" | "no-local-model" | "model-profiles-unreadable" | "key-saved-for-another-address" | "plugin-not-runnable" | "plugin-running" | "plugin-approval-stale" | "plugin-still-enabled" | "plugin-confirm-mismatch" | "plugin-estimates-moving" | "field-answered-by-plugin" | "link-to-itself" | "already-linked" | "verdict-decided" | "pair-refused" | "not-a-member" | "suggestion-decided" | "last-world" | "recipe-invalid" | "recipe-conflict" | "usage-catalogue-changed" | "comment-not-yours" | "application-under-way";
+        ErrorCode: "engine-locked" | "job-not-found" | "company-not-found" | "company-profile-not-found" | "local-model-not-found" | "cloud-model-not-found" | "notification-not-found" | "activity-entry-not-found" | "link-not-found" | "suggestion-not-found" | "recipe-not-found" | "rule-not-found" | "fit-band-not-found" | "schedule-not-found" | "page-not-found" | "application-not-found" | "comment-not-found" | "interview-not-found" | "step-not-found" | "plugin-not-found" | "invalid-input" | "careers-page-refused" | "careers-page-unreachable" | "company-conflict" | "company-refused" | "consent-required" | "scope-refused" | "schedule-refused" | "scheduling-unavailable" | "discovery-unsupported" | "manual-scan-queued" | "switch-running" | "switch-not-started" | "no-switch-running" | "switch-not-stopped" | "price-key-refused" | "switch-not-managed" | "server-not-managed" | "model-unreachable" | "local-models-off" | "ai-egress-off" | "no-local-model" | "model-profiles-unreadable" | "key-saved-for-another-address" | "plugin-not-runnable" | "plugin-running" | "plugin-approval-stale" | "plugin-still-enabled" | "plugin-confirm-mismatch" | "plugin-estimates-moving" | "field-answered-by-plugin" | "link-to-itself" | "already-linked" | "verdict-decided" | "pair-refused" | "not-a-member" | "suggestion-decided" | "last-world" | "recipe-invalid" | "recipe-conflict" | "usage-catalogue-changed" | "comment-not-yours" | "application-under-way" | "notes-moved";
         /**
          * ErrorDetail
          * @description The `detail` of every error the API answers on purpose.
@@ -7675,6 +7888,20 @@ export interface components {
             median: number | null;
             /** Provenance */
             provenance: string | null;
+        };
+        /** EventStep */
+        EventStep: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "added" | "edited" | "done" | "reopened" | "removed";
+            /** Due */
+            due: string | null;
+            /** Id */
+            id: number;
+            /** Text */
+            text: string;
         };
         /** Evidence */
         Evidence: {
@@ -9299,6 +9526,8 @@ export interface components {
             new_listing: boolean;
             pay_floor_check: components["schemas"]["PayFloorCheck"] | null;
             pay_source: components["schemas"]["SectionSource"];
+            /** Pipeline Stage */
+            pipeline_stage: ("saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed") | null;
             /** Place Count */
             place_count: number | null;
             /** Place Set Size */
@@ -9438,6 +9667,8 @@ export interface components {
             locations: string[];
             /** New Listing */
             new_listing: boolean;
+            /** Pipeline Stage */
+            pipeline_stage: ("saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed") | null;
             /** Place Count */
             place_count: number | null;
             /** Place Set Size */
@@ -9585,6 +9816,8 @@ export interface components {
             matched_via?: string[];
             /** New Listing */
             new_listing: boolean;
+            /** Pipeline Stage */
+            pipeline_stage: ("saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed") | null;
             /** Place Count */
             place_count: number | null;
             /** Place Set Size */
@@ -9844,6 +10077,8 @@ export interface components {
             locations: string[];
             /** New Listing */
             new_listing: boolean;
+            /** Pipeline Stage */
+            pipeline_stage: ("saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed") | null;
             /** Place Count */
             place_count: number | null;
             /** Place Set Size */
@@ -11027,6 +11262,33 @@ export interface components {
              * @constant
              */
             size: 1;
+        };
+        /**
+         * NotesVersion
+         * @description The notes as one writing session left them.
+         */
+        NotesVersion: {
+            /**
+             * Actor
+             * @enum {string}
+             */
+            actor: "user" | "agent";
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * NotesVersionsResponse
+         * @description `GET /api/applications/{job_id}/notes/versions`: the notes' earlier
+         *     versions, newest first; the notes as they are now are not among them.
+         */
+        NotesVersionsResponse: {
+            /** Versions */
+            versions: components["schemas"]["NotesVersion"][];
         };
         /**
          * NotificationListResponse
@@ -13259,6 +13521,7 @@ export interface components {
         };
         /** PursuitItem */
         PursuitItem: {
+            awaiting_outcome: components["schemas"]["PursuitRound"] | null;
             /**
              * Created At
              * Format: date-time
@@ -13268,6 +13531,7 @@ export interface components {
             next_action: string | null;
             /** Next Action Due */
             next_action_due: string | null;
+            next_interview: components["schemas"]["PursuitRound"] | null;
             /** Notes */
             notes: string | null;
             /** Opportunity */
@@ -13276,6 +13540,8 @@ export interface components {
             opportunity_id: number;
             /** Priority */
             priority: number;
+            /** Priority Set */
+            priority_set: boolean;
             /** Revision */
             revision: number;
             /**
@@ -13283,6 +13549,8 @@ export interface components {
              * @enum {string}
              */
             stage: "saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed";
+            /** Steps */
+            steps: components["schemas"]["PursuitNextStep"][];
             /**
              * Updated At
              * Format: date-time
@@ -13338,6 +13606,26 @@ export interface components {
             /** Pursuits */
             pursuits: components["schemas"]["PursuitListItem"][];
         };
+        /**
+         * PursuitNextStep
+         * @description One next step the person owes: `steps.edit`, `steps.done` and
+         *     `steps.undo` take its id.
+         */
+        PursuitNextStep: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Done At */
+            done_at: string | null;
+            /** Due */
+            due: string | null;
+            /** Id */
+            id: number;
+            /** Text */
+            text: string;
+        };
         /** PursuitOpportunity */
         PursuitOpportunity: {
             /** Company */
@@ -13348,6 +13636,27 @@ export interface components {
             title: string;
             /** Url */
             url: string;
+        };
+        /**
+         * PursuitRound
+         * @description An interview round, as the pipeline's card names it.
+         */
+        PursuitRound: {
+            /** All Day */
+            all_day: boolean;
+            /** Format */
+            format: ("video" | "phone" | "onsite") | null;
+            /** Id */
+            id: number;
+            /** Label */
+            label: string;
+            /** Link */
+            link: string | null;
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
         };
         /**
          * PursuitState
@@ -13382,14 +13691,22 @@ export interface components {
              */
             updated_at: string;
         };
-        /** PursuitUpdate */
-        PursuitUpdate: {
+        /**
+         * PursuitWrite
+         * @description `PUT /api/jobs/{job_id}/pursuit`: the fields to change, and for new
+         *     notes the text they were written over.
+         */
+        PursuitWrite: {
             /** Next Action */
             next_action?: string | null;
             /** Next Action Due */
             next_action_due?: string | null;
             /** Notes */
             notes?: string | null;
+            /** Notes Put Back */
+            notes_put_back?: boolean | null;
+            /** Notes Was */
+            notes_was?: string | null;
             /** Priority */
             priority?: number | null;
             /** Stage */
@@ -15074,6 +15391,8 @@ export interface components {
             locations: string[];
             /** New Listing */
             new_listing: boolean;
+            /** Pipeline Stage */
+            pipeline_stage: ("saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed") | null;
             /** Place Count */
             place_count: number | null;
             /** Place Set Size */
@@ -15283,6 +15602,22 @@ export interface components {
             trust: components["schemas"]["EngineTrust"];
             /** Workspace Id */
             workspace_id: string;
+        };
+        /** StepUpdate */
+        StepUpdate: {
+            /** Done */
+            done?: boolean | null;
+            /** Due */
+            due?: string | null;
+            /** Text */
+            text?: string | null;
+        };
+        /** StepWrite */
+        StepWrite: {
+            /** Due */
+            due?: string | null;
+            /** Text */
+            text: string;
         };
         /** StoredOffer */
         StoredOffer: {
@@ -16219,6 +16554,33 @@ export interface components {
             posted: components["schemas"]["VelocityAgingBand"][];
             /** Since */
             since: string | null;
+        };
+        /**
+         * ViewChoice
+         * @description One choice as stored: duplicates dropped, in the order given.
+         */
+        ViewChoice: {
+            /** Name */
+            name: string;
+            value: components["schemas"]["JsonValue"];
+        };
+        /**
+         * ViewChoiceWrite
+         * @description One choice's new value.
+         */
+        ViewChoiceWrite: {
+            value: components["schemas"]["JsonValue"];
+        };
+        /**
+         * ViewChoices
+         * @description Every choice the person has made, by name; a choice absent here shows
+         *     the screen's own default.
+         */
+        ViewChoices: {
+            /** Choices */
+            choices: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
         };
         /**
          * VocabFacetOption
@@ -17408,7 +17770,7 @@ export interface operations {
                     if_revision?: number;
                     /**
                      * Priority
-                     * @description 1 to 5. A new pursuit starts at 3; an existing one keeps its own unless this is given.
+                     * @description 5 Urgent, 4 High, 3 Medium, 2 Low, 1 No priority. A new pursuit has no priority chosen; an existing one keeps its own unless this is given.
                      */
                     priority?: number;
                 };
@@ -17463,7 +17825,7 @@ export interface operations {
                     notes?: string | null;
                     /**
                      * Priority
-                     * @description 1 to 5. Cannot be null.
+                     * @description 5 Urgent, 4 High, 3 Medium, 2 Low, 1 No priority. Cannot be null.
                      */
                     priority?: number;
                     /**
@@ -17472,6 +17834,172 @@ export interface operations {
                      * @enum {string}
                      */
                     stage?: "saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed";
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PursuitItem_"];
+                };
+            };
+        };
+    };
+    step_add_api_agent_v1_pursuits__opportunity_id__steps_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-RoleBand-Idempotency-Key": string;
+            };
+            path: {
+                /** @description The opportunity the pursuit is about. */
+                opportunity_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Due
+                     * @description The day it is due by, with its UTC offset. Leave it out for a step with no day.
+                     */
+                    due?: string | null;
+                    /**
+                     * If Revision
+                     * @description The pursuit's revision you read (pursuits.get); 0 when the role has no pursuit yet. A pursuit that moved since is not changed.
+                     */
+                    if_revision: number;
+                    /**
+                     * Text
+                     * @description What to do.
+                     */
+                    text: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PursuitItem_"];
+                };
+            };
+        };
+    };
+    step_edit_api_agent_v1_pursuits__opportunity_id__steps__step_id__patch: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-RoleBand-Idempotency-Key": string;
+            };
+            path: {
+                /** @description The opportunity the pursuit is about. */
+                opportunity_id: number;
+                /** @description The step's id, from the pursuit's steps (pursuits.get). */
+                step_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Due
+                     * @description The step's new day, with its UTC offset. null takes its day off; leave the field out to keep it.
+                     */
+                    due?: string | null;
+                    /**
+                     * If Revision
+                     * @description The pursuit's revision you read (pursuits.get). A pursuit that moved since is not changed.
+                     */
+                    if_revision: number;
+                    /**
+                     * Text
+                     * @description The step's new words. Cannot be null.
+                     */
+                    text?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PursuitItem_"];
+                };
+            };
+        };
+    };
+    step_done_api_agent_v1_pursuits__opportunity_id__steps__step_id__done_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-RoleBand-Idempotency-Key": string;
+            };
+            path: {
+                /** @description The opportunity the pursuit is about. */
+                opportunity_id: number;
+                /** @description The step's id, from the pursuit's steps (pursuits.get). */
+                step_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * If Revision
+                     * @description The pursuit's revision you read (pursuits.get). A pursuit that moved since is not changed.
+                     */
+                    if_revision: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PursuitItem_"];
+                };
+            };
+        };
+    };
+    step_undo_api_agent_v1_pursuits__opportunity_id__steps__step_id__undo_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-RoleBand-Idempotency-Key": string;
+            };
+            path: {
+                /** @description The opportunity the pursuit is about. */
+                opportunity_id: number;
+                /** @description The step's id, from the pursuit's steps (pursuits.get). */
+                step_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * If Revision
+                     * @description The pursuit's revision you read (pursuits.get). A pursuit that moved since is not changed.
+                     */
+                    if_revision: number;
                 };
             };
         };
@@ -17799,6 +18327,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApplicationActivityResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    notes_versions_ep_api_applications__job_id__notes_versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotesVersionsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20081,7 +20640,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PursuitUpdate"];
+                "application/json": components["schemas"]["PursuitWrite"];
             };
         };
         responses: {
@@ -20298,6 +20857,109 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApplicationInterviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_step_ep_api_jobs__job_id__pursuit_steps_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StepWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationStepResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_step_ep_api_jobs__job_id__pursuit_steps__step_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+                step_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationDeleted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_step_ep_api_jobs__job_id__pursuit_steps__step_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+                step_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StepUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationStepResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22245,6 +22907,61 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RetentionState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_view_choices_ep_api_settings_view_choices_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViewChoices"];
+                };
+            };
+        };
+    };
+    put_view_choice_ep_api_settings_view_choices__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ViewChoiceWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViewChoice"];
                 };
             };
             /** @description Validation Error */

@@ -15,7 +15,7 @@
 .select-card { border-color: var(--app-border); background: var(--app-surface); color: var(--app-text); }
 .select-card { min-height: 58px; display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: center; padding: var(--app-space-2) var(--app-space-3); border: 1px solid var(--app-border); border-radius: var(--app-radius-md); background: var(--app-surface); cursor: pointer; transition: background var(--app-duration-fast), border-color var(--app-duration-fast); }
 .select-card:hover { background: var(--app-surface-hover); }
-/* A ticked card is CHOSEN: gold edge and wash, its name in the
+/* A ticked card is CHOSEN: the chosen edge and wash, its name in the
    chosen ink, keyed on its own checkbox or radio so the card and the control
    can never disagree. */
 .select-card:has(> input:checked) { border-color: var(--app-chosen-line); background: var(--app-chosen-wash); }

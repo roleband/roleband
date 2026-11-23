@@ -1,7 +1,3 @@
-applications-board-summary = { $moving } 个进行中 · { $decided } 个已决定 · { $closed } 个未通过或已关闭 · { $needNext }
-
-applications-board-need-next = { $count } 个需要设定下一步
-
 applications-board-load-failed = 无法加载求职进展
 
 applications-board-scroll-back = 显示前面的列
@@ -56,7 +52,7 @@ applications-quick-needs-next = 待定下一步
 
 applications-quick-quiet = 久无动静
 
-applications-quick-high-priority = 优先级 4+
+applications-quick-high-priority = 高优先级
 
 applications-filter-while = 筛选时
 
@@ -92,17 +88,33 @@ applications-card-due-step = { $offset ->
 
 applications-card-overdue = 逾期 { $days } 天
 
+applications-card-applied = { $ago }申请
+
+applications-card-gone-quiet = 暂无动静
+
+applications-card-day-time = { $day } { $time }
+
+applications-card-round-past = { $label }，{ $day }
+
+applications-card-ask-outcome = 结果如何？
+
 applications-card-posting-closed = 招聘信息已关闭
 
-applications-card-comments = { $count } 条评论
+applications-card-priority = 优先级：{ $level }
 
-applications-card-priority = 优先级 { $priority }/5
+applications-priority-none = 无优先级
 
-applications-card-days-short = { $days } 天
+applications-priority-urgent = 紧急
 
-applications-card-days-in-stage = 已在此阶段 { $days } 天
+applications-priority-high = 高
 
-applications-card-quiet = 已在此阶段 { $days } 天，{ $quiet } 天无新动态
+applications-priority-medium = 中
+
+applications-priority-low = 低
+
+applications-priority-menu = { $title }的优先级
+
+
 
 applications-card-ended = { $ending }（止于 { $stage }）
 
@@ -206,9 +218,17 @@ applications-interview-outcome-not-passed = 未通过
 
 applications-interview-outcome-cancelled = 已取消
 
+applications-interview-prompt-people = 面试官是谁
+applications-interview-prompt-questions = 要问的问题
+applications-interview-prompt-points = 要强调的要点
+applications-ws-round-prepare = 面试官是谁、要问的问题、要强调的要点
 applications-interview-notes = 备注
 
 applications-interview-failed = 无法保存面试。请重试。
+applications-interview-calendar = 添加到日历
+applications-interview-calendar-label = 将{ $label }添加到日历
+applications-interview-calendar-title = { $label }（{ $company }）
+applications-ws-layout-failed = 无法保存工作区布局。请重试。
 
 applications-interview-delete-failed = 无法删除面试。请重试。
 
@@ -248,6 +268,20 @@ applications-upnext-step-when = 当天结束前
 
 applications-upnext-empty = 暂无到期事项。为申请设置下一步或添加面试后，就会显示在这里。
 
+applications-upnext-all-day = 全天
+
+applications-upnext-done-label = 标记为完成：{ $step }
+
+applications-upnext-done = 已完成 · { $step }
+
+applications-upnext-outcome = 结果如何？
+
+applications-upnext-outcome-label = { $label }的结果
+
+applications-upnext-outcome-set = { $label }：{ $outcome }
+
+applications-upnext-undo-failed = 无法撤销对 { $title } 的更改。请重试。
+
 applications-month-label = 日历
 
 applications-month-prev = 上个月
@@ -270,33 +304,19 @@ applications-month-day-empty = 这天没有安排。
 
 applications-month-failed = 无法加载日历
 
-applications-page-bar = 申请
 
-applications-page-back = 求职进展 / { $view }
 
-applications-page-back-board = 打开看板
 
-applications-page-load-failed = 无法加载这份申请
 
-applications-page-place = { $index } / { $total }
 
-applications-page-previous = 本列上一项：{ $title }
 
-applications-page-next = 本列下一项：{ $title }
 
-applications-page-more = 更多操作
 
-applications-page-more-label = 这份申请的更多操作
 
-applications-page-copy-link = 复制链接
 
-applications-page-withdraw = 撤回
 
-applications-link-copied = 链接已复制
 
-applications-link-copy-failed = 无法复制链接。请从地址栏复制。
 
-applications-stage-button = { $stage } · { $days }
 
 applications-stage-menu-label = 更改 { $title } 的阶段
 
@@ -319,7 +339,6 @@ applications-crossing-pay = { $days ->
 
 applications-crossing-dismiss = 忽略
 
-applications-next-title = 下一步
 
 applications-next-interview-none = 尚未安排面试。
 
@@ -333,51 +352,31 @@ applications-next-interview-join = 加入
 
 applications-next-interview-join-label = 加入 { $label }
 
-applications-next-interview-edit = 编辑面试
 
-applications-next-empty = 还没有下一步。
 
-applications-next-set = 设置下一步
 
-applications-next-edit = 编辑下一步
 
-applications-next-done = 标为完成
 
-applications-next-prompt = 下一步是什么？
 
-applications-next-due = 截止日期（可选）
 
-applications-next-required = 请填写下一步，或点击“取消”。
 
 applications-next-save = 保存下一步
 
 applications-notes-title = 备注
 
-applications-notes-add = 添加备注
 
-applications-notes-edit = 编辑备注
 
-applications-notes-empty = 还没有备注。
 
 applications-notes-label = 备注
 
-applications-notes-more = 显示全部
 
-applications-notes-less = 收起
 
-applications-notes-save = 保存备注
 
-applications-feed-title = 动态
 
-applications-feed-mode-label = 显示
 
-applications-feed-mode-comments = 评论
 
-applications-feed-mode-all = 全部动态
 
-applications-feed-empty = 还没有评论或更改。
 
-applications-feed-fold = { $count } 条更新：{ $changes }
 
 applications-feed-added = 已加入求职进展
 
@@ -390,10 +389,19 @@ applications-feed-priority = 优先级已更改
 applications-feed-notes = 备注已编辑
 
 applications-feed-next-step = 下一步已更改
+# kind=status note="A recorded change: a next step was added; $step is the step, as the person wrote it"
+applications-feed-step-added = 已添加下一步：{ $step }
+# kind=status note="A recorded change: a next step's words or day changed; $step is the step after the change"
+applications-feed-step-edited = 已更改下一步：{ $step }
+# kind=status note="A recorded change: a next step was ticked done; $step is the step"
+applications-feed-step-done = 已完成：{ $step }
+# kind=status note="A recorded change: a next step ticked done was opened again; $step is the step"
+applications-feed-step-reopened = 已重新打开下一步：{ $step }
+# kind=status note="A recorded change: a next step was removed; $step is the step"
+applications-feed-step-removed = 已移除下一步：{ $step }
 
 applications-feed-updated = 已更新
 
-applications-feed-by-agent = 由助手应用操作
 
 applications-feed-jump-label = 跳转到
 
@@ -413,9 +421,7 @@ applications-feed-jump-comments = { $count } 条评论
 
 applications-comment-label = 评论
 
-applications-comment-placeholder = 记下发生了什么
 
-applications-comment-submit = 发表评论
 
 applications-comment-author-you = 你
 
@@ -437,7 +443,6 @@ applications-comment-failed = 无法保存你的评论。请重试。
 
 applications-comment-delete-failed = 无法删除这条评论。请重试。
 
-applications-facts-application = 申请
 
 applications-facts-posting = 招聘信息
 
@@ -449,39 +454,27 @@ applications-fact-days = 在此阶段
 
 applications-fact-days-value = { $days } 天
 
-applications-fact-applied = 申请时间
 
-applications-fact-applied-not = 尚未
 
 applications-fact-starred = 已保存
 
-applications-fact-starred-yes = 是
 
-applications-fact-starred-no = 否
 
 applications-fact-last-activity = 最近动态
 
-applications-fact-status = 状态
 
-applications-fact-status-open = 开放
 
-applications-fact-status-closed = 已关闭
 
 applications-fact-pay = 公布的薪酬区间
 
 applications-fact-pay-none = 未公布
 
-applications-fact-pay-changed = 已变动
 
 applications-fact-level = 级别
 
-applications-fact-location = 地点
 
-applications-fact-location-more = 及另外 { $count } 个
 
-applications-fact-first-seen = 首次发现
 
-applications-fact-listed-for = 已发布
 
 applications-read-posting = 查看招聘信息
 
@@ -501,7 +494,6 @@ applications-posting-interview = 面试
 
 applications-posting-next-step = 下一步
 
-applications-posting-open = 打开申请
 
 applications-posting-due = 截止
 
@@ -518,3 +510,97 @@ applications-posting-history-interview = { $label }面试
 applications-posting-history-today = 今天
 
 applications-posting-history-now = { $stage }，{ $days } 天
+
+
+
+
+
+
+
+
+
+
+
+
+
+applications-ws-load-failed = 无法加载工作区
+
+applications-ws-next = 下一步
+
+
+
+applications-ws-next-add = 添加下一步
+
+applications-ws-next-edit = 编辑下一步：{ $step }
+
+applications-ws-next-due = 截止
+
+applications-ws-next-due-none = 日期待定
+
+applications-ws-next-due-clear = 清除日期
+# kind=button note="In a next step's edit, takes the step off the list with nothing kept, for one added by mistake"
+applications-ws-next-remove = 移除
+applications-ws-next-done-fold = 已完成（{ $count }）
+applications-ws-next-delete-label = 删除这一步：{ $step }
+applications-ws-next-delete-confirm = 删除这一步？
+applications-ws-next-delete = 删除
+
+applications-ws-notes-hint = 写下你已知的情况和见过的人。输入 / 可添加标题、列表和清单。
+applications-notes-too-long = 未保存：超出上限 { $over } 个字符。
+applications-notes-pictures-left-out = { $count ->
+        [one] 图片未保留：笔记只保留文字和链接。
+       *[other] { $count } 张图片未保留：笔记只保留文字和链接。
+    }
+applications-notes-picture = 图片
+applications-notes-merged = 这些笔记也在别处被更改过。两个版本都已保留。
+applications-notes-versions = 早期版本
+applications-notes-versions-loading = 正在读取早期版本…
+applications-notes-versions-none = 暂无。每次你回来书写时都会保留一个版本。
+applications-notes-versions-failed = 无法读取早期版本。请重试。
+applications-notes-version-put-back = 恢复
+applications-notes-version-put-back-label = 恢复 { $when } 的版本
+applications-notes-version-back = 已恢复 { $when } 的版本。撤销可让页面回到之前的样子。
+applications-notes-blocks = 区块
+applications-notes-block-text = 文本
+applications-notes-block-heading = 标题 { $level }
+applications-notes-block-bullets = 项目符号列表
+applications-notes-block-numbers = 编号列表
+applications-notes-block-checklist = 清单
+applications-notes-block-quote = 引用
+applications-notes-block-divider = 分隔线
+applications-notes-block-none = 没有这个名称的区块。
+applications-notes-help = 格式帮助
+applications-notes-help-title = 格式
+applications-notes-help-lines = 在行首输入
+applications-notes-help-words = 文字样式
+applications-notes-style-bold = 粗体
+applications-notes-style-italic = 斜体
+applications-notes-style-strike = 删除线
+applications-notes-style-code = 代码
+applications-notes-help-slash = 也可以输入 / 按名称选择块。
+applications-notes-help-links = 选中文字后按 { $link }，或在其上粘贴链接，即可添加链接。按住 { $key } 并点击链接即可打开。
+applications-notes-key-ctrl = Ctrl
+applications-notes-key-shift = Shift
+applications-notes-help-select = 也可以选中文字，在上方出现的工具栏中选择样式。
+applications-notes-bar = 设置所选内容的样式
+applications-notes-turn-into = 转换为
+applications-notes-turn-into-label = 转换为，当前为{ $block }
+applications-notes-style-tip = { $name }（{ $keys }）
+applications-notes-link = 链接
+applications-notes-link-field = 链接地址
+applications-notes-link-placeholder = 粘贴链接
+applications-notes-link-remove = 移除链接
+applications-notes-link-invalid = 请使用网址或电子邮件地址。
+applications-notes-check = { $checked ->
+    [yes] 已完成：{ $line }
+   *[no] 待办：{ $line }
+}
+
+applications-ws-ask-outcome = 结果如何？
+
+applications-feed-title = 动态
+applications-feed-empty = 还没有评论或更改。
+applications-feed-load-failed = 无法加载动态
+applications-feed-fold = { $count } 条更新：{ $changes }
+applications-comment-placeholder = 记下发生了什么
+applications-comment-submit = 发表评论

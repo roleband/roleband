@@ -267,7 +267,7 @@ for (const theme of ["dark", "light"] as const) {
     const plugins = await accent("/settings/plugins");
     expect(await accent("/settings/companies")).toEqual(plugins);
     expect(await accent("/settings/intelligence")).toEqual(plugins);
-    expect(plugins[0]).toBe(theme === "dark" ? "rgb(219, 203, 144)" : "rgb(138, 97, 15)");
+    expect(plugins[0]).toBe(theme === "dark" ? "rgb(219, 203, 144)" : "rgb(9, 105, 218)");
   });
 }
 
@@ -461,7 +461,7 @@ for (const theme of ["dark", "light"] as const) {
     };
     const register = await on("/settings/companies");
     expect(await on("/settings/plugins")).toBe(register);
-    expect(register).toBe(theme === "dark" ? "rgb(236, 234, 228)" : "rgb(27, 26, 22)");
+    expect(register).toBe(theme === "dark" ? "rgb(236, 234, 228)" : "rgb(25, 26, 28)");
   });
 }
 

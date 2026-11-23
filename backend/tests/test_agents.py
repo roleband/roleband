@@ -9,6 +9,7 @@ serializes per role and appends an auditable event for an agent write.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import shlex
 from datetime import UTC, datetime
 
@@ -23,7 +24,7 @@ from tracker.agents.config import (
 from tracker.agents.pursuits import ROLE_WRITE_LOCK_NAMESPACE, PursuitUpdate, upsert_pursuit
 from tracker.api.routers.intelligence import _agent_connection_state
 from tracker.cli import connect
-from tracker.db.models import AppSetting, Favorite, Job, Pursuit, PursuitEvent
+from tracker.db.models import AppSetting, Favorite, Job, Pursuit, PursuitEvent, PursuitStep
 
 # Every test here reaches code that starts or signals a process on this
 # machine, so none of them may.
@@ -89,6 +90,7 @@ class PursuitSession:
         self.favorite = None
         self.added = []
         self.locks = []
+        self.no_autoflush = contextlib.nullcontext()
 
     async def execute(self, stmt, params=None):
         # The only statement the writer runs through `execute`: its lock.
@@ -120,7 +122,12 @@ class PursuitSession:
         pass
 
 
-def test_agent_pursuit_write_saves_job_and_appends_auditable_event():
+def test_agent_pursuit_write_saves_job_and_appends_auditable_event(monkeypatch):
+    # The reminders a write reconciles need a database; their own tests cover them.
+    async def no_reminders(session):
+        return None
+
+    monkeypatch.setattr("tracker.agents.pursuits.generate_pursuit_due_notifications", no_reminders)
     job = Job(
         id=101, company="openai", req_id="r1", dedupe_key="openai:r1", title="Staff PM",
         url="https://example.test/job", locations=["SF"], location_groups=["silicon_valley"],
@@ -145,4 +152,8 @@ def test_agent_pursuit_write_saves_job_and_appends_auditable_event():
     event = next(value for value in session.added if isinstance(value, PursuitEvent))
     assert event.actor == "agent" and event.event_type == "created"
     assert event.to_stage == "applied"
-    assert event.detail["changed"] == ["next_action", "priority", "stage"]
+    assert event.detail["changed"] == ["next_action", "priority", "stage", "steps"]
+    # The step is added under the pursuit's id, and the pursuit names it as its next.
+    step = next(value for value in session.added if isinstance(value, PursuitStep))
+    assert (step.pursuit_id, step.text, pursuit.next_action) == (7, "Email recruiter", "Email recruiter")
+    assert event.detail["step"]["action"] == "added"

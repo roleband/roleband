@@ -119,6 +119,9 @@ NOT_COUNTED: Mapping[tuple[str, str], str] = {
     ("POST", "/api/companies/{company}/recipe-rebind/{binding_id}/rollback"): "source rollback is recorded in the local audit",
     ("POST", "/api/companies/{company}/recipe-rebind/{binding_id}/activate"): "reviewed source activation stays in the local audit",
     ("PUT", "/api/usage/consent"): "usage sharing's own control: the consent is recorded, not counted",
+    ("PUT", "/api/settings/view-choices/{name}"): (
+        "how the person arranges the screens: a display choice, and a new action would "
+        "widen the catalogue and re-ask every sharer"),
     ("POST", "/api/jobs/{job_id}/description"): (
         "a read Job detail sends by itself for a posting with no text: the open is counted as "
         "job_opened, and a new action would widen the catalogue and re-ask every sharer"),
@@ -137,12 +140,16 @@ NOT_COUNTED: Mapping[tuple[str, str], str] = {
             ("PATCH", "/api/agent/v1/pursuits/{opportunity_id}"),
             ("POST", "/api/agent/v1/recipes/drafts"),
             ("POST", "/api/agent/v1/duplicates/verdicts"),
+            ("POST", "/api/agent/v1/pursuits/{opportunity_id}/steps"),
+            ("PATCH", "/api/agent/v1/pursuits/{opportunity_id}/steps/{step_id}"),
+            ("POST", "/api/agent/v1/pursuits/{opportunity_id}/steps/{step_id}/done"),
+            ("POST", "/api/agent/v1/pursuits/{opportunity_id}/steps/{step_id}/undo"),
         )
     },
     **{
         (method, path): (
-            "an application's own comments and interviews: the stage change is the counted step, and a "
-            "new action would widen the catalogue and re-ask every sharer")
+            "an application's own comments, interviews and next steps: the stage change is the counted "
+            "action, and a new action would widen the catalogue and re-ask every sharer")
         for method, path in (
             ("POST", "/api/jobs/{job_id}/pursuit/comments"),
             ("PUT", "/api/jobs/{job_id}/pursuit/comments/{comment_id}"),
@@ -150,6 +157,9 @@ NOT_COUNTED: Mapping[tuple[str, str], str] = {
             ("POST", "/api/jobs/{job_id}/pursuit/interviews"),
             ("PATCH", "/api/jobs/{job_id}/pursuit/interviews/{interview_id}"),
             ("DELETE", "/api/jobs/{job_id}/pursuit/interviews/{interview_id}"),
+            ("POST", "/api/jobs/{job_id}/pursuit/steps"),
+            ("PATCH", "/api/jobs/{job_id}/pursuit/steps/{step_id}"),
+            ("DELETE", "/api/jobs/{job_id}/pursuit/steps/{step_id}"),
         )
     },
     **{

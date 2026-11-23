@@ -1,8 +1,6 @@
 import { useCallback } from "react";
 import { api, type ApplicationCard, type InterviewWrite } from "../../api";
-import { useMissionActions } from "../../context/MissionState";
 import { STAGE_LABEL, type StageSlug } from "../../copy/vocabulary";
-import { useRoleSaves } from "../../hooks/useRoleSaves";
 import { useToast } from "../../ui";
 import {
   applicationsMoveFailed,
@@ -13,33 +11,16 @@ import {
 } from "../../copy/gen/applications";
 import { boardStage } from "./board";
 
-/** Writes one pursuit field set for a role. A pursuit write saves the role
- *  (server rule), so it goes through `useRoleSaves` with the star's own
- *  writes, in the order they were asked for. It rejects whenever the write
- *  failed: a pursuit write sets only the fields it names, so a newer write
- *  for the role never carries this one's change, and a failure behind it is
- *  still lost. */
+/** Writes one pursuit field set for a role (`useRoleWrite`). A pursuit write
+ *  saves the role (server rule), so it goes through the save command with the
+ *  star's own writes, in the order they were asked for. It rejects whenever
+ *  the write failed: a pursuit write sets only the fields it names, so a newer
+ *  write for the role never carries this one's change, and a failure behind it
+ *  is still lost. */
 export type PursuitWrite = (
   card: Pick<ApplicationCard, "job_id" | "starred">,
   update: Parameters<typeof api.setPursuit>[1],
 ) => Promise<void>;
-
-export function usePursuitWrite(): PursuitWrite {
-  const saveRole = useRoleSaves();
-  return useCallback(
-    async (card: Pick<ApplicationCard, "job_id" | "starred">, update: Parameters<typeof api.setPursuit>[1]) => {
-      const outcome = await saveRole({
-        jobId: card.job_id,
-        was: card.starred,
-        next: true,
-        show: () => undefined,
-        send: () => api.setPursuit(card.job_id, update),
-      });
-      if (outcome !== "saved") throw new Error("The pursuit write failed behind a newer write for the role.");
-    },
-    [saveRole],
-  );
-}
 
 const moved = (title: string, stage: StageSlug) => applicationsMoved({ title, stage: STAGE_LABEL[stage] });
 
@@ -54,21 +35,18 @@ const moved = (title: string, stage: StageSlug) => applicationsMoved({ title, st
  * and says so. The card moves once the interview is in. Resolves true when
  * the move landed.
  *
- * `write` stands in for the pipeline's own pursuit write on a surface that
- * must also tell every other reader of the role (the posting, which can be
- * open over the pipeline page that shows the same application).
+ * A move that landed is announced by `write` (the save command), and every
+ * reader of the role reads it again; `refresh` is only for what no
+ * announcement covers: a failed move, a failed Undo, an interview taken back.
  */
-export function useStageMove({ paint, refresh, said = moved, write: given }: {
+export function useStageMove({ paint, refresh, said = moved, write }: {
   paint: (jobId: number, stage: StageSlug) => void;
   refresh: () => unknown;
   /** What the toast says once the move lands. */
   said?: (title: string, stage: StageSlug) => string;
-  write?: PursuitWrite;
+  write: PursuitWrite;
 }) {
-  const { refreshStats } = useMissionActions();
   const { toast } = useToast();
-  const own = usePursuitWrite();
-  const write = given ?? own;
 
   return useCallback(
     async (card: ApplicationCard, stage: StageSlug, interview?: InterviewWrite): Promise<boolean> => {
@@ -101,8 +79,6 @@ export function useStageMove({ paint, refresh, said = moved, write: given }: {
         await refresh();
         return false;
       }
-      refreshStats();
-      void refresh();
       toast({
         key: "applications",
         text: said(title, stage),
@@ -113,19 +89,20 @@ export function useStageMove({ paint, refresh, said = moved, write: given }: {
             // The interview goes only once the move back has landed; a move
             // back that failed rejects, and the interview stays.
             void write(card, { stage: from })
-              .then(() => (added == null ? undefined : api.deleteInterview(card.job_id, added)))
+              .then(async () => {
+                if (added == null) return;
+                await api.deleteInterview(card.job_id, added);
+                await refresh();
+              })
               .catch(() => {
                 toast({ key: "applications", tone: "error", text: applicationsUndoFailed({ title }) });
-              })
-              .finally(() => {
-                refreshStats();
-                void refresh();
+                return refresh();
               });
           },
         },
       });
       return true;
     },
-    [paint, write, refresh, refreshStats, toast, said],
+    [paint, write, refresh, toast, said],
   );
 }

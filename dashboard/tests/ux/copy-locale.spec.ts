@@ -13,6 +13,8 @@ import { msg } from "../../src/test/msg";
 
 // By its class: the rail's accessible name is translated too.
 const nav = (page: Page) => page.locator("nav.nav-rail");
+// The Pipeline's star, by its class: a phone's dock hides it and shows the views.
+const star = (page: Page) => nav(page).locator(".rail-family-star");
 const ES = { language: "es", region: null };
 
 async function locale(page: Page, saved: { language: string; region: string | null }) {
@@ -41,7 +43,7 @@ test.describe("switching language", () => {
     await page.getByRole("combobox", { name: msg("settings-language-label") }).selectOption("es");
 
     await expect(nav(page).getByRole("link", { name: "Perfil" })).toBeVisible();
-    await expect(nav(page).getByRole("link", { name: "Seguimiento" })).toBeVisible();
+    await expect(star(page)).toHaveAttribute("aria-label", "Seguimiento");
     await expect(page.getByRole("tab", { name: "Idioma" })).toBeVisible();
     await expect(page.getByRole("combobox", { name: "Idioma" })).toHaveValue("es");
     expect(puts).toEqual([ES]);
@@ -52,7 +54,7 @@ test.describe("switching language", () => {
     // On to Chinese, in place again.
     await page.getByRole("combobox", { name: "Idioma" }).selectOption("zh-Hans");
     await expect(nav(page).getByRole("link", { name: "个人资料" })).toBeVisible();
-    await expect(nav(page).getByRole("link", { name: "求职进展" })).toBeVisible();
+    await expect(star(page)).toHaveAttribute("aria-label", "求职进展");
     await expect(page.getByRole("tab", { name: "语言" })).toBeVisible();
     await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hans");
 
@@ -114,10 +116,16 @@ test.describe("the pseudo locale", () => {
     await page.getByRole("combobox", { name: msg("settings-language-label") }).selectOption("en-XA");
 
     const links = await nav(page).getByRole("link").count();
-    expect(links).toBeGreaterThanOrEqual(ROUTES.length - 1);
-    for (let i = 0; i < links; i++) {
+    // The Pipeline's views, folded under its star unless a phone's dock shows them.
+    const folded = (await star(page).isVisible()) ? await nav(page).locator(".rail-sub").count() : 0;
+    expect(links + folded).toBeGreaterThanOrEqual(ROUTES.length - 1);
+    for (let i = 0; i < links + folded; i++) {
       // The nav, clicked: client-side, so this is the switched app, not a fresh boot.
-      await nav(page).getByRole("link").nth(i).click();
+      if (i < links) await nav(page).getByRole("link").nth(i).click();
+      else {
+        await star(page).click();
+        await nav(page).locator(".rail-sub").nth(i - links).click();
+      }
       await expect(page.locator("main h1, [role='main'] h1, h1").first()).toBeVisible();
       await page.waitForLoadState("networkidle");
       const route = new URL(page.url()).pathname;
@@ -140,7 +148,7 @@ test.describe("the pseudo locale", () => {
       });
       // Blocking: what is in the catalog shows the switch, on every route.
       // An empty list would pass the loop below without looking at anything.
-      expect(scan.navNames.length, `${route}: links in the rail`).toBe(links);
+      expect(scan.navNames.length, `${route}: links in the rail`).toBeGreaterThanOrEqual(links);
       for (const name of scan.navNames) expect(name, `${route}: ${name}`).toMatch(/^⟦/);
       // Blocking: the shell (rail and top bar) is all catalog, so
       // nothing in it, text or accessible name, may be left unbracketed.

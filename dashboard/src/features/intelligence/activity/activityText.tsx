@@ -48,6 +48,7 @@ import {
   activityReadProgress,
   activitySavedRole,
   activityTriedWhileChangesOff,
+  activityStepRole,
   activityUpdatedRole,
   activityValueDraft,
 } from "../../../copy/gen/activity";
@@ -98,6 +99,8 @@ const FIELD_NAME: Record<string, () => string> = {
   notes: activityFieldNotes,
   next_action: activityFieldNextAction,
   next_action_due: activityFieldNextActionDue,
+  step_text: activityFieldNextAction,
+  step_due: activityFieldNextActionDue,
   draft: activityFieldDraft,
 };
 
@@ -147,7 +150,7 @@ export function fieldValue(field: string, value: unknown): ReactNode {
     const state = own(PAIR_STATE[pair[1] as "lineage" | "twin"], value);
     if (state) return state();
   }
-  if (field === "next_action_due" && typeof value === "string") {
+  if ((field === "next_action_due" || field === "step_due") && typeof value === "string") {
     return timestamp(value, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   }
   if (field === "draft" && typeof value === "number") return activityValueDraft({ version: value });
@@ -178,6 +181,9 @@ export function entryText(entry: ActivityEntry, { plain = false }: { plain?: boo
   if (topic === "refused.writes") return activityTriedWhileChangesOff();
   if (role && topic === "pursuit.saved") return <Msg of={activitySavedRole} elems={role} />;
   if (role && topic === "pursuit.changed") return <Msg of={activityUpdatedRole} elems={role} />;
+  if (role && topic === "pursuit.step" && typeof subject.action === "string") {
+    return <Msg of={activityStepRole} elems={role} args={{ action: subject.action }} />;
+  }
   if (role && topic === "pursuit.moved") {
     return <Msg of={activityMovedRole} elems={role} args={{ stage: stageName(subject.stage) }} />;
   }

@@ -13,16 +13,13 @@ import type { Job } from "../../api";
    (job-detail.css, "the turn"). A browser without view transitions, and a
    person who asked for reduced motion, get the same change with no motion. */
 
-/** Which way the next posting comes: along the list it was opened from, or
- *  from a link on the posting itself. */
-export type Turn = "next" | "previous" | "open";
-
 /** The name the reading area carries for the length of one turn. It is set on
  *  the one element that turns: a posting opened over a posting leaves two
  *  reading areas in the document, and a name on both would cancel the turn. */
 const NAME = "posting";
-/** The attribute on the root element the turn's keyframes read their way from. */
-const WAY = "postingTurn";
+/** The attribute on the root element that marks a turn under way, for the
+ *  turn's styles. */
+const MARK = "postingTurn";
 
 /** What the new posting's own parts may take to arrive before it is shown,
  *  and how long the reading area must have stood unchanged to count as whole. */
@@ -60,7 +57,7 @@ function settled(box: HTMLElement): Promise<void> {
 /** The new posting opens at `top` (its own top, unless it is one gone back
  *  to), with the keyboard still on it: a link on the old posting had focus
  *  and left with it, so the dialog that holds the cover takes it, as it does
- *  when the cover opens. Focus on the bar (the pager) stays where it is. */
+ *  when the cover opens. Focus on the bar stays where it is. */
 function arrive(box: HTMLElement, top: number): void {
   box.scrollTop = top;
   // As the page the cover is no dialog, and without it focus would fall to the
@@ -83,10 +80,9 @@ export function forgetTurnSpeed(): void {
   heldStill = false;
 }
 
-/** Turns the reading area `box` to what `commit` draws, the way `way` says,
- *  scrolled to `top`. The returned function cancels a turn another has
- *  overtaken: its `commit` then never runs. */
-export function turnPosting(box: HTMLElement | null, way: Turn, commit: () => void, top = 0): () => void {
+/** Turns the reading area `box` to what `commit` draws, scrolled to `top`. The returned function
+ *  cancels a turn another has overtaken: its `commit` then never runs. */
+export function turnPosting(box: HTMLElement | null, commit: () => void, top = 0): () => void {
   const still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
   const plain = still || heldStill || document.visibilityState === "hidden" || typeof document.startViewTransition !== "function";
   if (!box || plain) {
@@ -102,11 +98,11 @@ export function turnPosting(box: HTMLElement | null, way: Turn, commit: () => vo
   const mine = ++latest;
   const root = document.documentElement;
   box.style.setProperty("view-transition-name", NAME);
-  root.dataset[WAY] = way;
+  root.dataset[MARK] = "open";
   const clear = () => {
     if (latest !== mine) return;
     box.style.removeProperty("view-transition-name");
-    delete root.dataset[WAY];
+    delete root.dataset[MARK];
   };
   const asked = performance.now();
   const transition = document.startViewTransition(async () => {
@@ -147,13 +143,11 @@ export function turnPosting(box: HTMLElement | null, way: Turn, commit: () => vo
  */
 export function useShownPosting(
   fresh: Job | null,
-  { wanted, loading, failed, place, box, returning = false }: {
+  { wanted, loading, failed, box, returning = false }: {
     /** The posting the route names. */
     wanted: number;
     loading: boolean;
     failed: boolean;
-    /** The posting's place in the list it was opened from, if it has one. */
-    place: number | null;
     /** The cover's scroll box: the reading area that turns. */
     box: RefObject<HTMLElement | null>;
     /** The route was reached by going back or forward: a posting this cover
@@ -161,28 +155,25 @@ export function useShownPosting(
     returning?: boolean;
   },
 ): { job: Job | null; turning: boolean } {
-  const [shown, setShown] = useState<{ job: Job; place: number | null } | null>(null);
-  const incoming = fresh && shown && fresh.id !== shown.job.id ? fresh : null;
+  const [shown, setShown] = useState<Job | null>(null);
+  const incoming = fresh && shown && fresh.id !== shown.id ? fresh : null;
   // The same posting read again or changed in place, and the first one a
   // cover opens on: drawn at once. A posting that failed to load leaves
   // nothing to hold.
-  if (fresh && !incoming && shown?.job !== fresh) setShown({ job: fresh, place });
+  if (fresh && !incoming && shown !== fresh) setShown(fresh);
   if (failed && shown) setShown(null);
 
-  const stood = shown?.place ?? null;
-  const leaving = shown?.job.id ?? null;
+  const leaving = shown?.id ?? null;
   /** Where each posting this cover has shown was left. */
   const left = useRef(new Map<number, number>());
   useLayoutEffect(() => {
     if (!incoming) return;
-    const along = stood != null && place != null && stood !== place;
-    const way: Turn = along ? (place > stood ? "next" : "previous") : "open";
     if (leaving != null && box.current) left.current.set(leaving, box.current.scrollTop);
     const top = returning ? left.current.get(incoming.id) ?? 0 : 0;
-    return turnPosting(box.current, way, () => setShown({ job: incoming, place }), top);
-  }, [incoming, stood, leaving, place, box, returning]);
+    return turnPosting(box.current, () => setShown(incoming), top);
+  }, [incoming, leaving, box, returning]);
 
-  const job = incoming ? shown!.job : fresh ?? (loading ? shown?.job ?? null : null);
+  const job = incoming ? shown! : fresh ?? (loading ? shown ?? null : null);
   return { job, turning: job != null && job.id !== wanted };
 }
 

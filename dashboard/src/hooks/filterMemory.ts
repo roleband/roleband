@@ -2,113 +2,53 @@
  *
  * A reader who filtered the radar down to three companies last night should
  * find those three companies there this morning, and should not have to say
- * so again after a reload, a nav-rail round trip, or a restart. Filters that
- * live in the address survive a reload on their own; filters held in
- * `useState` die with the screen unless they are remembered here.
+ * so again after a reload, a nav-rail round trip, a restart, or another
+ * browser. Filters that live in the address survive a reload on their own;
+ * filters held in `useState` die with the screen unless they are remembered
+ * here, as one of the person's view choices (`viewChoices.ts`), kept in the
+ * database.
  *
- * Three rules this file exists to hold:
+ * Two rules this file exists to hold:
  *
- *  1. **What comes back off disk is untrusted data, not state.** A stored blob
- *     outlives the code that wrote it: a shipped key can change type, a facet
- *     slug can be retired, and a user can edit localStorage by hand. So a
- *     scope declares a SHAPE — one decoder per key it is willing to restore —
- *     and `decodeShape` returns only what that shape accepts. A key the shape
- *     does not name is not persisted and cannot be restored, which makes the
- *     shape the whitelist as well as the validator.
- *  2. **Storage can always fail.** Private windows, blocked site data and a
- *     full quota all throw on access rather than returning null, and Safari
- *     throws on `setItem` in private mode specifically. Every entry point is
- *     total: a failed read is "nothing remembered", a failed write is
- *     dropped. Nothing here may take a screen down.
- *  3. **A version is part of the key, not part of the payload.** Bumping
- *     MEMORY_VERSION retires every stored blob at once without a migration,
- *     and the stale keys are swept on first use rather than left to sit.
+ *  1. **What comes back is untrusted data, not state.** A stored blob
+ *     outlives the code that wrote it: a shipped key can change type and a
+ *     facet slug can be retired. So a scope declares a SHAPE — one decoder per
+ *     key it is willing to restore — and `decodeShape` returns only what that
+ *     shape accepts. A key the shape does not name is not persisted and
+ *     cannot be restored, which makes the shape the whitelist as well as the
+ *     validator.
+ *  2. **Nothing here may take a screen down.** A read before the choices have
+ *     come back is "nothing remembered", and a write that fails to save still
+ *     holds for this visit.
  *
  * This is the storage half only, and it is pure — no React. The hooks are
  * `useFilterMemory.ts`; the address-backed variant is
  * `routing/useRememberedParams.ts`.
  */
 
-/** Bump to retire every stored blob (see rule 3). */
-export const MEMORY_VERSION = 1;
+import { setViewChoice, viewChoice } from "./viewChoices";
 
-const PREFIX = "roleband.filters";
-const CURRENT = `${PREFIX}.v${MEMORY_VERSION}:`;
-
-/** A stored array is bounded on both axes: a corrupt or hand-edited blob must
- *  not be able to build a 10,000-term query string out of one restore. */
+/** A stored array is bounded on both axes: a corrupt blob must not be able to
+ *  build a 10,000-term query string out of one restore. */
 const MAX_VALUES = 200;
 const MAX_VALUE_LENGTH = 120;
 
-function storage(): Storage | null {
-  try {
-    // Reading the property itself throws when site data is blocked.
-    return typeof window === "undefined" ? null : window.localStorage;
-  } catch {
-    return null;
-  }
-}
+/** Each screen's memory is the view choice `filters.<key>`; the database
+ *  knows every key a screen uses. */
+const choiceName = (key: string) => `filters.${key}`;
 
-let swept = false;
-
-/** Module state that outlives a component, so a test suite has to be able to
- *  put it back — the reason `useWriteQueue` exports `resetWriteQueues`. Called
- *  from `src/test/setup.ts` between tests; nothing in the app calls it. */
-export function resetMemorySweep(): void {
-  swept = false;
-}
-
-/** Drop every entry this module wrote under an older version. Runs once per
- *  page life, on first use, because a version bump that leaves its predecessor
- *  behind never frees the space and never tells anyone. */
-function sweepOldVersions(store: Storage) {
-  if (swept) return;
-  swept = true;
-  try {
-    const stale = [];
-    for (let i = 0; i < store.length; i++) {
-      const key = store.key(i);
-      if (key && key.startsWith(`${PREFIX}.v`) && !key.startsWith(CURRENT)) stale.push(key);
-    }
-    for (const key of stale) store.removeItem(key);
-  } catch {
-    /* A sweep is housekeeping; failing it costs nothing. */
-  }
-}
-
+/** The blob last written for `key`, or null when none is remembered. */
 export function readEntry(key: string): unknown {
-  const store = storage();
-  if (!store) return null;
-  sweepOldVersions(store);
-  try {
-    const raw = store.getItem(CURRENT + key);
-    return raw == null ? null : JSON.parse(raw);
-  } catch {
-    // Unparseable is indistinguishable from absent, and treating it as absent
-    // is what stops one bad blob from being a permanent broken screen.
-    return null;
-  }
+  return viewChoice(choiceName(key)) ?? null;
 }
 
 export function writeEntry(key: string, value: unknown): void {
-  const store = storage();
-  if (!store) return;
-  sweepOldVersions(store);
-  try {
-    store.setItem(CURRENT + key, JSON.stringify(value));
-  } catch {
-    /* Quota, private mode, blocked site data. The screen still works. */
-  }
+  void setViewChoice(choiceName(key), value);
 }
 
+/** Forgets `key`: read back as nothing, apart from a blob left empty. */
 export function forgetEntry(key: string): void {
-  const store = storage();
-  if (!store) return;
-  try {
-    store.removeItem(CURRENT + key);
-  } catch {
-    /* As above. */
-  }
+  void setViewChoice(choiceName(key), null);
 }
 
 /* ---- the shape: one decoder per restorable key ---------------------------- */

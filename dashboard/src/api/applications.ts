@@ -1,8 +1,8 @@
 /* Applications: the pipeline board, one application, its activity, and the
-   comment and interview writes on it. One domain of the typed client;
-   `index.ts` composes `api`. A stage move, a priority, the notes and the next
-   step are `setPursuit` in `profile.ts`, the route every surface writes a
-   pursuit through. */
+   comment, interview and next-step writes on it. One domain of the typed
+   client; `index.ts` composes `api`. A stage move, a priority and the notes
+   are `setPursuit` in `profile.ts`, the route every surface writes a pursuit
+   through. */
 
 import type { Schemas } from "./schemas";
 import { deleteJSON, getJSON, patchJSON, postJSON, putJSON } from "./transport";
@@ -10,6 +10,9 @@ import { deleteJSON, getJSON, patchJSON, postJSON, putJSON } from "./transport";
 /** One application as the board shows it. A starred role with no pursuit yet
  *  is a card at `saved` with `pursuit_id` null. */
 export type ApplicationCard = Schemas["ApplicationCard"];
+
+/** A round a card names: its next one, or the one waiting for its outcome. */
+export type ApplicationCardInterview = Schemas["ApplicationCardInterview"];
 
 export type ApplicationBoard = Schemas["ApplicationBoardResponse"];
 
@@ -21,11 +24,23 @@ export type ApplicationInterview = Schemas["ApplicationInterview"];
 /** One entry of an application's feed: a comment or a recorded change. */
 export type ActivityItem = Schemas["ApplicationActivityResponse"]["items"][number];
 
+/** The notes as one writing session left them. */
+export type NotesVersion = Schemas["NotesVersion"];
+
 /** An interview as a write sends it. */
 export type InterviewWrite = Schemas["InterviewWrite"];
 
 /** A partial interview write: an absent field is left as it is. */
 export type InterviewUpdate = Schemas["InterviewUpdate"];
+
+/** One next step the person owes; open while `done_at` is null. */
+export type ApplicationStep = Schemas["ApplicationStep"];
+
+/** A next step as a write adds it. */
+export type StepWrite = Schemas["StepWrite"];
+
+/** A partial step write: an absent field is left as it is; `done` ticks it or opens it again. */
+export type StepUpdate = Schemas["StepUpdate"];
 
 /** One interview or dated next step on the calendar, naming its application by job id. */
 export type ApplicationCalendarItem = Schemas["ApplicationCalendarResponse"]["items"][number];
@@ -42,6 +57,8 @@ export const applicationsApi = {
     ),
   activity: (jobId: number, signal?: AbortSignal) =>
     getJSON<Schemas["ApplicationActivityResponse"]>(`/api/applications/${jobId}/activity`, signal),
+  notesVersions: (jobId: number) =>
+    getJSON<Schemas["NotesVersionsResponse"]>(`/api/applications/${jobId}/notes/versions`),
   addComment: (jobId: number, body: string) =>
     postJSON<Schemas["ApplicationCommentResponse"]>(`/api/jobs/${jobId}/pursuit/comments`, { body }),
   editComment: (jobId: number, commentId: number, body: string) =>
@@ -56,4 +73,10 @@ export const applicationsApi = {
     ),
   deleteInterview: (jobId: number, interviewId: number) =>
     deleteJSON<Schemas["ApplicationDeleted"]>(`/api/jobs/${jobId}/pursuit/interviews/${interviewId}`),
+  addStep: (jobId: number, step: StepWrite) =>
+    postJSON<Schemas["ApplicationStepResponse"]>(`/api/jobs/${jobId}/pursuit/steps`, step),
+  updateStep: (jobId: number, stepId: number, update: StepUpdate) =>
+    patchJSON<Schemas["ApplicationStepResponse"]>(`/api/jobs/${jobId}/pursuit/steps/${stepId}`, update),
+  deleteStep: (jobId: number, stepId: number) =>
+    deleteJSON<Schemas["ApplicationDeleted"]>(`/api/jobs/${jobId}/pursuit/steps/${stepId}`),
 };

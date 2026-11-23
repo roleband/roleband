@@ -129,7 +129,7 @@ export function TwinDeck({
             </div>
           )}
           {/* Ghost, not primary: this renders INSIDE Job detail, whose primary
-              is "View & apply", the one thing that page exists for. A second
+              is "Apply", the one thing that page exists for. A second
               filled button on the same screen would make two primaries, and
               two primaries is none. */}
           <Button

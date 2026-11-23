@@ -4,6 +4,8 @@
  * where they meet. */
 
 import type { ApplicationDetail, JobDetail } from "../../api";
+import { setViewChoice, viewChoice } from "../../hooks/viewChoices";
+import { DAY } from "./board";
 
 export type CrossingKind = "closed" | "reopened" | "pay";
 
@@ -14,8 +16,6 @@ export interface Crossing {
   /** Whole days between applying and the change. */
   days: number;
 }
-
-const DAY = 86_400_000;
 
 /** The latest crossing, or null. Only a change after the person applied
  *  counts: before it, the posting they applied to already said so. */
@@ -43,38 +43,21 @@ export function latestCrossing(
   return latest;
 }
 
-/** Whether the posting's pay changed after the person applied. */
-export function payChangedSinceApplied(
-  lifecycle: JobDetail["lifecycle"],
-  reached: ApplicationDetail["stages_reached"],
-): boolean {
-  const applied = reached.find((step) => step.stage === "applied");
-  if (!applied) return false;
-  const from = new Date(applied.at).getTime();
-  return lifecycle.some((entry) =>
-    entry.event_type === "changed" && "disclosed_base" in entry.detail && new Date(entry.at).getTime() > from);
-}
-
-const DISMISSED_KEY = "roleband.pipeline-crossings-dismissed";
+const CHOICE = "pipeline.crossings-dismissed";
+/** The most recent dismissals kept: an older one is of a posting long since
+ *  changed again. */
+const KEPT = 500;
 
 /** A crossing the reader dismissed, by role and instant: a later change to
- *  the same posting is a new line. Kept per browser. */
+ *  the same posting is a new line. One of the person's view choices
+ *  (hooks/viewChoices), so it holds in any browser. */
 export const crossingKey = (jobId: number, crossing: Crossing): string => `${jobId}:${crossing.kind}:${crossing.at}`;
 
 export function readDismissed(): Set<string> {
-  try {
-    const raw = localStorage.getItem(DISMISSED_KEY);
-    const parsed: unknown = raw ? JSON.parse(raw) : [];
-    return new Set(Array.isArray(parsed) ? parsed.filter((key): key is string => typeof key === "string") : []);
-  } catch {
-    return new Set();
-  }
+  const stored = viewChoice(CHOICE);
+  return new Set(Array.isArray(stored) ? stored.filter((key): key is string => typeof key === "string") : []);
 }
 
 export function writeDismissed(keys: ReadonlySet<string>): void {
-  try {
-    localStorage.setItem(DISMISSED_KEY, JSON.stringify([...keys]));
-  } catch {
-    // A browser that keeps no storage shows the line again next visit.
-  }
+  void setViewChoice(CHOICE, [...keys].slice(-KEPT));
 }

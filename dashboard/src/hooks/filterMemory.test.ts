@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+import { fakeViewChoiceServer } from "../test/viewChoicesServer";
 import {
-  MEMORY_VERSION,
   amount,
   decodeParams,
   decodeShape,
@@ -14,73 +14,51 @@ import {
   writeEntry,
   type MemoryShape,
 } from "./filterMemory";
+import { readViewChoices } from "./viewChoicesRead";
 
-/* What comes back off disk is DATA, not state. These are the contracts that
- * make restoring a stored blob safe: a shape is a whitelist as well as a
- * validator, every decoder refuses what it cannot vouch for, and no storage
- * failure of any kind may reach the screen. */
+/* What comes back from the store is DATA, not state. These are the contracts
+ * that make restoring a stored blob safe: a shape is a whitelist as well as a
+ * validator, every decoder refuses what it cannot vouch for, and no failure to
+ * read or save may reach the screen. */
 
-const key = "spec";
+const key = "board";
+let server: ReturnType<typeof fakeViewChoiceServer>;
+const settle = () => new Promise((done) => setTimeout(done, 0));
 
-beforeEach(() => localStorage.clear());
-afterEach(() => vi.restoreAllMocks());
+beforeEach(async () => {
+  server = fakeViewChoiceServer();
+  await readViewChoices();
+});
 
 describe("the filter memory store", () => {
-  it("round-trips a value under a versioned, namespaced key", () => {
+  it("keeps a screen's memory with the person's settings, under its own name", async () => {
     writeEntry(key, { company: ["openai"] });
     expect(readEntry(key)).toEqual({ company: ["openai"] });
-    expect(localStorage.getItem(`roleband.filters.v${MEMORY_VERSION}:${key}`)).toBe(
-      JSON.stringify({ company: ["openai"] }),
-    );
+    await settle();
+    expect(server.saved()).toEqual({ "filters.board": { company: ["openai"] } });
+  });
+
+  it("reads a memory forgotten as nothing, and one left empty as empty", async () => {
+    writeEntry("board:open", {});
+    writeEntry(key, { company: ["openai"] });
     forgetEntry(key);
     expect(readEntry(key)).toBeNull();
+    expect(readEntry("board:open")).toEqual({});
+    await settle();
+    expect(server.saved()).toEqual({ "filters.board": null, "filters.board:open": {} });
   });
 
-  it("reads an unparseable blob as nothing remembered, never as a throw", () => {
-    // Hand-edited storage, a truncated write, a shape from another app. One
-    // bad blob must not be a permanently broken screen.
-    localStorage.setItem(`roleband.filters.v${MEMORY_VERSION}:${key}`, "{not json");
-    expect(readEntry(key)).toBeNull();
-  });
-
-  it("survives storage whose methods throw — Safari's private window", () => {
-    const boom = () => {
-      throw new Error("QuotaExceededError");
-    };
-    vi.spyOn(window.localStorage, "getItem").mockImplementation(boom);
-    vi.spyOn(window.localStorage, "setItem").mockImplementation(boom);
-    vi.spyOn(window.localStorage, "removeItem").mockImplementation(boom);
+  it("reads nothing before the person's choices have come back, and holds a write that fails to save", async () => {
+    fakeViewChoiceServer({ "filters.board": { company: ["amazon"] } });
+    expect(readEntry(key), "the read is on its way").toBeNull();
+    await readViewChoices();
+    expect(readEntry(key)).toEqual({ company: ["amazon"] });
+    server = fakeViewChoiceServer();
+    await readViewChoices();
+    server.save.mockRejectedValue(new Error("offline"));
     expect(() => writeEntry(key, { a: 1 })).not.toThrow();
-    expect(readEntry(key)).toBeNull();
-    expect(() => forgetEntry(key)).not.toThrow();
-  });
-
-  it("survives storage that throws on the PROPERTY — blocked site data", () => {
-    // Reading `window.localStorage` itself raises a SecurityError when site
-    // data is blocked, which is before any method could be called.
-    const real = Object.getOwnPropertyDescriptor(window, "localStorage");
-    Object.defineProperty(window, "localStorage", {
-      configurable: true,
-      get() {
-        throw new Error("SecurityError");
-      },
-    });
-    try {
-      expect(() => writeEntry(key, { a: 1 })).not.toThrow();
-      expect(readEntry(key)).toBeNull();
-      expect(() => forgetEntry(key)).not.toThrow();
-    } finally {
-      Object.defineProperty(window, "localStorage", real!);
-    }
-  });
-
-  it("sweeps entries written under an older version, and leaves everything else alone", () => {
-    localStorage.setItem("roleband.filters.v0:board", '{"company":["stale"]}');
-    localStorage.setItem("theme", "dark");
-    // The sweep runs once per page life, on first use — which is this read.
-    readEntry("board");
-    expect(localStorage.getItem("roleband.filters.v0:board")).toBeNull();
-    expect(localStorage.getItem("theme")).toBe("dark");
+    await settle();
+    expect(readEntry(key)).toEqual({ a: 1 });
   });
 });
 

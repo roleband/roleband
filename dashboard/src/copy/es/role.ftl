@@ -41,11 +41,10 @@ role-job-description-no-description-captured = No hay descripción para este pue
 role-job-detail-back = Volver
 role-job-detail-1-in-compare-pick-one = 1 en comparación · elige otro
 role-job-detail-compare-roles = Comparar { $compareCount } puestos
-role-job-detail-view-apply = Ver y postular
+role-job-detail-view-apply = Postularme
 role-job-detail-postings = { $lineage_size } ofertas
 role-job-detail-reposted = republicado ×{ $repost_count }
 role-job-detail-description = Descripción
-role-job-detail-view-posting = Ver la oferta
 role-job-detail-details = Detalles
 role-job-detail-team = Equipo
 role-job-detail-workplace = Modalidad
@@ -59,6 +58,10 @@ role-job-detail-role = { $choice ->
    *[no] Puesto
 }
 role-job-detail-back-2 = Volver
+role-job-detail-back-to = Volver a { $view }
+role-job-detail-tabs = Oferta y espacio de trabajo
+role-job-detail-tab-posting = Oferta
+role-job-detail-tab-workspace = Espacio de trabajo
 role-job-detail-compare-is-full-max = La comparación está llena: { $compareCap } como máximo
 role-job-detail-compare = { $choice ->
     [yes] En comparación

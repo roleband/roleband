@@ -70,6 +70,7 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 summary:focus-visible,
+[contenteditable="true"]:focus-visible,
 [tabindex]:focus-visible {
   outline: var(--app-ring-width) solid var(--app-action);
   outline-offset: var(--app-ring-offset);
@@ -78,11 +79,14 @@ summary:focus-visible,
 /* A field has an edge of its own, so its ring is drawn inside, over that edge,
    and takes its place: outside it, the field's border and the ring would be two
    lines with a gap between. A box, a radio, a slider or a button-like input has
-   no such edge and keeps the ring outside. */
+   no such edge and keeps the ring outside. An editable page (a rich text
+   editor is a `div` the person types in) is a field too: by its tag alone it
+   would take the outside ring of `[tabindex]`. */
 input:is([type="time"], [type="date"], [type="datetime-local"], [type="month"], [type="week"]):focus-within,
 input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="button"], [type="submit"], [type="reset"], [type="image"]):focus-visible,
 select:focus-visible,
-textarea:focus-visible {
+textarea:focus-visible,
+[contenteditable="true"]:focus-visible {
   outline-offset: calc(-1 * var(--app-ring-offset));
 }
 
@@ -298,10 +302,10 @@ textarea {
   --tb-border: rgba(24, 26, 32, 0.11);
   --tb-border-strong: rgba(24, 26, 32, 0.22);
   --tb-hover: rgba(22, 24, 30, 0.06);
-  --tb-accent: #8a610f;
-  --tb-accent-soft: rgba(138, 97, 15, 0.1);
-  --tb-accent-line: rgba(138, 97, 15, 0.34);
-  --tb-accent-text: #77540d;
+  --tb-accent: #0969da;
+  --tb-accent-soft: rgba(9, 105, 218, 0.1);
+  --tb-accent-line: rgba(9, 105, 218, 0.34);
+  --tb-accent-text: #0757b8;
   --tb-good: #087c4f;
   --tb-good-soft: rgba(8, 124, 79, 0.09);
   /* 4.84:1 on the composited glass, above AA; the chrome palette is inside
@@ -379,9 +383,11 @@ textarea {
   border-radius: 10px;
   display: grid;
   place-items: center;
-  background: var(--app-action);
-  color: var(--app-action-ink);
-  box-shadow: 0 0 0 1px var(--app-action-line), 0 8px 26px var(--app-action-soft);
+  background: var(--app-brand);
+  color: var(--app-brand-ink);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--app-brand) 34%, transparent),
+    0 8px 26px color-mix(in srgb, var(--app-brand) 12%, transparent);
 }
 
 .brand-mark svg {
@@ -557,7 +563,7 @@ textarea {
    announces (`aria-pressed` on a lens, `aria-current` on a link). The chosen
    set, not the strip's frozen `--tb-accent*` copy of it: the values are the
    same, and a state is painted from one place, so the good chip's figure takes
-   the chosen gold like every other chip. */
+   the chosen colour like every other chip. */
 .stat-chip.clickable:is([aria-pressed="true"], [aria-current="page"]) {
   background: var(--app-chosen-wash);
 }
@@ -872,9 +878,9 @@ html[data-ground="plain"] body {
 }
 
 .nav-rail {
-  /* A FIXED-DARK surface: the rail keeps the dark palette in both themes, so
-     it cannot consume theme-flipping tokens — and must not, or the register
-     material's body-level override would recolor it per route. These
+  /* The rail's own palette, dark here and white in the light theme (the block
+     below). It cannot consume theme-flipping tokens, and must not, or the
+     register material's body-level override would recolor it per route. These
      constants mirror design/tokens.css's dark block (the accent trio IS
      --app-action/-ink/-text dark); update them together. Same shape as the
      ambient-wash literals in settings.css: copied, deliberately not aliased. */
@@ -895,6 +901,10 @@ html[data-ground="plain"] body {
   --rail-accent-soft: rgba(219, 203, 144, 0.12);
   --rail-accent-line: rgba(219, 203, 144, 0.18);
   --rail-accent-glow: rgba(219, 203, 144, 0.6);
+  /* The rail's edge against the page, and the collapse button's ground. */
+  --rail-edge: rgba(230, 233, 240, 0.08);
+  --rail-raise: rgba(255, 255, 255, 0.02);
+  --rail-raise-hover: rgba(255, 255, 255, 0.05);
   position: relative;
   z-index: 25;
   min-width: 0;
@@ -904,7 +914,31 @@ html[data-ground="plain"] body {
   justify-content: space-between;
   background: var(--rail-canvas);
   color: var(--rail-text);
-  border-right: 1px solid rgba(230, 233, 240, 0.08);
+  border-right: 1px solid var(--rail-edge);
+}
+
+/* In the light theme the rail is one more white surface, like the cards and
+   panels it frames, rather than the darkest mass on the page. It takes the
+   top bar's ink and the light action trio (--app-action/-ink/-text light) for
+   the chosen view; the brand mark keeps its own gold. */
+[data-theme="light"] .nav-rail {
+  --rail-canvas: #ffffff;
+  --rail-text: #2c2e33;
+  --rail-strong: #191a1c;
+  --rail-muted: #5c5e64;
+  --rail-faint: #6a6c74;
+  --rail-line: rgba(24, 26, 32, 0.11);
+  --rail-line-strong: rgba(24, 26, 32, 0.22);
+  --rail-hover: rgba(22, 24, 30, 0.06);
+  --rail-accent: #0969da;
+  --rail-accent-ink: #ffffff;
+  --rail-accent-text: #0757b8;
+  --rail-accent-soft: rgba(9, 105, 218, 0.1);
+  --rail-accent-line: rgba(9, 105, 218, 0.34);
+  --rail-accent-glow: rgba(9, 105, 218, 0.3);
+  --rail-edge: rgba(24, 26, 32, 0.11);
+  --rail-raise: rgba(24, 26, 32, 0.02);
+  --rail-raise-hover: rgba(24, 26, 32, 0.05);
 }
 
 .app.nav-expanded .nav-rail {
@@ -972,7 +1006,7 @@ html[data-ground="plain"] body {
   align-items: center;
   justify-content: center;
   gap: var(--app-space-2);
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--rail-raise);
   color: var(--rail-muted);
   transition:
     color var(--app-duration-fast),
@@ -982,7 +1016,7 @@ html[data-ground="plain"] body {
 
 .rail-toggle:hover {
   color: var(--rail-text);
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--rail-raise-hover);
   border-color: var(--rail-line-strong);
 }
 
@@ -1006,21 +1040,6 @@ html[data-ground="plain"] body {
   display: inline;
 }
 
-.rail-section-label {
-  display: none;
-  padding: 0 var(--app-space-3);
-  margin: 0 0 var(--app-space-2);
-  color: var(--rail-faint);
-  font-family: var(--app-font-mono);
-  font-size: var(--app-type-whisper);
-  font-weight: var(--app-type-whisper-weight);
-  letter-spacing: var(--app-type-whisper-track);
-  text-transform: uppercase;
-}
-
-.app.nav-expanded .rail-section-label {
-  display: block;
-}
 
 .rail-group {
   display: flex;
@@ -1076,7 +1095,8 @@ html[data-ground="plain"] body {
   border-color: var(--rail-accent-line);
 }
 
-.rail-item[aria-current="page"]::before {
+.rail-item[aria-current="page"]::before,
+.rail-item[aria-current="true"]::before {
   content: "";
   position: absolute;
   left: -14px;
@@ -1088,7 +1108,8 @@ html[data-ground="plain"] body {
   box-shadow: 0 0 14px var(--rail-accent-glow);
 }
 
-.app.nav-expanded .rail-item[aria-current="page"]::before {
+.app.nav-expanded .rail-item[aria-current="page"]::before,
+.app.nav-expanded .rail-item[aria-current="true"]::before {
   left: -15px;
 }
 
@@ -1132,6 +1153,98 @@ html[data-ground="plain"] body {
   --ui-count-min: 9px;
   --ui-count-height: 9px;
   --ui-count-pad: 0px;
+}
+
+/* ---- the Pipeline and its views (shell/PipelineRailGroup.tsx) ------------- */
+
+/* The star is the parent: a full rail entry in gold. In the expanded rail the
+   views hang under it, smaller and dimmer, on a line set in from it. */
+.rail-family {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.app.nav-expanded .rail-family {
+  align-items: stretch;
+}
+
+.rail-family-star svg {
+  color: var(--rail-accent);
+  fill: currentColor;
+}
+
+/* In the Pipeline the star is chosen as any rail entry is, and the view on
+   screen is chosen under it, so both levels say where the person is. */
+.rail-family .rail-item[aria-current="true"] {
+  color: var(--rail-accent-text);
+  background-image: linear-gradient(var(--rail-accent-soft), var(--rail-accent-soft));
+  border-color: var(--rail-accent-line);
+}
+
+.rail-well {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 2px 0 4px 19px;
+  padding-left: 9px;
+}
+
+/* As the rail widens the line grows down from the star and the views drop
+   onto it one after another, so they read as coming out of the star. */
+.rail-well::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  background: var(--rail-line-strong);
+  transform-origin: top;
+  animation: rail-line-down var(--app-duration-slow) var(--app-ease) both;
+}
+
+.rail-sub {
+  min-height: 36px;
+  border-radius: 8px;
+  animation: rail-sub-drop var(--app-duration-medium) var(--app-ease-travel) both;
+}
+
+.rail-sub:nth-child(2) {
+  animation-delay: 60ms;
+}
+
+.rail-sub:nth-child(3) {
+  animation-delay: 120ms;
+}
+
+.rail-sub:not(:hover, [aria-current]) {
+  color: var(--rail-muted);
+}
+
+.rail-sub[aria-current]::before {
+  content: none;
+}
+
+@keyframes rail-line-down {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+@keyframes rail-sub-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail-well::before,
+  .rail-sub {
+    animation: none;
+  }
 }
 
 .app:not(.nav-expanded) .rail-item[data-tip]::after,
@@ -1269,7 +1382,7 @@ html[data-ground="plain"] body {
 }
 
 /* The option Enter acts on: the keyboard's place in the list, not a choice.
-   It wears the app's one ring, inside, over the hover fill. Not the gold wash
+   It wears the app's one ring, inside, over the hover fill. Not the chosen wash
    alone: that is about 1.1:1 against the list (WCAG 1.4.11 asks 3:1 of a
    focus indicator) and the chosen look besides, which means "picked", not
    "here". */
@@ -1409,12 +1522,10 @@ html[data-ground="plain"] body {
   }
 
   .rail-brand,
-  .rail-section-label,
   .rail-toggle {
     display: none;
   }
 
-  .app.nav-expanded .rail-section-label,
   .app.nav-expanded .rail-toggle {
     display: none;
   }
@@ -1508,6 +1619,40 @@ html[data-ground="plain"] body {
   .app:not(.nav-expanded) .rail-item[data-tip]::after,
   .app:not(.nav-expanded) .rail-toggle[data-tip]::after {
     display: none;
+  }
+
+  /* The dock has no room to drop a well: the Pipeline's views stand in it as
+     entries of their own. */
+  .rail-family,
+  .app.nav-expanded .rail-family {
+    flex-direction: row;
+    align-items: stretch;
+    gap: 2px;
+  }
+
+  .rail-family-star {
+    display: none;
+  }
+
+  .rail-well {
+    margin: 0;
+    padding: 0;
+    flex-direction: row;
+    gap: 2px;
+  }
+
+  .rail-well::before {
+    content: none;
+  }
+
+  .rail-sub {
+    min-height: 0;
+    color: var(--rail-muted);
+    animation: none;
+  }
+
+  .rail-sub[aria-current]::before {
+    content: "";
   }
 }
 

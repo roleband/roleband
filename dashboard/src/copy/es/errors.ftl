@@ -71,10 +71,13 @@ error-application-not-found = Ese puesto ya no está en tu seguimiento.
 error-comment-not-found = Ese comentario ya no existe.
 
 error-interview-not-found = Esa entrevista ya no existe.
+# kind=error next=none
+error-step-not-found = Ese siguiente paso ya no existe.
 
 error-comment-not-yours = Solo puedes cambiar tus propios comentarios.
 
 error-application-under-way = Este puesto ya está en proceso, así que sigue guardado. Márcalo como Retirado.
+error-notes-moved = Estas notas se cambiaron en otro lugar desde que se abrieron.
 
 error-scheduling-unavailable-unnamed = El escaneo está en pausa o desactivado para esta empresa.
 

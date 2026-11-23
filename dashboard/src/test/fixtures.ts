@@ -2,6 +2,7 @@ import {
   AgentAccessState,
   ApplicationCard,
   ApplicationDetail,
+  ApplicationStep,
   CloudLLMProfile,
   CloudLLMTestResult,
   CompanyCard,
@@ -353,6 +354,7 @@ export const jobFixture: Job & Pick<JobList["items"][number], "posting_reality">
   place_count: null,
   place_set_size: null,
   is_favorite: false,
+  pipeline_stage: null,
   is_dismissed: false,
   company_unfollowed: false,
   domains: ["ai_ml"],
@@ -362,27 +364,41 @@ export const jobFixture: Job & Pick<JobList["items"][number], "posting_reality">
   lifecycle: [],
 };
 
+/** One open next step. */
+export function stepFixture(overrides: Partial<ApplicationStep> = {}): ApplicationStep {
+  return { id: 1, text: "Follow up with the recruiter", due: null, created_at: "2026-11-01T09:00:00Z", done_at: null, ...overrides };
+}
+
 /** One application on the board: a role in Considering, starred, with no
- *  pursuit yet, and nothing due. */
+ *  pursuit yet, and nothing due. A card given a next step and no list of
+ *  steps lists that one, as the server's card always does: its next step is
+ *  the first of its steps. */
 export function applicationCardFixture(overrides: Partial<ApplicationCard> = {}): ApplicationCard {
+  const jobId = overrides.job_id ?? 101;
+  const steps = overrides.steps ?? (overrides.next_action
+    ? [stepFixture({ id: jobId * 10 + 1, text: overrides.next_action, due: overrides.next_action_due ?? null })]
+    : []);
   return {
     job_id: 101,
     pursuit_id: null,
     stage: "saved",
     priority: 3,
+    priority_set: false,
     starred: true,
     company: "openai",
     title: "Staff Product Manager, API",
     level_band: "staff",
     posting_status: "open",
-    next_action: null,
-    next_action_due: null,
+    next_action: steps[0]?.text ?? null,
+    next_action_due: steps[0]?.due ?? null,
     next_interview: null,
+    awaiting_outcome: null,
     comment_count: 0,
     stage_since: "2026-11-01T09:00:00Z",
     last_activity_at: "2026-11-01T09:00:00Z",
     ended_at_stage: null,
     ...overrides,
+    steps,
   };
 }
 
@@ -391,6 +407,7 @@ export function applicationDetailFixture(overrides: Partial<ApplicationDetail> =
   return {
     application: applicationCardFixture({ pursuit_id: 10, stage: "applied", stage_since: "2026-11-01T09:00:00Z" }),
     interviews: [],
+    done_steps: [],
     stages_reached: [
       { stage: "saved", at: "2026-10-20T09:00:00Z" },
       { stage: "applied", at: "2026-11-01T09:00:00Z" },

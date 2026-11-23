@@ -130,6 +130,24 @@ describe("ActivityScreen: the list", () => {
     expect(rows()[0]).toHaveTextContent("Ran something new");
   });
 
+  it("says what an assistant did to a next step, by what it did and to which role", async () => {
+    const role = { title: "Design Lead", company: "contoso" };
+    const step = (id: number, action: string) => entry({
+      id, operation: `steps.${action}`, kind: "change", action_group: "tracking_progress",
+      summary: "stored sentence", subject: { topic: "pursuit.step", ...role, action, step: "Send the portfolio" },
+    });
+    vi.mocked(api.agentActivity).mockResolvedValue(page({ items: [step(4, "add"), step(3, "done"), step(2, "undo"), step(1, "edit")] }));
+    renderScreen();
+    await screen.findByText(range(1, 4));
+    expect(rows().map((row) => row.textContent)).toEqual([
+      expect.stringContaining(msg("activity-step-role", { ...role, action: "add" })),
+      expect.stringContaining(msg("activity-step-role", { ...role, action: "done" })),
+      expect.stringContaining(msg("activity-step-role", { ...role, action: "undo" })),
+      expect.stringContaining(msg("activity-step-role", { ...role, action: "edit" })),
+    ]);
+    expect(within(entries()).queryByText("stored sentence")).toBeNull();
+  });
+
   it("says when nothing matches the filters, and when there is nothing yet", async () => {
     vi.mocked(api.agentActivity).mockResolvedValue(page({ items: [] }));
     renderScreen("/settings/intelligence/activity?kind=refused");

@@ -16,10 +16,17 @@ import pytest
 from sqlalchemy import delete, insert, select
 
 from tracker.agents import pursuits as store
-from tracker.agents.applications import OWES_NOTHING
+from tracker.agents.operations import pursuits as agent_pursuits
 from tracker.api.schemas import applications as contract
-from tracker.db.models import Favorite, Job, Pursuit, PursuitComment, PursuitEvent, PursuitInterview
-from tracker.notifications.pursuit_due import TERMINAL_STAGES
+from tracker.db.models import (
+    OWES_NOTHING,
+    Favorite,
+    Job,
+    Pursuit,
+    PursuitComment,
+    PursuitEvent,
+    PursuitInterview,
+)
 
 pytestmark = pytest.mark.asyncio
 
@@ -224,6 +231,185 @@ async def test_an_all_day_round_is_next_through_its_whole_day(api_client, db_ses
     assert board[over.id]["next_interview"] is None
 
 
+async def test_the_round_awaiting_its_outcome_is_the_latest_one_that_took_place_without_one(
+    api_client, db_session
+):
+    job = await _job(db_session)
+    now = datetime.now(UTC)
+    await _interview(api_client, job.id, "Phone screen", now - timedelta(days=9))
+    await _interview(api_client, job.id, "Hiring manager", now - timedelta(days=3))
+    await _interview(api_client, job.id, "Ran, passed", now - timedelta(days=2), outcome="passed")
+    await _interview(api_client, job.id, "Called off", now - timedelta(days=1), outcome="cancelled")
+    await _interview(api_client, job.id, "Technical round", now + timedelta(days=2))
+    answered = await _job(db_session, "r2")
+    await _interview(api_client, answered.id, "Screen", now - timedelta(days=3), outcome="not_passed")
+    await _interview(api_client, answered.id, "Onsite", now + timedelta(days=4))
+
+    board = await _board(api_client)
+
+    assert board[job.id]["awaiting_outcome"]["label"] == "Hiring manager"
+    assert board[job.id]["next_interview"]["label"] == "Technical round"
+    # Every round that took place has its outcome, and one still to come asks nothing.
+    assert board[answered.id]["awaiting_outcome"] is None
+
+
+async def test_a_round_that_began_awaits_its_outcome_while_it_is_still_next(api_client, db_session):
+    job = await _job(db_session)
+    await _interview(api_client, job.id, "Screen", datetime.now(UTC) - timedelta(hours=3))
+
+    card = (await _board(api_client))[job.id]
+
+    assert card["next_interview"]["label"] == "Screen"
+    assert card["awaiting_outcome"]["label"] == "Screen"
+
+
+async def test_an_all_day_round_awaits_its_outcome_once_its_day_is_over(api_client, db_session):
+    started = datetime.now(UTC) - timedelta(hours=14)
+    today = await _job(db_session)
+    await _interview(api_client, today.id, "On site", started, all_day=True)
+    over = await _job(db_session, "r2")
+    await _interview(api_client, over.id, "Yesterday", started - timedelta(hours=11), all_day=True)
+
+    board = await _board(api_client)
+
+    assert board[today.id]["awaiting_outcome"] is None
+    assert board[over.id]["awaiting_outcome"]["label"] == "Yesterday"
+
+
+async def test_a_card_and_the_calendar_carry_the_rounds_link(api_client, db_session):
+    job = await _job(db_session)
+    now = datetime.now(UTC)
+    link = "https://meet.example.test/abc-defg"
+    await _interview(api_client, job.id, "Ran", now - timedelta(days=1), link=link)
+    await _interview(api_client, job.id, "Hiring manager", now + timedelta(days=1), link=link)
+    await _interview(api_client, job.id, "On site", now + timedelta(days=3), format="onsite")
+
+    card = (await _board(api_client))[job.id]
+    items = await _calendar(api_client, now - timedelta(days=2), now + timedelta(days=4))
+
+    assert card["next_interview"]["link"] == link
+    assert card["awaiting_outcome"]["link"] == link
+    assert [(i["label"], i["link"]) for i in items] == [("Ran", link), ("Hiring manager", link), ("On site", None)]
+
+
+async def test_the_agents_pursuit_reads_name_the_rounds_the_card_does(api_client, db_session):
+    job = await _job(db_session)
+    quiet = await _job(db_session, "r2")
+    now = datetime.now(UTC)
+    link = "https://meet.example.test/abc-defg"
+    await _move(api_client, job.id, "interviewing")
+    await _move(api_client, quiet.id, "applied")
+    await _interview(api_client, job.id, "Hiring manager", now - timedelta(days=2))
+    await _interview(api_client, job.id, "Technical round", now + timedelta(days=3), link=link)
+
+    one = await agent_pursuits.pursuit_of(db_session, job.id)
+    page, _ = await agent_pursuits.pursuit_page(
+        db_session, agent_pursuits.PursuitListInput(), workspace_id="test"
+    )
+    card = (await _board(api_client))[job.id]
+
+    listed = {item.opportunity_id: item for item in page.items}
+    for item in (one, listed[job.id]):
+        assert item.next_interview is not None and item.awaiting_outcome is not None
+        assert item.next_interview.model_dump(mode="json") == card["next_interview"]
+        assert item.awaiting_outcome.model_dump(mode="json") == card["awaiting_outcome"]
+        assert item.next_interview.link == link
+    assert listed[quiet.id].next_interview is None and listed[quiet.id].awaiting_outcome is None
+
+
+# --- priority ----------------------------------------------------------------------
+
+async def test_a_role_has_no_priority_until_one_is_chosen(api_client, db_session):
+    starred = await _job(db_session)
+    pursued = await _job(db_session, "r2")
+    db_session.add(Favorite(job_id=starred.id))
+    await db_session.commit()
+    # Writes that name no priority leave the role without one, at the stored default.
+    await _move(api_client, pursued.id, "applied", notes="Sent the form")
+
+    board = await _board(api_client)
+    assert board[starred.id]["priority_set"] is False
+    assert board[pursued.id]["priority"] == 3 and board[pursued.id]["priority_set"] is False
+
+
+async def test_choosing_medium_on_a_role_at_the_default_is_a_choice(api_client, db_session):
+    job = await _job(db_session)
+    other = await _job(db_session, "r2")
+    await _move(api_client, job.id, "applied")
+    await _move(api_client, other.id, "applied")
+    await _move(api_client, job.id, "applied", priority=3)
+    # Naming the stage it is already at changes nothing; naming the priority does.
+    await _move(api_client, other.id, "applied")
+
+    board = await _board(api_client)
+    assert board[job.id]["priority"] == 3 and board[job.id]["priority_set"] is True
+    assert board[other.id]["priority_set"] is False
+    pursuit = await db_session.scalar(select(Pursuit).where(Pursuit.job_id == job.id))
+    events = (await db_session.scalars(
+        select(PursuitEvent).where(PursuitEvent.pursuit_id == pursuit.id).order_by(PursuitEvent.id)
+    )).all()
+    assert [e.detail["changed"] for e in events] == [["stage"], ["priority"]]
+    assert events[-1].detail["before"] == {"priority": 3} and events[-1].detail["after"] == {"priority": 3}
+
+    # Chosen once, an unchanged priority is not recorded again.
+    await _move(api_client, job.id, "applied", priority=3)
+    count = len((await db_session.scalars(select(PursuitEvent).where(PursuitEvent.pursuit_id == pursuit.id))).all())
+    assert count == 2
+
+
+async def test_the_agents_read_the_priority_choice_the_card_does_and_list_the_most_urgent_first(
+    api_client, db_session
+):
+    low = await _job(db_session)
+    urgent = await _job(db_session, "r2")
+    unset = await _job(db_session, "r3")
+    await _move(api_client, low.id, "applied", priority=2)
+    await _move(api_client, urgent.id, "applied", priority=5)
+    await _move(api_client, unset.id, "applied")
+
+    page, _ = await agent_pursuits.pursuit_page(
+        db_session, agent_pursuits.PursuitListInput(), workspace_id="test"
+    )
+    # As the List sorts them: no priority last, below a chosen Low.
+    assert [item.opportunity_id for item in page.items] == [urgent.id, low.id, unset.id]
+    assert {item.opportunity_id: item.priority_set for item in page.items} == {urgent.id: True, unset.id: False, low.id: True}
+    assert (await agent_pursuits.pursuit_of(db_session, unset.id)).priority_set is False
+
+
+async def _row(api_client, job_id: int) -> dict:
+    response = await api_client.get(f"/api/jobs/{job_id}")
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+async def test_a_posting_names_the_stage_its_role_is_at_on_the_board(api_client, db_session):
+    starred, applied, unstarred, gone, plain = (
+        await _job(db_session, "r1"), await _job(db_session, "r2"), await _job(db_session, "r3"),
+        await _job(db_session, "r4"), await _job(db_session, "r5"),
+    )
+    await api_client.put(f"/api/jobs/{starred.id}/favorite")
+    await _move(api_client, applied.id, "applied")
+    await _move(api_client, unstarred.id, "interviewing")
+    # A star removed before the rule existed, or by hand: still on the board.
+    await db_session.execute(delete(Favorite).where(Favorite.job_id == unstarred.id))
+    await db_session.commit()
+    # A pursuit at Considering whose star was taken away is off the board.
+    await api_client.put(f"/api/jobs/{gone.id}/favorite")
+    await _comment(api_client, gone.id, "Read their blog post")
+    await api_client.delete(f"/api/jobs/{gone.id}/favorite")
+
+    stages = {job.id: (await _row(api_client, job.id))["pipeline_stage"]
+              for job in (starred, applied, unstarred, gone, plain)}
+    board = await _board(api_client)
+
+    assert stages == {starred.id: "saved", applied.id: "applied", unstarred.id: "interviewing",
+                      gone.id: None, plain.id: None}
+    # The same roles, at the same stages, as the board.
+    assert {job_id: card["stage"] for job_id, card in board.items()} == {
+        job_id: stage for job_id, stage in stages.items() if stage is not None
+    }
+
+
 # --- the calendar -----------------------------------------------------------------
 
 
@@ -319,7 +505,8 @@ async def test_a_role_off_the_board_has_nothing_on_the_calendar(api_client, db_s
 
 
 async def test_the_steps_left_off_are_the_ones_the_reminders_stop_for():
-    assert OWES_NOTHING == TERMINAL_STAGES
+    assert OWES_NOTHING == {"declined", "withdrawn", "rejected", "role_closed"}
+    assert "offer" not in OWES_NOTHING and "accepted" not in OWES_NOTHING
 
 
 @pytest.mark.parametrize(
@@ -800,3 +987,33 @@ async def test_interview_values_are_the_ones_the_table_admits(published, written
     [check] = [c for c in PursuitInterview.__table__.constraints if c.name == constraint]
     admitted = set(re.findall(r"'([^']+)'", str(check.sqltext)))
     assert set(get_args(published)) == set(get_args(written)) == admitted
+
+
+@pytest.mark.parametrize(
+    ("starred", "stage", "shown"),
+    [
+        (True, None, "saved"),
+        (False, "applied", "applied"),
+        (False, "saved", None),
+        (True, "saved", "saved"),
+        (True, "interviewing", "interviewing"),
+    ],
+    ids=["star-only", "pursuit-past-considering", "pursuit-at-considering-unstarred", "both-considering", "both-moved"],
+)
+async def test_a_rows_pipeline_stage_follows_the_boards_star_and_pursuit_rule(db_session, starred, stage, shown):
+    from tracker.db.queries.jobs import row_context
+
+    job = await _job(db_session)
+    other = await _job(db_session, "r2")
+    if starred:
+        db_session.add(Favorite(job_id=job.id))
+    if stage is not None:
+        db_session.add(Pursuit(job_id=job.id, stage=stage))
+    # A neighbour that is neither, and one that is both, must not leak in.
+    db_session.add_all([Favorite(job_id=other.id), Pursuit(job_id=other.id, stage="offer")])
+    await db_session.flush()
+
+    context = await row_context(db_session, [job], standing=False)
+
+    assert context["pipeline_stages"] == ({} if shown is None else {job.id: shown})
+    assert context["favorite_ids"] == ({job.id} if starred else set())

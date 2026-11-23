@@ -353,7 +353,7 @@ export function JobCard({
           aria-label={jobsCompare()}
           title={compareFull ? fullTitle(compareCap) : jobsCompareTitle({ key: "c" })}
         >
-          <Icon name={compareOn ? "check" : "columns"} size={14} />
+          <Icon name={compareOn ? "check" : "compare"} size={14} />
         </Button>
         {compareFull && <span id={fullReasonId} className="sr-only">{fullTitle(compareCap)}</span>}
         <StarButton on={job.is_favorite} onToggle={onToggleFav} size={16} shortcut="s" />

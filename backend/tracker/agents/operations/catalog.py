@@ -27,6 +27,7 @@ from tracker.agents.operations import (
     recipes,
     relations,
     search,
+    steps,
     vocabulary,
 )
 from tracker.agents.operations.descriptor import UNKNOWN, OperationDescriptor, ToolTier
@@ -39,6 +40,7 @@ REGISTERED: tuple[OperationDescriptor, ...] = (
     *radar.OPERATIONS,
     *opportunities.OPERATIONS,
     *pursuits.OPERATIONS,
+    *steps.OPERATIONS,
     *recipes.OPERATIONS,
     *receipts.OPERATIONS,
     *changes.OPERATIONS,
@@ -81,23 +83,24 @@ CATALOG = Catalog(REGISTERED)
 #: by default lists these and the ids under them, and leaves each operation's
 #: own summary to `describe`. Every resource of the catalog has one.
 RESOURCES: dict[str, str] = {
-    "applications": "The person's applications: the board of stages and the calendar of interviews.",
+    "applications": "Applications: the board of stages and the interview calendar.",
     "capabilities": "The operations this engine offers.",
-    "changes": "What changed after a position: postings, stated pay, follow-ups due, source health.",
-    "companies": "Companies the person follows: profiles, facts with their sources, share prices.",
-    "context": "Everything about one opportunity as one hashed packet.",
+    "changes": "What changed after a position: postings, stated pay, steps due, source health.",
+    "companies": "Followed companies: profiles, sourced facts, share prices.",
+    "context": "One opportunity as one hashed packet.",
     "describe": "How to call one operation.",
     "doctor": "The engine's checks and settings.",
-    "duplicates": "Duplicate postings: the pairs worth deciding, and verdicts on them.",
-    "insights": "Market figures: open roles, pay by level and country, trends, skills asked for.",
+    "duplicates": "Duplicate postings: pairs worth deciding, and verdicts.",
+    "insights": "Market figures: open roles, pay by level and country, trends, skills.",
     "offer": "The person's own offer.",
-    "opportunities": "Open roles: search, one posting, its history, similar and duplicate postings.",
-    "pursuits": "Roles the person saved or pursues: stage, priority, notes, next action.",
-    "radar": "Counts of open and saved roles, pursuits by stage, overdue follow-ups.",
+    "opportunities": "Open roles: search, one posting, its history, similar and duplicates.",
+    "pursuits": "Saved and pursued roles: stage, priority, notes, next steps.",
+    "radar": "Counts of open and saved roles, pursuits by stage, overdue steps.",
     "receipts": "What a write sent under an idempotency key did.",
-    "recipes": "Listing recipes for a careers site: the contract, a live preview, drafts.",
+    "recipes": "Careers-site listing recipes: the contract, a live preview, drafts.",
     "sources": "One public careers page, fetched.",
     "status": "The workspace and engine answering.",
+    "steps": "A pursuit's next steps: add, change, tick done, open again.",
     "vocabulary": "The values a search filter accepts.",
 }
 

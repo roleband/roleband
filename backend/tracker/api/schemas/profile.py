@@ -11,8 +11,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import Field, field_validator
+from pydantic import ConfigDict, Field, field_validator
 
+from tracker.agents.pursuits import PursuitUpdate
 from tracker.api.schemas.base import Built
 from tracker.api.schemas.jobs import JobPursuit
 from tracker.api.schemas.text_class import text
@@ -134,6 +135,20 @@ class PursuitListResponse(Built):
     """`GET /api/pursuits`: highest priority first, then most recently updated."""
 
     pursuits: list[PursuitListItem]
+
+
+class PursuitWrite(PursuitUpdate):
+    """`PUT /api/jobs/{job_id}/pursuit`: the fields to change, and for new
+    notes the text they were written over."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    #: The notes the page started from, "" for none. Given, the write is
+    #: refused with `notes-moved` when the stored notes are no longer these.
+    notes_was: str | None = Field(default=None, max_length=20_000, json_schema_extra=text("content"))
+    #: The notes are an earlier version put back. They start a writing
+    #: session of their own, so the notes they replace stay a version.
+    notes_put_back: bool | None = None
 
 
 class PursuitWriteResponse(Built):

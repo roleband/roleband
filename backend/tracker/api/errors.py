@@ -43,6 +43,7 @@ class ErrorCode(StrEnum):
     APPLICATION_NOT_FOUND = "application-not-found"
     COMMENT_NOT_FOUND = "comment-not-found"
     INTERVIEW_NOT_FOUND = "interview-not-found"
+    STEP_NOT_FOUND = "step-not-found"
     PLUGIN_NOT_FOUND = "plugin-not-found"
     # The request itself is malformed: a client defect, said generically.
     INVALID_INPUT = "invalid-input"
@@ -96,6 +97,9 @@ class ErrorCode(StrEnum):
     COMMENT_NOT_YOURS = "comment-not-yours"
     # Unstarring a role past Considering: it is withdrawn instead.
     APPLICATION_UNDER_WAY = "application-under-way"
+    # The role's notes changed after the text a save started from; the
+    # answer carries them as `current`, for the page to merge.
+    NOTES_MOVED = "notes-moved"
 
 
 class ErrorDetail(BaseModel):

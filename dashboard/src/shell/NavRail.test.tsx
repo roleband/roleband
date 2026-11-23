@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NavRail } from "./NavRail";
 
@@ -16,6 +16,7 @@ vi.mock("../context/MissionState", () => ({
 
 beforeEach(() => {
   stats = { notif_unread: 0, review_pending: 0 };
+  localStorage.clear();
 });
 
 const rail = (expanded = false) =>
@@ -104,4 +105,70 @@ describe("NavRail", () => {
     expect(screen.getByRole("link", { name: "Notifications" })).toBeTruthy();
   });
 
+});
+
+/* The Pipeline is a star. Collapsed, the star stands alone and the page's
+ * tabs switch between the views; expanded, the views are named under it. How
+ * they drop in is the stylesheet's (pinned in tests/ux/pipeline-rail.spec.ts). */
+describe("the Pipeline in the rail", () => {
+  function Where() {
+    return <output data-testid="where">{useLocation().pathname}</output>;
+  }
+  const rail = (path: string, expanded = false) => (
+    <MemoryRouter initialEntries={[path]}>
+      <NavRail expanded={expanded} onToggleExpanded={vi.fn()} theme="dark" onToggleTheme={vi.fn()} />
+      <Where />
+    </MemoryRouter>
+  );
+  const at = (path: string, expanded = false) => render(rail(path, expanded));
+  const nav = () => within(screen.getByRole("navigation", { name: "Main" }));
+  const star = () => nav().getByRole("link", { name: "Pipeline" });
+  const views = () => ["Considering", "Board", "Up next"].filter((name) => nav().queryByRole("link", { name }) != null);
+
+  it("collapsed, shows the star alone, inside the Pipeline and out", () => {
+    const { unmount } = at("/");
+    expect(star().querySelector("svg")).not.toBeNull();
+    expect(views()).toEqual([]);
+    unmount();
+    at("/pipeline/board");
+    expect(star()).toHaveAttribute("aria-current", "true");
+    expect(views(), "the page's tabs name the view, not the rail").toEqual([]);
+  });
+
+  it("goes into the Pipeline at Considering when the star is pressed, and marks the star as the place", async () => {
+    const user = userEvent.setup();
+    at("/");
+    expect(star()).not.toHaveAttribute("aria-current");
+    await user.click(star());
+    expect(screen.getByTestId("where")).toHaveTextContent("/pipeline/list");
+    // The place is the Pipeline; the page is its view.
+    expect(star()).toHaveAttribute("aria-current", "true");
+  });
+
+  it("expanded, names the star and its three views in order, outside the Pipeline too", () => {
+    at("/", true);
+    expect(star()).toHaveTextContent("Pipeline");
+    expect(star()).not.toHaveAttribute("aria-current");
+    expect(views()).toEqual(["Considering", "Board", "Up next"]);
+    expect(nav().getByRole("link", { name: "Board" })).toHaveTextContent("Board");
+    for (const name of views()) expect(nav().getByRole("link", { name })).not.toHaveAttribute("aria-current");
+  });
+
+  it("expanded in the Pipeline, marks the star and the view on screen, and only it", () => {
+    at("/pipeline/board", true);
+    expect(star()).toHaveAttribute("aria-current", "true");
+    expect(nav().getByRole("link", { name: "Board" })).toHaveAttribute("aria-current", "page");
+    expect(nav().getByRole("link", { name: "Considering" })).not.toHaveAttribute("aria-current");
+    expect(nav().getByRole("link", { name: "Up next" })).not.toHaveAttribute("aria-current");
+    expect(nav().getByRole("link", { name: "Radar" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("drops the views when the rail widens and takes them away when it narrows", () => {
+    const { rerender } = at("/pipeline/list");
+    expect(views()).toEqual([]);
+    rerender(rail("/pipeline/list", true));
+    expect(views()).toEqual(["Considering", "Board", "Up next"]);
+    rerender(rail("/pipeline/list", false));
+    expect(views()).toEqual([]);
+  });
 });

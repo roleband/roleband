@@ -41,8 +41,8 @@ that comes first, ordered by id, and only to a read from the beginning or a
   run's end is recorded once by the transaction that closed it
   (`plugin_run_ends`); its health is compared with the job's previous ended
   run. A run the person stopped says nothing about its source's health.
-- `pursuit_due`: derived from the current pursuit and the audit event that
-  scheduled or reactivated it. The schedule joins the feed below the
+- `pursuit_due`: derived, one per open next step, from the step and the
+  audit event that scheduled it or reactivated its pursuit. The schedule joins the feed below the
   transaction frontier. Once due, it is reported when either its deadline
   crosses the wall-clock window or its schedule joins the transaction window.
   Windows advance while pursuits are withheld as well.
@@ -95,15 +95,16 @@ from tracker.agents.operations.policy import category_disabled
 from tracker.agents.operations.search import PAGE_BUDGET_BYTES
 from tracker.company_store import off_board_company_slugs
 from tracker.db.models import (
+    OWES_NOTHING,
     Job,
     JobLifecycleEvent,
     PluginRun,
     PluginRunEnd,
     Pursuit,
     PursuitEvent,
+    PursuitStep,
     ScrapeSourceRun,
 )
-from tracker.notifications.pursuit_due import TERMINAL_STAGES
 
 _CODE: JsonDict = {"x-text": "code"}
 _IDENTIFIER: JsonDict = {"x-text": "identifier"}
@@ -156,7 +157,10 @@ _EVENTS, _RUNS, _DUE, _PLUGIN_RUNS = 0, 1, 2, 3
 #: A window's phases: history from before positions, positioned rows, derived due times.
 _HISTORY, _POSITIONED, _DERIVED = 0, 1, 2
 
-_FORMAT = 1
+#: What a position's numbers mean. A due position names a next step's id;
+#: under format 1 it named a pursuit's, which a step id cannot be compared
+#: with, so a format 1 position is refused as `expired` with where to resume.
+_FORMAT = 2
 
 
 class ChangesListInput(Shape):
@@ -698,34 +702,44 @@ async def _due(session: AsyncSession, position: _Position, cluster: str, *, limi
     if after is not None and after[0] > _DERIVED:
         return []
     event = PursuitEvent
+    step = PursuitStep
+    # What scheduled this step: a write of the step itself, the pursuit's
+    # creation, or its return from an ending. A write made before steps had
+    # rows of their own names no step and scheduled the pursuit's one step.
     schedule = (
         select(event.change_xact, event.change_cluster)
         .where(
-            event.pursuit_id == Pursuit.id,
+            event.pursuit_id == step.pursuit_id,
             or_(
                 event.event_type == "created",
-                event.detail["after"].has_key("next_action_due"),
-                and_(event.from_stage.in_(TERMINAL_STAGES), event.to_stage.not_in(TERMINAL_STAGES)),
+                event.detail["step"]["id"].as_integer() == step.id,
+                and_(
+                    not_(event.detail.has_key("step")),
+                    event.detail["after"].has_key("next_action_due"),
+                ),
+                and_(event.from_stage.in_(OWES_NOTHING), event.to_stage.not_in(OWES_NOTHING)),
             ),
         )
         .order_by(event.id.desc())
         .limit(1)
-        .correlate(Pursuit)
+        .correlate(step)
         .lateral("schedule")
     )
     xact = schedule.c.change_xact
     positioned = and_(xact.is_not(None), schedule.c.change_cluster.is_not_distinct_from(int(cluster)))
-    due = Pursuit.next_action_due
+    due = step.due
     statement = (
-        select(Pursuit.id, Pursuit.job_id, due, Job.company)
+        select(step.id, Pursuit.job_id, due, Job.company)
+        .join(Pursuit, Pursuit.id == step.pursuit_id)
         .join(Job, Job.id == Pursuit.job_id)
         .outerjoin(schedule, true())
         .where(
+            step.done_at.is_(None),
             due <= _moment(position.th),
-            Pursuit.stage.not_in(TERMINAL_STAGES),
+            Pursuit.stage.not_in(OWES_NOTHING),
             or_(not_(positioned), xact < position.hi),
         )
-        .order_by(due, Pursuit.id)
+        .order_by(due, step.id)
         .limit(limit)
     )
     if position.st is not None:
@@ -737,17 +751,17 @@ async def _due(session: AsyncSession, position: _Position, cluster: str, *, limi
         statement = statement.where(or_(fell_due, entered))
     if after is not None and after[0] == _DERIVED:
         statement = statement.where(
-            tuple_(due, Pursuit.id) > tuple_(literal(_moment(after[1])), literal(after[3]))
+            tuple_(due, step.id) > tuple_(literal(_moment(after[1])), literal(after[3]))
         )
     return [
         _Candidate(
-            (_DERIVED, _micros(due), _DUE, pursuit_id),
+            (_DERIVED, _micros(due), _DUE, step_id),
             ChangeEvent(
-                sequence=f"pursuit_due:{pursuit_id}:{_micros(due)}", kind="pursuit_due", basis="derived", at=due,
+                sequence=f"step_due:{step_id}:{_micros(due)}", kind="pursuit_due", basis="derived", at=due,
                 opportunity_id=job_id, company=company,
             ),
         )
-        for pursuit_id, job_id, due, company in (await session.execute(statement)).all()
+        for step_id, job_id, due, company in (await session.execute(statement)).all()
     ]
 
 

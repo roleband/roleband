@@ -64,6 +64,6 @@ export const profileApi = {
     getJSON<Schemas["PursuitListResponse"]>(
       `/api/pursuits${stage ? `?stage=${stage}` : ""}`,
     ),
-  setPursuit: (jobId: number, update: Schemas["PursuitUpdate"]) =>
+  setPursuit: (jobId: number, update: Schemas["PursuitWrite"]) =>
     putJSON<Schemas["PursuitWriteResponse"]>(`/api/jobs/${jobId}/pursuit`, update),
 };

@@ -525,6 +525,14 @@ TABLE_OWNERS: dict[str, TableOwnership] = {
         writers=("tracker/agents/pursuits.py",),
         readers=("tracker/agents/applications.py",),
     ),
+    # A ticked step stays, dated, for History; only the person's own delete
+    # removes one.
+    "pursuit_steps": TableOwnership(
+        claim="user",
+        lifecycle="authored",
+        writers=("tracker/agents/pursuits.py",),
+        readers=("tracker/agents/applications.py", "tracker/notifications/pursuit_due.py"),
+    ),
     "pursuits": TableOwnership(
         claim="user",
         lifecycle="authored",

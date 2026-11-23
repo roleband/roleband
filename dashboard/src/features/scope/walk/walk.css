@@ -33,7 +33,7 @@
 
 /* ---- First-run setup has the window: one centred column a little below the
    top, under a header in the welcome's voice (an eyebrow saying where setup
-   stands over the title), with a gold line for how far along it is. */
+   stands over the title), with a line in the action colour for how far along it is. */
 .walk.walk--setup {
   width: 100%;
   max-width: 1320px;

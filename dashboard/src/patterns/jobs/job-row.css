@@ -170,7 +170,7 @@
 }
 
 /* The one ring, drawn INSIDE the row: a full-bleed row has no edge
-   for a ring at a 2px offset. Not a gold left edge: that edge is exactly the
+   for a ring at a 2px offset. Not a chosen left edge: that edge is exactly the
    mark of a row picked for Compare, and a keyboard user could not tell "I am
    here" from "I picked this".
    The row carries `tabindex`, so the global ring's `[tabindex]:focus-visible`

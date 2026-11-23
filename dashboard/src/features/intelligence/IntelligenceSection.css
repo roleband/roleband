@@ -189,8 +189,7 @@
 /* Bands are controls: hover tints the band's slice of the field, a click
  * holds the tint and swaps the preview list beside it. The hit area spans the
  * full row (label gutter included) so the label is as clickable as the zone.
- * The tint is the ledger's gold highlight (--app-mark), the same gold
- * family the Direction screen paints selection with, reached through this
+ * The tint is the ledger's highlight (--app-mark), reached through this
  * scope's own token rather than an alias into --settings-*. */
 /* A band is a control, so its name and count are not selectable text: dragging
    across the field must not highlight "Strong 302 Good 345 …" like a paragraph,

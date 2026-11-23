@@ -1,7 +1,7 @@
 {
  "_why": "The schema as the models declare it, frozen so a change to a column, index, constraint or default cannot land without showing up in a reviewer's diff. `alembic check` already answers 'do the models and the migrations agree?', but only against a live cluster and only in a CI log; this fixture answers 'did the models change at all?' with no database, in the pull request itself. The two claims are independent: a model edit WITH a matching migration keeps `check` green and still belongs in review, which is what this catches. Regenerate deliberately, in the same change as the migration: `.venv/bin/python -m scripts.freeze_schema_metadata`.",
  "embedding_dim": 768,
- "table_count": 77,
+ "table_count": 78,
  "classes": {
   "AgentActivity": "agent_activity",
   "AiTaskLog": "ai_task_log",
@@ -63,6 +63,7 @@
   "PursuitComment": "pursuit_comments",
   "PursuitEvent": "pursuit_events",
   "PursuitInterview": "pursuit_interviews",
+  "PursuitStep": "pursuit_steps",
   "ReferenceChange": "reference_change",
   "ReferenceState": "reference_state",
   "RoleCatalog": "role_catalog",
@@ -1901,6 +1902,29 @@
    "python_onupdate": {
     "updated_at": "now()"
    },
+   "comment": null,
+   "column_comments": {}
+  },
+  "pursuit_steps": {
+   "create": [
+    "CREATE TABLE pursuit_steps (",
+    "    id SERIAL NOT NULL,",
+    "    pursuit_id INTEGER NOT NULL,",
+    "    text TEXT NOT NULL,",
+    "    due TIMESTAMP WITH TIME ZONE,",
+    "    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,",
+    "    done_at TIMESTAMP WITH TIME ZONE,",
+    "    PRIMARY KEY (id),",
+    "    CONSTRAINT ck_pursuit_step_text CHECK (text <> ''),",
+    "    FOREIGN KEY(pursuit_id) REFERENCES pursuits (id) ON DELETE CASCADE",
+    ")"
+   ],
+   "indexes": [
+    "CREATE INDEX ix_pursuit_steps_due ON pursuit_steps (due)",
+    "CREATE INDEX ix_pursuit_steps_pursuit_id ON pursuit_steps (pursuit_id)"
+   ],
+   "python_defaults": {},
+   "python_onupdate": {},
    "comment": null,
    "column_comments": {}
   },

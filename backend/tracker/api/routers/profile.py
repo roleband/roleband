@@ -14,8 +14,10 @@ from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import select
 
 from tracker.agents.pursuits import (
+    NotesMoved,
     PursuitStage,
     PursuitUpdate,
+    StepNeedsWords,
     list_pursuits,
     public_pursuit,
     upsert_pursuit,
@@ -27,6 +29,7 @@ from tracker.api.schemas.profile import (
     OfferResponse,
     PayFloorResponse,
     PursuitListResponse,
+    PursuitWrite,
     PursuitWriteResponse,
     StoredOffer,
     StoredValuation,
@@ -39,7 +42,6 @@ from tracker.api.schemas.profile_suggestions import (
 )
 from tracker.api.scope_saves import promote_after_save, promotion_fields, queue_follow_up
 from tracker.db.models import ProfileSuggestion
-from tracker.notifications.pursuit_due import generate_pursuit_due_notifications
 from tracker.scope.projection import recompute_saved_scope
 from tracker.settings_store import (
     PAY_FLOOR_MAX,
@@ -269,18 +271,25 @@ async def list_pursuits_ep(
 
 @router.put("/api/jobs/{job_id}/pursuit", response_model=PursuitWriteResponse)
 async def set_pursuit_ep(
-    job_id: int, payload: PursuitUpdate, session: SessionDep
+    job_id: int, payload: PursuitWrite, session: SessionDep
 ) -> dict:
     """Create/update the pursuit for one opportunity. Same helper the agent
     pursuit writes use (one transaction: current row + append-only event), actor
     recorded as `user`. There is deliberately no DELETE: `withdrawn` is a
     stage, and history is the point."""
+    fields = payload.model_dump(exclude_unset=True)
+    notes_was = fields.pop("notes_was", None)
+    put_back = bool(fields.pop("notes_put_back", None))
     try:
-        pursuit = await upsert_pursuit(session, job_id, payload, actor="user")
+        pursuit = await upsert_pursuit(
+            session, job_id, PursuitUpdate.model_validate(fields), actor="user", notes_was=notes_was,
+            new_notes_session=put_back,
+        )
     except LookupError as err:
         raise api_error(404, ErrorCode.JOB_NOT_FOUND, str(err)) from err
-    # The reminder follows the pursuit in the same transaction:
-    # an owed follow-up rings and an ended one retracts without a scan.
-    await generate_pursuit_due_notifications(session)
+    except NotesMoved as err:
+        raise api_error(409, ErrorCode.NOTES_MOVED, str(err), current=err.current or "") from err
+    except StepNeedsWords as err:
+        raise api_error(422, ErrorCode.INVALID_INPUT, str(err)) from err
     await session.commit()
     return {"pursuit": public_pursuit(pursuit)}

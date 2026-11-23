@@ -60,8 +60,8 @@ async def test_a_saved_posting_reads_as_saved_wherever_it_is_listed(api_client, 
     rows = _rows(await _get(api_client, path.format(original=marked.original)))
     saved = [row for row in rows if row["id"] == marked.repost]
     assert saved, f"the saved posting is not in {path}, so nothing was measured"
-    assert all(row["is_favorite"] for row in saved)
-    assert not any(row["is_favorite"] for row in rows if row["id"] != marked.repost)
+    assert all(row["is_favorite"] and row["pipeline_stage"] == "saved" for row in saved)
+    assert not any(row["is_favorite"] or row["pipeline_stage"] for row in rows if row["id"] != marked.repost)
 
 
 @pytest.mark.parametrize("path", [

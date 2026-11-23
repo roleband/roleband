@@ -1,11 +1,16 @@
-import type { ReactNode } from "react";
-import { useLocation } from "react-router-dom";
-import type { Job } from "../../api";
+import { Suspense, lazy, useCallback, useEffect, useState, type ReactNode } from "react";
+import type { ApplicationInterview, InterviewWrite, Job } from "../../api";
+import { applicationsWsLoadFailed } from "../../copy/gen/applications";
 import type { StageSlug } from "../../copy/vocabulary";
+import { AsyncBoundary } from "../../ui";
 import { PipelineSection } from "./PipelineSection";
 import { PostingStage } from "./PostingStage";
-import { applicationPath } from "./board";
+import type { RoleTab } from "./roleLink";
 import { usePostingApplication } from "./usePostingApplication";
+import { usePostingWorkspace } from "./usePostingWorkspace";
+
+const InterviewDialog = lazy(() => import("./InterviewDialogLazy"));
+const PostingWorkspace = lazy(() => import("./PostingWorkspace"));
 
 /** The stages before the person has applied: the employer's page is still
  *  where they apply. */
@@ -19,20 +24,63 @@ export interface PostingPipeline {
   section: ReactNode;
   /** The person has applied, or the application has ended. */
   applied: boolean;
+  /** The tab on screen for a role in the pipeline; null for one outside it,
+   *  which has no tabs. */
+  tab: RoleTab | null;
+  /** The Workspace, the main column's while its tab is on screen. */
+  workspace: ReactNode;
+}
+
+type Asking = { kind: "add" } | { kind: "edit"; interview: ApplicationInterview; at?: "notes" };
+
+/** State that belongs to one role: it reads as unset for any other and is
+ *  dropped once the role changes, so a dialog or menu opened on one role never
+ *  carries over to the next, nor comes back on returning. A setter keeps the
+ *  role it was made for: a save that lands late on the role left behind
+ *  clears only that role's state, never what the next role has open. */
+function useStateForJob<T>(jobId: number | null): [T | null, (value: T | null) => void] {
+  const [held, setHeld] = useState<{ jobId: number | null; value: T } | null>(null);
+  if (held && held.jobId !== jobId) setHeld(null);
+  const set = useCallback(
+    (value: T | null) => setHeld((current) => {
+      if (value != null) return { jobId, value };
+      return current && current.jobId !== jobId ? current : null;
+    }),
+    [jobId],
+  );
+  return [held && held.jobId === jobId ? held.value : null, set];
+}
+
+/** A typed key belongs to the field it is typed into, and while a dialog is
+ *  open over the posting the keyboard is the dialog's. The posting itself is
+ *  a modal cover when it is opened over a page, so its own dialog does not
+ *  count. */
+function postingKey(event: KeyboardEvent): boolean {
+  if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return false;
+  const over = Array.from(document.querySelectorAll('[aria-modal="true"]')).some((modal) => !modal.querySelector(".cover-scroll"));
+  if (over) return false;
+  const target = event.target as HTMLElement | null;
+  return !(target?.isContentEditable || target?.closest("input, textarea, select"));
 }
 
 /**
  * The pipeline's part of a posting, composed into it by its route: the
- * posting knows nothing of stages, and the pipeline keeps its menu, its moves
- * and its interview form in one place.
+ * posting knows nothing of stages, and the pipeline keeps its menu, its moves,
+ * its interview form and the Workspace in one place.
+ *
+ * A role in the pipeline reads in two tabs: the posting, and the Workspace,
+ * the person's own work on it. The tab asked for is the posting's unless the
+ * address names the Workspace. M opens the stage menu and I adds an interview.
  */
 export function usePostingPipeline(
   job: Job | null,
-  { showSaved, paintPosting, rereadPosting, onSave, now, column }: {
+  { showSaved, paintPosting, paintNotes, rereadPosting, onSave, now, column, tab: asked, onTab }: {
     /** Paints the posting's star. */
     showSaved: (on: boolean) => void;
     /** Paints the posting's own copy of its stage. */
     paintPosting: (stage: StageSlug) => void;
+    /** Paints the posting's own copy of the notes. */
+    paintNotes: (notes: string | null) => void;
     /** Reads the posting again, after a write that failed. */
     rereadPosting: () => void;
     /** Saves a role that is not on the board. */
@@ -40,19 +88,121 @@ export function usePostingPipeline(
     now: Date;
     /** The side column the section sits in, for its history to open across. */
     column: HTMLElement | null;
+    /** The tab the address asks for. */
+    tab: RoleTab | null;
+    onTab: (tab: RoleTab) => void;
   },
 ): PostingPipeline {
   const application = usePostingApplication(job, { showSaved, paintPosting, rereadPosting });
-  const { state } = useLocation();
-  // Opened over the application's own page, the section would repeat the page under it.
-  const under = (state as { backgroundLocation?: { pathname?: string } } | null)?.backgroundLocation?.pathname;
-  const overItsPage = job != null && under === applicationPath(job.id);
-  const { card, history } = application;
+  const { card, history, detail } = application;
+  const tab: RoleTab | null = card ? asked ?? "posting" : null;
+  const actions = usePostingWorkspace(application, { showing: tab === "workspace", paintNotes });
+  const jobId = job?.id ?? null;
+  const [stageOpenFor, setStageOpenFor] = useStateForJob<true>(jobId);
+  const stageOpen = stageOpenFor === true;
+  const setStageOpen = useCallback((open: boolean) => setStageOpenFor(open ? true : null), [setStageOpenFor]);
+  const [asking, setAsking] = useStateForJob<Asking>(jobId);
+
+  const onBoard = card != null;
+  useEffect(() => {
+    if (!onBoard) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (!postingKey(event)) return;
+      const key = event.key.toLowerCase();
+      if (key === "m") {
+        event.preventDefault();
+        setStageOpen(true);
+      } else if (key === "i") {
+        event.preventDefault();
+        setAsking({ kind: "add" });
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onBoard, setStageOpen, setAsking]);
+
+  // The form waits for its save and closes only once it has landed.
+  const submitInterview = async (interview: InterviewWrite) => {
+    const was = asking;
+    if (!was) return false;
+    const saved = was.kind === "add"
+      ? await actions.addInterview(interview)
+      : await actions.saveInterview(was.interview.id, interview);
+    if (saved) setAsking(null);
+    return saved;
+  };
+
+  // Until the application is read the tab holds its place; a failed read says
+  // so and offers Try again.
+  const waiting = <div className="jd-workspace-wait" aria-hidden="true" />;
+  const workspace = tab === "workspace" && card && job && (
+    <AsyncBoundary resource={application.load} failed={applicationsWsLoadFailed()} skeleton={waiting} empty={waiting}>
+      {() => detail && (
+        <Suspense fallback={waiting}>
+          <PostingWorkspace
+            job={job}
+            onShowPosting={() => onTab("posting")}
+            card={card}
+            detail={detail}
+            notes={job.pursuit?.notes ?? null}
+            activity={actions.activity}
+            activityFailed={actions.activityFailed}
+            onRetryActivity={actions.retryActivity}
+            now={now}
+            onAddStep={actions.addStep}
+            onEditStep={actions.editStep}
+            onFinishStep={actions.finishStep}
+            onReopenStep={actions.reopenStep}
+            onRemoveStep={actions.removeStep}
+            onSaveNotes={actions.saveNotes}
+            onLoadNotesVersions={actions.notesVersions}
+            onAddInterview={() => setAsking({ kind: "add" })}
+            onEditInterview={(interview, at) => setAsking({ kind: "edit", interview, at })}
+            onOutcome={actions.setOutcome}
+            onAddComment={actions.addComment}
+            onEditComment={actions.editComment}
+            onDeleteComment={actions.deleteComment}
+          />
+        </Suspense>
+      )}
+    </AsyncBoundary>
+  );
+
   return {
-    control: job ? <PostingStage application={application} onSave={onSave} /> : null,
-    section: card && !overItsPage
-      ? <PipelineSection card={card} history={history} now={now} column={column} />
-      : null,
+    control: job ? <PostingStage application={application} onSave={onSave} open={stageOpen} onOpen={setStageOpen} /> : null,
+    section: card && (
+      <>
+        <PipelineSection
+          card={card}
+          history={history}
+          now={now}
+          column={column}
+          workspace={tab === "workspace"}
+          onPriority={(priority) => void actions.setPriority(priority)}
+        />
+        {asking && (
+          <Suspense fallback={null}>
+            <InterviewDialog
+              card={card}
+              moving={false}
+              interview={asking.kind === "edit" ? asking.interview : undefined}
+              startAt={asking.kind === "edit" ? asking.at : undefined}
+              onCancel={() => setAsking(null)}
+              onSubmit={submitInterview}
+              onDelete={asking.kind === "edit"
+                ? () => {
+                  const id = asking.interview.id;
+                  setAsking(null);
+                  void actions.deleteInterview(id);
+                }
+                : undefined}
+            />
+          </Suspense>
+        )}
+      </>
+    ),
     applied: card != null && !BEFORE_APPLYING.has(card.stage),
+    tab,
+    workspace: workspace || null,
   };
 }

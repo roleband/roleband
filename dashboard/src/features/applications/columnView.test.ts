@@ -1,47 +1,49 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+import { readViewChoices } from "../../hooks/viewChoicesRead";
+import { fakeViewChoiceServer } from "../../test/viewChoicesServer";
 import { readHiddenColumns, writeHiddenColumns } from "./columnView";
 
-/* Hidden columns are this browser's preference: kept in board order, never
- * all of them, and a storage that throws shows every column. */
+/* Hidden columns are one of the person's view choices, saved with their
+ * settings: kept in board order, never all of them, and until chosen, or when
+ * what was saved no longer fits, the board hides Considering, Decided and
+ * Closed. */
 
-beforeEach(() => localStorage.clear());
-afterEach(() => vi.restoreAllMocks());
+let server: ReturnType<typeof fakeViewChoiceServer>;
+
+beforeEach(async () => {
+  server = fakeViewChoiceServer();
+  await readViewChoices();
+});
+
+const settle = () => new Promise((done) => setTimeout(done, 0));
 
 describe("hidden columns", () => {
-  it("come back in board order, without names the board does not have", () => {
+  it("come back in board order, saved with the person's settings", async () => {
     writeHiddenColumns(["closed", "saved"]);
     expect(readHiddenColumns()).toEqual(["saved", "closed"]);
-    localStorage.setItem("roleband.pipeline-hidden-columns", JSON.stringify(["decided", "networking", "nonsense"]));
+    await settle();
+    expect(server.saved()).toEqual({ "pipeline.board-hidden": ["saved", "closed"] });
+  });
+
+  it("drop names the board does not have, and never hide every column", async () => {
+    fakeViewChoiceServer({ "pipeline.board-hidden": ["decided", "networking", "nonsense"] });
+    await readViewChoices();
+    expect(readHiddenColumns()).toEqual(["decided"]);
+    writeHiddenColumns(["saved", "researching", "applied", "interviewing", "offer", "decided", "closed"]);
+    expect(readHiddenColumns()).toEqual([]);
+  });
+
+  it("start with Considering, Decided and Closed hidden, until the person chooses", () => {
+    expect(readHiddenColumns()).toEqual(["saved", "decided", "closed"]);
+    writeHiddenColumns([]);
+    expect(readHiddenColumns()).toEqual([]);
+    writeHiddenColumns(["decided"]);
     expect(readHiddenColumns()).toEqual(["decided"]);
   });
 
-  it("never hide every column", () => {
-    localStorage.setItem("roleband.pipeline-hidden-columns",
-      JSON.stringify(["saved", "researching", "applied", "interviewing", "offer", "decided", "closed"]));
-    expect(readHiddenColumns()).toEqual([]);
-  });
-
-  it("carry over the Closed column a browser hid before, and stop reading it once written", () => {
-    localStorage.setItem("roleband.pipeline-closed-hidden", "1");
-    expect(readHiddenColumns()).toEqual(["closed"]);
-    writeHiddenColumns([]);
-    expect(readHiddenColumns()).toEqual([]);
-    expect(localStorage.getItem("roleband.pipeline-closed-hidden")).toBeNull();
-  });
-
-  it("show every column when storage cannot be read, or holds something else", () => {
-    localStorage.setItem("roleband.pipeline-hidden-columns", "{not json");
-    expect(readHiddenColumns()).toEqual([]);
-    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
-      throw new Error("blocked");
-    });
-    expect(readHiddenColumns()).toEqual([]);
-  });
-
-  it("drop a write that storage refuses, without throwing", () => {
-    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
-      throw new Error("full");
-    });
-    expect(() => writeHiddenColumns(["closed"])).not.toThrow();
+  it("hide the starting columns when what was saved is not a list of columns", async () => {
+    fakeViewChoiceServer({ "pipeline.board-hidden": { closed: true } });
+    await readViewChoices();
+    expect(readHiddenColumns()).toEqual(["saved", "decided", "closed"]);
   });
 });

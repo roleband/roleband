@@ -115,7 +115,7 @@ describe("usePostingText", () => {
     const { result, rerender } = hook(blank(7));
 
     read.mockReturnValueOnce(new Promise(() => {}));
-    rerender({ posting: blank(8) }); // the pager turned to the next posting
+    rerender({ posting: blank(8) }); // a link turned the cover to the next posting
     await act(async () => first.settle(answer("read")));
 
     expect(show).not.toHaveBeenCalled();

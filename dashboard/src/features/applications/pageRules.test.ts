@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { ActivityItem } from "../../api";
 import { msg } from "../../test/msg";
-import { applicationCardFixture as card } from "../../test/fixtures";
+import { applicationCardFixture as card, stepFixture } from "../../test/fixtures";
 import { eventChanges, feedEntries, feedMonths, jumpPoints, monthKey, nearestItem, runChanges, runOpened, type ActivityEvent } from "./activity";
-import { placeInColumn } from "./board";
-import { latestCrossing, payChangedSinceApplied } from "./crossings";
+import { latestCrossing } from "./crossings";
 import { upNext } from "./dueByDay";
 
 /* The application page's rules and Up next's, as the spec states them: the
@@ -36,15 +35,9 @@ describe("the feed", () => {
   ];
 
   it("folds the changes between two comments into one entry, and keeps a comment between runs apart", () => {
-    const entries = feedEntries(items, "comments");
+    const entries = feedEntries(items);
     expect(entries.map((entry) => entry.kind === "comment" ? `c${entry.comment.id}` : entry.events.map((e) => e.id)))
       .toEqual(["c1", [2, 3], "c4", [5]]);
-  });
-
-  it("gives every change its own entry under All activity", () => {
-    const entries = feedEntries(items, "all");
-    expect(entries.filter((entry) => entry.kind === "events").map((entry) => entry.kind === "events" && entry.events.length))
-      .toEqual([1, 1, 1]);
   });
 
   it("names each change once, and the next step's text and date as one change", () => {
@@ -55,6 +48,18 @@ describe("the feed", () => {
     expect(eventChanges(event(1, { event_type: "created", from_stage: null, to_stage: "saved", changed: ["stage"] })))
       .toEqual([msg("applications-feed-added")]);
     expect(eventChanges(event(1, { changed: [] }))).toEqual([msg("applications-feed-updated")]);
+  });
+
+  it("names a step by its words and what was done to it, over the one-step wording", () => {
+    const step = (action: NonNullable<ActivityEvent["step"]>["action"]) =>
+      eventChanges(event(1, { changed: ["steps", "next_action"], step: { id: 7, action, text: "Send the portfolio", due: null } }));
+    expect(step("added")).toEqual([msg("applications-feed-step-added", { step: "Send the portfolio" })]);
+    expect(step("done")).toEqual([msg("applications-feed-step-done", { step: "Send the portfolio" })]);
+    expect(step("reopened")).toEqual([msg("applications-feed-step-reopened", { step: "Send the portfolio" })]);
+    expect(step("edited")).toEqual([msg("applications-feed-step-edited", { step: "Send the portfolio" })]);
+    expect(step("removed")).toEqual([msg("applications-feed-step-removed", { step: "Send the portfolio" })]);
+    // Each action reads differently.
+    expect(new Set((["added", "edited", "done", "reopened", "removed"] as const).map((action) => step(action)[0])).size).toBe(5);
   });
 
   it("keeps a run the reader opened open as changes join it at either end, or a run beside it", () => {
@@ -84,7 +89,7 @@ describe("the feed by month", () => {
   ];
 
   it("parts the feed by the reader's month, newest first, and never folds a run across a month", () => {
-    const months = feedMonths(items, "comments");
+    const months = feedMonths(items);
     expect(months.map((month) => month.key)).toEqual(["2026-11", "2026-10", "2026-09", "2025-12"]);
     // Changes 2 and 3 sit together between two comments, but in two months.
     expect(months[0].entries.map((entry) => entry.kind === "comment" ? `c${entry.comment.id}` : entry.events.map((e) => e.id)))
@@ -151,8 +156,6 @@ describe("a crossing", () => {
     const pay = [{ event_type: "changed", detail: { disclosed_base: {} }, at: days(-2) }];
     expect(latestCrossing(other, reached)).toBeNull();
     expect(latestCrossing(pay, reached)).toMatchObject({ kind: "pay", days: 8 });
-    expect(payChangedSinceApplied(pay, reached)).toBe(true);
-    expect(payChangedSinceApplied(other, reached)).toBe(false);
   });
 
   it("does not exist before the person applied", () => {
@@ -161,7 +164,7 @@ describe("a crossing", () => {
 });
 
 describe("Up next", () => {
-  const interview = (at: string) => ({ id: 1, label: "Screen", scheduled_at: at, all_day: false, format: null });
+  const interview = (at: string) => ({ id: 1, label: "Screen", scheduled_at: at, all_day: false, format: null, link: null });
 
   it("leads with steps past their date, then each day from today, soonest first within a day", () => {
     const groups = upNext([
@@ -187,6 +190,21 @@ describe("Up next", () => {
     expect(upNext([card({ next_action: "Think about it", next_action_due: null })], NOW)).toEqual([]);
   });
 
+  it("lists each dated step of one application on its own day, and its undated steps nowhere", () => {
+    const steps = [
+      stepFixture({ id: 11, text: "Follow up", due: days(-1) }),
+      stepFixture({ id: 12, text: "Send portfolio", due: hours(2) }),
+      stepFixture({ id: 13, text: "Ask Sam", due: days(2) }),
+      stepFixture({ id: 14, text: "Read the blog", due: null }),
+    ];
+    const groups = upNext([card({ job_id: 1, steps })], NOW);
+    expect(groups.map((day) => [day.key, day.items.map((item) => item.kind === "step" ? item.step.text : null)])).toEqual([
+      ["overdue", ["Follow up"]],
+      [0, ["Send portfolio"]],
+      [2, ["Ask Sam"]],
+    ]);
+  });
+
   it("lists nothing for an application that ended, except one the person accepted", () => {
     const dated = { next_action: "Ask for feedback", next_action_due: hours(2), next_interview: interview(hours(4)) };
     const ended = (["declined", "withdrawn", "rejected", "role_closed"] as const).map((stage, i) =>
@@ -197,20 +215,5 @@ describe("Up next", () => {
     const groups = upNext([...ended, accepted, offer], NOW);
 
     expect(groups.map((day) => [day.key, day.items.map((item) => item.card.job_id)])).toEqual([[0, [20, 21, 21]]]);
-  });
-});
-
-describe("stepping through a column", () => {
-  it("follows the board's order, section by section, across a split column", () => {
-    const cards = [
-      card({ job_id: 1, stage: "withdrawn", last_activity_at: days(-1) }),
-      card({ job_id: 2, stage: "accepted", last_activity_at: days(-5) }),
-      card({ job_id: 3, stage: "declined", last_activity_at: days(-3) }),
-      card({ job_id: 4, stage: "applied" }),
-    ];
-    const place = placeInColumn(cards, 3, NOW)!;
-    expect(place).toMatchObject({ index: 1, total: 3 });
-    expect([place.previous?.job_id, place.next?.job_id]).toEqual([2, 1]);
-    expect(placeInColumn(cards, 99, NOW)).toBeNull();
   });
 });

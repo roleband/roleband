@@ -3,13 +3,6 @@
 ## taxonomy's stage names.
 
 ## The board
-# kind=status note="Under the page title: how many applications are moving, ended by the person, ended by the company; $needNext is the link that follows, applications-board-need-next"
-applications-board-summary = { $moving } in motion · { $decided } decided · { $closed } rejected or closed · { $needNext }
-# kind=link note="The summary's last part, a link that turns on the Needs a next step filter: how many past Considering have no next step or interview"
-applications-board-need-next = { $count ->
-        [one] { $count } needs
-       *[other] { $count } need
-    } a next step
 # kind=heading
 applications-board-load-failed = Couldn't load your pipeline
 # kind=aria note="A pointer-only button at the board's left edge; scrolls one column back"
@@ -66,8 +59,8 @@ applications-quick-due-week = Due in 7 days
 applications-quick-needs-next = Needs a next step
 # kind=label note="A quick filter: no activity for longer than its stage expects"
 applications-quick-quiet = Gone quiet
-# kind=label note="A quick filter: priority 4 or 5 of 5"
-applications-quick-high-priority = Priority 4+
+# kind=label note="A quick filter: the roles at Urgent or High priority"
+applications-quick-high-priority = High priority
 # kind=heading note="The filter menu's last group: what an application that does not match does"
 applications-filter-while = While filtering
 # kind=label
@@ -107,30 +100,33 @@ applications-card-overdue = { $days ->
         [one] 1 day overdue
        *[other] { $days } days overdue
     }
+# kind=status note="An Applied card's lead: when the person applied. $ago is a relative day: today, yesterday, 10 days ago"
+applications-card-applied = Applied { $ago }
+# kind=status note="On an Applied card: nothing has happened to the application for a while"
+applications-card-gone-quiet = Gone quiet
+# kind=status note="When a timed interview is, on a card: $day is applications-posting-due-day, $time a clock time. Tomorrow, 2:30 PM"
+applications-card-day-time = { $day }, { $time }
+# kind=status same-as=applications-card-day-time note="A round that took place with no outcome yet: its name, as the person wrote it, and its day. Panel, Thu"
+applications-card-round-past = { $label }, { $day }
+# kind=status note="After a round that took place with no outcome yet, on an Interviewing card"
+applications-card-ask-outcome = How did it go?
 # kind=label note="The company took the posting down while the application is on the board"
 applications-card-posting-closed = Posting closed
-# kind=aria
-applications-card-comments = { $count ->
-        [one] 1 comment
-       *[other] { $count } comments
-    }
-# kind=aria note="Shown as five dots, the first $priority filled"
-applications-card-priority = Priority { $priority } of 5
-# kind=label note="Days the application has spent in its stage, in a narrow card footer; the full words show on hover"
-applications-card-days-short = { $days }d
-# kind=tooltip
-applications-card-days-in-stage = { $days ->
-        [one] 1 day in this stage
-       *[other] { $days } days in this stage
-    }
-# kind=tooltip note="The stage has gone quiet: nothing has happened to the application for $quiet days"
-applications-card-quiet = { $days ->
-        [one] 1 day in this stage
-       *[other] { $days } days in this stage
-    }, nothing new for { $quiet ->
-        [one] 1 day
-       *[other] { $quiet } days
-    }
+# kind=aria note="A card's priority mark; $level is No priority, Urgent, High, Medium or Low"
+applications-card-priority = Priority: { $level }
+## Priority levels, as the person names them
+# kind=label
+applications-priority-none = No priority
+# kind=label
+applications-priority-urgent = Urgent
+# kind=label same-as=notifications-notification-filters-high
+applications-priority-high = High
+# kind=label
+applications-priority-medium = Medium
+# kind=label
+applications-priority-low = Low
+# kind=aria note="The priority menu of one role; $title is the role's title"
+applications-priority-menu = Priority of { $title }
 # kind=status note="On a card in Decided or Closed: the ending, then the stage it ended at, such as Withdrawn at Interviewing"
 applications-card-ended = { $ending } at { $stage }
 
@@ -241,8 +237,22 @@ applications-interview-outcome-not-passed = Didn't pass
 applications-interview-outcome-cancelled = Cancelled
 # kind=label
 applications-interview-notes = Notes
+# kind=label note="First line of the outline a coming interview's notes start with, the person writes under it: the people they will speak to"
+applications-interview-prompt-people = Who you'll meet
+# kind=label note="Second line of that outline: what the person wants to ask them"
+applications-interview-prompt-questions = Questions to ask
+# kind=label note="Third line of that outline: what the person wants them to remember"
+applications-interview-prompt-points = Points to make
+# kind=link note="Under a coming interview with no notes, in the Workspace: opens the interview's notes, which start with these three lines to write under"
+applications-ws-round-prepare = Who you'll meet, questions to ask, points to make
 # kind=error note="In the interview form beside Save when its save failed; the form keeps what was typed"
 applications-interview-failed = Couldn't save the interview. Try again.
+# kind=button note="On a coming interview in the Workspace: saves a calendar file for the round, for the person's calendar app to import"
+applications-interview-calendar = Add to calendar
+# kind=aria note="The Add to calendar button of one round. $label is the round's name"
+applications-interview-calendar-label = Add { $label } to your calendar
+# kind=label note="The event's title in the person's calendar app. $label is the round's name, $company the employer"
+applications-interview-calendar-title = { $label } with { $company }
 # kind=toast
 applications-interview-delete-failed = Couldn't delete the interview. Try again.
 # kind=label note="Asked in the interview form's actions before an interview is deleted"
@@ -287,6 +297,20 @@ applications-upnext-step = Next step: { $step }
 applications-upnext-step-when = By end of day
 # kind=empty
 applications-upnext-empty = Nothing is due. Set a next step or add an interview on an application, and it shows here.
+# kind=label same-as=settings-plan-all-day note="An all-day round, under its day's heading"  hygiene: allow (a message id)
+applications-upnext-all-day = All day
+# kind=aria note="The round button that marks a next step done; $step is the step, as the person wrote it"
+applications-upnext-done-label = Mark done: { $step }
+# kind=toast note="A next step was marked done from Up next; $step is the step, as the person wrote it"
+applications-upnext-done = Done · { $step }
+# kind=heading same-as=applications-card-ask-outcome note="The group of rounds that took place and wait for their outcome"
+applications-upnext-outcome = How did it go?
+# kind=aria note="The three outcome buttons of one round; $label is the round's name"
+applications-upnext-outcome-label = Outcome of { $label }
+# kind=toast note="A round's outcome was set from Up next; $label is the round's name, $outcome is Passed, Didn't pass or Cancelled"
+applications-upnext-outcome-set = { $label }: { $outcome }
+# kind=toast
+applications-upnext-undo-failed = Couldn't undo that change to { $title }. Try again.
 # kind=aria note="The month calendar beside Up next"
 applications-month-label = Calendar
 # kind=aria
@@ -318,34 +342,6 @@ applications-month-failed = Couldn't load the calendar
 
 ## One application's page
 # kind=aria
-applications-page-bar = Application
-# kind=label note="The back link to the view the page was opened from, named by its tab (Considering, Board, Up next): Pipeline is the place's short name"
-applications-page-back = Pipeline / { $view }
-# kind=button
-applications-page-back-board = Open the Board
-# kind=heading
-applications-page-load-failed = Couldn't load this application
-# kind=status note="Where the application stands among the cards of its column" same-as=applications-column-count-of
-applications-page-place = { $index } of { $total }
-# kind=aria
-applications-page-previous = Previous in this column: { $title }
-# kind=aria
-applications-page-next = Next in this column: { $title }
-# kind=aria
-applications-page-more = More actions
-# kind=aria
-applications-page-more-label = More actions for this application
-# kind=button
-applications-page-copy-link = Copy link
-# kind=button
-applications-page-withdraw = Withdraw
-# kind=toast
-applications-link-copied = Link copied
-# kind=toast
-applications-link-copy-failed = Couldn't copy the link. Copy it from the address bar instead.
-# kind=label same-as=applications-interview-when-timed note="The stage button on the application page: the stage, then $days, the short days-in-stage count (12d) with its full words for screen readers. From the day after the move; on the day itself the button says the stage alone"
-applications-stage-button = { $stage } · { $days }
-# kind=aria
 applications-stage-menu-label = Change the stage of { $title }
 # kind=toast
 applications-change-failed = Couldn't save that change to { $title }. Try again.
@@ -373,73 +369,28 @@ applications-crossing-pay = { $days ->
 applications-crossing-dismiss = Dismiss
 
 ## Next: the next interview and the next step
-# kind=heading
-applications-next-title = Next
 # kind=empty
 applications-next-interview-none = No interview booked.
 # kind=label note="An all-day interview's day"
 applications-next-interview-all-day = { $date }, all day
 # kind=label note="A timed interview's day and time"
 applications-next-interview-at = { $date }, { $time }
-# kind=label same-as=applications-stage-button note="When an interview is, then its format"
+# kind=label same-as=applications-interview-when-timed note="When an interview is, then its format"
 applications-next-interview-meta = { $when } · { $format }
 # kind=button note="Opens the interview's meeting link"
 applications-next-interview-join = Join
 # kind=aria
 applications-next-interview-join-label = Join { $label }
 # kind=button
-applications-next-interview-edit = Edit interview
-# kind=empty
-applications-next-empty = No next step yet.
-# kind=button
-applications-next-set = Set next step
-# kind=button
-applications-next-edit = Edit step
-# kind=button note="The page's one primary action: the next step is done"
-applications-next-done = Mark done
-# kind=label
-applications-next-prompt = What's the next step?
-# kind=label
-applications-next-due = Due date (optional)
-# kind=error next=none note="Under the next step's field when it is saved empty; the message is itself the way out"
-applications-next-required = Write the next step, or press Cancel.
-# kind=button
 applications-next-save = Save step
 
 ## Notes
 # kind=heading
 applications-notes-title = Notes
-# kind=button
-applications-notes-add = Add notes
-# kind=button
-applications-notes-edit = Edit notes
-# kind=empty
-applications-notes-empty = No notes yet.
 # kind=aria
 applications-notes-label = Notes
-# kind=button
-applications-notes-more = Show all
-# kind=button
-applications-notes-less = Show less
-# kind=button
-applications-notes-save = Save notes
 
 ## Activity: comments and recorded changes
-# kind=heading
-applications-feed-title = Activity
-# kind=aria
-applications-feed-mode-label = Show
-# kind=label
-applications-feed-mode-comments = Comments
-# kind=label
-applications-feed-mode-all = All activity
-# kind=empty
-applications-feed-empty = No comments or changes yet.
-# kind=button note="A folded run of recorded changes. $changes lists what changed, already joined"
-applications-feed-fold = { $count ->
-        [one] 1 update: { $changes }
-       *[other] { $count } updates: { $changes }
-    }
 # kind=status note="A recorded change: the role was saved into the pipeline"
 applications-feed-added = Added to the pipeline
 # kind=status
@@ -452,6 +403,16 @@ applications-feed-priority = Priority changed
 applications-feed-notes = Notes edited
 # kind=status
 applications-feed-next-step = Next step changed
+# kind=status note="A recorded change: a next step was added; $step is the step, as the person wrote it"
+applications-feed-step-added = Next step added: { $step }
+# kind=status note="A recorded change: a next step's words or day changed; $step is the step after the change"
+applications-feed-step-edited = Next step changed: { $step }
+# kind=status note="A recorded change: a next step was ticked done; $step is the step"
+applications-feed-step-done = Done: { $step }
+# kind=status note="A recorded change: a next step ticked done was opened again; $step is the step"
+applications-feed-step-reopened = Next step opened again: { $step }
+# kind=status note="A recorded change: a next step was removed; $step is the step"
+applications-feed-step-removed = Next step removed: { $step }
 # kind=status note="A recorded change with no field this page names"
 applications-feed-updated = Updated
 # kind=label note="After a recorded change an agent made"
@@ -478,10 +439,6 @@ applications-feed-jump-comments = { $count ->
 # kind=aria
 applications-comment-label = Comment
 # kind=label
-applications-comment-placeholder = Write what happened
-# kind=button
-applications-comment-submit = Comment
-# kind=label
 applications-comment-author-you = You
 # kind=label
 applications-comment-author-agent = Assistant app
@@ -504,8 +461,6 @@ applications-comment-delete-failed = Couldn't delete that comment. Try again.
 
 ## The page's right column
 # kind=heading
-applications-facts-application = Application
-# kind=heading
 applications-facts-posting = Posting
 # kind=heading
 applications-facts-interviews = Interviews
@@ -519,39 +474,15 @@ applications-fact-days-value = { $days ->
        *[other] { $days } days
     }
 # kind=label
-applications-fact-applied = Applied
-# kind=label note="The person has not applied yet" same-as=applications-interview-outcome-none
-applications-fact-applied-not = Not yet
-# kind=label
 applications-fact-starred = Saved
 # kind=label
-applications-fact-starred-yes = Yes
-# kind=label
-applications-fact-starred-no = No
-# kind=label
 applications-fact-last-activity = Last activity
-# kind=label
-applications-fact-status = Status
-# kind=label
-applications-fact-status-open = Open
-# kind=label
-applications-fact-status-closed = Closed
 # kind=label
 applications-fact-pay = Posted range
 # kind=label
 applications-fact-pay-none = Not posted
-# kind=label note="Beside the posted range when it changed after the person applied"
-applications-fact-pay-changed = Changed
 # kind=label
 applications-fact-level = Level
-# kind=label
-applications-fact-location = Location
-# kind=label
-applications-fact-location-more = and { $count } more
-# kind=label
-applications-fact-first-seen = First seen
-# kind=label same-as=role-listing-age-listed-for note="How long the posting has been up, as Radar counts it"
-applications-fact-listed-for = Listed for
 # kind=button note="Opens the full posting over the page"
 applications-read-posting = Read the posting
 # kind=button
@@ -572,8 +503,6 @@ applications-posting-ended = Ended
 applications-posting-interview = Interview
 # kind=label same-as=applications-month-legend-step note="Pipeline row: the next step"
 applications-posting-next-step = Next step
-# kind=link note="On the heading line of a posting's Pipeline section: opens the application's own page"
-applications-posting-open = Open application
 # kind=label note="Pipeline row: the day the next step is due, shown only when a due date is set"
 applications-posting-due = Due
 # kind=status note="Value of the Pipeline section's Due row. $offset is days from today; $date is a formatted day"
@@ -593,3 +522,166 @@ applications-posting-history-now = { $days ->
         [one] { $stage } for 1 day
        *[other] { $stage } for { $days } days
     }
+
+## The role page: its tabs, title and side column
+## The workspace: the stage's fixed sections and the free notes page
+# kind=heading note="In the Workspace tab when the role's application could not be read; Try again follows"
+applications-ws-load-failed = Couldn't load the workspace
+# kind=heading
+applications-ws-next = Next steps
+# kind=label note="The empty next step: an input the person types the step into"
+applications-ws-next-add = Add a next step
+# kind=aria note="Edits the next step's words in place; $step is the step"
+applications-ws-next-edit = Edit the next step: { $step }
+# kind=label same-as=applications-posting-due note="Before the next step's day field"
+applications-ws-next-due = Due
+# kind=status note="In a next step's day field when the step has no day; the field opens a month to pick one"
+applications-ws-next-due-none = No day yet
+# kind=button note="Under the month a next step's day is picked from: takes the day off the step"
+applications-ws-next-due-clear = Clear the day
+# kind=button note="In a next step's edit, takes the step off the list with nothing kept, for one added by mistake"
+applications-ws-next-remove = Remove
+# kind=button note="Under the next steps, opens and folds the list of steps already done; $count is how many"
+applications-ws-next-done-fold = { $count } done
+# kind=aria note="Takes a step that is done off the role for good; $step is the step"
+applications-ws-next-delete-label = Delete the step: { $step }
+# kind=label
+applications-ws-next-delete-confirm = Delete this step?
+# kind=button same-as=applications-comment-delete
+applications-ws-next-delete = Delete
+# kind=sentence note="The notes page's hint while it is empty; / opens the menu of headings, lists and checklists"
+applications-ws-notes-hint = Write what you know and who you met. Type / for headings, lists and checklists.
+# kind=sentence note="Under the notes page while it is longer than can be kept; $over is how many characters past the limit. Nothing is saved until it is shorter"
+applications-notes-too-long = Not saved: { $over } characters over the limit.
+# kind=sentence note="Under the notes page after a paste or a drop carried pictures the notes cannot keep, such as a screenshot; $count is how many. A picture on the web is kept as a link instead and is not counted"
+applications-notes-pictures-left-out = { $count ->
+        [one] The picture was left out: notes keep text and links.
+       *[other] { $count } pictures were left out: notes keep text and links.
+    }
+# kind=label note="Names the link a pasted web picture with no description of its own becomes in the notes"
+applications-notes-picture = Picture
+# kind=status note="Under the notes page after notes written elsewhere (the person's assistant, another window) arrived while this page was being written; the two were put together and saved, keeping every line of each"
+applications-notes-merged = These notes were also changed elsewhere. Both versions are kept.
+# kind=button note="Under the notes page: opens the notes as each earlier writing session left them, to put one back"
+applications-notes-versions = Earlier versions
+# kind=status note="In the list of the notes' earlier versions while it is read"
+applications-notes-versions-loading = Reading the earlier versions…
+# kind=sentence note="In the list of the notes' earlier versions when there is none: the notes were written in one sitting, or never"
+applications-notes-versions-none = None yet. A version is kept each time you come back to write.
+# kind=error note="The list of the notes' earlier versions could not be read"
+applications-notes-versions-failed = The earlier versions could not be read. Try again.
+# kind=button note="Beside one earlier version of the notes: puts it back on the page, replacing what is there; the editor's undo brings the page back"
+applications-notes-version-put-back = Put back
+# kind=aria note="Names the Put back button of one earlier version; $when is its date and time"
+applications-notes-version-put-back-label = Put back the version from { $when }
+# kind=status note="Under the notes page after an earlier version was put back; $when is its date and time. Undo in the editor brings the page as it was"
+applications-notes-version-back = The version from { $when } is back. Undo brings the page as it was.
+# kind=aria note="The menu a / in the notes opens: the kinds of block it can put on the page"
+applications-notes-blocks = Blocks
+# kind=label note="A notes block: plain text"
+applications-notes-block-text = Text
+# kind=label note="A notes block: a heading; $level is 1, 2 or 3, its size"
+applications-notes-block-heading = Heading { $level }
+# kind=label note="A notes block: a list with a dot before each line"
+applications-notes-block-bullets = Bulleted list
+# kind=label note="A notes block: a list numbered 1, 2, 3"
+applications-notes-block-numbers = Numbered list
+# kind=label note="A notes block: a list of lines each with a box to tick"
+applications-notes-block-checklist = Checklist
+# kind=label note="A notes block: a quotation set in from the text"
+applications-notes-block-quote = Quote
+# kind=label note="A notes block: a line across the page"
+applications-notes-block-divider = Divider
+# kind=aria note="A checklist line's box in the notes; $line is the line's words, $checked yes when it is ticked"
+applications-notes-check = { $checked ->
+    [yes] Done: { $line }
+   *[no] To do: { $line }
+}
+# kind=sentence note="The / menu when what was typed after the / names no block"
+applications-notes-block-none = No block by that name.
+# kind=aria note="The button at the top right of the notes card that opens a guide to what the notes page can do"
+applications-notes-help = Formatting help
+# kind=heading note="The title of the guide to formatting the notes"
+applications-notes-help-title = Formatting
+# kind=label note="In the formatting guide: the marks that, typed at the start of a line, make it a heading, a list, a quote or a divider"
+applications-notes-help-lines = Start a line with
+# kind=label note="In the formatting guide: the keys that style the selected words"
+applications-notes-help-words = Style words
+# kind=label note="A word style in the notes: heavier type"
+applications-notes-style-bold = Bold
+# kind=label note="A word style in the notes: slanted type"
+applications-notes-style-italic = Italic
+# kind=label note="A word style in the notes: a line through the words"
+applications-notes-style-strike = Strikethrough
+# kind=label note="A word style in the notes: code, in a fixed-width type"
+applications-notes-style-code = Code
+# kind=sentence note="In the formatting guide, under the marks: / opens the menu of blocks"
+applications-notes-help-slash = Or type / and pick a block by name.
+# kind=sentence note="In the formatting guide: how a link is made and opened; $link is the keys that open the link field, ⌘ K on a Mac; $key is the key held, ⌘ on a Mac and Ctrl elsewhere"
+applications-notes-help-links = Select words and press { $link }, or paste a link over them, to link them. Hold { $key } and click a link to open it.
+# kind=label note="The key a shortcut is held with, on keyboards other than a Mac's"
+applications-notes-key-ctrl = Ctrl
+# kind=label note="The shift key, as printed on keyboards other than a Mac's"
+applications-notes-key-shift = Shift
+# kind=sentence note="In the formatting guide, under the word styles: selecting words shows a bar of styles over them"
+applications-notes-help-select = Or select words and pick a style from the bar over them.
+# kind=aria note="The bar of styles that shows over words selected in the notes"
+applications-notes-bar = Style the selection
+# kind=label note="Names the menu, opened from the selection bar, that changes the selected lines into a heading, a list, a checklist or a quote"
+applications-notes-turn-into = Turn into
+# kind=aria note="The first button of the selection bar, which shows the kind of line the selection is on and opens Turn into; $block is that kind, such as Heading 1"
+applications-notes-turn-into-label = Turn into, now { $block }
+# kind=tooltip note="On a style button of the selection bar: the style and its keys; $name is the style, $keys the keys, such as ⌘ B"
+applications-notes-style-tip = { $name } ({ $keys })
+# kind=button note="In the selection bar: links the selected words to a web or mail address"
+applications-notes-link = Link
+# kind=aria note="The field in the selection bar where the address of a link is typed"
+applications-notes-link-field = Link address
+# kind=label note="Shown in the empty link field of the selection bar"
+applications-notes-link-placeholder = Paste a link
+# kind=button note="In the link field of the selection bar: takes the link off the selected words, keeping the words"
+applications-notes-link-remove = Remove link
+# kind=error next=none note="Under the link field when what was typed is not a web or mail address; the message is itself the way out, and the field keeps what was typed"
+applications-notes-link-invalid = Use a web or email address.
+# kind=label same-as=applications-card-ask-outcome note="Opens the three outcomes of a past round"
+applications-ws-ask-outcome = How did it go?
+# kind=aria note="The eye beside a block's caption: takes the block off this stage's Workspace. $section is the block's name"
+applications-ws-hide = Hide { $section }
+# kind=aria same-as=applications-menu-label note="The grip beside a block: dragged, it moves the block; pressed, it opens Move up and Move down. $section is the block's name"
+applications-ws-move = Move { $section }
+# kind=label
+applications-ws-move-up = Move up
+# kind=label
+applications-ws-move-down = Move down
+# kind=toast note="The toast after a block is hidden, beside Undo. $section is the block's name"
+applications-ws-hidden = { $section } hidden
+# kind=error note="A toast when moving, hiding or showing a Workspace block was not saved; the Workspace keeps the change until the page is reloaded"
+applications-ws-layout-failed = Couldn't save the Workspace layout. Try again.
+# kind=aria note="The plus under the last block: offers the hidden blocks"
+applications-ws-add = Add a section
+# kind=tooltip note="What the Interviews block holds, under its name in the add menu"
+applications-ws-about-interviews = Rounds, their days and how each went
+# kind=tooltip note="What the Next step block holds, under its name in the add menu"
+applications-ws-about-next = What you do next, and by when
+# kind=tooltip note="What the Notes block holds, under its name in the add menu"
+applications-ws-about-notes = What you know and who you met
+# kind=tooltip note="What the Outcome block holds, under its name in the add menu"
+applications-ws-about-outcome = How the application ended
+# kind=tooltip note="What the Activity block holds, under its name in the add menu"
+applications-ws-about-activity = Comments and what changed
+
+# kind=heading
+applications-feed-title = Activity
+# kind=empty
+applications-feed-empty = No comments or changes yet.
+# kind=heading note="In the Activity block when its comments and changes could not be read; Try again follows"
+applications-feed-load-failed = Couldn't load the activity
+# kind=button note="A folded run of recorded changes. $changes lists what changed, already joined"
+applications-feed-fold = { $count ->
+        [one] 1 update: { $changes }
+       *[other] { $count } updates: { $changes }
+    }
+# kind=label
+applications-comment-placeholder = Write what happened
+# kind=button
+applications-comment-submit = Comment

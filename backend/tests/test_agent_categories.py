@@ -579,9 +579,53 @@ async def test_a_pursuit_write_and_its_replay_answer_without_the_posting(api_cli
     fresh, replayed = _data(*await write()), await write()
     assert replayed[1]["meta"]["replayed"] is True and replayed[1]["operation"] == operation
     assert "opportunity" not in fresh and "opportunity" not in _data(*replayed)
+    assert _data(*replayed) == fresh, "the replay answers with what the write returned"
     assert fresh["stage"] == "interviewing"
     await _choose(workspace)
     # The receipt keeps the whole answer for when postings are shared again.
+    receipt = _data(*await _get(api_client, "/receipts", operation=operation, key=KEY))
+    assert receipt["result"]["opportunity"]["title"]
+
+
+@pytest.mark.parametrize(
+    ("operation", "method", "tail", "body"),
+    [
+        ("steps.add", "POST", "", {"text": "Send the portfolio"}),
+        ("steps.edit", "PATCH", "/{step}", {"text": "Send the longer portfolio"}),
+        ("steps.done", "POST", "/{step}/done", {}),
+        ("steps.undo", "POST", "/{step}/undo", {}),
+    ],
+)
+async def test_a_step_write_and_its_replay_answer_without_the_posting(
+    api_client, workspace, operation, method, tail, body
+):
+    job_id = await _job(workspace, "INTERVIEW")
+    pursuit = _data(*await _get(api_client, f"/pursuits/{job_id}"))
+    step = pursuit["steps"][0]["id"]
+    revision = pursuit["revision"]
+    if operation == "steps.undo":
+        ticked = await api_client.post(
+            f"{PREFIX}/pursuits/{job_id}/steps/{step}/done", json={"if_revision": revision},
+            headers={IDEMPOTENCY_KEY_HEADER: "idk_" + "d" * 32},
+        )
+        revision = _data(ticked, ticked.json())["revision"]
+    await _choose(workspace, public_posting="not_shared")
+
+    async def write():
+        response = await api_client.request(
+            method, f"{PREFIX}/pursuits/{job_id}/steps{tail.format(step=step)}",
+            json={"if_revision": revision, **body}, headers={IDEMPOTENCY_KEY_HEADER: KEY},
+        )
+        return response, response.json()
+
+    fresh, replayed = _data(*await write()), await write()
+    assert replayed[1]["meta"]["replayed"] is True and replayed[1]["operation"] == operation
+    assert "opportunity" not in fresh and "opportunity" not in _data(*replayed)
+    assert _data(*replayed) == fresh, "the replay answers with what the write returned"
+    # The pursuit itself still answers: its stage and its open steps.
+    assert fresh["stage"] == "interviewing" and fresh["revision"] == revision + 1
+    assert (step in [s["id"] for s in fresh["steps"]]) is (operation != "steps.done")
+    await _choose(workspace)
     receipt = _data(*await _get(api_client, "/receipts", operation=operation, key=KEY))
     assert receipt["result"]["opportunity"]["title"]
 
@@ -728,6 +772,14 @@ LEFT_OUT_BY: dict[tuple[str, DataClass], str] = {
         "test_agent_categories::test_a_pursuit_write_and_its_replay_answer_without_the_posting",
     ("pursuits.save", "public_posting"):
         "test_agent_categories::test_a_pursuit_write_and_its_replay_answer_without_the_posting",
+    ("steps.add", "public_posting"):
+        "test_agent_categories::test_a_step_write_and_its_replay_answer_without_the_posting",
+    ("steps.done", "public_posting"):
+        "test_agent_categories::test_a_step_write_and_its_replay_answer_without_the_posting",
+    ("steps.edit", "public_posting"):
+        "test_agent_categories::test_a_step_write_and_its_replay_answer_without_the_posting",
+    ("steps.undo", "public_posting"):
+        "test_agent_categories::test_a_step_write_and_its_replay_answer_without_the_posting",
     ("radar.summary", "private_pursuit"):
         "test_agent_categories::test_radar_summary_counts_only_the_open_roles_without_pursuits",
     ("receipts.get", "private_pursuit"):

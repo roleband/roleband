@@ -29,7 +29,7 @@ const BASELINE: Record<string, number> = {
   "features/statistics/statistics.css": 2, // a mask gradient's alpha stops, not colour
   "patterns/companies/company-chip.css": 6, // the chip's glass highlight
   "patterns/companies/company-logo.css": 1,
-  "shell.css": 8, // the always-dark rail and palette surfaces
+  "shell.css": 5, // the rail's tooltip and palette surfaces
   "ui/Overlay.css": 1, // the scrim
 };
 

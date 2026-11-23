@@ -2,7 +2,8 @@ import "../../patterns/jobs/job-row.css";
 import { ResourceLoadState } from "../../ui/ResourceLoadState";
 import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
-import { type MouseEvent as ReactMouseEvent, type ReactNode, useCallback, useEffect, useId, useRef, useState } from "react";
+import { TabBar } from "../../ui/TabBar";
+import { type MouseEvent as ReactMouseEvent, type ReactNode, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { useSyncEpoch } from "../../context/SyncState";
 import { useAsyncResource, useRefetchOn } from "../../hooks/useAsyncResource";
 import { useSaveCommand } from "../../context/useSaveCommand";
@@ -14,6 +15,7 @@ import { payPoint } from "../../payShown";
 import { usePayCoverage } from "../../payCoverage";
 import JobCompPanel, { JobCompDock } from "./JobCompPanel";
 import { useReadingChrome } from "./readingChrome";
+import { useStuckTabs } from "./stuckHeadings";
 import { useHeld, useShownPosting } from "./postingTurn";
 import { JobDescription } from "./JobDescription";
 import { usePostingText } from "./postingText";
@@ -39,13 +41,13 @@ import {
   roleJobDetail1InComparePickOne,
   roleJobDetailBack,
   roleJobDetailBack2,
-  roleJobDetailPager,
-  roleJobDetailPagerNext,
-  roleJobDetailPagerPlace,
+  roleJobDetailBackTo,
+  roleJobDetailTabPosting,
+  roleJobDetailTabWorkspace,
+  roleJobDetailTabs,
   roleJobDetailApplyKicker,
   roleJobDetailApplyMeta,
   roleJobDetailApplyTitle,
-  roleJobDetailPagerPrevious,
   roleJobDetailCompare,
   roleJobDetailCompareIsFullMax,
   roleJobDetailCompareRoles,
@@ -65,7 +67,6 @@ import {
   roleJobDetailTeam,
   roleJobDetailToApply,
   roleJobDetailViewApply,
-  roleJobDetailViewPosting,
   roleJobDetailWorkplace,
 } from "../../copy/gen/role";
 import { Msg } from "../../ui/Msg";
@@ -94,13 +95,29 @@ export type UsePostingPipeline = (
   options: {
     showSaved: (on: boolean) => void;
     paintPosting: (stage: PursuitStage) => void;
+    paintNotes: (notes: string | null) => void;
     rereadPosting: () => void;
     onSave: () => void;
     now: Date;
     /** The side column, which the section's history opens across. */
     column: HTMLElement | null;
+    /** The tab the address asks for. */
+    tab: PostingTab | null;
+    onTab: (tab: PostingTab) => void;
   },
-) => { control: ReactNode; section: ReactNode; applied: boolean };
+) => {
+  control: ReactNode;
+  section: ReactNode;
+  applied: boolean;
+  /** The tab on screen for a role in the pipeline; null for one outside it. */
+  tab: PostingTab | null;
+  /** The main column while the Workspace tab is on screen. */
+  workspace: ReactNode;
+};
+
+/** A role in the pipeline reads in two tabs: the posting, and the person's
+ *  own work on it. */
+export type PostingTab = "posting" | "workspace";
 
 /* Full-screen opportunity detail. Rendered by JobRoute at /job/:id — as a routed
    overlay over the current page (in-app navigation) or standalone (direct link /
@@ -118,9 +135,12 @@ export function JobDetail({
   onViewCompare,
   onCompanyResolved,
   usePipeline,
-  pager,
   returning = false,
   asOverlay = false,
+  besideRail = false,
+  tab: askedTab = null,
+  onTab = () => {},
+  backTo = null,
 }: {
   jobId: number;
   onBack: () => void;
@@ -148,21 +168,20 @@ export function JobDetail({
    *  a list). Then it is a modal dialog; reached by a direct link it is the
    *  page itself and must NOT claim to be one. */
   asOverlay?: boolean;
+  /** Opened from a Pipeline view: the cover opens beside the rail, which
+   *  stays live (patterns/Cover). */
+  besideRail?: boolean;
   // Reports the loaded job's company slug so a bare /job/:id URL can
   // canonicalize to /company/:slug/job/:id.
   onCompanyResolved?: (companySlug: string) => void;
   usePipeline: UsePostingPipeline;
-  /** The posting's place in the list it was opened from, and the way to the
-   *  postings on either side; absent when it was not opened from a list. A
-   *  step is undefined at the list's end. */
-  pager?: {
-    position: number;
-    count: number;
-    onPrevious?: () => void;
-    onNext?: () => void;
-  };
   /** The posting was reached by going back or forward in history. */
   returning?: boolean;
+  /** The tab the address asks for. */
+  tab?: PostingTab | null;
+  onTab?: (tab: PostingTab) => void;
+  /** The name of the view Back returns to, when it has one. */
+  backTo?: string | null;
 }) {
   // On the shared resource, which aborts the request it supersedes: a slow
   // /jobs/:id for the PREVIOUS position never lands after the next one.
@@ -178,7 +197,7 @@ export function JobDetail({
   // the last one until the next has loaded and the reading area turns to it.
   const scrollRef = useRef<HTMLDivElement>(null);
   const { job, turning } = useShownPosting(fresh, {
-    wanted: jobId, loading, failed: notFound, place: pager?.position ?? null, box: scrollRef, returning,
+    wanted: jobId, loading, failed: notFound, box: scrollRef, returning,
   });
   // Three per category, fetched as three: more near-identical rows under the
   // two category labels read as one wall of text. The cap is a reading limit, not a ranking one: applied at the request so nothing is
@@ -212,6 +231,10 @@ export function JobDetail({
   );
   const paintPosting = useCallback(
     (stage: PursuitStage) => setJobData((prev) => prev?.pursuit ? { ...prev, pursuit: { ...prev.pursuit, stage } } : prev),
+    [setJobData],
+  );
+  const paintNotes = useCallback(
+    (notes: string | null) => setJobData((prev) => prev?.pursuit ? { ...prev, pursuit: { ...prev.pursuit, notes } } : prev),
     [setJobData],
   );
   /** Reads the posting again: its star and stage as the server holds them. */
@@ -258,13 +281,28 @@ export function JobDetail({
     });
   };
 
+  /** Another tab. Held under the bar, the tabs stay held and the other tab
+   *  opens from its start; above, the page stays where it is. */
+  const keepTabs = useRef<number | null>(null);
+  function showTab(next: PostingTab) {
+    const box = scrollRef.current;
+    const tabs = box?.querySelector<HTMLElement>(".jd-tabs");
+    const hero = box?.querySelector<HTMLElement>(".jd-hero");
+    if (box && tabs && hero) {
+      // Where the tabs stand unheld: right under the hero.
+      const natural = hero.getBoundingClientRect().bottom - box.getBoundingClientRect().top + box.scrollTop;
+      keepTabs.current = box.scrollTop > natural ? natural : null;
+    }
+    onTab(next);
+  }
+
   /** The side column, which the histories open across. */
   const [aside, setAside] = useState<HTMLElement | null>(null);
   // More like this is for choosing where to go next, so it stands open at the
   // top of a posting and folds once the person is reading (the pay panel has
   // left and its copy stands in the column), leaving the role's own facts
   // beside the text. Opened while reading, it stays open for that posting.
-  // Folded at the top, it is folded everywhere: the choice this browser keeps.
+  // Folded at the top, it is folded everywhere: a choice kept with the person's settings.
   const [similarFolded, setSimilarFolded] = useState(readSimilarFolded);
   const [reading, setReading] = useState(false);
   const [openedWhileReading, setOpenedWhileReading] = useState<number | null>(null);
@@ -282,8 +320,50 @@ export function JobDetail({
     setSimilarFolded(!similarFolded);
   };
   // Where the person stands with the role, read as the pipeline reads it.
-  const pipeline = usePipeline(job, { showSaved, paintPosting, rereadPosting, onSave: saveFav, now, column: aside });
-  const { applied } = pipeline;
+  const pipeline = usePipeline(job, {
+    showSaved, paintPosting, paintNotes, rereadPosting, onSave: saveFav, now, column: aside, tab: askedTab, onTab: showTab,
+  });
+  const { applied, tab } = pipeline;
+  const onWorkspace = tab === "workspace";
+  // Tabs are held under the bar once scrolled to, on either tab: the columns
+  // under them reach at least the window's foot, so a short tab (a Workspace
+  // with little in it yet) scrolls as far as a long posting does instead of
+  // stopping with the hero's last line at the top. Measured again for each
+  // tab: the posting's related roles sit between its tabs and its columns,
+  // and the Workspace has nothing there.
+  useLayoutEffect(() => {
+    const box = scrollRef.current;
+    if (!box || tab == null) return;
+    let sized: HTMLElement | null = null;
+    const fit = () => {
+      // From the hero's foot, where the tabs stand unheld: held, they sit at
+      // the top however far the columns under them have scrolled.
+      const hero = box.querySelector<HTMLElement>(".jd-hero");
+      const grid = box.querySelector<HTMLElement>(".jd-grid");
+      if (sized && sized !== grid) sized.style.minHeight = "";
+      sized = grid;
+      if (hero && grid) {
+        grid.style.minHeight = `${box.clientHeight - (grid.getBoundingClientRect().top - hero.getBoundingClientRect().bottom)}px`;
+      }
+    };
+    fit();
+    const watch = new ResizeObserver(fit);
+    watch.observe(box);
+    return () => {
+      watch.disconnect();
+      if (sized) sized.style.minHeight = "";
+    };
+  }, [tab, job?.id, scrollRef]);
+  // After the columns are measured for the new tab, so a short one already
+  // reaches far enough down for the scroll to land.
+  useLayoutEffect(() => {
+    const box = scrollRef.current;
+    const held = keepTabs.current;
+    // Rounded up: a scroll lands on whole device pixels, and one short of
+    // the line would leave the tabs a pixel under the bar.
+    if (box && held != null) box.scrollTop = Math.ceil(held);
+    keepTabs.current = null;
+  }, [askedTab]);
   const team = job && postingTeam(job);
   const workplace = job && postingWorkplace(job);
 
@@ -358,38 +438,13 @@ export function JobDetail({
   const [mainEl, setMainEl] = useState<HTMLElement | null>(null);
   const [dockEl, setDockEl] = useState<HTMLElement | null>(null);
   const [roleEl, setRoleEl] = useState<HTMLElement | null>(null);
-  useReadingChrome(scrollRef, { title: titleEl, main: mainEl, dock: dockEl, role: roleEl }, setReading);
-
-  // J and K step through the list, as they move through its rows: only while
-  // the keyboard is on the posting itself, never in a field, a menu or a
-  // dialog opened over it, and never with a modifier.
-  const onPrevious = pager?.onPrevious;
-  const onNext = pager?.onNext;
-  useEffect(() => {
-    if (!onPrevious && !onNext) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
-      const key = event.key.toLowerCase();
-      if (key !== "j" && key !== "k") return;
-      const target = event.target as HTMLElement | null;
-      if (target && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))) return;
-      // On the posting: focus in the cover, on the dialog that holds it, or
-      // nowhere. Focus left on the list under the cover (the row that opened
-      // it) is nowhere too: that page is inert.
-      const cover = scrollRef.current?.closest(".cover");
-      const active = document.activeElement;
-      const onPosting = !active || active === document.body
-        || !!cover && (cover.contains(active) || active.contains(cover))
-        || !!active.closest("[inert]");
-      if (!onPosting) return;
-      const go = key === "j" ? onNext : onPrevious;
-      if (!go) return;
-      event.preventDefault();
-      go();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onPrevious, onNext]);
+  const [tabsEl, setTabsEl] = useState<HTMLElement | null>(null);
+  useStuckTabs(tabsEl);
+  useReadingChrome(
+    scrollRef,
+    { title: titleEl, main: mainEl, dock: dockEl, role: roleEl, under: tabsEl },
+    setReading,
+  );
 
   const label = roleJobDetailRole({ choice: (job) ? "yes" : "no", title: (job) ? String(job.title) : "" });
 
@@ -399,8 +454,8 @@ export function JobDetail({
      the page itself. */
   const bar = (
     <>
-        <Button onClick={onBack} aria-label={roleJobDetailBack2()}>
-          <Icon name="arrowLeft" size={15} /> {roleJobDetailBack()}
+        <Button onClick={onBack} aria-label={backTo ? roleJobDetailBackTo({ view: backTo }) : roleJobDetailBack2()}>
+          <Icon name="arrowLeft" size={15} /> {backTo ?? roleJobDetailBack()}
         </Button>
         {/* The bar's middle: empty while the posting's heading is in view,
             then the role, where the heading stood. A copy for the eye; the
@@ -422,34 +477,6 @@ export function JobDetail({
             the comparison is waiting for its other half, at two it can be
             read. Without this the count lives only in the rail badge, and the
             beacon that would say it does not raise until the second role. */}
-        {/* The place in the list the posting was opened from, and the rows on
-            either side: it opens the bar's right-hand group, apart from the
-            actions on this posting. */}
-        {pager && (
-          <div className="jd-pager" role="group" aria-label={roleJobDetailPager()}>
-            <Button
-              variant="icon"
-              size="sm"
-              aria-label={roleJobDetailPagerPrevious()}
-              aria-keyshortcuts="K"
-              aria-disabled={!pager.onPrevious || undefined}
-              onClick={() => pager.onPrevious?.()}
-            >
-              <Icon name="chevronLeft" size={15} />
-            </Button>
-            <span className="jd-pager-place">{roleJobDetailPagerPlace({ place: pager.position, count: pager.count })}</span>
-            <Button
-              variant="icon"
-              size="sm"
-              aria-label={roleJobDetailPagerNext()}
-              aria-keyshortcuts="J"
-              aria-disabled={!pager.onNext || undefined}
-              onClick={() => pager.onNext?.()}
-            >
-              <Icon name="chevronRight" size={15} />
-            </Button>
-          </div>
-        )}
         {/* What acts on this posting. Between two postings the one drawn is
             not the one the route names, so its controls take no input; each
             posting gets its own, so a menu left open does not follow. */}
@@ -477,7 +504,7 @@ export function JobDetail({
               aria-describedby={compareFull ? fullReasonId : undefined}
               title={compareFull ? roleJobDetailCompareIsFullMax({ compareCap: compareCap }) : undefined}
             >
-              <Icon name={compareOn ? "check" : "columns"} size={15} />{" "}
+              <Icon name={compareOn ? "check" : "compare"} size={15} />{" "}
               {roleJobDetailCompare({ choice: (compareOn) ? "yes" : "no" })}
             </Button>
             {compareFull && (
@@ -486,15 +513,11 @@ export function JobDetail({
           </>
         )}
         {pipeline.control}
-        {/* Once applied, the employer's page is something to read again, not an action. */}
-        {job && (
-          <a
-            className={`ui-btn ${applied ? "ui-btn-ghost ui-btn-strong" : "ui-btn-primary"} ui-btn-md`}
-            href={job.url}
-            target="_blank"
-            rel="noreferrer"
-          >
-            {applied ? roleJobDetailViewPosting() : roleJobDetailViewApply()} <Icon name="external" size={15} />
+        {/* Apply opens the employer's site; the person moves the stage once
+            they have applied, and from then on the bar offers nothing here. */}
+        {job && !applied && (
+          <a className="ui-btn ui-btn-primary ui-btn-md" href={job.url} target="_blank" rel="noreferrer">
+            {roleJobDetailViewApply()} <Icon name="external" size={15} />
           </a>
         )}
         </div>
@@ -526,7 +549,7 @@ export function JobDetail({
         {job && (
           /* Keyed by the posting: what a posting opened (a history, a deck)
              belongs to it and does not carry over to the next. */
-          <div className="jd-container" key={job.id} inert={turning}>
+          <div className="jd-container" key={job.id} inert={turning} data-tabbed={tab ? "" : undefined}>
             <header className="jd-hero">
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                 <CompanyChip slug={job.company} />
@@ -555,14 +578,41 @@ export function JobDetail({
               )}
             </header>
 
-            {(job.lineage_size ?? 0) > 1 && <LineageStack ref={lineageRef} jobId={job.id} />}
-            {/* The deck shows direct twins only, and the row counts them: a role
-                with none asks for nothing. */}
-            {job.twin_count > 0 && <TwinDeck jobId={job.id} onOpen={onOpen} onCompare={onCompare} />}
-            <PlaceSetSection jobId={job.id} onOpen={onOpen} />
+            {/* A role in the pipeline: its posting and the person's own work
+                on it, in two tabs held under the bar once scrolled to. */}
+            {tab && (
+              <div className="jd-tabs" ref={setTabsEl}>
+                <TabBar<PostingTab>
+                  label={roleJobDetailTabs()}
+                  value={tab}
+                  onChange={showTab}
+                  idPrefix="jd"
+                  controls="jd-tab-panel"
+                  tabs={[
+                    { id: "posting", label: roleJobDetailTabPosting() },
+                    { id: "workspace", label: roleJobDetailTabWorkspace() },
+                  ]}
+                />
+              </div>
+            )}
+
+            {!onWorkspace && (
+              <>
+                {(job.lineage_size ?? 0) > 1 && <LineageStack ref={lineageRef} jobId={job.id} />}
+                {/* The deck shows direct twins only, and the row counts them: a role
+                    with none asks for nothing. */}
+                {job.twin_count > 0 && <TwinDeck jobId={job.id} onOpen={onOpen} onCompare={onCompare} />}
+                <PlaceSetSection jobId={job.id} onOpen={onOpen} />
+              </>
+            )}
 
             <div className="jd-grid">
-              <div className="jd-main" ref={setMainEl}>
+              <div
+                className="jd-main"
+                ref={setMainEl}
+                {...(tab ? { id: "jd-tab-panel", role: "tabpanel", "aria-labelledby": `jd-tab-${tab}` } : {})}
+              >
+                {onWorkspace ? pipeline.workspace : (<>
                 {/* ONE total, not two. The market median is a reconciliation line
                     inside the package, not a peer panel with its own headline, so a
                     disagreement is stated rather than left for the reader to
@@ -583,7 +633,10 @@ export function JobDetail({
                 )}
 
                 <div className="section-title">{roleJobDetailDescription()}</div>
+                {/* Held under the tabs when there are tabs: its headings
+                    measure where they stick once, as they arrive. */}
                 <JobDescription
+                  key={tab ? "tabbed" : "plain"}
                   sections={job.description_sections}
                   fallback={job.description_text}
                   read={textRead}
@@ -607,17 +660,24 @@ export function JobDetail({
                     </a>
                   </footer>
                 )}
+                </>)}
               </div>
 
               <aside className="jd-aside" ref={setAside}>
                 {/* The pay panel's small copy, grown by the scroll once the
                     panel has left. The panel is the one a screen reader reads. */}
-                <div className="jd-dock" ref={setDockEl} aria-hidden="true">
-                  <div className="jd-dock-in"><JobCompDock job={job} /></div>
-                </div>
+                {!onWorkspace && (
+                  <div className="jd-dock" ref={setDockEl} aria-hidden="true">
+                    <div className="jd-dock-in"><JobCompDock job={job} /></div>
+                  </div>
+                )}
 
                 {pipeline.section}
 
+                {/* The Workspace is the person's own work: the column keeps
+                    where the role stands, and the posting's facts stay on the
+                    posting's tab. */}
+                {!onWorkspace && (<>
                 <div className="section-title">{roleJobDetailDetails()}</div>
                 <dl className="kv">
                   {team && (
@@ -690,6 +750,7 @@ export function JobDetail({
                     </div>
                   </>
                 )}
+                </>)}
               </aside>
             </div>
           </div>
@@ -702,7 +763,7 @@ export function JobDetail({
      page. This screen keeps `job-detail` on the root for its scoped rules.
      It is a reading cover, so a large window draws it larger. */
   return (
-    <Cover label={label} asOverlay={asOverlay} onBack={onBack} bar={bar} className="job-detail" scrollRef={scrollRef}>
+    <Cover label={label} asOverlay={asOverlay} besideRail={besideRail} onBack={onBack} bar={bar} className="job-detail" scrollRef={scrollRef}>
       {body}
     </Cover>
   );

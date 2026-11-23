@@ -319,7 +319,8 @@ as `unset`.
 | Grounds | `canvas`, `surface`, `surface-raised` / `-subtle` / `-sunken` / `-glass` / `-hover`, `selected` |
 | Lines and text | `border`, `border-strong`; `text`, `text-muted`, `text-faint` (all AA) |
 | Decor | `decor`: glyph strokes, dots, hairline chrome. Never text |
-| Action | `action` (the gold) and `action-ink` / `-soft` / `-line` / `-text` / `-ring` / `-glow` |
+| Action | `action` (gold in dark, blue in light) and `action-ink` / `-soft` / `-line` / `-text` / `-ring` / `-glow` |
+| Brand | `brand`, `brand-ink`: the logo's tile, the brand's gold in both themes. Nothing else wears it |
 | States | `chosen-*`, `on-*` (see [Two states](#two-states)) |
 | Status and data | `positive*`, `warning*`, `danger*`, `information`; `data-1` .. `data-4` for charts |
 | Other | `bar`, `mark`, `ambient-*`, `shadow`, `shadow-pop`, plus the type, geometry and motion scales below |
@@ -332,8 +333,9 @@ glide, and `--app-duration-fast` / `-medium` / `-slow` (120 / 180 / 260ms).
 `:root` is the light theme. Dark values live in `:root[data-theme="dark"]` and
 again in `@media (prefers-color-scheme: dark)` for a root with no theme set.
 The app sets `data-theme` on `<html>` from the viewer's choice, saved in
-`localStorage` (a choice for this device, as the language and the Insights
-view are; settings live on the backend). First-run setup is the exception: it
+`localStorage` (a choice for this device; how the person arranges the
+screens is kept with their settings,
+[0027](decisions/0027-view-choices-in-local-database.md)). First-run setup is the exception: it
 is always dark, without saving
 that over the viewer's choice (`shownTheme` in `shell/theme.ts`, and
 `public/theme-boot.js` before first paint). Every colour token needs a value
@@ -520,7 +522,9 @@ lowers one lowers the baseline too.
 | `click-target` | `onClick` on a `div`, `span`, `li` and similar | A real button or link |
 
 The raw buttons that remain are known shapes (whole-row targets, palette
-options, the dial's drag handle, the sync button). A new exception is paid for
+options, the dial's drag handle, the sync button, and the rail's theme toggle,
+which wears the class of the rail entries beside it on the rail's fixed-dark
+palette). A new exception is paid for
 by converting an existing one, never by raising the number.
 
 ## Controls
@@ -550,6 +554,9 @@ Modifier classes on top of a variant:
   it ("Show 23 more").
 - `ui-btn-tile` (with `ui-btn-tile-copy`, `-title`, `-description`): a
   full-width two-line opener. No nested controls inside it.
+- `ui-btn-bar` on a ghost or icon: a button on a floating bar's own glass
+  (the bar over words selected in the notes). No edge at rest, muted ink; on
+  or open, the chosen paint.
 - `ui-beacon` belongs to `patterns/jobs/MarginBeacon` only: the compare and
   dismiss pills in a job list's margin.
 
@@ -591,6 +598,10 @@ after its words), never a bare `<a target="_blank">`.
   folding More like this heading, the suggestion to apply at a posting's end) is a
   bare `<button>` or link carrying layout and no button chrome. It still owns hover,
   focus and disabled, and its ring is drawn inside.
+- **A field that opens a picker** (a next step's day) is a bare `<button>`
+  drawn as the field box around it, so a click anywhere on it opens the
+  picker. It owns hover and focus, rings inside its edge as a field does, and
+  takes the chosen edge while its picker is open.
 - `src/test/control-inventory.test.ts` lists every class outside `src/ui/`
   that declares `cursor: pointer` and paints a box. A new name fails, and so
   does a listed name that styles nothing.
@@ -601,8 +612,8 @@ Every on, selected or current look is one of two, each from one token set.
 
 | State | Means | Paint |
 |---|---|---|
-| Chosen | One option among others, or the current item of a set (tab, chip, segment, option card, nav item, a row picked for Compare) | Gold: `--app-chosen-wash` behind, `-line` around, name in `-text`, mark in `-mark` |
-| On | A thing's own on/off state, set by a switch | Ink: `--app-on-fill`, `--app-on-wash`. Never gold |
+| Chosen | One option among others, or the current item of a set (tab, chip, segment, option card, nav item, a row picked for Compare) | The action colour: `--app-chosen-wash` behind, `-line` around, name in `-text`, mark in `-mark` |
+| On | A thing's own on/off state, set by a switch | Ink: `--app-on-fill`, `--app-on-wash`. Never the action colour |
 
 - Paint keys on the element's own state: `aria-pressed`, `aria-selected`,
   `aria-checked`, `aria-current`, `:checked`, or a parent's
@@ -617,7 +628,7 @@ Every on, selected or current look is one of two, each from one token set.
   marks the field and paints nothing; the words that say why sit beside it.
 - The name changes colour; the description under it stays muted. Never change
   weight to show state (it reflows the row).
-- A list option marks its choice with a tick and the gold name, no wash. A
+- A list option marks its choice with a tick and the chosen name, no wash. A
   flush row with no edge shows chosen as an inset bar in `--app-chosen-mark`.
 - Three named exceptions change only the hue: a pressed `danger` button, the
   nav rail (its own dark gold), and the "not interested" list (danger hue).
@@ -676,6 +687,24 @@ The nav rail is `--app-nav-width` (72px), or `--app-nav-width-expanded`
 (204px) when expanded. Below 860px it becomes a bottom dock that scrolls
 horizontally. Each rail tab renders `patterns/PageHeader` with its rail label
 as the `h1` (`patterns/page-header.test.ts`, `tests/ux/page-header.spec.ts`).
+The Pipeline's views (Considering, Board, Up next) are both its tab row and
+rail entries under its star. The star is the Pipeline's rail entry: it opens
+Considering, and in the Pipeline it and the view on screen are both chosen,
+the views on show under it. Anywhere else the views stay folded away until the
+pointer rests on the star; then they drop in under it and push the rest of the
+rail down, in a well open toward the star when the rail is collapsed and named
+on a line when it is expanded. The dock lists the views in its row
+(`shell/PipelineRailGroup.tsx`). Either way a view opens at a bare address and
+finds its own filters again (`routing/useRememberedParams`).
+
+A list screen scrolls as one page: the title and tabs scroll away and the
+toolbar docks at the top (`.app-toolbar`, `design/surfaces.css`). Each
+Pipeline view's panel is at least the window's height, so a short list docks
+the same way. The Board and Considering keep that order around a frame of
+their own: the page scrolls until the toolbar docks, a scroll down over the
+frame moves the page first (`usePageScrollsFirst`), and the frame then fills
+the window under the toolbar and scrolls both ways, its column heads at its
+top. Up next's month sticks under the docked toolbar.
 Under the header, a list screen's count and its Reset all live in
 `patterns/ResultsSummary`; Reset all clears every filter and lens, never the
 search query.
@@ -744,7 +773,7 @@ where the ring is drawn:
 | Variant | When |
 |---|---|
 | Outside, `--app-ring-offset` | The default: buttons, chips, switches, boxes and radios |
-| Inside, `calc(-1 * var(--app-ring-offset))` | A field (text, search, select, textarea), where the ring takes the place of the field's own border, so the two never read as two lines with a gap; or the control is flush with its container, or the container clips: tabs, list rows, index entries |
+| Inside, `calc(-1 * var(--app-ring-offset))` | A field (text, search, select, textarea, an editable page such as the notes editor), where the ring takes the place of the field's own border, so the two never read as two lines with a gap; or the control is flush with its container, or the container clips: tabs, list rows, index entries |
 | On a carrier (`:focus-within`, `:has(:focus-visible)`) | The focused element is hidden or is only part of the visible control: `.ui-search`, the filter rail's search row |
 | As an SVG stroke at `--app-ring-width` | A mark inside a chart or map |
 | In `--rail-accent` | Anything inside the dark nav rail |
@@ -752,6 +781,11 @@ where the ring is drawn:
 - Never a tint, halo, glow, bar or another hue for focus.
 - Text fields ring on click as well as on Tab. A native select rings for the
   keyboard only (`ui/Select` marks pointer focus with `data-pointer`).
+- A field stands inside its container's content edges, ring included. A field
+  that reaches into a card's padding, or a ring that spills past it, looks like
+  a misplaced box. A new kind of field (a rich text editor is a `div` with
+  `contenteditable`, so by its tag it is not a field) joins the field rule in
+  `shell.css` and the field lists of both checks below.
 - A pop-up gives focus back to the control that opened it. `ui/Popover` gives
   it back without the ring when the pointer opened it (the opener wore none),
   so an Escape does not ring a button the person never reached by keyboard;
@@ -788,12 +822,13 @@ carries a control sets `data-above-cover` to join the cover's Tab ring.
 
 - `TabBar` is an ARIA tablist with a roving tabindex: Left, Right, Home and End
   move the selection.
-- `⌘K` / `Ctrl-K` opens the command palette anywhere; `/` focuses search; `?`
+- `⌘K` / `Ctrl-K` opens the command palette anywhere, except over words
+  selected in a role's notes, where it links them; `/` focuses search; `?`
   opens the shortcuts sheet (`shell/KeyboardShortcuts.tsx`).
+- In a role's notes, selected words show a bar of styles over them; `Alt F10`
+  moves the keyboard into it, the arrows walk it and Escape leaves it.
 - On a job list, `j` / `k` (or the arrow keys) move between rows, Enter opens
   the role, `s` saves and `c` adds to Compare.
-- In a posting opened from a list, `j` / `k` open the next and the previous
-  posting of that list, while the keyboard is on the posting itself.
 - Duplicate review answers `d`, `t` and `n` with a verdict.
 - On an application's page, `m` opens the stage menu and `i` adds an interview;
   while a stage menu is open, here or on a Board card, `1` to `5` move to the
@@ -854,7 +889,7 @@ to Profile's steps changes setup with it.
 While it runs, setup has the window to itself: the rail and the top bar are not
 drawn (`App.tsx`, while setup mode is not off), and the palette and global keys
 do not open. The walk draws its own header, an eyebrow with the step ("Setup,
-step 2 of 7") over "Set up your radar", with a gold line under the steps for how
+step 2 of 7") over "Set up your radar", with a line in the action colour under the steps for how
 far along it is, and stands as one centred column, at most 1320px, a little
 below the top (`walk.css`, `.walk--setup`). Setup's way out is a quiet link in
 that header, and its one primary is the last step's Start. Setup asks for the
@@ -992,6 +1027,15 @@ it opens from. Job detail and Compare use it.
   is a modal `ui/Overlay` with no scrim. Back and Escape pop history.
   `coverBackground()` in `routing/paths.ts` computes the background. Covers do
   not stack, except a role opened from Compare.
+- A role opened from a Pipeline view (`pipelineViewUnder()` in
+  `routing/paths.ts`) opens beside the rail, not over it: the role is a page
+  of the Pipeline, not a reading over a list. The rail stays live and keeps the
+  star and the view under the role marked; pressing that view goes back, as
+  Back does. The cover is not modal then: the rest of the page behind it is
+  inert (`BEHIND_COVER` without `BESIDE_COVER`), the rail keeps its place in
+  the tab order, and Escape goes back. Back lands on the view's link to the
+  role shown last, which takes focus and wears `data-returned` for a moment.
+  A posting opened from the Radar keeps the whole window.
 - Reached by URL, the same body is the page's one `main` landmark. A role
   opened from a role that is the page takes its place as the page, one
   history entry on (`steppedFrom` in its state): nothing is stacked on it,
@@ -1057,7 +1101,7 @@ its primary is View & apply, an anchor wearing the primary classes.
   line, with no heading, no word in the figure's place and no bar. Nothing
   docks.
 - **One posting gives place to another in a cover that stays open**
-  (`postingTurn.ts`): by the pager, or by a link on the posting, whether the
+  (`postingTurn.ts`): by a link on the posting (a similar role, a twin), whether the
   cover is a dialog over a list or the page itself. Both route error
   boundaries are keyed once for every posting, so the cover and its bar are
   never opened again. The posting on show stays, inert, until the
@@ -1066,8 +1110,7 @@ its primary is View & apply, an anchor wearing the primary classes.
   a line running along the bar's foot (`.jd-waiting`), still under reduced
   motion. Then the reading area (`.cover-scroll`) turns in one view
   transition, named for the length of the turn only: the old posting leaves
-  first, the new one comes in the way the list runs (or rises, from a link),
-  at its top, after its own late parts have landed. A posting reached by
+  first, the new one rises in, at its top, after its own late parts have landed. A posting reached by
   going back or forward in history opens where this cover left it. The bar
   stays in place.
   Reduced motion, a browser without view transitions and a window that draws
@@ -1093,17 +1136,15 @@ its primary is View & apply, an anchor wearing the primary classes.
   weight, the likeness muted.
   In one column, at 860 px and narrower, the column follows the description,
   nothing docks and the bar keeps to its controls.
-- **A posting opened from a list knows its place there.** `openJob` takes the
-  list's rows in order and carries them in history state; the bar's pager
-  (and `j` / `k`) replaces the entry with the row on either side, so Back
-  still returns to the list. The Board passes its page of rows; a posting
-  opened by link, or from inside another posting, has no pager.
+- **A posting opened from a list stands alone.** `openJob` carries only the
+  list it covers in history state, so the bar has no way to step to the rows
+  around it and `j` / `k` do nothing on it; the way to another role is Back
+  to the list, or a link on the posting.
 - **A posting ends on applying** (`.jd-end`), under the employer's text,
   however it was opened. The step saves the role, then opens the pipeline
   list in a new tab once the save has landed; a click and a middle click do
   the same. A role already saved opens the list with no second write, and a
-  role already applied ends on nothing. The pager and `j` / `k` still move
-  to the next row.
+  role already applied ends on nothing.
 - **A posting that opened with no text reads it** from the employer's site
   once the page is shown (`postingText.ts`), when the detail says it can
   (`description_readable`); the open never waits on the site. Under the
@@ -1321,13 +1362,14 @@ Unit gates (`npm run test:unit`) are under `dashboard/src/`; UX specs
 | A selector lives in one sheet; keyframes defined once and reachable | `design/one-definition.test.ts` |
 | Filter register type grammar | `design/filter-grammar.test.ts` |
 | Every tab wears `PageHeader` | `patterns/page-header.test.ts`, `page-header.spec.ts` |
+| The Pipeline's star opens Considering and is chosen with the view on screen; elsewhere its views drop out of it on a resting pointer and push the rail down | `shell/NavRail.test.tsx`, `pipeline-rail.spec.ts` |
 | Rail boundary named once | `patterns/rail-shell.test.ts` |
 | Sticky offsets derived, container queries kept | `features/companies/register.test.ts`, `features/opportunities/board-shell.test.ts` |
 | Register screens match the rest | `material-parity.spec.ts` |
 | Axe in both themes | `a11y.spec.ts` |
 | Pay split bar: hatch strength, gaps, forced colours; the split label's help mark | `pay-split-bar.spec.ts` |
 | Visible primaries counted | `job-detail.spec.ts`, `profile.spec.ts` |
-| The posting's side column stays in view with no scroll of its own and keeps its first rows, folds More like this, and follows the description in one column; the pay panel's small copy grows with the scroll; a section's heading sticks; the bar carries the role; the pager steps through the list; the posting ends on applying, which saves the role and opens the pipeline list in a new tab; the next posting turns in place, in one cover, with no loading line | `job-detail.spec.ts` |
+| The posting's side column stays in view with no scroll of its own and keeps its first rows, folds More like this, and follows the description in one column; the pay panel's small copy grows with the scroll; a section's heading sticks; the bar carries the role; a posting opened from a list has no way to step to another row; the posting ends on applying, which saves the role and opens the pipeline list in a new tab; the next posting turns in place, in one cover, with no loading line | `job-detail.spec.ts` |
 | A posting steps by its box's width alone: frame, columns and type together, the text across its column, the bar, menus and pop-ups at their size, nothing zoomed | `job-detail-steps.spec.ts` |
 | A posting that opened with no text reads it once and says so under a running line, offers the posting when the site is slow and Try again when the read failed, and asks nothing when nothing can read it | `job-detail.spec.ts`, `features/job-detail/postingText.test.tsx` |
 | First-run setup | `routing/setupMode.test.tsx`, `features/scope/walk/Walk.test.tsx`, `features/companies/SetupCompanies.test.tsx`, `welcome.spec.ts` |
