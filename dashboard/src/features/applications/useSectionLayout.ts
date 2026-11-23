@@ -1,4 +1,4 @@
-import { useViewChoices, useViewChoicesAnswered } from "../../hooks/viewChoices";
+import { useViewChoices, useViewChoicesAnswered, viewChoicesNow } from "../../hooks/viewChoices";
 import { layoutOf, saveLayout, type WorkspaceSection, type WorkspaceStage } from "./workspaceSections";
 
 type Change = Parameters<typeof saveLayout>[1];
@@ -36,9 +36,12 @@ export function useSectionLayout(stage: WorkspaceStage, onSaveFailed: () => void
     ready,
     shown,
     offeredBack,
-    /** Hides a block; the Workspace always shows one, so the last stays. */
+    /** Hides a block; the Workspace always shows one, so the last stays.
+     *  Counted from the layout as saved, not as drawn: a second hide before
+     *  the next render sees the first. */
     hide: (section: WorkspaceSection) => {
-      if (shown.length <= 1) return false;
+      const now = layoutOf(stage, viewChoicesNow());
+      if (now.order.filter((one) => one !== section && !now.hidden.includes(one)).length === 0) return false;
       keep((was) => ({ ...was, hidden: [...was.hidden, section] }));
       return true;
     },

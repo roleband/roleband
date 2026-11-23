@@ -11,7 +11,7 @@ import {
   applicationsNotesVersionsLoading,
   applicationsNotesVersionsNone,
 } from "../../copy/gen/applications";
-import { Button, Content, Icon, Popover } from "../../ui";
+import { Button, Content, Icon, Popover, ResourceLoadState } from "../../ui";
 
 /** A day and a time: several versions can come from one day. */
 const SAVED_AT: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" };
@@ -67,7 +67,7 @@ export function NotesVersions({ load, onPutBack }: {
       </Button>
       <Popover isOpen={open} onClose={() => setOpen(false)} anchor={anchor} label={applicationsNotesVersions()} className="app-overlay app-notes-versions">
         <h3>{applicationsNotesVersions()}</h3>
-        {versions === null && <p className="app-notes-versions-note" role="status">{applicationsNotesVersionsLoading()}</p>}
+        {versions === null && <ResourceLoadState error={null} loading={applicationsNotesVersionsLoading()} />}
         {versions === "failed" && <p className="app-notes-versions-note" role="alert">{applicationsNotesVersionsFailed()}</p>}
         {Array.isArray(versions) && versions.length === 0 && <p className="app-notes-versions-note">{applicationsNotesVersionsNone()}</p>}
         {Array.isArray(versions) && versions.length > 0 && (

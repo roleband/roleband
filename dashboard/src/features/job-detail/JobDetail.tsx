@@ -336,12 +336,14 @@ export function JobDetail({
     if (!box || tab == null) return;
     let sized: HTMLElement | null = null;
     const fit = () => {
-      const tabs = box.querySelector<HTMLElement>(".jd-tabs");
+      // From the hero's foot, where the tabs stand unheld: held, they sit at
+      // the top however far the columns under them have scrolled.
+      const hero = box.querySelector<HTMLElement>(".jd-hero");
       const grid = box.querySelector<HTMLElement>(".jd-grid");
       if (sized && sized !== grid) sized.style.minHeight = "";
       sized = grid;
-      if (tabs && grid) {
-        grid.style.minHeight = `${box.clientHeight - (grid.getBoundingClientRect().top - tabs.getBoundingClientRect().top)}px`;
+      if (hero && grid) {
+        grid.style.minHeight = `${box.clientHeight - (grid.getBoundingClientRect().top - hero.getBoundingClientRect().bottom)}px`;
       }
     };
     fit();

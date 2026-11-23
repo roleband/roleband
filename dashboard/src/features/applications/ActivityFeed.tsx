@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ActivityItem, ApplicationDetail } from "../../api";
 import { date as formatDate, list, relative, timestamp } from "../../copy/format";
 import { recordDay } from "./recordDays";
-import { Button, Content, Icon, Menu, MenuGroup, MenuItem, useEscapeLayer } from "../../ui";
+import { Button, Content, Icon, Menu, MenuGroup, MenuItem, ResourceLoadState, useEscapeLayer } from "../../ui";
 import {
   applicationsCommentAuthorAgent,
   applicationsCommentAuthorYou,
@@ -18,6 +18,7 @@ import {
   applicationsInterviewCancel,
   applicationsFeedByAgent,
   applicationsFeedEmpty,
+  applicationsFeedLoadFailed,
   applicationsFeedFold,
   applicationsFeedJumpApplied,
   applicationsFeedJumpBeginning,
@@ -112,6 +113,10 @@ function RunChanges({ events, open, onFound, now }: {
 
 export interface ActivityFeedProps {
   items: readonly ActivityItem[];
+  /** Set when the feed could not be read: said in place of the feed, never
+   *  as an empty one, with `onRetry` to read it again. */
+  failed?: Error | null;
+  onRetry?: () => void;
   /** When the application reached each stage, and its interviews: the
    *  moments the jump menu offers. */
   detail: Pick<ApplicationDetail, "stages_reached" | "interviews">;
@@ -129,7 +134,7 @@ export interface ActivityFeedProps {
  *  divider that stays at the top while its entries pass, and opens a menu
  *  that jumps to another month or to a moment of the application. Nothing is
  *  held back, so the browser's own find reaches every entry. */
-export function ActivityFeed({ items, detail, now, onAdd, onEdit, onDelete }: ActivityFeedProps) {
+export function ActivityFeed({ items, failed, onRetry, detail, now, onAdd, onEdit, onDelete }: ActivityFeedProps) {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   // Read by the handler, not the render: two quick Enters see one post.
@@ -231,7 +236,9 @@ export function ActivityFeed({ items, detail, now, onAdd, onEdit, onDelete }: Ac
           </Button>
         )}
       </form>
-      {months.length === 0 ? (
+      {failed ? (
+        <ResourceLoadState error={failed} failed={applicationsFeedLoadFailed()} onRetry={onRetry} />
+      ) : months.length === 0 ? (
         <p className="app-next-empty">{applicationsFeedEmpty()}</p>
       ) : (
         <div className="app-feed-months" ref={feedList}>
@@ -306,7 +313,15 @@ function CommentItem({ comment, now, onEdit, onDelete }: {
   const editButton = useRef<HTMLButtonElement>(null);
   const focusAfter = useFocusAfter();
   const saving = useRef(false);
+  // Moves on each time the edit opens or closes: a save that lands after the
+  // edit was left and opened again closes nothing.
+  const session = useRef(0);
+  const open = () => {
+    session.current += 1;
+    setEditing(comment.body);
+  };
   const close = () => {
+    session.current += 1;
     focusAfter(() => editButton.current);
     setEditing(null);
   };
@@ -321,8 +336,9 @@ function CommentItem({ comment, now, onEdit, onDelete }: {
     event.preventDefault();
     if (editing == null || !editing.trim() || saving.current) return;
     saving.current = true;
+    const mine = session.current;
     try {
-      if (await onEdit(comment.id, editing)) close();
+      if ((await onEdit(comment.id, editing)) && session.current === mine) close();
     } finally {
       saving.current = false;
     }
@@ -339,7 +355,7 @@ function CommentItem({ comment, now, onEdit, onDelete }: {
         <span className="app-tile-spacer" />
         {own && editing == null && (
           <>
-            <Button ref={editButton} variant="icon" size="sm" className="app-row-tool" aria-label={applicationsCommentEdit()} onClick={() => setEditing(comment.body)}>
+            <Button ref={editButton} variant="icon" size="sm" className="app-row-tool" aria-label={applicationsCommentEdit()} onClick={open}>
               <Icon name="edit" size={14} />
             </Button>
             <Button variant="icon" size="sm" className="app-row-tool" aria-label={applicationsCommentDeleteLabel()} onClick={() => setConfirming(true)}>

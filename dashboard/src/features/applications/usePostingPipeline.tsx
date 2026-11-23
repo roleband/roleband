@@ -1,6 +1,8 @@
 import { Suspense, lazy, useCallback, useEffect, useState, type ReactNode } from "react";
 import type { ApplicationInterview, InterviewWrite, Job } from "../../api";
+import { applicationsWsLoadFailed } from "../../copy/gen/applications";
 import type { StageSlug } from "../../copy/vocabulary";
+import { AsyncBoundary } from "../../ui";
 import { PipelineSection } from "./PipelineSection";
 import { PostingStage } from "./PostingStage";
 import type { RoleTab } from "./roleLink";
@@ -130,35 +132,40 @@ export function usePostingPipeline(
     return saved;
   };
 
+  // Until the application is read the tab holds its place; a failed read says
+  // so and offers Try again.
+  const waiting = <div className="jd-workspace-wait" aria-hidden="true" />;
   const workspace = tab === "workspace" && card && job && (
-    <Suspense fallback={<div className="jd-workspace-wait" aria-hidden="true" />}>
-      {detail ? (
-        <PostingWorkspace
-          job={job}
-          onShowPosting={() => onTab("posting")}
-          card={card}
-          detail={detail}
-          notes={job.pursuit?.notes ?? null}
-          activity={actions.activity}
-          now={now}
-          onAddStep={actions.addStep}
-          onEditStep={actions.editStep}
-          onFinishStep={actions.finishStep}
-          onReopenStep={actions.reopenStep}
-          onRemoveStep={actions.removeStep}
-          onSaveNotes={actions.saveNotes}
-          onLoadNotesVersions={actions.notesVersions}
-          onAddInterview={() => setAsking({ kind: "add" })}
-          onEditInterview={(interview, at) => setAsking({ kind: "edit", interview, at })}
-          onOutcome={actions.setOutcome}
-          onAddComment={actions.addComment}
-          onEditComment={actions.editComment}
-          onDeleteComment={actions.deleteComment}
-        />
-      ) : (
-        <div className="jd-workspace-wait" aria-hidden="true" />
+    <AsyncBoundary resource={application.load} failed={applicationsWsLoadFailed()} skeleton={waiting} empty={waiting}>
+      {() => detail && (
+        <Suspense fallback={waiting}>
+          <PostingWorkspace
+            job={job}
+            onShowPosting={() => onTab("posting")}
+            card={card}
+            detail={detail}
+            notes={job.pursuit?.notes ?? null}
+            activity={actions.activity}
+            activityFailed={actions.activityFailed}
+            onRetryActivity={actions.retryActivity}
+            now={now}
+            onAddStep={actions.addStep}
+            onEditStep={actions.editStep}
+            onFinishStep={actions.finishStep}
+            onReopenStep={actions.reopenStep}
+            onRemoveStep={actions.removeStep}
+            onSaveNotes={actions.saveNotes}
+            onLoadNotesVersions={actions.notesVersions}
+            onAddInterview={() => setAsking({ kind: "add" })}
+            onEditInterview={(interview, at) => setAsking({ kind: "edit", interview, at })}
+            onOutcome={actions.setOutcome}
+            onAddComment={actions.addComment}
+            onEditComment={actions.editComment}
+            onDeleteComment={actions.deleteComment}
+          />
+        </Suspense>
       )}
-    </Suspense>
+    </AsyncBoundary>
   );
 
   return {

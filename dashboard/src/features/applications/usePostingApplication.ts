@@ -3,7 +3,7 @@ import { api, isNotFound, type ApplicationCard, type ApplicationDetail, type Job
 import { useJobWorkspace } from "../../context/JobWorkspace";
 import { useSaveCommand } from "../../context/useSaveCommand";
 import type { StageSlug } from "../../copy/vocabulary";
-import { useAsyncResource, useRefetchOn } from "../../hooks/useAsyncResource";
+import { useAsyncResource, useRefetchOn, type AsyncResource } from "../../hooks/useAsyncResource";
 import { useToast } from "../../ui";
 import {
   applicationsMoveUndo,
@@ -69,6 +69,10 @@ export interface PostingApplication {
   remove: () => void;
   /** The application as read, once it has loaded; null before and off the board. */
   detail: ApplicationDetail | null;
+  /** The read of `detail`, for a screen that says it is loading or failed and
+   *  offers Try again. A failed read again after a write is not an error
+   *  here: the application last read stays. */
+  load: Pick<AsyncResource<ApplicationDetail>, "data" | "error" | "loading" | "retry">;
   /** Paints the application read here, ahead of the write that changes it. */
   paintDetail: (change: (current: ApplicationDetail) => ApplicationDetail) => void;
   /** Reads the application again. */
@@ -217,6 +221,7 @@ export function usePostingApplication(
     move,
     remove,
     detail: onBoard ? loaded : null,
+    load: { data: onBoard ? loaded : null, error: detail.error, loading: detail.loading, retry: detail.retry },
     paintDetail,
     reread,
     rereadRole,

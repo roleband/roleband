@@ -33,6 +33,8 @@ vi.mock("../../api", async (importOriginal) => ({
     addInterview: vi.fn(),
     deleteInterview: vi.fn(),
     jobs: vi.fn(),
+    viewChoices: vi.fn(),
+    saveViewChoice: vi.fn(async (name: string, value: unknown) => ({ name, value })),
   },
 }));
 
@@ -107,6 +109,21 @@ describe("the board", () => {
     expect(screen.queryByText("Staff Product Manager, API")).toBeNull();
     expect(screen.queryByText("Head of Platform")).toBeNull();
     expect(screen.getByRole("button", { name: /^Columns/ })).toHaveAccessibleName(msg("applications-columns-hidden", { count: 3 }));
+  });
+
+  it("hides the columns the person hid, also when their choices are read after the board draws", async () => {
+    forgetViewChoices();
+    let answer!: () => void;
+    vi.mocked(api.viewChoices).mockImplementationOnce(() => new Promise((resolve) => {
+      answer = () => resolve({ choices: { "pipeline.board-hidden": ["saved", "offer", "decided", "closed"] } } as never);
+    }));
+    render(withProviders(<ApplicationsScreen />));
+    await screen.findByText("Principal Engineering Manager");
+    expect(screen.getAllByRole("region"), "the first visit's columns while the read is out").toHaveLength(4);
+
+    await act(async () => answer());
+    await waitFor(() => expect(screen.getAllByRole("region")).toHaveLength(3));
+    expect(screen.queryByRole("region", { name: /^Offer/ })).toBeNull();
   });
 
   it("puts each card in its stage's column, and an ending in its section with the stage it ended at", async () => {
@@ -956,7 +973,9 @@ describe("the pipeline's empty states", () => {
 describe("the board's writes", () => {
   const step = stepFixture({ id: 12, text: "Ask for an intro", due: "2026-11-03T10:00:00Z" });
   const round = { id: 5, label: "Hiring manager call", scheduled_at: "2026-11-02T10:00:00Z", all_day: false, format: "video" as const, link: null };
-  const settle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 40)); });
+  // The board's writes chain on promises alone, with no timer: one turn of
+  // the event loop runs every step they have queued.
+  const settle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
 
   async function renderBoard() {
     const hook = renderHook(() => useBoardController(), { wrapper: ({ children }) => <ToastProvider>{children}</ToastProvider> });
@@ -994,7 +1013,8 @@ describe("the board's writes", () => {
     expect(api.updateStep, "the tick waits for the move").not.toHaveBeenCalled();
 
     await act(async () => landed());
-    await waitFor(() => expect(api.updateStep).toHaveBeenCalledWith(card.job_id, step.id, { done: true }));
+    await settle();
+    expect(api.updateStep, "one turn is enough for the tick to follow the move").toHaveBeenCalledWith(card.job_id, step.id, { done: true });
   });
 
   it("puts back no outcome when Undo is pressed on a round's outcome, and reads once more only if that fails", async () => {

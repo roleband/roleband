@@ -523,6 +523,8 @@ applications-posting-history-now = { $stage }，{ $days } 天
 
 
 
+applications-ws-load-failed = 无法加载工作区
+
 applications-ws-next = 下一步
 
 
@@ -598,6 +600,7 @@ applications-ws-ask-outcome = 结果如何？
 
 applications-feed-title = 动态
 applications-feed-empty = 还没有评论或更改。
+applications-feed-load-failed = 无法加载动态
 applications-feed-fold = { $count } 条更新：{ $changes }
 applications-comment-placeholder = 记下发生了什么
 applications-comment-submit = 发表评论

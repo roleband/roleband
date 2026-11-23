@@ -7,16 +7,56 @@
 /** Elements that start a line of their own. */
 const BLOCK_SELECTOR = /* not copy */ "p, div, li, ul, ol, h1, h2, h3, h4, h5, h6, blockquote, pre, table";
 
-/** A cell as one line of text: its lines and line breaks apart by a space,
- *  spaces folded. */
-function cellText(cell: HTMLTableCellElement): string {
+/** A copy of a cell whose lines and line breaks stand apart by a space, on
+ *  both sides, so no two of its lines run together. */
+function spacedCell(cell: HTMLTableCellElement): HTMLTableCellElement {
   const copy = cell.cloneNode(true) as HTMLTableCellElement;
-  for (const end of Array.from(copy.querySelectorAll(`br, ${BLOCK_SELECTOR}`))) end.after(" ");
-  return (copy.textContent ?? "").replace(/\s+/g, " ").trim();
+  for (const end of Array.from(copy.querySelectorAll(`br, ${BLOCK_SELECTOR}`))) {
+    end.before(" ");
+    end.after(" ");
+  }
+  return copy;
 }
 
-/** The cells of a row as text. */
-const cellTexts = (row: HTMLTableRowElement) => Array.from(row.cells, cellText);
+/** A cell as one line of text, spaces folded: a column's name. */
+const cellText = (cell: HTMLTableCellElement) => (spacedCell(cell).textContent ?? "").replace(/\s+/g, " ").trim();
+
+/** A cell as one line: its words, spaces folded, and its links kept as links
+ *  (a picture on the web among them). Empty when the cell says nothing. */
+function cellLine(doc: Document, cell: HTMLTableCellElement): Node[] {
+  const parts: (string | Element)[] = [];
+  const walk = (node: Node) => {
+    for (const child of Array.from(node.childNodes)) {
+      const href = child.nodeName === "A" ? (child as Element).getAttribute("href") : null;
+      if (child.nodeType === Node.TEXT_NODE) parts.push(child.textContent ?? "");
+      else if (href) {
+        const link = doc.createElement("a");
+        link.setAttribute("href", href);
+        link.textContent = (child.textContent ?? "").replace(/\s+/g, " ").trim() || href;
+        parts.push(link);
+      } else walk(child);
+    }
+  };
+  walk(spacedCell(cell));
+  const line: Node[] = [];
+  let words = "";
+  const endWords = () => {
+    if (words) line.push(doc.createTextNode(words.replace(/\s+/g, " ")));
+    words = "";
+  };
+  for (const part of parts) {
+    if (typeof part === "string") words += part;
+    else {
+      endWords();
+      line.push(part);
+    }
+  }
+  endWords();
+  const [first, last] = [line[0], line[line.length - 1]];
+  if (first?.nodeType === Node.TEXT_NODE) first.textContent = first.textContent!.trimStart();
+  if (last?.nodeType === Node.TEXT_NODE) last.textContent = last.textContent!.trimEnd();
+  return line.filter((node) => node.textContent);
+}
 
 /** Whether a table's first row names its columns. */
 const hasHead = (rows: HTMLTableRowElement[]) => {
@@ -43,19 +83,20 @@ function tableAsLines(doc: Document, table: HTMLTableElement) {
     table.replaceWith(content);
     return;
   }
-  const head = hasHead(rows) ? cellTexts(rows[0]) : null;
+  const head = hasHead(rows) ? Array.from(rows[0].cells, cellText) : null;
   const body = head && rows.length > 1 ? rows.slice(1) : rows;
   const list = doc.createElement("ul");
   for (const row of body) {
     const named = head && row !== rows[0];
-    const line = cellTexts(row)
-      .map((text, at) => (text && named && head[at] ? `${head[at]}: ${text}` : text))
-      .filter(Boolean)
-      .join(" · ");
-    if (!line) continue;
     const item = doc.createElement("li");
-    item.textContent = line;
-    list.append(item);
+    Array.from(row.cells).forEach((cell, at) => {
+      const line = cellLine(doc, cell);
+      if (line.length === 0) return;
+      if (item.hasChildNodes()) item.append(" · ");
+      if (named && head[at]) item.append(`${head[at]}: `);
+      item.append(...line);
+    });
+    if (item.hasChildNodes()) list.append(item);
   }
   table.replaceWith(list);
 }

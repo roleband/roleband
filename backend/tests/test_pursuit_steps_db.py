@@ -522,20 +522,27 @@ async def test_a_step_patch_that_names_nothing_is_refused_as_invalid_input(api_c
 async def test_a_day_sent_with_no_offset_is_read_as_utc_everywhere_it_enters(api_client, db_session, roles):
     job, _ = roles
     await _apply(api_client, job)
-    await _add(api_client, job, "Dated with an offset", NOW + timedelta(days=9))
+    # One base for every date, so the step sent with an offset is always the soonest.
+    base = (NOW + timedelta(days=30)).replace(hour=9, minute=0, second=0)
 
-    step = await api_client.post(
-        f"/api/jobs/{job}/pursuit/steps", json={"text": "Bare day", "due": "2030-01-02T09:00:00"}
-    )
-    pursuit = await api_client.put(f"/api/jobs/{job}/pursuit", json={"next_action_due": "2030-01-03T09:00:00"})
+    def day(offset: int) -> datetime:
+        return base + timedelta(days=offset)
+
+    def bare(offset: int) -> str:
+        return day(offset).replace(tzinfo=None).isoformat()
+
+    await _add(api_client, job, "Dated with an offset", day(0))
+
+    step = await api_client.post(f"/api/jobs/{job}/pursuit/steps", json={"text": "Bare day", "due": bare(1)})
+    pursuit = await api_client.put(f"/api/jobs/{job}/pursuit", json={"next_action_due": bare(2)})
 
     assert step.status_code == 200, step.text
-    assert _at(step.json()["step"]["due"]) == datetime(2030, 1, 2, 9, tzinfo=UTC)
+    assert _at(step.json()["step"]["due"]) == day(1)
     assert pursuit.status_code == 200, pursuit.text
     # The one-step write moved the soonest step then, the one sent with an offset.
     moved = {step["text"]: _at(step["due"]) for step in (await _card(api_client, job))["steps"]}
-    assert moved["Dated with an offset"] == datetime(2030, 1, 3, 9, tzinfo=UTC)
-    assert moved["Bare day"] == datetime(2030, 1, 2, 9, tzinfo=UTC)
+    assert moved["Dated with an offset"] == day(2)
+    assert moved["Bare day"] == day(1)
 
 
 async def test_a_step_written_in_the_store_rings_its_reminder_without_the_route(api_client, db_session, roles):

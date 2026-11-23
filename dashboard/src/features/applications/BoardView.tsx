@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { ApplicationCard } from "../../api";
 import { STAGE_LABEL } from "../../copy/vocabulary";
+import { useViewChoices } from "../../hooks/viewChoices";
 import { AsyncBoundary, Button, Icon, Menu, MenuGroup, MenuItem } from "../../ui";
 import {
   applicationsBoardLoadFailed,
@@ -78,7 +79,10 @@ export function BoardView({ board, now }: {
 }) {
   const { cards, resource, move, remove } = board;
   const [filter, setFilter] = useViewFilter("board");
-  const [hidden, setHiddenState] = useState<ColumnId[]>(readHiddenColumns);
+  // Read each render from the view choices, so a read that answers after the
+  // board drew hides the columns the person hid.
+  useViewChoices();
+  const hidden = readHiddenColumns();
   const groups = useMemo(() => byStage(cards, now), [cards, now]);
   const counts = useMemo(() => quickCounts(cards, now, VIEW_FILTERS.board), [cards, now]);
   const filtering = isFiltering(filter);
@@ -89,10 +93,7 @@ export function BoardView({ board, now }: {
   /** The filters leave nothing on the whole board: one line says so above
    *  it, in place of a "No matches." in every column. */
   const nothingMatches = narrowed && cards.length > 0 && !cards.some(hits);
-  const setHidden = (next: ColumnId[]) => {
-    writeHiddenColumns(next);
-    setHiddenState(next);
-  };
+  const setHidden = (next: ColumnId[]) => writeHiddenColumns(next);
 
   // A card that leaves its column takes focus with it: the moved card's menu
   // takes it in its new column, or, where it is not drawn (a hidden column, a

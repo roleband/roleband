@@ -22,7 +22,7 @@ import { useFocusAfter } from "./focusAfter";
 import { GrowField } from "./GrowField";
 import { dayKey, dueFromDay } from "./monthGrid";
 
-function StepForm({ id, text: initialText, day: initialDay, now, placeholder, label, focusFirst, onSave, onCancel, onRemove }: {
+function StepForm({ id, text: initialText, day: initialDay, now, placeholder, label, focusFirst, onSave, onSaved, onCancel, onRemove }: {
   /** The words field's id, for a label beside the form. */
   id?: string;
   text: string;
@@ -32,6 +32,9 @@ function StepForm({ id, text: initialText, day: initialDay, now, placeholder, la
   label: string;
   focusFirst: boolean;
   onSave: (text: string, day: string) => Promise<boolean>;
+  /** An edit's close, once its save landed with nothing typed since; without
+   *  it the form is the add line, which clears instead. */
+  onSaved?: () => void;
   onCancel?: () => void;
   /** Takes the step off the list with nothing kept: for one added by mistake. */
   onRemove?: () => void;
@@ -59,10 +62,14 @@ function StepForm({ id, text: initialText, day: initialDay, now, placeholder, la
     const sent = { text, day };
     try {
       const saved = await onSave(text.trim(), day);
-      // The add line clears what it sent, and keeps a next step typed while it saved.
-      if (saved && !onCancel && typed.current.text === sent.text && typed.current.day === sent.day) {
-        setText("");
-        setDay("");
+      // What was typed while it saved stays, for the next save: the add line
+      // clears and an edit closes only when nothing was.
+      if (saved && typed.current.text === sent.text && typed.current.day === sent.day) {
+        if (onSaved) onSaved();
+        else {
+          setText("");
+          setDay("");
+        }
       }
     } finally {
       inFlight.current = false;
@@ -284,7 +291,11 @@ export function NextSteps({ steps, done, now, onAdd, onEdit, onFinish, onReopen,
   onReopen: (step: ApplicationStep) => Promise<boolean>;
   onRemove: (step: ApplicationStep) => Promise<boolean>;
 }) {
-  const [editing, setEditing] = useState<number | null>(null);
+  // The step whose edit is open, and which opening of it: an edit left and
+  // opened again is a new session, which a save sent from the old one never
+  // closes.
+  const [editing, setEditing] = useState<{ id: number; session: number } | null>(null);
+  const sessions = useRef(0);
   // Read when a save lands: the person may have left that edit for another.
   const editingNow = useRef(editing);
   editingNow.current = editing;
@@ -301,9 +312,15 @@ export function NextSteps({ steps, done, now, onAdd, onEdit, onFinish, onReopen,
     return () =>
       (neighbour && box.current?.querySelector<HTMLElement>(`[data-step-id="${neighbour.id}"] .ui-btn-tick`)) || addField();
   };
-  /** Closes the step's edit, if it is still the one open. */
-  const close = (step: ApplicationStep) => {
-    if (editingNow.current !== step.id) return;
+  const open = (step: ApplicationStep) => {
+    sessions.current += 1;
+    setEditing({ id: step.id, session: sessions.current });
+  };
+  /** Closes the step's edit, if it is still the one open (and, given a
+   *  session, still that opening of it). */
+  const close = (step: ApplicationStep, session?: number) => {
+    const now = editingNow.current;
+    if (now?.id !== step.id || (session != null && now.session !== session)) return;
     focusAfter(() => edits.current.get(step.id) ?? addField());
     setEditing(null);
   };
@@ -314,22 +331,19 @@ export function NextSteps({ steps, done, now, onAdd, onEdit, onFinish, onReopen,
         <ul className="app-ws-step-list">
           {steps.map((step) => (
             <li key={step.id} data-step-id={step.id}>
-              {editing === step.id ? (
+              {editing?.id === step.id ? (
                 <StepForm
                   text={step.text}
                   day={step.due ? dayKey(new Date(step.due)) : ""}
                   now={now}
                   label={applicationsWsNextEdit({ step: step.text })}
                   focusFirst
-                  onSave={async (text, day) => {
-                    const saved = await onEdit(step, text, day ? dueFromDay(day) : null);
-                    if (saved) close(step);
-                    return saved;
-                  }}
+                  onSave={(text, day) => onEdit(step, text, day ? dueFromDay(day) : null)}
+                  onSaved={() => close(step, editing.session)}
                   onCancel={() => close(step)}
                   onRemove={async () => {
                     focusAfter(nextFocus(step));
-                    if (await onRemove(step)) setEditing((open) => (open === step.id ? null : open));
+                    if (await onRemove(step)) setEditing((shown) => (shown?.id === step.id ? null : shown));
                   }}
                 />
               ) : (
@@ -344,7 +358,7 @@ export function NextSteps({ steps, done, now, onAdd, onEdit, onFinish, onReopen,
                     focusAfter(nextFocus(step));
                     onFinish(step);
                   }}
-                  onEdit={() => setEditing(step.id)}
+                  onEdit={() => open(step)}
                 />
               )}
             </li>

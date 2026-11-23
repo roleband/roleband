@@ -62,6 +62,21 @@ describe("a pasted table", () => {
     expect(lines(readablePaste(cells, "Picture").html)).toEqual(["Round: Panel · Who: Mo Ana", "Round: Onsite · Who: Lee Kim"]);
   });
 
+  it("keeps the words before a line in a cell apart from that line", () => {
+    const cells = "<table><tr><td>Panel</td><td>Mo<div>Ana</div></td></tr></table>";
+    expect(lines(readablePaste(cells, "Picture").html)).toEqual(["Panel · Mo Ana"]);
+  });
+
+  it("keeps a cell's links as links, a picture on the web among them", () => {
+    const cells = `<table><tr><th>Round</th><th>Notes</th></tr>
+      <tr><td><a href="https://jobs.example/round">Panel</a></td><td>See <img src="https://x.example/plan.png" alt="Floor plan"> first</td></tr></table>`;
+    const { html, leftOut } = readablePaste(cells, "Picture");
+    expect(lines(html)).toEqual(["Round: Panel · Notes: See Floor plan first"]);
+    const links = Array.from(new DOMParser().parseFromString(html, "text/html").querySelectorAll("li a"), (link) => [link.textContent, link.getAttribute("href")]);
+    expect(links).toEqual([["Panel", "https://jobs.example/round"], ["Floor plan", "https://x.example/plan.png"]]);
+    expect(leftOut).toBe(0);
+  });
+
   it("counts a screenshot in a cell as left out, keeping its description", () => {
     const shot = '<table><tr><td>Floor plan</td><td><img src="data:image/png;base64,iVBORw0KGgo=" alt="Third floor"></td></tr></table>';
     const { html, leftOut } = readablePaste(shot, "Picture");

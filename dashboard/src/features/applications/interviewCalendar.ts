@@ -8,7 +8,8 @@ import { positionPath } from "../../routing/paths";
 import { FORMAT_LABEL } from "./interviewWords";
 
 /* One interview as a calendar file (RFC 5545), for the person's own calendar
- * app to import. The event's UID is the round's, so importing the file again
+ * app to import. It states no method: a method makes it a scheduling message
+ * (RFC 5546), which needs an organiser the round does not have. The event's UID is the round's, so importing the file again
  * after the round moves updates the event instead of adding a second one.
  * A round holds no length: a timed one is given an hour, which the person
  * changes in their calendar; an all-day one is that whole day. */
@@ -68,7 +69,6 @@ export function interviewCalendar(interview: Round, role: Role, origin: string, 
     "VERSION:2.0",
     "PRODID:-//RoleBand//Interviews//EN",
     "CALSCALE:GREGORIAN",
-    "METHOD:PUBLISH",
     "BEGIN:VEVENT",
     /* not copy */ `UID:interview-${interview.id}@roleband`,
     `DTSTAMP:${instant(now)}`,
@@ -92,10 +92,9 @@ export function interviewCalendarName(interview: Pick<Round, "label">, role: Pic
   return `${words || "interview"}.ics`;
 }
 
-/** Hands the file to the browser to save or open, as a download. Its type
- *  names the method the file states: RFC 5545 has the two agree. */
+/** Hands the file to the browser to save or open, as a download. */
 export function saveCalendarFile(name: string, body: string): void {
-  const url = URL.createObjectURL(new Blob([body], { type: "text/calendar;charset=utf-8;method=PUBLISH" }));
+  const url = URL.createObjectURL(new Blob([body], { type: "text/calendar;charset=utf-8" }));
   const link = document.createElement("a");
   link.href = url;
   link.download = name;

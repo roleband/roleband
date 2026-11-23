@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { MemoryRouter } from "react-router-dom";
@@ -60,10 +60,25 @@ const resource = (applications: ApplicationCard[]): AsyncResource<ApplicationBoa
   refresh: vi.fn(),
 } as unknown as AsyncResource<ApplicationBoard>);
 
-/** Up next over a board that drops a step when it is ticked, as the page's does. */
+/** A role whose round has taken place and waits for its outcome. */
+const awaiting = (job_id: number, id: number, label: string, day: number) =>
+  applicationCardFixture({
+    job_id,
+    pursuit_id: job_id * 10,
+    stage: "interviewing",
+    title: `${label} role`,
+    awaiting_outcome: {
+      id, label, scheduled_at: new Date(2026, 10, day, 14, 0).toISOString(), all_day: false, format: null, link: null,
+    },
+  });
+
+/** Up next over a board that drops a step when it is ticked, and a round
+ *  once its outcome is set, as the page's does. */
 function Page({ cards }: { cards: ApplicationCard[] }) {
   const [board, setBoard] = useState(cards);
   const [, tick] = useState(0);
+  const change = (card: ApplicationCard, edit: (card: ApplicationCard) => ApplicationCard) =>
+    setBoard((was) => was.map((one) => (one.job_id === card.job_id ? edit(one) : one)));
   return (
     <MemoryRouter>
       <button onClick={() => tick((n) => n + 1)}>again</button>
@@ -71,9 +86,8 @@ function Page({ cards }: { cards: ApplicationCard[] }) {
         resource={resource(board)}
         now={now}
         actions={{
-          onFinishStep: (card, step) =>
-            setBoard((was) => was.map((one) => (one.job_id === card.job_id ? { ...one, steps: one.steps.filter((s) => s.id !== step.id) } : one))),
-          onSetOutcome: vi.fn(),
+          onFinishStep: (card, step) => change(card, (one) => ({ ...one, steps: one.steps.filter((s) => s.id !== step.id) })),
+          onSetOutcome: (card) => change(card, (one) => ({ ...one, awaiting_outcome: null })),
         }}
       />
     </MemoryRouter>
@@ -92,6 +106,25 @@ beforeEach(() => {
 });
 
 describe("Up next", () => {
+  it("leaves a ticked step out of the month while the month reads again", async () => {
+    const user = userEvent.setup();
+    const step = (id: number, text: string) => ({ kind: "step" as const, job_id: 1, at: today, step: text, step_id: id });
+    vi.mocked(api.calendar)
+      .mockResolvedValueOnce({ items: [step(11, "Send references"), step(12, "Book the flight")] })
+      // The month's next read never answers: what it shows is the first answer.
+      .mockImplementation(() => new Promise(() => undefined));
+    render(<Page cards={[openai]} />);
+    const month = screen.getByRole("region", { name: msg("applications-month-label") });
+    const day = () => within(month).getByRole("button", { name: /^Wed, Nov 4/ });
+    await waitFor(() => expect(day()).toHaveAccessibleName(new RegExp(msg("applications-month-steps", { count: 2 }))));
+
+    await user.click(tickOf("Send references"));
+
+    expect(api.calendar, "the month reads again").toHaveBeenCalledTimes(2);
+    expect(within(month).queryByText(/Send references/), "the ticked step is not listed beside Up next").toBeNull();
+    expect(day()).toHaveAccessibleName(new RegExp(msg("applications-month-steps", { count: 1 })));
+  });
+
   it("lists two steps of one role on one day as two rows, and ticking one leaves the other", async () => {
     const user = userEvent.setup();
     const errors = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -144,6 +177,33 @@ describe("Up next", () => {
     expect(marked).toHaveLength(1);
     expect(marked[0]).toHaveTextContent("Hiring manager");
     expect(screen.getByRole("button", { name: /^Wed, Nov 4/ })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("hands the keyboard to the next row when a tick takes its row away, else to the row before", async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<Page cards={[openai]} />);
+    tickOf("Send references").focus();
+    await user.keyboard("{Enter}");
+    expect(tickOf("Book the flight")).toHaveFocus();
+    unmount();
+
+    render(<Page cards={[openai]} />);
+    tickOf("Book the flight").focus();
+    await user.keyboard("{Enter}");
+    expect(tickOf("Send references")).toHaveFocus();
+  });
+
+  it("hands the keyboard to the next row when an outcome takes its round away", async () => {
+    const user = userEvent.setup();
+    render(<Page cards={[awaiting(3, 7, "Panel", 2), awaiting(4, 8, "Onsite", 3)]} />);
+    const panel = screen.getByRole("group", { name: msg("applications-upnext-outcome-label", { label: "Panel" }) });
+    within(panel).getAllByRole("button")[0].focus();
+    await user.keyboard("{Enter}");
+
+    expect(screen.queryByRole("group", { name: msg("applications-upnext-outcome-label", { label: "Panel" }) })).toBeNull();
+    const onsite = rows().find((row) => row.textContent?.includes("Onsite"));
+    expect(onsite).toBeDefined();
+    expect(onsite).toContainElement(document.activeElement as HTMLElement);
   });
 
   it("groups the board once, however often it draws again", async () => {

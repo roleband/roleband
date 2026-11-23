@@ -21,6 +21,9 @@ const NO_ACTIVITY: readonly ActivityItem[] = [];
 export interface PostingWorkspaceActions {
   /** The application's feed; read only while the Workspace shows. */
   activity: readonly ActivityItem[];
+  /** Why the feed could not be read, while there is none to show. */
+  activityFailed: Error | null;
+  retryActivity: () => void;
   setPriority: (priority: number) => Promise<boolean>;
   addStep: (text: string, due: string | null) => Promise<boolean>;
   editStep: (step: ApplicationStep, text: string, due: string | null) => Promise<boolean>;
@@ -228,7 +231,11 @@ export function usePostingWorkspace(
           moved = String(error.params.current ?? "");
         }
       };
-      const saved = await stepWrite(send, () => paintNotes(value));
+      // The page's last save can go out after another role opened, as the
+      // page closes: it paints only the role it was written on.
+      const saved = await stepWrite(send, () => {
+        if (openJob.current === card.job_id) paintNotes(value);
+      });
       return moved != null ? { current: moved } : saved;
     },
     [card, stepWrite, paintNotes],
@@ -282,6 +289,10 @@ export function usePostingWorkspace(
 
   return {
     activity: feed.data?.items ?? NO_ACTIVITY,
+    // The first read lands in `error`, or in `refreshError` when the
+    // Workspace came on screen after the hook began. A feed already held stays.
+    activityFailed: feed.data ? null : (feed.error ?? feed.refreshError),
+    retryActivity: () => void readFeed(),
     setPriority,
     addStep,
     editStep,

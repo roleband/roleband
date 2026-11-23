@@ -557,6 +557,8 @@ applications-posting-history-now = { $days ->
 
 
 
+applications-ws-load-failed = No se pudo cargar el espacio de trabajo
+
 applications-ws-next = Siguientes pasos
 
 
@@ -633,6 +635,7 @@ applications-ws-ask-outcome = ¿Cómo te fue?
 
 applications-feed-title = Actividad
 applications-feed-empty = Aún no hay comentarios ni cambios.
+applications-feed-load-failed = No se pudo cargar la actividad
 applications-feed-fold = { $count ->
     [one] { $count } actualización: { $changes }
     [many] { $count } de actualizaciones: { $changes }

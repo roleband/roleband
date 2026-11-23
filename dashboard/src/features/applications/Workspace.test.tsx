@@ -827,6 +827,55 @@ describe("an edit that is open", () => {
 
     expect(handlers.onEditComment).toHaveBeenCalledWith(8, "Sent the portfolio.\nSecond line");
   });
+
+  it("keeps a comment edit opened again while an earlier save of it is out", async () => {
+    let land!: (saved: boolean) => void;
+    vi.mocked(handlers.onEditComment).mockImplementationOnce(() => new Promise((resolve) => { land = resolve; }));
+    renderUnder(vi.fn());
+    const feed = activity();
+    const boxes = () => within(feed).getAllByRole("textbox", { name: msg("applications-comment-label") });
+    await userEvent.click(within(feed).getByRole("button", { name: msg("applications-comment-edit") }));
+    await userEvent.type(boxes()[1], " Again.{Enter}");
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(within(feed).getByRole("button", { name: msg("applications-comment-edit") }));
+    await userEvent.type(boxes()[1], " Once more.");
+
+    await act(async () => land(true));
+    expect(boxes(), "the edit opened again stays open").toHaveLength(2);
+    expect(boxes()[1]).toHaveValue("Sent the portfolio. Once more.");
+  });
+
+  const stepEdit = (step: string) => screen.queryByRole("textbox", { name: msg("applications-ws-next-edit", { step }) });
+  const openStepEdit = (step: string) =>
+    userEvent.click(screen.getByRole("button", { name: msg("applications-ws-next-edit", { step }) }));
+
+  it("keeps the words typed into a step's edit while its save was out", async () => {
+    let land!: (saved: boolean) => void;
+    vi.mocked(handlers.onEditStep).mockImplementationOnce(() => new Promise((resolve) => { land = resolve; }));
+    renderWorkspace({ next_action: "Send the portfolio" });
+    await openStepEdit("Send the portfolio");
+    const field = stepEdit("Send the portfolio")!;
+    await userEvent.type(field, " today{Enter}");
+    await userEvent.type(field, " and the deck");
+
+    await act(async () => land(true));
+    expect(field, "the edit stays open over the words typed since").toBeInTheDocument();
+    expect(field).toHaveValue("Send the portfolio today and the deck");
+  });
+
+  it("keeps a step's edit opened again while an earlier save of it is out", async () => {
+    let land!: (saved: boolean) => void;
+    vi.mocked(handlers.onEditStep).mockImplementationOnce(() => new Promise((resolve) => { land = resolve; }));
+    renderWorkspace({ next_action: "Send the portfolio" });
+    await openStepEdit("Send the portfolio");
+    await userEvent.type(stepEdit("Send the portfolio")!, " today{Enter}");
+    await userEvent.click(screen.getByRole("button", { name: msg("applications-interview-cancel") }));
+    await openStepEdit("Send the portfolio");
+    await userEvent.type(stepEdit("Send the portfolio")!, " by Friday");
+
+    await act(async () => land(true));
+    expect(stepEdit("Send the portfolio"), "the edit opened again stays open").toHaveValue("Send the portfolio by Friday");
+  });
 });
 
 describe("the interviews block", () => {
@@ -892,10 +941,11 @@ describe("the interviews block", () => {
 
     expect(saved).toEqual([expect.stringMatching(/hiring-manager\.ics$/)]);
     expect(files).toHaveLength(1);
-    // The type names the method the file states, as calendar apps check.
-    expect(files[0].type).toBe("text/calendar;charset=utf-8;method=publish");
+    // A file to import, not a scheduling message: no method, which would ask
+    // for an organiser the round does not have.
+    expect(files[0].type).toBe("text/calendar;charset=utf-8");
     const body = await files[0].text();
-    expect(body).toContain("METHOD:PUBLISH");
+    expect(body).not.toMatch(/^METHOD:/m);
     expect(body).toContain("UID:interview-7@roleband");
     expect(body).toContain(`DTSTART:${tomorrow.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "")}`);
     expect(document.querySelector("a[download]"), "the link leaves the page once used").toBeNull();

@@ -99,7 +99,10 @@ export function UpNextMonth({ cards, now, picked, keep, inAgenda, onPickDay }: {
   const byJob = useMemo(() => new Map(cards.map((card) => [card.job_id, card])), [cards]);
   const days = itemsByDay((resource.data?.items ?? []).filter((item) => {
     const card = byJob.get(item.job_id);
-    return card != null && keep(card).shown;
+    if (card == null || !keep(card).shown) return false;
+    // A card lists every open step, and a tick leaves it at once; the month
+    // keeps its last answer until it reads again.
+    return item.kind !== "step" || card.steps.some((one) => one.id === item.step_id);
   }));
   const weeks = monthWeeks(month);
 

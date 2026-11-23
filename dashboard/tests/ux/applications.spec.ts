@@ -716,8 +716,12 @@ test("Up next stands beside its month: a day says what is on it, and picking one
     job_id: 600 + i, pursuit_id: 60 + i, stage: "researching", title: `Role ${i + 1}`, company: "notion",
     next_action: `Step ${i + 1}`, next_action_due: new Date(2026, 10, 8 + i, 23, 59).toISOString(),
   }));
+  const intro = applicationCardFixture({
+    job_id: 101, title: "Staff Product Manager, API", company: "openai",
+    next_action: "Ask for an intro", next_action_due: new Date(2026, 10, 7, 23, 59).toISOString(),
+  });
   await installPipeline(page, [
-    { ...cards[0], next_action: "Ask for an intro", next_action_due: new Date(2026, 10, 7, 23, 59).toISOString() },
+    intro,
     { ...cards[1], next_interview: {
       id: 5, label: "Hiring manager call", scheduled_at: new Date(2026, 10, 20, 14, 0).toISOString(), all_day: false,
       format: "video", link: null,
@@ -732,8 +736,10 @@ test("Up next stands beside its month: a day says what is on it, and picking one
       kind: "interview", job_id: 202, at: new Date(2026, 10, 2, 15, 0).toISOString(), interview_id: 3,
       label: "Recruiter screen", all_day: false, format: "video", outcome: "passed",
     },
-    { kind: "step", job_id: 101, at: new Date(2026, 10, 7, 23, 59).toISOString(), step: "Ask for an intro" },
-    ...filler.map((card) => ({ kind: "step", job_id: card.job_id, at: card.next_action_due, step: card.next_action })),
+    // Each open step as the server sends it, by the id its card lists.
+    ...[intro, ...filler].map((card) => ({
+      kind: "step", job_id: card.job_id, at: card.steps[0].due, step: card.steps[0].text, step_id: card.steps[0].id,
+    })),
     {
       kind: "interview", job_id: 202, at: new Date(2026, 10, 20, 14, 0).toISOString(), interview_id: 5,
       label: "Hiring manager call", all_day: false, format: "video", outcome: null,

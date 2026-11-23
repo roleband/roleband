@@ -579,6 +579,7 @@ async def test_a_pursuit_write_and_its_replay_answer_without_the_posting(api_cli
     fresh, replayed = _data(*await write()), await write()
     assert replayed[1]["meta"]["replayed"] is True and replayed[1]["operation"] == operation
     assert "opportunity" not in fresh and "opportunity" not in _data(*replayed)
+    assert _data(*replayed) == fresh, "the replay answers with what the write returned"
     assert fresh["stage"] == "interviewing"
     await _choose(workspace)
     # The receipt keeps the whole answer for when postings are shared again.
@@ -620,6 +621,7 @@ async def test_a_step_write_and_its_replay_answer_without_the_posting(
     fresh, replayed = _data(*await write()), await write()
     assert replayed[1]["meta"]["replayed"] is True and replayed[1]["operation"] == operation
     assert "opportunity" not in fresh and "opportunity" not in _data(*replayed)
+    assert _data(*replayed) == fresh, "the replay answers with what the write returned"
     # The pursuit itself still answers: its stage and its open steps.
     assert fresh["stage"] == "interviewing" and fresh["revision"] == revision + 1
     assert (step in [s["id"] for s in fresh["steps"]]) is (operation != "steps.done")

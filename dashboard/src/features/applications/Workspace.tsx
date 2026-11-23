@@ -53,6 +53,9 @@ export interface WorkspaceProps {
   detail: ApplicationDetail;
   notes: string | null;
   activity: readonly ActivityItem[];
+  /** Set when the feed could not be read: said in its place, with Try again. */
+  activityFailed?: Error | null;
+  onRetryActivity?: () => void;
   now: Date;
   onAddStep: (text: string, due: string | null) => Promise<boolean>;
   onEditStep: (step: ApplicationStep, text: string, due: string | null) => Promise<boolean>;
@@ -140,6 +143,8 @@ export function Workspace(props: WorkspaceProps) {
     activity: () => (
       <ActivityFeed
         items={activity}
+        failed={props.activityFailed}
+        onRetry={props.onRetryActivity}
         detail={detail}
         now={now}
         onAdd={props.onAddComment}

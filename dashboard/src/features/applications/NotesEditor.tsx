@@ -140,8 +140,10 @@ export default function NotesEditor({ notes, onSave, loadVersions }: {
   // Saves go one at a time, each over the text the last one left: the latest
   // text written while one is out waits here, and goes once it lands.
   const waiting = useRef<string | null>(null);
-  // The next save starts with an earlier version put back.
-  const puttingBack = useRef(false);
+  // Earlier versions put back and not yet saved: every save starts a writing
+  // session of its own until one that carries them lands, a retry or a
+  // merged save included.
+  const puttingBack = useRef(0);
   const timer = useRef<number | null>(null);
   const save = useRef(onSave);
   save.current = onSave;
@@ -156,8 +158,7 @@ export default function NotesEditor({ notes, onSave, loadVersions }: {
       inFlight.current = value;
       const was = base.current;
       const putBack = puttingBack.current;
-      puttingBack.current = false;
-      void save.current(value, was, putBack)
+      void save.current(value, was, putBack > 0)
         .catch((): NotesSaved => false)
         .then((saved) => {
           inFlight.current = null;
@@ -165,6 +166,7 @@ export default function NotesEditor({ notes, onSave, loadVersions }: {
           const next = waiting.current;
           waiting.current = null;
           if (saved === true) {
+            puttingBack.current = Math.max(0, puttingBack.current - putBack);
             sent.current = value;
             base.current = value.trim() ? value : "";
             if (next != null && next !== value) send(editor, next);
@@ -209,12 +211,12 @@ export default function NotesEditor({ notes, onSave, loadVersions }: {
         // Text put back to the words in flight needs nothing more; anything
         // else, the saved words included, goes once that save lands.
         waiting.current = value === inFlight.current ? null : value;
-        if (waiting.current == null) puttingBack.current = false;
+        if (waiting.current == null) puttingBack.current = 0;
         return;
       }
       waiting.current = null;
       if (value !== sent.current) send(editor, value);
-      else puttingBack.current = false;
+      else puttingBack.current = 0;
     };
     return flush;
   }, []);
@@ -410,7 +412,7 @@ export default function NotesEditor({ notes, onSave, loadVersions }: {
               // and undone with the editor's own undo.
               editor.commands.setContent(text, { contentType: "markdown" });
               setPutBack(when);
-              puttingBack.current = true;
+              puttingBack.current += 1;
               flush(editor);
             }}
           />

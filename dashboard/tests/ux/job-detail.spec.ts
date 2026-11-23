@@ -1051,6 +1051,26 @@ test("a short Workspace still scrolls its tabs up under the bar, in any window h
   }
 });
 
+/* The room under the tabs is measured from where they stand unheld, under the
+   hero. Measured from where they are held, far down a posting, the columns
+   would keep the height of all that was scrolled past, and a shorter tab
+   would end on blank space. */
+test("a window resized far down a posting leaves the columns no taller than the window", async ({ page }) => {
+  const { panel, scroll } = await openWorkspace(page);
+  await panel.getByRole("tab", { name: msg("role-job-detail-tab-posting") }).click();
+  const grid = panel.locator(".jd-grid");
+  const minHeight = () => grid.evaluate((el) => Number.parseFloat(el.style.minHeight));
+  await scrollPosting(scroll, 3000);
+  // Fail-first: the columns start far above the held tabs.
+  const scrolledPast = (await panel.locator(".jd-tabs").boundingBox())!.y - (await grid.boundingBox())!.y;
+  expect(scrolledPast, "scrolled far past where the tabs stand unheld").toBeGreaterThan(500);
+  const before = await minHeight();
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect.poll(minHeight, "measured again for the new window").not.toBe(before);
+  expect(await minHeight()).toBeLessThan(await scroll.evaluate((el) => el.clientHeight));
+});
+
 /* Held, the tabs' band ends inside the page's wash, which brightens toward the
    window's top right. Its ground is the page's own, so where it ends no edge
    shows: the pixel just inside its right end and the one just outside match. */

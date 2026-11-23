@@ -47,6 +47,17 @@ const appState = {
 vi.mock("../../context/JobWorkspace", () => ({ useJobWorkspace: () => appState, useJobActions: () => appState }));
 vi.mock("../../context/MissionState", () => ({ useMissionActions: () => appState }));
 
+/* The notes page's editor stands in here: it keeps every save it is handed, so
+ * a spec can call the one a role's page held after another role opened, as
+ * the page's last save does when it closes on a role switch. */
+const notesSaves: ((notes: string, was: string) => Promise<unknown>)[] = [];
+vi.mock("./NotesEditor", () => ({
+  default: ({ onSave }: { onSave: (notes: string, was: string) => Promise<unknown> }) => {
+    notesSaves.push(onSave);
+    return <p>Notes page</p>;
+  },
+}));
+
 const TITLE = "Staff Product Manager, API";
 const DAY = 86_400_000;
 const daysAgo = (days: number) => new Date(Date.now() - days * DAY).toISOString();
@@ -110,6 +121,7 @@ function Posting({ initial, other, asked = null }: { initial: Job; other?: Job; 
         <button type="button" onClick={() => setTab("workspace")}>Tab: workspace</button>
       </nav>
       <p data-testid="tab">{pipeline.tab ?? "no tabs"}</p>
+      <p data-testid="notes">{job?.pursuit?.notes ?? ""}</p>
       <main aria-label="Main column">{pipeline.tab === "workspace" ? pipeline.workspace : "The posting"}</main>
       <aside aria-label="Side column" ref={setColumn}>{pipeline.section}</aside>
       <p>{pipeline.applied ? "View posting" : "View & apply"}</p>
@@ -536,7 +548,49 @@ describe("one write, one read", () => {
     });
   const pursuedPosting = (id: number, title: string) =>
     posting({ id, title, is_favorite: true, pursuit: { ...pursuit("applied"), job_id: id } });
-  const settle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 60)); });
+  // The reads and writes here chain on promises alone, with no timer: one
+  // turn of the event loop runs every step they have queued.
+  const settle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+
+  it("says the workspace could not load, and Try again reads it again", async () => {
+    detail = appliedWith(101);
+    vi.mocked(api.application).mockRejectedValueOnce(new ApiError("down", 500));
+    renderPosting(pursuedPosting(101, TITLE), "workspace");
+    const failed = await within(main()).findByRole("alert");
+    expect(failed).toHaveTextContent(msg("applications-ws-load-failed"));
+
+    await userEvent.click(within(failed).getByRole("button", { name: msg("common-try-again") }));
+    expect(await within(main()).findByText(msg("applications-ws-next"))).toBeInTheDocument();
+    expect(within(main()).queryByRole("alert")).toBeNull();
+  });
+
+  it("says the activity could not load, never that there is none, and Try again reads it again", async () => {
+    detail = appliedWith(101);
+    vi.mocked(api.activity)
+      .mockRejectedValueOnce(new ApiError("down", 500))
+      .mockResolvedValue({ items: [comment] } as Awaited<ReturnType<typeof api.activity>>);
+    renderPosting(pursuedPosting(101, TITLE), "workspace");
+    const failed = await within(main()).findByRole("alert");
+    expect(failed).toHaveTextContent(msg("applications-feed-load-failed"));
+    expect(within(main()).queryByText(msg("applications-feed-empty"))).toBeNull();
+
+    await userEvent.click(within(failed).getByRole("button", { name: msg("common-try-again") }));
+    expect(await within(main()).findByText("Call went well")).toBeInTheDocument();
+    expect(within(main()).queryByRole("alert")).toBeNull();
+  });
+
+  it("paints notes saved from the role left behind on that role alone", async () => {
+    vi.mocked(api.application).mockImplementation(async (jobId) => structuredClone(appliedWith(jobId)));
+    renderPosting(pursuedPosting(101, TITLE), "workspace", pursuedPosting(102, "Other role"));
+    await within(main()).findByText("Notes page");
+    const firstRolesSave = notesSaves[notesSaves.length - 1];
+
+    await userEvent.click(screen.getByRole("button", { name: "Open the other role" }));
+    await waitFor(() => expect(api.application).toHaveBeenCalledWith(102, expect.anything()));
+    await act(async () => { await firstRolesSave("Call Sam on Friday", ""); });
+    expect(api.setPursuit).toHaveBeenLastCalledWith(101, expect.objectContaining({ notes: "Call Sam on Friday" }));
+    expect(screen.getByTestId("notes").textContent, "the open role keeps its own notes").toBe("");
+  });
 
   it("reads the application once and the feed once for a pursuit write that landed", async () => {
     detail = appliedWith(101);
@@ -684,7 +738,8 @@ describe("a role switch", () => {
     await screen.findByRole("dialog", { name: msg("applications-interview-add-title") });
 
     await act(async () => land());
-    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 60)); });
+    // The save chains on promises alone: one turn of the event loop ends it.
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
     expect(form(), "the first role's save closes only its own form").not.toBeNull();
   });
 

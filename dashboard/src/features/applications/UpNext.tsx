@@ -26,6 +26,7 @@ import { NoMatches, PipelineEmpty } from "./PipelineEmpty";
 import { AddToCalendar } from "./AddToCalendar";
 import { DueBadge } from "./DueBadge";
 import { upNext, type UpNextItem } from "./dueByDay";
+import { beside, useFocusAfter } from "./focusAfter";
 import { FORMAT_LABEL, OUTCOME_LABEL } from "./interviewWords";
 import { VIEW_FILTERS, isFiltering, matches, quickCounts } from "./filters";
 import { dayKey } from "./monthGrid";
@@ -197,6 +198,27 @@ export function UpNext({ resource, now, actions }: {
   }, [picked.scrolls]);
   const pickDay = (day: Date, { scroll }: { scroll: boolean }) =>
     setPicked((was) => ({ day: dayKey(day), scrolls: was.scrolls + (scroll ? 1 : 0) }));
+  const focusAfter = useFocusAfter();
+  // A tick or an outcome takes its row away: the keyboard goes on to the row
+  // after, else the one before, read while the row is still drawn, and only
+  // once the row has gone, so a write that keeps it leaves focus where it is.
+  const rowActions = useMemo<UpNextActions>(() => {
+    const handOn = () => {
+      const row = document.activeElement?.closest(".app-upnext-item");
+      const next = beside(row, agendaRef.current?.querySelectorAll(".app-upnext-item") ?? [], "button, a[href]");
+      if (row && next) focusAfter(() => (row.isConnected ? null : next));
+    };
+    return {
+      onFinishStep: (card, step) => {
+        handOn();
+        actions.onFinishStep(card, step);
+      },
+      onSetOutcome: (card, interview, outcome) => {
+        handOn();
+        actions.onSetOutcome(card, interview, outcome);
+      },
+    };
+  }, [actions, focusAfter]);
 
   return (
     <>
@@ -248,7 +270,7 @@ export function UpNext({ resource, now, actions }: {
                     key={itemKey(item)}
                     item={item}
                     now={now}
-                    actions={actions}
+                    actions={rowActions}
                     match={highlight ? hits(item) : undefined}
                     picked={picked.day === dayKey(item.at)}
                   />

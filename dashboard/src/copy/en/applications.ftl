@@ -525,6 +525,8 @@ applications-posting-history-now = { $days ->
 
 ## The role page: its tabs, title and side column
 ## The workspace: the stage's fixed sections and the free notes page
+# kind=heading note="In the Workspace tab when the role's application could not be read; Try again follows"
+applications-ws-load-failed = Couldn't load the workspace
 # kind=heading
 applications-ws-next = Next steps
 # kind=label note="The empty next step: an input the person types the step into"
@@ -672,6 +674,8 @@ applications-ws-about-activity = Comments and what changed
 applications-feed-title = Activity
 # kind=empty
 applications-feed-empty = No comments or changes yet.
+# kind=heading note="In the Activity block when its comments and changes could not be read; Try again follows"
+applications-feed-load-failed = Couldn't load the activity
 # kind=button note="A folded run of recorded changes. $changes lists what changed, already joined"
 applications-feed-fold = { $count ->
         [one] 1 update: { $changes }

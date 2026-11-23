@@ -1,5 +1,5 @@
-import { useState } from "react";
 import type { Job, JobDetail } from "../../api";
+import { useViewChoices, useViewChoicesAnswered } from "../../hooks/viewChoices";
 import { Button, Icon } from "../../ui";
 import {
   applicationsCrossingClosed,
@@ -29,19 +29,20 @@ export default function PostingWorkspace({ job, onShowPosting, ...workspace }: W
   job: Job | JobDetail;
   onShowPosting: () => void;
 }) {
-  const [dismissed, setDismissed] = useState(readDismissed);
+  // Read each render from the view choices: a read that answers late shows
+  // what was put away. Until it answers the line waits, so putting one away
+  // always adds to what was put away before and never replaces it.
+  useViewChoices();
+  const answered = useViewChoicesAnswered();
+  const dismissed = readDismissed();
   const lifecycle = ("lifecycle" in job && job.lifecycle) || [];
   const crossing = latestCrossing(lifecycle, workspace.detail.stages_reached);
   const crossingId = crossing ? crossingKey(job.id, crossing) : null;
-  const dismiss = (key: string) => {
-    const next = new Set(dismissed).add(key);
-    writeDismissed(next);
-    setDismissed(next);
-  };
+  const dismiss = (key: string) => writeDismissed(new Set(readDismissed()).add(key));
 
   return (
     <>
-      {crossing && crossingId && !dismissed.has(crossingId) && (
+      {answered && crossing && crossingId && !dismissed.has(crossingId) && (
         <div className="app-alert" role="status">
           <Icon name="info" size={16} />
           <span className="app-alert-text">{CROSSING_TEXT[crossing.kind]({ days: crossing.days })}</span>

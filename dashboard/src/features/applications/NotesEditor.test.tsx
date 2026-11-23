@@ -340,6 +340,49 @@ describe("the notes' earlier versions", () => {
     expect(screen.queryByRole("status")).toBeNull();
   });
 
+  /** Puts last week's version back over today's notes. */
+  const putBackLastWeek = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.click(opener());
+    const when = (await within(list()).findAllByRole("listitem"))[1].querySelector("time")!.textContent!;
+    await user.click(within(list()).getByRole("button", { name: msg("applications-notes-version-put-back-label", { when }) }));
+  };
+
+  it("keeps a version put back marked as put back when its save is tried again", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const onSave = vi.fn<(notes: string, was: string, putBack?: boolean) => Promise<NotesSaved>>()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValue(true);
+    render(<NotesEditor notes={"Today's notes"} onSave={onSave} loadVersions={async () => [yesterday, lastWeek]} />);
+    await putBackLastWeek(user);
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(RETRY_AFTER_MS + 100); });
+    expect(onSave).toHaveBeenCalledTimes(2);
+    expect(onSave.mock.calls[1], "the retry still starts a writing session of its own").toEqual(["Recruiter is Sam", "Today's notes", true]);
+  });
+
+  it("keeps a version put back marked as put back when it is merged with notes written elsewhere", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(notes: string, was: string, putBack?: boolean) => Promise<NotesSaved>>()
+      .mockResolvedValueOnce({ current: "Today's notes\n\nCall Pat" })
+      .mockResolvedValue(true);
+    render(<NotesEditor notes={"Today's notes"} onSave={onSave} loadVersions={async () => [yesterday, lastWeek]} />);
+    await putBackLastWeek(user);
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(2));
+    expect(onSave.mock.calls[1][2], "the merged save still starts a writing session of its own").toBe(true);
+  });
+
+  it("says it is reading them in the app's shared loading state, which a quick read never shows", async () => {
+    render(<NotesEditor notes={"Notes"} onSave={vi.fn(async () => true)} loadVersions={() => new Promise(() => {})} />);
+    await userEvent.click(opener());
+    const reading = within(list()).getByRole("status");
+    expect(reading).toHaveTextContent(msg("applications-notes-versions-loading"));
+    // The shared state's own class carries the wait before it appears.
+    expect(reading).toHaveClass("loading");
+  });
+
   it("says when there is none yet, and when they could not be read", async () => {
     const { unmount } = render(<NotesEditor notes={"Notes"} onSave={vi.fn(async () => true)} loadVersions={async () => []} />);
     await userEvent.click(opener());

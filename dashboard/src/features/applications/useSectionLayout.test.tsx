@@ -99,6 +99,18 @@ describe("the Workspace's section layout", () => {
     expect(result.current.shown).toHaveLength(1);
   });
 
+  it("keeps the last block shown when hides come before the page draws again", async () => {
+    await read();
+    const { result } = renderHook(() => useSectionLayout("applied", vi.fn()));
+    const hid: boolean[] = [];
+    act(() => {
+      for (const section of ["notes", "activity", "next"] as const) hid.push(result.current.hide(section));
+    });
+    expect(hid).toEqual([true, true, false]);
+    expect(result.current.shown).toEqual(["next"]);
+    await waitFor(() => expect(saved("applied")?.hidden).toEqual(["notes", "activity"]));
+  });
+
   it("says when a change was not saved, and keeps it on the page", async () => {
     await read();
     const failed = vi.fn();

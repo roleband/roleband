@@ -4,7 +4,7 @@ import { useState } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api, type ApplicationCalendarItem, type ApplicationCard } from "../../api";
-import { applicationCardFixture } from "../../test/fixtures";
+import { applicationCardFixture, stepFixture } from "../../test/fixtures";
 import { msg } from "../../test/msg";
 import { dayKey } from "./monthGrid";
 import { UpNextMonth } from "./UpNextMonth";
@@ -23,7 +23,16 @@ vi.mock("../../api", async (importOriginal) => ({
 const calendar = vi.mocked(api.calendar);
 
 const now = new Date(2026, 10, 4, 10, 0);
-const openai = applicationCardFixture({ job_id: 1, title: "Staff Product Manager, API", company: "openai" });
+// A card lists every open step of its role, as the server's does: the month
+// draws a step only while its card still has it.
+const openai = applicationCardFixture({
+  job_id: 1, title: "Staff Product Manager, API", company: "openai",
+  steps: [
+    stepFixture({ id: 30, text: "Send references", due: new Date(2026, 10, 6, 23, 59).toISOString() }),
+    stepFixture({ id: 31, text: "Send references", due: new Date(2026, 10, 7, 23, 59).toISOString() }),
+    stepFixture({ id: 32, text: "Book the flight", due: new Date(2026, 10, 7, 23, 59).toISOString() }),
+  ],
+});
 const stripe = applicationCardFixture({
   job_id: 2, pursuit_id: 20, stage: "interviewing", title: "Principal Engineering Manager", company: "stripe",
 });
@@ -40,7 +49,7 @@ const step = (jobId: number, at: Date, text: string, id = at.getTime() % 100000)
 const items = [
   interview(2, new Date(2026, 10, 2, 15, 0), "Recruiter screen", "passed"),
   interview(2, new Date(2026, 10, 6, 14, 0), "Hiring manager"),
-  step(1, new Date(2026, 10, 6, 23, 59), "Send references"),
+  step(1, new Date(2026, 10, 6, 23, 59), "Send references", 30),
   // A role the board does not show: never drawn.
   interview(99, new Date(2026, 10, 9, 9, 0), "Someone else's round"),
 ];
