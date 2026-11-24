@@ -2039,13 +2039,12 @@
 
 /* Its arrow stands in the ticks' column and its words where the steps' are. */
 .app-ws-done-toggle.ui-btn {
-  --app-ws-fold-inset: calc((var(--app-control-sm) - 12px) / 2);
   display: inline-flex;
   align-items: center;
-  gap: calc(var(--app-ws-fold-inset) + var(--app-space-2));
+  gap: calc((var(--app-control-sm) - 12px) / 2 + var(--app-space-2));
   align-self: flex-start;
   min-height: var(--app-control-sm);
-  padding-inline-start: var(--app-ws-fold-inset);
+  padding-inline-start: calc((var(--app-control-sm) - 12px) / 2);
   color: var(--app-text-muted);
   font-size: var(--app-type-body);
   text-decoration: none;

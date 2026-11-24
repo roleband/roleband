@@ -144,8 +144,9 @@
   box-shadow: inset 0 -1px 0 var(--app-border);
 }
 
-/* The first word starts on the title's edge. */
-.jd-tabs > .ui-tabbar {
+/* The band is the bar's own measure, which whoever places a word bar sets
+   (ui/TabBar.css). The first word starts on the title's edge. */
+.jd-tabbar {
   --ui-tabbar-band: var(--jd-tabs-h);
   margin-inline-start: calc(-1 * var(--app-space-2));
 }

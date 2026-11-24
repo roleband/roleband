@@ -1177,7 +1177,7 @@ test("the row stays one line where the views' names are long, in a window as nar
   test.skip(testInfo.project.name === "mobile", "On a phone the views keep a line of their own above the tools.");
   await installPipeline(page);
   // Spanish names the views at greater length than English does.
-  await page.route("/api/settings/locale", (route) => route.fulfill({ json: { language: "es", region: null } }));
+  await mockGet(page, "/api/settings/locale", (route) => route.fulfill({ json: { language: "es", region: null } }));
   for (const width of [1100, 900]) {
     await page.setViewportSize({ width, height: 700 });
     await page.goto("/pipeline/board");

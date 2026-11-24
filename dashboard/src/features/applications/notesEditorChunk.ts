@@ -7,21 +7,32 @@
 
 type NotesEditorComponent = typeof import("./NotesEditor")["default"];
 
-let here: NotesEditorComponent | null = null;
-let onItsWay: Promise<NotesEditorComponent> | null = null;
+/** One chunk, asked for at most once at a time. A load that failed is
+ *  forgotten, so the next call asks again: an early ask that met a dropped
+ *  connection does not leave the Workspace without its editor. */
+export function chunkOnce<T>(importer: () => Promise<T>) {
+  let here: T | null = null;
+  let onItsWay: Promise<T> | null = null;
+  return {
+    /** What was loaded, if it is already here. */
+    now: (): T | null => here,
+    load: (): Promise<T> => {
+      onItsWay ??= importer().then(
+        (loaded) => (here = loaded),
+        (error: unknown) => {
+          onItsWay = null;
+          throw error;
+        },
+      );
+      return onItsWay;
+    },
+  };
+}
+
+const editor = chunkOnce<NotesEditorComponent>(() => import("./NotesEditor").then((chunk) => chunk.default));
 
 /** The editor, if its chunk is already here. */
-export const notesEditorNow = (): NotesEditorComponent | null => here;
+export const notesEditorNow = editor.now;
 
-/** Asks for the editor's chunk, once; a load that failed is asked for again
- *  by the next call. */
-export function loadNotesEditor(): Promise<NotesEditorComponent> {
-  onItsWay ??= import("./NotesEditor").then(
-    (chunk) => (here = chunk.default),
-    (error: unknown) => {
-      onItsWay = null;
-      throw error;
-    },
-  );
-  return onItsWay;
-}
+/** Asks for the editor's chunk. */
+export const loadNotesEditor = editor.load;

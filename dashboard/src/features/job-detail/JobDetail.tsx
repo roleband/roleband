@@ -591,6 +591,7 @@ export function JobDetail({
             {tab && (
               <div className="jd-tabs" ref={setTabsEl}>
                 <TabBar<PostingTab>
+                  className="jd-tabbar"
                   look="words"
                   label={roleJobDetailTabs()}
                   value={tab}

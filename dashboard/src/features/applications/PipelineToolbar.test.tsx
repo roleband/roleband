@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -12,19 +12,17 @@ vi.mock("../../context/MissionState", () => ({
 
 const NONE: BoardFilter = { query: "", quick: [], mode: "only" };
 
-/** A view whose filter lives in an address that changes a moment after it is
- *  asked to, as the router's does: the toolbar is told the new query late. */
-function SlowView({ lag, onQuery }: { lag: number; onQuery: (query: string) => void }) {
+/** A view whose filter lives in an address that answers when the test says
+ *  so, as the router's does a render later: each change waits in `answers`. */
+const answers: (() => void)[] = [];
+function HeldView() {
   const [filter, setFilter] = useState(NONE);
   return (
     <PipelineToolbar
       filter={filter}
       quickCounts={[]}
       onFilter={(next) => {
-        window.setTimeout(() => {
-          setFilter((was) => ({ ...was, ...next }));
-          if (next.query != null) onQuery(next.query);
-        }, lag);
+        answers.push(() => setFilter((was) => ({ ...was, ...next })));
       }}
     />
   );
@@ -33,14 +31,19 @@ function SlowView({ lag, onQuery }: { lag: number; onQuery: (query: string) => v
 const search = () => screen.getByRole("searchbox", { name: msg("applications-search-label") });
 
 describe("the pipeline's search", () => {
-  it("keeps every letter typed faster than the address changes", async () => {
-    const queries: string[] = [];
-    render(<SlowView lag={30} onQuery={(query) => queries.push(query)} />);
-    // No pause between keys: each arrives before the address has taken the one before.
+  it("keeps every letter typed before the address has answered, and is not rewound when it does", async () => {
+    answers.length = 0;
+    render(<HeldView />);
+    // Every key arrives while the address still holds the word before it.
     await userEvent.type(search(), "accenture");
+    expect(answers).toHaveLength("accenture".length);
     expect(search()).toHaveValue("accenture");
-    await vi.waitFor(() => expect(queries[queries.length - 1]).toBe("accenture"));
-    expect(search(), "the late answers do not rewind the field").toHaveValue("accenture");
+    // The address catches up one word at a time: "a", "ac", ... Each is a
+    // word the field already passed.
+    for (const answer of answers.splice(0)) {
+      act(answer);
+      expect(search()).toHaveValue("accenture");
+    }
   });
 
   it("takes a query that changed elsewhere, as Reset all and the browser's Back do", async () => {
