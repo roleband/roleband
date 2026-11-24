@@ -1,6 +1,7 @@
 import type { Locator } from "@playwright/test";
 import type { ApplicationCard, InterviewWrite, Job } from "../../src/api";
-import { msg } from "../../src/test/msg";
+import { readFileSync } from "node:fs";
+import { msg, type MessageKey } from "../../src/test/msg";
 import { applicationCardFixture, applicationDetailFixture, jobDetailFixture, jobFixture, jobListFixture } from "../../src/test/fixtures";
 import type { ApplicationStep } from "../../src/api";
 import { installBoardRoutes, installJobDetailRoutes } from "./boardHarness";
@@ -1173,6 +1174,18 @@ test("the Pipeline's views and their tools share one row at the page's top, and 
   }
 });
 
+/** What a plain message says in Spanish, read from the Spanish catalog by
+ *  its key: `msg` resolves English alone. For a message that is its words
+ *  and nothing else (no term, no variable, no variant). */
+const spanish = (key: MessageKey): string => {
+  const catalog = readFileSync(new URL("../../src/copy/es/shell.ftl", import.meta.url), "utf8");
+  const line = catalog.split("\n").find((one) => one.startsWith(`${key} = `));
+  if (!line) throw new Error(`no Spanish message ${key} in shell.ftl`);
+  const words = line.slice(key.length + 3).trim();
+  if (/[{]/.test(words)) throw new Error(`${key} is not plain words in Spanish`);
+  return words;
+};
+
 test("the row stays one line where the views' names are long, in a window as narrow as a desktop's gets", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "On a phone the views keep a line of their own above the tools.");
   await installPipeline(page);
@@ -1181,10 +1194,8 @@ test("the row stays one line where the views' names are long, in a window as nar
   for (const width of [1100, 900]) {
     await page.setViewportSize({ width, height: 700 });
     await page.goto("/pipeline/board");
-    // The catalog here resolves English: the page says it is in Spanish, and
-    // the chosen view no longer reads as the English name.
     await expect(page.locator("html")).toHaveAttribute("lang", "es");
-    await expect(page.getByRole("tab", { selected: true })).not.toHaveText(msg("shell-tab-pipeline-board"));
+    await expect(page.getByRole("tab", { selected: true })).toHaveText(spanish("shell-tab-pipeline-board"));
     const lines = await page.evaluate(() => [".app-tabbar", ".app-pipeline-search", ".app-pipeline-tools"].map((selector) => {
       const box = document.querySelector(selector)!.getBoundingClientRect();
       return Math.round(box.top + box.height / 2);
