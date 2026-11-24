@@ -16,6 +16,7 @@ import pytest
 from sqlalchemy import func, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tracker.agents.operations.duplicates import _yours
 from tracker.content import content_fingerprint, fingerprint_content
 from tracker.db.models import Job
 from tracker.intelligence_runtime.disclosed_comp import owed_ids, settle_stored_bands
@@ -77,6 +78,7 @@ READS: dict[str, Read] = {
     "lineage": lambda s, ids: detect_lineage(s, ids, dry_run=True),
     "twins": lambda s, ids: detect_twins(s, ids, dry_run=True),
     "domains": reclassify_domains,
+    "duplicates_yours": _yours,
     "roles": pending_roles,
     "places": reclassify_places,
     "scope": lambda s, ids: recompute_saved_scope(s, job_ids=ids),

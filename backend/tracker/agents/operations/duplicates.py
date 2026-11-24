@@ -67,6 +67,7 @@ from tracker.agents.operations.search import (
     summary_rows,
 )
 from tracker.company_store import off_board_company_slugs
+from tracker.db.ids import among
 from tracker.db.models import Favorite, Job, JobLineageLink, JobTwinLink, Pursuit
 from tracker.db.queries.jobs import pair_on_board
 from tracker.lineage.content_diff import compare_descriptions
@@ -314,8 +315,8 @@ def _rank(item: _Pending) -> tuple[int, float, int, int]:
 async def _yours(session: AsyncSession, ids: Collection[int]) -> set[int]:
     if not ids:
         return set()
-    saved = set((await session.scalars(select(Favorite.job_id).where(Favorite.job_id.in_(ids)))).all())
-    pursued = set((await session.scalars(select(Pursuit.job_id).where(Pursuit.job_id.in_(ids)))).all())
+    saved = set((await session.scalars(select(Favorite.job_id).where(among(Favorite.job_id, ids)))).all())
+    pursued = set((await session.scalars(select(Pursuit.job_id).where(among(Pursuit.job_id, ids)))).all())
     return saved | pursued
 
 
