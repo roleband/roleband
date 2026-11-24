@@ -20,9 +20,11 @@ import { useViewChoicesAnswered } from "../hooks/viewChoices";
  *     stack.
  *  3. **Memory not yet read is not memory cleared.** The saved choices come
  *     from the database, and a screen can open before they answer, or after
- *     the read failed. The restore waits for the answer, and the address is
- *     saved only when it differs from what is remembered, so a bare address
- *     the reader did not choose never overwrites what they did.
+ *     the read failed. The restore waits for the answer, nothing is saved
+ *     before the restore has had its turn, and then the address is saved only
+ *     when it differs from what is remembered, so a bare address the reader
+ *     did not choose never overwrites what they did. A lens chosen while the
+ *     read was out is the reader's choice, and the restore leaves it be.
  *
  * The screen keeps its own setters and its own `Reset all`: this hook never
  * reads or writes a lens's VALUE, only the query string as a whole. Clearing
@@ -58,13 +60,15 @@ export function useRememberedParams(
 
   /** The restore's own write must not be read back as a choice — see below. */
   const skipWrite = useRef(false);
-  /** The restore runs once, when the saved choices have answered. */
+  /** The restore runs once, when the saved choices have answered; nothing
+   *  is saved before it has. */
   const restored = useRef(false);
 
   useEffect(() => {
     if (!answered || restored.current) return;
     restored.current = true;
     if (arrived.current) return;
+    if (keyList.split(" ").some((name) => name && live.current.has(name))) return;
     const stored = decodeParams(readEntry(key), keyList ? keyList.split(" ") : []);
     const names = Object.keys(stored);
     if (names.length === 0) return;
@@ -90,6 +94,7 @@ export function useRememberedParams(
        would erase the very memory being restored. The landed navigation
        re-runs this effect with the real snapshot. A late restore is the same
        commit, which is why `answered` re-runs it. */
+    if (!restored.current) return;
     if (skipWrite.current) {
       skipWrite.current = false;
       return;

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } fr
 import { api } from "../api";
 import { readEntry, writeEntry } from "../hooks/filterMemory";
 import { forgetViewChoices, useViewChoicesAnswered } from "../hooks/viewChoices";
+import { readViewChoices } from "../hooks/viewChoicesRead";
 import { useRememberedParams } from "./useRememberedParams";
 
 /* A screen whose lenses ARE the address. They already survive a reload; what
@@ -162,6 +163,17 @@ describe("remembered query params before the saved choices answer", () => {
     await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("unread"));
     expect(readEntry("spec:params")).toEqual({ status: ["unread"] });
     expect(savedFor(NAME).filter(([, value]) => JSON.stringify(value) === "{}")).toEqual([]);
+  });
+
+  it("puts the lenses back when the read answered before the screen, and saves nothing over them", async () => {
+    // main.tsx starts the read before the first render; the store adopts the
+    // answer the first time a screen asks for a choice.
+    vi.spyOn(api, "viewChoices").mockResolvedValue({ choices: { [NAME]: { status: ["unread"] } } } as never);
+    await readViewChoices();
+    arriveAt("/notifications");
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("unread"));
+    expect(readEntry("spec:params")).toEqual({ status: ["unread"] });
+    expect(savedFor(NAME)).toEqual([]);
   });
 
   it("leaves a lens the reader chose while the read was out in place when it answers", async () => {
