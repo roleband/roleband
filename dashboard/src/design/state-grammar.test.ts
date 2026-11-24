@@ -221,10 +221,10 @@ describe("the tokens say what the rule says", () => {
   const tokens = readFileSync(join(SRC, "design", "tokens.css"), "utf8");
   const declared = (name: string) => tokens.match(new RegExp(`${name}:\\s*([^;]+);`))?.[1]?.trim();
 
-  it("chosen is the action colour; on is ink, never gold", () => {
+  it("chosen is the action colour, its name the action's name voice; on is ink, never gold", () => {
     expect(declared("--app-chosen-wash")).toBe("var(--app-action-soft)");
     expect(declared("--app-chosen-line")).toBe("var(--app-action-edge)");
-    expect(declared("--app-chosen-text")).toBe("var(--app-action-text)");
+    expect(declared("--app-chosen-text")).toBe("var(--app-action-name)");
     expect(declared("--app-chosen-mark")).toBe("var(--app-action)");
     expect(declared("--app-on-fill")).toBe("var(--app-text)");
     expect(declared("--app-on-wash")).toBe("var(--app-selected)");

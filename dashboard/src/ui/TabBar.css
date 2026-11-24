@@ -30,7 +30,7 @@
   color: var(--app-text-muted);
   font-family: var(--app-font-sans);
   font-size: var(--app-type-body);
-  font-weight: var(--app-weight-name);
+  font-weight: var(--app-weight-ui);
   white-space: nowrap;
   scroll-snap-align: center;
   cursor: pointer;

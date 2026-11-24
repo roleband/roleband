@@ -347,8 +347,8 @@ Never paint a literal colour in a declaration: it ignores the theme.
 `design/literal-colours.test.ts` lets the per-sheet count of literals only fall
 (palette definitions are not counted).
 
-The nav rail is dark in both themes, painted from its own `--rail-*` set in
-`shell.css`.
+The nav rail has a palette of its own in each theme, dark in dark and white
+in light, painted from its own `--rail-*` set in `shell.css`.
 
 ### Forced colours
 
@@ -377,13 +377,25 @@ the register screens against another screen in both themes.
 both) on three grounds: canvas, surface over canvas, raised surface.
 
 - Every text token (`text`, `text-muted`, `text-faint`, `action-text`,
-  `positive`, `warning`, `danger`, `information`) holds 4.5:1 on every ground.
+  `action-name`, `positive`, `warning`, `danger`, `information`) holds 4.5:1
+  on every ground.
+- `action-name`, the chosen name, is a step in lightness from `text-muted`,
+  the idle name beside it, in both themes.
 - `action-ink` holds 4.5:1 on `action`, and `danger-ink` on `danger`.
 - `decor` holds 3:1 on every ground (the WCAG minimum for graphical objects)
   and stays quieter than `text-faint`.
 - `decor` paints `color` or `fill` only on selectors listed in
   `DECOR_GLYPH_SELECTORS` (glyphs); an unused row also fails.
-- The rail's own palette holds 4.5:1 on its grounds.
+- The rail's own palette holds 4.5:1 on its grounds, and its chosen name is a
+  step in lightness from an idle name in both themes: a name in a column of
+  names that differs by hue alone reads as one of them.
+- The light accent's chroma stays inside a band: enough that an action reads
+  as one on a pale page, and no more, because the same colour paints every
+  chosen tab, chip and nav item. The top bar's and the light rail's copies
+  equal it.
+- On the light top bar a status keeps its hue in the dot and says its words
+  in the bar's ink (`--tb-warn-word`, `--tb-danger-word`); the dark bar's
+  pale hues colour both.
 
 If a colour fails, fix the colour, never the threshold. Quiet text uses
 `text-faint`; `decor` is for dots, chevrons and strokes.
@@ -428,7 +440,9 @@ Rules that go with it:
 
 Sans weight is four roles: `--app-weight-body` 400 (prose), `-ui` 500
 (controls), `-name` 600 (names, titles, `h1`-`h3`), `-strong` 700 (emphasis and
-uppercase micro-labels). `design/sans-weights.test.ts` freezes the remaining
+uppercase micro-labels). The label of a button, tab, chip, segment or rail entry is `-ui`,
+never `-name`, so a row's name outranks the controls around it
+(`design/tokens.test.ts`). `design/sans-weights.test.ts` freezes the remaining
 literal weights and lets the set only shrink. `design/font-weights.test.ts`
 checks that every mono weight a rule asks for is a face the app loads.
 
@@ -523,7 +537,7 @@ lowers one lowers the baseline too.
 
 The raw buttons that remain are known shapes (whole-row targets, palette
 options, the dial's drag handle, the sync button, and the rail's theme toggle,
-which wears the class of the rail entries beside it on the rail's fixed-dark
+which wears the class of the rail entries beside it on the rail's own
 palette). A new exception is paid for
 by converting an existing one, never by raising the number.
 
@@ -628,10 +642,21 @@ Every on, selected or current look is one of two, each from one token set.
   marks the field and paints nothing; the words that say why sit beside it.
 - The name changes colour; the description under it stays muted. Never change
   weight to show state (it reflows the row).
+- The chosen name (`--app-chosen-text`, from `--app-action-name`) differs
+  from a muted idle name in lightness: the pale gold on dark, the ink on
+  light, where a blue name of the idle grey's lightness would differ by hue
+  alone. On light the wash, the edge and the marks carry the action colour.
+- A glyph that is the whole control (a pressed icon button, a saved star) is
+  a mark and wears `--app-chosen-mark`.
 - A list option marks its choice with a tick and the chosen name, no wash. A
   flush row with no edge shows chosen as an inset bar in `--app-chosen-mark`.
-- Three named exceptions change only the hue: a pressed `danger` button, the
-  nav rail (its own dark gold), and the "not interested" list (danger hue).
+- Two named exceptions change only the hue: a pressed `danger` button and the
+  "not interested" list (danger hue).
+- The nav rail paints chosen from its own set (`--rail-accent*`). On the dark
+  rail that is its gold: wash, edge, name and a lit bar. On the white rail the
+  chosen name is ink on a neutral wash with no edge and no glow, and the
+  action blue paints only marks: the bar, the chosen icon, the Pipeline's star
+  and a count.
 
 `design/state-grammar.test.ts` and `tests/ux/state-grammar.spec.ts` enforce
 this.
@@ -776,7 +801,7 @@ where the ring is drawn:
 | Inside, `calc(-1 * var(--app-ring-offset))` | A field (text, search, select, textarea, an editable page such as the notes editor), where the ring takes the place of the field's own border, so the two never read as two lines with a gap; or the control is flush with its container, or the container clips: tabs, list rows, index entries |
 | On a carrier (`:focus-within`, `:has(:focus-visible)`) | The focused element is hidden or is only part of the visible control: `.ui-search`, the filter rail's search row |
 | As an SVG stroke at `--app-ring-width` | A mark inside a chart or map |
-| In `--rail-accent` | Anything inside the dark nav rail |
+| In `--rail-accent` | Anything inside the nav rail |
 
 - Never a tint, halo, glow, bar or another hue for focus.
 - Text fields ring on click as well as on Tab. A native select rings for the
@@ -1344,7 +1369,7 @@ Unit gates (`npm run test:unit`) are under `dashboard/src/`; UX specs
 
 | Rule | Gate |
 |---|---|
-| Contrast, type ramp, decor on glyphs only, display rank, whisper recipe, materials restate no token | `design/tokens.test.ts` |
+| Contrast, the light accent's chroma band, the rail's chosen view, type ramp, control label weight, decor on glyphs only, display rank, whisper recipe, materials restate no token | `design/tokens.test.ts` |
 | Control heights, rhythm px, heading line-height | `design/geometry.test.ts` |
 | Card inset steps | `design/card-inset.test.ts` |
 | Sans weight roles; loaded mono weights | `design/sans-weights.test.ts`, `design/font-weights.test.ts` |

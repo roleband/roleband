@@ -138,6 +138,7 @@ const TEXT_TOKENS = [
   "--app-text-muted",
   "--app-text-faint",
   "--app-action-text",
+  "--app-action-name",
   "--app-positive",
   "--app-warning",
   "--app-danger",
@@ -209,7 +210,14 @@ describe.each(PALETTES)("%s", (_name, tokens) => {
   it("the chosen name holds 4.5:1 on its wash inside a sunken track", () => {
     const track = composite(tokens.get("--app-surface-sunken")!, canvas);
     const wash = composite(tokens.get("--app-action-soft")!, track);
-    expect(ratio(tokens.get("--app-action-text")!, wash)).toBeGreaterThanOrEqual(4.5);
+    expect(ratio(tokens.get("--app-action-name")!, wash)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  // A tab, chip or segment sets its idle name in the muted text. The chosen
+  // name beside it has to differ in lightness: a name that differs by hue
+  // alone reads as one of its neighbours.
+  it("the chosen name is a lightness step from a muted idle name", () => {
+    expect(ratio(tokens.get("--app-action-name")!, tokens.get("--app-text-muted")!)).toBeGreaterThanOrEqual(NAME_STEP);
   });
 
   // An off switch is a knob on a bare track: the knob must stand out from it.
@@ -678,7 +686,7 @@ const tbDark = tokensIn(block(shellCss, '[data-theme="dark"] .topbar {'), "tb");
 const railTokens = tokensIn(block(shellCss, ".nav-rail {"), "rail");
 const railLight = tokensIn(block(shellCss, '[data-theme="light"] .nav-rail {'), "rail");
 
-const CHROME_TEXT = ["text", "text-muted", "text-faint", "accent-text", "good", "warn", "danger"];
+const CHROME_TEXT = ["text", "text-muted", "text-faint", "accent-text", "good", "warn", "danger", "warn-word", "danger-word"];
 
 const CHROME: {
   label: string;
@@ -755,11 +763,30 @@ describe("native UI follows the page's theme, not the OS's", () => {
 });
 
 /* ---- The light accent ------------------------------------------------------
- * Light's accent is a fill on a pale page, so it needs saturation: a muted
- * one reads as the voice of a disabled control. It stays a blue, apart from
- * the warning orange and away from the warm hues whose wash tints a pale page,
- * and the topbar's copy of it moves with it. The logo keeps the brand's gold.
+ * Light's accent is a fill on a pale page, so it needs chroma: a greyed one
+ * reads as the voice of a disabled control. It also paints every chosen tab,
+ * chip and nav item, so it has a ceiling too: past it the accent glares from
+ * every screen. It stays a blue, apart from the warning orange and away from
+ * the warm hues whose wash tints a pale page, and the chrome's copies of it
+ * move with it. The logo keeps the brand's gold.
  */
+
+/** OKLCH chroma: how far a colour sits from grey, on a scale the eye agrees
+ *  with across hues. HSL saturation is not that: it calls a dark navy and an
+ *  electric blue equally saturated. */
+function chroma({ r, g, b }: RGBA): number {
+  const [lr, lg, lb] = [r, g, b]
+    .map((v) => v / 255)
+    .map((v) => (v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)));
+  const l = Math.cbrt(0.4122214708 * lr + 0.5363325363 * lg + 0.0514459929 * lb);
+  const m = Math.cbrt(0.2119034982 * lr + 0.6806995451 * lg + 0.1073969566 * lb);
+  const s = Math.cbrt(0.0883024619 * lr + 0.2817188376 * lg + 0.6299787005 * lb);
+  const a = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s;
+  const bb = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s;
+  return Math.hypot(a, bb);
+}
+
+const ACCENT_CHROMA = { floor: 0.11, ceiling: 0.16 };
 function hueSat({ r, g, b }: RGBA): { hue: number; sat: number } {
   const [rn, gn, bn] = [r, g, b].map((v) => v / 255);
   const max = Math.max(rn, gn, bn);
@@ -775,8 +802,18 @@ function hueSat({ r, g, b }: RGBA): { hue: number; sat: number } {
 describe("light accent", () => {
   const action = rootLight.get("--app-action")!;
 
-  it("is saturated", () => {
-    expect(hueSat(action).sat).toBeGreaterThanOrEqual(0.7);
+  it("reads as an action: its chroma clears the floor a greyed blue misses", () => {
+    // Negative control: a slate blue of the same lightness, the disabled voice.
+    expect(chroma({ r: 74, g: 106, b: 148, a: 1 })).toBeLessThan(ACCENT_CHROMA.floor);
+    expect(chroma(action)).toBeGreaterThanOrEqual(ACCENT_CHROMA.floor);
+  });
+
+  it("does not glare: its chroma stays under the ceiling an electric blue breaks", () => {
+    // Negative control: #0969da, a link blue that is too hot once it also
+    // paints every chosen state on the page.
+    expect(chroma({ r: 9, g: 105, b: 218, a: 1 })).toBeGreaterThan(ACCENT_CHROMA.ceiling);
+    expect(chroma(action)).toBeLessThanOrEqual(ACCENT_CHROMA.ceiling);
+    expect(chroma(rootLight.get("--app-action-text")!)).toBeLessThanOrEqual(ACCENT_CHROMA.ceiling);
   });
 
   it("is a blue: no warm hue, whose chosen wash would tint the pale page", () => {
@@ -803,6 +840,107 @@ describe("light accent", () => {
     ["--tb-accent-text", "--app-action-text"],
   ])("the topbar's %s equals %s", (copy, source) => {
     expect(tbLight.get(copy)).toEqual(rootLight.get(source));
+  });
+
+  it.each([
+    ["--rail-accent", "--app-action"],
+    ["--rail-accent-icon", "--app-action"],
+  ])("the light rail's %s equals %s", (copy, source) => {
+    expect(railLight.get(copy)).toEqual(rootLight.get(source));
+  });
+});
+
+/* ---- The chosen view in the rail --------------------------------------------
+ * A rail entry is a short name in a column of short names, so the chosen one
+ * has to differ from the rest in lightness: a name that differs by hue alone
+ * reads as one of them. The dark rail's pale gold is such a step from its grey
+ * names. On the white rail a blue name is not, and a blue wash, edge and glow
+ * around it melt into one tint, so there the name is ink on a neutral wash
+ * and the action blue is kept for marks.
+ */
+const RAILS = [
+  { theme: "dark", rail: railTokens },
+  { theme: "light", rail: new Map([...railTokens, ...railLight]) },
+];
+const NAME_STEP = 1.7;
+const NEUTRAL_CHROMA = 0.005;
+
+describe("the page says a chosen name by lightness", () => {
+  it("the light action blue is no such step from a muted name", () => {
+    // Negative control: the blue of a link, at the lightness of the idle grey.
+    expect(ratio(rootLight.get("--app-action-text")!, rootLight.get("--app-text-muted")!)).toBeLessThan(NAME_STEP);
+  });
+
+  it("a glyph that is the whole control wears the mark, so a saved star keeps the action colour", () => {
+    expect(block(sheet("ui/Button.css"), '.ui-btn-icon[aria-expanded="true"],')).toMatch(/color:\s*var\(--app-chosen-mark\)/);
+    expect(block(sheet("features/job-detail/job-detail.css"), ".jd-stage-star {")).toMatch(/color:\s*var\(--app-chosen-mark\)/);
+  });
+});
+
+describe("the rail says the chosen view by lightness", () => {
+  const light = RAILS[1].rail;
+  const lightCanvas = light.get("--rail-canvas")!;
+  const lightBlock = block(shellCss, '[data-theme="light"] .nav-rail {');
+
+  it.each(RAILS)("$theme: the chosen name is a lightness step from an idle name", ({ rail }) => {
+    expect(ratio(rail.get("--rail-accent-text")!, rail.get("--rail-muted")!)).toBeGreaterThanOrEqual(NAME_STEP);
+  });
+
+  it("the action blue is no such step on the white rail", () => {
+    // Negative control: the blue a chosen name wears on the page.
+    expect(ratio(rootLight.get("--app-action-text")!, light.get("--rail-muted")!)).toBeLessThan(NAME_STEP);
+  });
+
+  it.each(RAILS)("$theme: the chosen name holds 4.5:1 on its wash, and its icon 3:1", ({ rail }) => {
+    const wash = composite(rail.get("--rail-accent-soft")!, rail.get("--rail-canvas")!);
+    expect(ratio(rail.get("--rail-accent-text")!, wash)).toBeGreaterThanOrEqual(4.5);
+    expect(ratio(rail.get("--rail-accent-icon")!, wash)).toBeGreaterThanOrEqual(3);
+  });
+
+  it("the white rail's chosen wash carries no tint", () => {
+    // Negative control: the action wash, which tints the row blue.
+    expect(chroma(composite(rootLight.get("--app-action-soft")!, lightCanvas))).toBeGreaterThan(NEUTRAL_CHROMA);
+    expect(chroma(composite(light.get("--rail-accent-soft")!, lightCanvas))).toBeLessThan(NEUTRAL_CHROMA);
+  });
+
+  it("the white rail's chosen row has no edge and no glow", () => {
+    expect(lightBlock).toMatch(/--rail-accent-line:\s*transparent;/);
+    expect(lightBlock).toMatch(/--rail-accent-glow:\s*transparent;/);
+  });
+
+  it("the chosen icon wears its own token, and the star keeps the accent when chosen", () => {
+    const css = sheet("shell.css");
+    expect(block(css, '.rail-item[aria-current="page"] svg,')).toMatch(/color:\s*var\(--rail-accent-icon\)/);
+    expect(block(css, ".rail-item.rail-family-star svg {")).toMatch(/color:\s*var\(--rail-accent\)/);
+  });
+
+  it("the dark rail keeps one gold for the chosen name and its icon", () => {
+    expect(railTokens.get("--rail-accent-icon")).toEqual(railTokens.get("--rail-accent-text"));
+  });
+});
+
+/* ---- The strip at rest -----------------------------------------------------
+ * The top bar is on every screen, so a coloured word in it is on every screen.
+ * On the pale strip a status keeps its hue in the dot and says its words in
+ * the strip's ink; the dark strip's pale hues colour both.
+ */
+describe("the pale strip says a status in ink", () => {
+  it.each([
+    ["--tb-danger-word", ".freshness-badge.stale strong {"],
+    ["--tb-warn-word", ".freshness-badge.unknown strong {"],
+  ])("%s is the strip's ink in light, and the words wear it", (word, selector) => {
+    expect(tbLight.get(word)).toEqual(tbLight.get("--tb-text"));
+    expect(block(shellCss, selector)).toMatch(new RegExp(`color:\\s*var\\(${word}\\)`));
+  });
+
+  it("the dot keeps the hue, so the status is still told apart at a glance", () => {
+    expect(block(shellCss, ".freshness-badge.stale .dot {")).toMatch(/background:\s*var\(--tb-danger\)/);
+    expect(chroma(tbLight.get("--tb-danger")!)).toBeGreaterThan(ACCENT_CHROMA.floor);
+  });
+
+  it("the dark strip keeps its coloured words", () => {
+    expect(tbDark.get("--tb-danger-word")).toEqual(tbDark.get("--tb-danger"));
+    expect(tbDark.get("--tb-warn-word")).toEqual(tbDark.get("--tb-warn"));
   });
 });
 
@@ -862,5 +1000,39 @@ describe("control edges hold 3:1", () => {
         expect(ratio(palette.get(token)!, canvas), `${token} in ${name}`).toBeGreaterThanOrEqual(3);
       }
     }
+  });
+});
+
+/* ---- Control weight --------------------------------------------------------
+ * A control's label is text you act on, the `ui` rank. At the `name` rank a
+ * screen of buttons, tabs and chips sets half its words in bold, and a row's
+ * real name no longer outranks the controls around it.
+ */
+const CONTROL_LABELS: [string, string][] = [
+  ["ui/Button.css", ".ui-btn-primary {"],
+  ["ui/Button.css", ".ui-btn-ghost {"],
+  ["ui/Button.css", ".ui-btn-danger {"],
+  ["ui/TabBar.css", ".ui-tab {"],
+  ["ui/FilterChip.css", ".ui-chip {"],
+  ["ui/FilterSelect.css", ".ui-filterselect-trigger {"],
+  ["ui/Segmented.css", ".ui-seg-btn {"],
+  ["shell.css", ".rail-label {"],
+  ["shell.css", ".rail-toggle-label {"],
+];
+const UI_WEIGHT = /font-weight:\s*var\(--app-weight-ui\)/;
+
+describe("a control's label speaks at the ui weight", () => {
+  it("the matcher tells the ui rank from the name rank", () => {
+    expect(".x { font-weight: var(--app-weight-ui); }").toMatch(UI_WEIGHT);
+    expect(".x { font-weight: var(--app-weight-name); }").not.toMatch(UI_WEIGHT);
+  });
+
+  it.each(CONTROL_LABELS)("%s %s", (path, selector) => {
+    expect(block(sheet(path), selector)).toMatch(UI_WEIGHT);
+  });
+
+  it("the ui rank is lighter than the name rank", () => {
+    const weight = (role: string) => Number(tokensCss.match(new RegExp(`--app-weight-${role}:\\s*(\\d+)`))![1]);
+    expect(weight("ui")).toBeLessThan(weight("name"));
   });
 });

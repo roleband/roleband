@@ -449,7 +449,7 @@ function Shell() {
             />
             <StatChip
               kind="lens"
-              good
+              good={(stats?.new_today ?? 0) > 0}
               n={stats?.new_today ?? "—"}
               label={shellStatNew()}
               onClick={showNewSignals}
