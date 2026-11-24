@@ -267,7 +267,7 @@ for (const theme of ["dark", "light"] as const) {
     const plugins = await accent("/settings/plugins");
     expect(await accent("/settings/companies")).toEqual(plugins);
     expect(await accent("/settings/intelligence")).toEqual(plugins);
-    expect(plugins[0]).toBe(theme === "dark" ? "rgb(219, 203, 144)" : "rgb(9, 105, 218)");
+    expect(plugins[0]).toBe(theme === "dark" ? "rgb(219, 203, 144)" : "rgb(39, 98, 177)");
   });
 }
 

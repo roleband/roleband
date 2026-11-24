@@ -85,7 +85,7 @@
 .ui-btn-primary {
   background: var(--app-action);
   color: var(--app-action-ink);
-  font-weight: var(--app-weight-name);
+  font-weight: var(--app-weight-ui);
 }
 
 .ui-btn-primary:not(:disabled):not([aria-disabled="true"]):hover {
@@ -104,7 +104,7 @@
   border: 1px solid var(--app-border-control);
   background: var(--app-surface-subtle);
   color: var(--app-text-muted);
-  font-weight: var(--app-weight-name);
+  font-weight: var(--app-weight-ui);
 }
 
 /* The current one keeps its chosen edge and ink under the pointer: the edge
@@ -193,7 +193,8 @@
 .ui-btn-icon[aria-pressed="true"] {
   border-color: var(--app-chosen-line);
   background: var(--app-chosen-wash);
-  color: var(--app-chosen-text);
+  /* The glyph is the whole control, so it is the mark, not a name. */
+  color: var(--app-chosen-mark);
 }
 
 /* The bar rank: a ghost or icon button standing on a floating bar's own
@@ -232,7 +233,7 @@
 .ui-btn-icon.ui-btn-tick[aria-pressed="true"]:hover {
   border-color: var(--app-chosen-line);
   background: var(--app-chosen-wash);
-  color: var(--app-chosen-text);
+  color: var(--app-chosen-mark);
 }
 
 /* ---- link: a verb inside running text ------------------------------------ */
@@ -286,7 +287,7 @@
   border: 1px solid var(--app-danger);
   background: transparent;
   color: var(--app-danger);
-  font-weight: var(--app-weight-name);
+  font-weight: var(--app-weight-ui);
 }
 
 .ui-btn-danger:not(:disabled):not([aria-disabled="true"]):hover {

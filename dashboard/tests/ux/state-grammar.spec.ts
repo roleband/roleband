@@ -83,8 +83,11 @@ for (const theme of ["light", "dark"] as const) {
       first ??= chosen;
       expect(chosen, `${c.family}: this screen resolves the chosen tokens differently`).toEqual(first);
     }
-    // The chosen set is not ink: it is the action colour, never the text colour.
-    expect(first!.ink).toBe(theme === "dark" ? "rgb(232, 220, 172)" : "rgb(7, 87, 184)");
+    // The wash is the action colour in either theme. The name is the pale
+    // gold on dark and the ink on light: a step in lightness from the muted
+    // idle names beside it, which a blue name of their lightness is not.
+    expect(first!.wash).toBe(theme === "dark" ? "rgba(219, 203, 144, 0.12)" : "rgba(39, 98, 177, 0.1)");
+    expect(first!.ink).toBe(theme === "dark" ? "rgb(232, 220, 172)" : "rgb(25, 26, 28)");
   });
 
   test(`a thing that is on is ink, the switch and the row it governs alike (${theme})`, async ({ page }) => {
@@ -96,7 +99,86 @@ for (const theme of ["light", "dark"] as const) {
     await expect.poll(() => track.evaluate((n) => getComputedStyle(n).backgroundColor)).toBe(on.ink);
     const row = page.locator(".ledger-row:has(.ui-switch-track:checked)").first();
     await expect.poll(() => row.evaluate((n) => getComputedStyle(n).backgroundColor)).toBe(on.wash);
-    // And on is not chosen: the two states never share a paint.
-    expect(on.ink).not.toBe(chosen.ink);
+    // And on is not chosen: a governed row never lies on the chosen wash.
+    expect(on.wash).not.toBe(chosen.wash);
+  });
+
+  test(`the rail's chosen view stands apart from idle ones by lightness, its marks in the accent (${theme})`, async ({ page, isMobile }) => {
+    test.skip(isMobile, "The dock under 860px is its own layout.");
+    await page.addInitScript((t) => localStorage.setItem("theme", t), theme);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    const chosen = page.locator('.nav-rail .rail-item[aria-current="page"]');
+    await expect(chosen).toHaveCount(1);
+
+    const read = () => chosen.evaluate((node) => {
+      const idle = node.parentElement!.querySelector<HTMLElement>(".rail-item:not([aria-current]):not(.rail-family-star)")!;
+      const paintOf = (token: string) => {
+        const probe = document.createElement("span");
+        probe.style.color = `var(${token})`;
+        node.appendChild(probe);
+        const out = getComputedStyle(probe).color;
+        probe.remove();
+        return out;
+      };
+      /** The first colour in a computed value as [r, g, b, alpha]; a value
+       *  with no colour in it ("none") paints nothing. */
+      const rgba = (value: string): number[] => {
+        const parts = value.match(/rgba?\(([^)]+)\)/)?.[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+        return parts ? [parts[0], parts[1], parts[2], parts[3] ?? 1] : [0, 0, 0, 0];
+      };
+      const luminance = (value: string) => {
+        const [r, g, b] = rgba(value).slice(0, 3).map((v) => {
+          const c = v / 255;
+          return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+        });
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      };
+      const own = getComputedStyle(node);
+      const [hi, lo] = [luminance(own.color), luminance(getComputedStyle(idle).color)].sort((a, b) => b - a);
+      const wash = rgba(own.backgroundColor).slice(0, 3);
+      return {
+        step: (hi + 0.05) / (lo + 0.05),
+        name: own.color,
+        icon: getComputedStyle(node.querySelector("svg")!).color,
+        iconToken: paintOf("--rail-accent-icon"),
+        accent: paintOf("--rail-accent"),
+        washSpread: Math.max(...wash) - Math.min(...wash),
+        edgeAlpha: rgba(own.borderTopColor)[3],
+        glowAlpha: rgba(getComputedStyle(node, "::before").boxShadow)[3],
+      };
+    });
+
+    // Colour transitions settle within --app-duration-fast.
+    await expect
+      .poll(async () => (await read()).step, { message: "the chosen name differs from an idle one by hue alone" })
+      .toBeGreaterThanOrEqual(1.7);
+    const row = await read();
+    expect(row.icon).toBe(row.iconToken);
+    if (theme === "light") {
+      // On white the name is ink and the blue is a mark: the icon, not the words.
+      expect(row.icon).toBe(row.accent);
+      expect(row.name).not.toBe(row.accent);
+      // The wash is a veil of ink, so its channels sit together; the action
+      // wash's blue channel stands more than a hundred above its red.
+      expect(row.washSpread, "the chosen wash is tinted").toBeLessThanOrEqual(16);
+      expect(row.edgeAlpha, "the chosen row draws an edge").toBe(0);
+      expect(row.glowAlpha, "the chosen bar glows").toBe(0);
+    }
+
+    // The star is the Pipeline's mark and keeps the accent when it is chosen.
+    await page.goto("/pipeline/board");
+    const star = page.locator('.nav-rail .rail-family-star[aria-current="true"]');
+    await expect(star).toHaveCount(1);
+    await expect
+      .poll(() => star.evaluate((node) => {
+        const probe = document.createElement("span");
+        probe.style.color = "var(--rail-accent)";
+        node.appendChild(probe);
+        const accent = getComputedStyle(probe).color;
+        probe.remove();
+        return getComputedStyle(node.querySelector("svg")!).color === accent;
+      }))
+      .toBe(true);
   });
 }

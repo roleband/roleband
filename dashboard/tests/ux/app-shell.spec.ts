@@ -500,6 +500,41 @@ test("every count in the top bar wears the bar's ink, chosen or not, and its uni
   expect((await read())[0].n).toBe(chosen[2].n);
 });
 
+/* The new-roles count takes the market hue only when it counts something: a
+ * coloured zero would light the bar on a day with no news in it. */
+test("the new-roles count wears the market hue only when there is news", async ({ page, isMobile }) => {
+  test.skip(isMobile, "The compact bar hides the top bar's chips.");
+  await page.setViewportSize({ width: 1440, height: 800 });
+  /** The numeral's ink, beside what two of the bar's own tokens paint. */
+  const read = (count: number) =>
+    page.getByRole("button", { name: msg("shell-stat-new-aria", { count }) }).evaluate((chip) => {
+      const paints = (token: string) => {
+        const probe = document.createElement("span");
+        probe.style.color = `var(${token})`;
+        chip.closest(".topbar")!.appendChild(probe);
+        const color = getComputedStyle(probe).color;
+        probe.remove();
+        return color;
+      };
+      return {
+        n: getComputedStyle(chip.querySelector(".n")!).color,
+        ink: paints("--tb-text"),
+        market: paints("--tb-good"),
+      };
+    });
+
+  await mockGet(page, "/api/stats", (route) => route.fulfill({ json: { ...statsFixture, new_today: 0 } }));
+  await page.goto("/");
+  const quiet = await read(0);
+  expect(quiet.ink).not.toBe(quiet.market);
+  expect(quiet.n).toBe(quiet.ink);
+
+  await mockGet(page, "/api/stats", (route) => route.fulfill({ json: { ...statsFixture, new_today: 873 } }));
+  await page.reload();
+  const news = await read(873);
+  expect(news.n).toBe(news.market);
+});
+
 test("a running matching-model switch shows in the top bar and leads to Settings > AI", async ({ page, isMobile }) => {
   test.skip(isMobile, "phones are not supported: the compact bar leaves out the top bar's chips");
   await mockGet(page, "/api/status", (route) => route.fulfill({ json: { ...statusFixture, matching_switch: "converting" } }));

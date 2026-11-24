@@ -781,7 +781,7 @@
    wherever the role is seen. */
 .jd-stage-star {
   display: inline-flex;
-  color: var(--app-chosen-text);
+  color: var(--app-chosen-mark);
 }
 
 /* An ended application has nothing left to do: its stage reads quietly. */

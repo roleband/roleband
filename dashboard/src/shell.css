@@ -99,8 +99,8 @@ textarea:focus-visible,
   border-color: var(--app-danger);
 }
 
-/* The rail is dark in both themes, so the ring takes the rail's own gold:
-   the light theme's action colour measures 3.72:1 on it, the rail's 11.98:1. */
+/* The rail keeps its own palette in each theme, so the ring takes the rail's
+   own accent: gold on the dark rail, the action blue on the white one. */
 .nav-rail :focus-visible {
   outline-color: var(--rail-accent);
 }
@@ -302,10 +302,10 @@ textarea {
   --tb-border: rgba(24, 26, 32, 0.11);
   --tb-border-strong: rgba(24, 26, 32, 0.22);
   --tb-hover: rgba(22, 24, 30, 0.06);
-  --tb-accent: #0969da;
-  --tb-accent-soft: rgba(9, 105, 218, 0.1);
-  --tb-accent-line: rgba(9, 105, 218, 0.34);
-  --tb-accent-text: #0757b8;
+  --tb-accent: #2762b1;
+  --tb-accent-soft: rgba(39, 98, 177, 0.1);
+  --tb-accent-line: rgba(39, 98, 177, 0.34);
+  --tb-accent-text: #1e549c;
   --tb-good: #087c4f;
   --tb-good-soft: rgba(8, 124, 79, 0.09);
   /* 4.84:1 on the composited glass, above AA; the chrome palette is inside
@@ -314,6 +314,11 @@ textarea {
   --tb-warn-soft: rgba(176, 94, 20, 0.1);
   --tb-danger: #c64040;
   --tb-danger-soft: rgba(198, 64, 64, 0.1);
+  /* The words beside a status dot. On the pale strip a red or orange word is
+     the hottest thing on every screen, so the dot carries the hue and the
+     words take the strip's ink. */
+  --tb-warn-word: #191a1c;
+  --tb-danger-word: #191a1c;
 
   /* ONE STRIP, ONE VOICE. The bar serves the role the macOS menu bar serves: a thin band of
      same-height, same-size, borderless items that report and never compete
@@ -350,6 +355,9 @@ textarea {
   --tb-warn-soft: rgba(240, 164, 92, 0.1);
   --tb-danger: #ff8484;
   --tb-danger-soft: rgba(255, 132, 132, 0.1);
+  /* On the dark strip the pale hues are quiet enough to colour the words too. */
+  --tb-warn-word: #f0a45c;
+  --tb-danger-word: #ff8484;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -370,6 +378,8 @@ textarea {
     --tb-warn-soft: rgba(240, 164, 92, 0.1);
     --tb-danger: #ff8484;
     --tb-danger-soft: rgba(255, 132, 132, 0.1);
+    --tb-warn-word: #f0a45c;
+    --tb-danger-word: #ff8484;
   }
 }
 
@@ -626,7 +636,7 @@ textarea {
 }
 
 .freshness-badge.stale strong {
-  color: var(--tb-danger);
+  color: var(--tb-danger-word);
 }
 
 .freshness-badge.behind .dot {
@@ -638,7 +648,7 @@ textarea {
 }
 
 .freshness-badge.unknown strong {
-  color: var(--tb-warn);
+  color: var(--tb-warn-word);
 }
 
 
@@ -898,6 +908,7 @@ html[data-ground="plain"] body {
   --rail-accent: #dbcb90;
   --rail-accent-ink: #1a1705;
   --rail-accent-text: #e8dcac;
+  --rail-accent-icon: #e8dcac;
   --rail-accent-soft: rgba(219, 203, 144, 0.12);
   --rail-accent-line: rgba(219, 203, 144, 0.18);
   --rail-accent-glow: rgba(219, 203, 144, 0.6);
@@ -919,23 +930,27 @@ html[data-ground="plain"] body {
 
 /* In the light theme the rail is one more white surface, like the cards and
    panels it frames, rather than the darkest mass on the page. It takes the
-   top bar's ink and the light action trio (--app-action/-ink/-text light) for
-   the chosen view; the brand mark keeps its own gold. */
+   top bar's ink, and says the chosen view in ink on a neutral wash: on white
+   a blue name beside grey names of its own lightness differs by hue alone,
+   and a blue wash, edge and glow around it melt into one tint. The action
+   blue (--app-action light) is kept for marks: the bar, the chosen icon, the
+   star and a count. The brand mark keeps its own gold. */
 [data-theme="light"] .nav-rail {
   --rail-canvas: #ffffff;
   --rail-text: #2c2e33;
   --rail-strong: #191a1c;
-  --rail-muted: #5c5e64;
+  --rail-muted: #45474d;
   --rail-faint: #6a6c74;
   --rail-line: rgba(24, 26, 32, 0.11);
   --rail-line-strong: rgba(24, 26, 32, 0.22);
   --rail-hover: rgba(22, 24, 30, 0.06);
-  --rail-accent: #0969da;
+  --rail-accent: #2762b1;
   --rail-accent-ink: #ffffff;
-  --rail-accent-text: #0757b8;
-  --rail-accent-soft: rgba(9, 105, 218, 0.1);
-  --rail-accent-line: rgba(9, 105, 218, 0.34);
-  --rail-accent-glow: rgba(9, 105, 218, 0.3);
+  --rail-accent-text: #191a1c;
+  --rail-accent-icon: #2762b1;
+  --rail-accent-soft: rgba(24, 26, 32, 0.07);
+  --rail-accent-line: transparent;
+  --rail-accent-glow: transparent;
   --rail-edge: rgba(24, 26, 32, 0.11);
   --rail-raise: rgba(24, 26, 32, 0.02);
   --rail-raise-hover: rgba(24, 26, 32, 0.05);
@@ -1033,7 +1048,7 @@ html[data-ground="plain"] body {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: var(--app-type-meta);
-  font-weight: var(--app-weight-name);
+  font-weight: var(--app-weight-ui);
 }
 
 .app.nav-expanded .rail-toggle-label {
@@ -1086,13 +1101,18 @@ html[data-ground="plain"] body {
 }
 
 /* The section on screen, keyed on the `aria-current` NavLink writes. The rail
-   is fixed-dark in both themes, so it paints the chosen grammar from its own
-   dark copy (`--rail-accent*` = the dark chosen set); `state-grammar.test.ts`
-   names this as the one palette exception. */
+   keeps its own palette in each theme, so it paints the chosen grammar from
+   its own set (`--rail-accent*`); `state-grammar.test.ts` names this as a
+   palette exception. */
 .rail-item[aria-current="page"] {
   color: var(--rail-accent-text);
   background: var(--rail-accent-soft);
   border-color: var(--rail-accent-line);
+}
+
+.rail-item[aria-current="page"] svg,
+.rail-item[aria-current="true"] svg {
+  color: var(--rail-accent-icon);
 }
 
 .rail-item[aria-current="page"]::before,
@@ -1119,7 +1139,7 @@ html[data-ground="plain"] body {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: var(--app-type-meta);
-  font-weight: var(--app-weight-name);
+  font-weight: var(--app-weight-ui);
 }
 
 .app.nav-expanded .rail-label {
@@ -1157,8 +1177,9 @@ html[data-ground="plain"] body {
 
 /* ---- the Pipeline and its views (shell/PipelineRailGroup.tsx) ------------- */
 
-/* The star is the parent: a full rail entry in gold. In the expanded rail the
-   views hang under it, smaller and dimmer, on a line set in from it. */
+/* The star is the parent: a full rail entry in the rail's accent. In the
+   expanded rail the views hang under it, smaller and dimmer, on a line set in
+   from it. */
 .rail-family {
   display: flex;
   flex-direction: column;
@@ -1169,7 +1190,8 @@ html[data-ground="plain"] body {
   align-items: stretch;
 }
 
-.rail-family-star svg {
+/* Two classes, so the star keeps its accent when it is the chosen entry. */
+.rail-item.rail-family-star svg {
   color: var(--rail-accent);
   fill: currentColor;
 }

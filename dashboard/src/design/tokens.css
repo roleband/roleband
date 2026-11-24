@@ -52,21 +52,28 @@
      select, a filter): 1.4.11's 3:1 on every ground, gated in tokens.test.ts.
      A divider between content keeps --app-border. */
   --app-border-control: #7e8187;
-  /* A saturated blue, the accent light interfaces share, so an action reads
-     as one on a pale page. A gold there washes every chosen tab and card in
-     a tan that reads as a warm cast over the whole screen. Held apart from
-     --app-warning's orange by hue (tokens.test.ts). */
-  --app-action: #0969da;
+  /* A blue with enough chroma that an action reads as one on a pale page, and
+     no more: it also paints every chosen tab, chip and nav item, so a hotter
+     blue glares from every screen (the band is gated in tokens.test.ts). A
+     gold there washes every chosen tab and card in a tan that reads as a warm
+     cast over the whole screen. Held apart from --app-warning's orange by
+     hue. */
+  --app-action: #2762b1;
   --app-action-ink: #ffffff;
-  --app-action-soft: rgba(9, 105, 218, 0.1);
-  --app-action-line: rgba(9, 105, 218, 0.34);
+  --app-action-soft: rgba(39, 98, 177, 0.1);
+  --app-action-line: rgba(39, 98, 177, 0.34);
   /* The edge of a chosen control: 3:1 on every ground (WCAG 1.4.11), so a
      chosen chip is never less bounded than its unchosen neighbour. */
-  --app-action-edge: rgba(9, 105, 218, 0.78);
+  --app-action-edge: rgba(39, 98, 177, 0.78);
   /* Focus halo around an action-coloured control. */
-  --app-action-ring: rgba(9, 105, 218, 0.16);
-  --app-action-text: #0757b8;
-  --app-action-glow: rgba(9, 105, 218, 0.16);
+  --app-action-ring: rgba(39, 98, 177, 0.16);
+  --app-action-text: #1e549c;
+  /* The name of a chosen thing. On the pale theme it is the ink: idle names
+     are a mid grey, and a blue name of their lightness differs from them by
+     hue alone, so the wash and the edge carry the action colour and the name
+     steps up to ink. */
+  --app-action-name: #191a1c;
+  --app-action-glow: rgba(39, 98, 177, 0.16);
   /* The logo's own tile: the brand's gold in either theme, whatever the
      interface's accent is. */
   --app-brand: #8a610f;
@@ -80,14 +87,15 @@
        (a tab, chip, segment, option card, index entry, sort head, nav item,
        a row picked for Compare). The action colour, because choosing is an
        act. Wash behind it, line around it if it has an edge, its NAME
-       in chosen-text, a mark (bar, dot, stroke) in chosen-mark.
+       in chosen-text (a step in lightness from an idle name, in either
+       theme), a mark (bar, dot, stroke) in chosen-mark.
        ON: a thing's own on/off state, set by a switch (the switch track and
        the row it governs). Ink, never gold: a state, not an action.
      Declared once here as references, so they follow the theme blocks below
      without being restated; retune a state here, never at a call site. */
   --app-chosen-wash: var(--app-action-soft);
   --app-chosen-line: var(--app-action-edge);
-  --app-chosen-text: var(--app-action-text);
+  --app-chosen-text: var(--app-action-name);
   --app-chosen-mark: var(--app-action);
   --app-on-fill: var(--app-text);
   --app-on-wash: var(--app-selected);
@@ -334,6 +342,7 @@
   --app-action-edge: rgba(219, 203, 144, 0.5);
   --app-action-ring: rgba(219, 203, 144, 0.18);
   --app-action-text: #e8dcac;
+  --app-action-name: #e8dcac;
   --app-action-glow: rgba(219, 203, 144, 0.24);
   --app-brand: #dbcb90;
   --app-brand-ink: #1a1705;
@@ -384,6 +393,7 @@
     --app-action-edge: rgba(219, 203, 144, 0.5);
     --app-action-ring: rgba(219, 203, 144, 0.18);
     --app-action-text: #e8dcac;
+    --app-action-name: #e8dcac;
     --app-action-glow: rgba(219, 203, 144, 0.24);
     --app-brand: #dbcb90;
     --app-brand-ink: #1a1705;

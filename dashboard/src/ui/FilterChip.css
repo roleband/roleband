@@ -17,7 +17,7 @@
   color: var(--app-text-muted);
   font-family: var(--app-font-sans);
   font-size: var(--app-type-meta);
-  font-weight: var(--app-weight-name);
+  font-weight: var(--app-weight-ui);
   cursor: pointer;
   transition:
     background var(--app-duration-fast),

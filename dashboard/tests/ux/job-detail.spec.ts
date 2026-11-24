@@ -617,7 +617,7 @@ test("the stage button's star is the radar's saved gold, at a live stage and aft
   // The colour the radar paints a saved star, resolved in this theme.
   const gold = await page.evaluate(() => {
     const probe = document.createElement("span");
-    probe.style.color = "var(--app-chosen-text)";
+    probe.style.color = "var(--app-chosen-mark)";
     document.body.append(probe);
     const colour = getComputedStyle(probe).color;
     probe.remove();
