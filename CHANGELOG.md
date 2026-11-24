@@ -6,6 +6,34 @@ Notable changes to RoleBand, newest first. The format follows
 
 ## [Unreleased]
 
+## [0.3.1]
+
+The Pipeline is rebuilt around the roles you pursue, with notes and next steps
+kept for you.
+
+- **A new Pipeline.** Its views live in the rail, and each role opens a
+  Workspace with rich notes and a list of next steps, each with an optional due
+  date. A role's next action becomes its first step, and its reminder moves
+  with it. What you write or arrange is kept in your database, not in one
+  browser.
+- **Due reminders arrive.** A reminder could be missed when it was scheduled
+  while the feed was being read; it now arrives once it is due.
+- **A calmer light theme.** A softer blue, chosen names in ink, and a rail that
+  reads sharp.
+- **Your assistant works through duplicate postings.** `roleband duplicates
+  queue` lists the pairs worth a verdict and `roleband duplicates decide`
+  records them, each with a reason. Your own verdict always stands, and
+  Activity shows what the assistant decided.
+- **Settings › AI says what is true.** Each assistant app's tile shows whether
+  it is connected and when it last called, Allow AI providers is the one
+  switch for outside models, and choices you made in Customize are kept.
+- **A posting that opened with no text reads it from the employer's site**, for
+  Lever and Greenhouse.
+- **A company whose site failed is read again the same day**, at widening gaps,
+  instead of waiting for the next full scan.
+- **The Mac app.** A power cut during an update no longer stops the app from
+  opening, and VoiceOver reads its controls, setup steps and errors.
+
 ## [0.3.0]
 
 Your assistant works from your radar through one command, and you see
