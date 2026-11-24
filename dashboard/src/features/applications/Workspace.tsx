@@ -54,6 +54,16 @@ function Notes({ notes, onSave, loadVersions, tools }: {
       waiting = false;
     };
   }, [Editor]);
+  // The press is taken up only if the person is still waiting in the notes:
+  // one who went on to write in another field keeps the keyboard there.
+  useEffect(() => {
+    if (Editor) return;
+    const letGo = (event: FocusEvent) => {
+      if (event.target instanceof Element && event.target.matches('input, textarea, select, [contenteditable="true"]')) pressed.current = false;
+    };
+    document.addEventListener("focusin", letGo);
+    return () => document.removeEventListener("focusin", letGo);
+  }, [Editor]);
   // A chunk that did not load is the page's failure to report, as any is.
   if (failed) throw failed;
   if (!Editor) {
@@ -95,7 +105,7 @@ export interface WorkspaceProps {
 }
 
 /** From this width the role page's side column has room for the short lists. */
-const TWO_COLUMNS = "(min-width: 1100px)";
+export const WORKSPACE_TWO_COLUMNS = "(min-width: 1100px)";
 
 /** The person's own work on the role: the blocks the stage offers, the notes
  *  page and the role's activity among them. With two columns the writing
@@ -112,7 +122,7 @@ export function Workspace(props: WorkspaceProps) {
   const focusAfter = useFocusAfter();
   const host = useRef<HTMLDivElement>(null);
   const beside = useRef<HTMLDivElement>(null);
-  const wide = useMediaQuery(TWO_COLUMNS);
+  const wide = useMediaQuery(WORKSPACE_TWO_COLUMNS);
   const split = wide && props.side != null;
   const [notesTools, setNotesTools] = useState<HTMLElement | null>(null);
   const layout = useSectionLayout(stage, () =>

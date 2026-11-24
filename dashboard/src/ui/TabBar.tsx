@@ -22,7 +22,9 @@ import { CountBadge } from "./CountBadge";
  * Two looks. `pills` (the default) is a row of its own under a page title.
  * `words` is for a bar that shares its row with other things (a view's
  * tools, a posting's title): a view is its word, the chosen one marked by a
- * short line at the bar's foot, so the bar adds no fill to the row.
+ * short line at the bar's foot, so the bar adds no fill to the row. A word
+ * bar is a large control tall; `band="row"` makes it as tall as the toolbar
+ * row it stands in, so its mark sits on that row's foot.
  */
 export interface TabBarItem<T extends string> {
   id: T;
@@ -51,10 +53,13 @@ export interface TabBarProps<T extends string> {
   controls?: string;
   /** `words` for a bar that shares its row; see the note above. */
   look?: "pills" | "words";
+  /** A word bar's height: its own (`bar`), or the toolbar row's it stands in. */
+  band?: "bar" | "row";
   className?: string;
 }
 
-export function TabBar<T extends string>({ label, value, onChange, tabs, idPrefix, controls, look = "pills", className }: TabBarProps<T>) {
+export function TabBar<T extends string>({ label, value, onChange, tabs, idPrefix, controls, look = "pills", band = "bar", className }: TabBarProps<T>) {
+  const looks = look === "words" ? ` ui-tabbar-words${band === "row" ? " ui-tabbar-row" : ""}` : "";
   const barRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -88,7 +93,7 @@ export function TabBar<T extends string>({ label, value, onChange, tabs, idPrefi
   return (
     <div
       ref={barRef}
-      className={`ui-tabbar${look === "words" ? " ui-tabbar-words" : ""}${className ? ` ${className}` : ""}`}
+      className={`ui-tabbar${looks}${className ? ` ${className}` : ""}`}
       role="tablist"
       aria-label={label}
       onKeyDown={onKeyDown}

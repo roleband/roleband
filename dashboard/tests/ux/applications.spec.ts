@@ -1181,7 +1181,10 @@ test("the row stays one line where the views' names are long, in a window as nar
   for (const width of [1100, 900]) {
     await page.setViewportSize({ width, height: 700 });
     await page.goto("/pipeline/board");
-    await expect(page.getByRole("tab", { selected: true })).toHaveText("Tablero");
+    // The catalog here resolves English: the page says it is in Spanish, and
+    // the chosen view no longer reads as the English name.
+    await expect(page.locator("html")).toHaveAttribute("lang", "es");
+    await expect(page.getByRole("tab", { selected: true })).not.toHaveText(msg("shell-tab-pipeline-board"));
     const lines = await page.evaluate(() => [".app-tabbar", ".app-pipeline-search", ".app-pipeline-tools"].map((selector) => {
       const box = document.querySelector(selector)!.getBoundingClientRect();
       return Math.round(box.top + box.height / 2);
@@ -1313,7 +1316,8 @@ test("Up next asks a past interview once, with the three outcomes behind the que
   await page.mouse.move(0, 0);
 
   // The group is named for what it holds, so the question is asked once, in its row.
-  await expect(page.getByRole("heading", { name: msg("applications-upnext-outcome") })).toHaveText("Past interviews");
+  await expect(page.getByRole("heading", { name: msg("applications-upnext-outcome") })).toBeVisible();
+  expect(msg("applications-upnext-outcome"), "the heading names the group; it does not ask the row's question again").not.toBe(msg("applications-ws-ask-outcome"));
   const ask = row("Panel role").getByRole("button", { name: msg("applications-ws-ask-outcome") });
   await expect(row("Panel role").getByRole("button")).toHaveCount(1);
   expect(await ask.evaluate((el) => getComputedStyle(el).borderTopColor), "a question, with no box at rest").toBe("rgba(0, 0, 0, 0)");

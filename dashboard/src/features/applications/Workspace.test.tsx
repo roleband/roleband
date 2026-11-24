@@ -9,7 +9,7 @@ import { msg } from "../../test/msg";
 import { date as formatDate } from "../../copy/format";
 import { ToastProvider, useEscapeLayer } from "../../ui";
 import { dayKey, dueFromDay } from "./monthGrid";
-import { Workspace, type WorkspaceProps } from "./Workspace";
+import { WORKSPACE_TWO_COLUMNS, Workspace, type WorkspaceProps } from "./Workspace";
 import { readViewChoices } from "../../hooks/viewChoicesRead";
 import { fakeViewChoiceServer } from "../../test/viewChoicesServer";
 
@@ -960,10 +960,9 @@ describe("the interviews block", () => {
  * page with no side column, shows the same blocks in that order. */
 describe("the Workspace beside the role page's side column", () => {
   const INTERVIEWS = () => msg("applications-facts-interviews");
-  const TWO_COLUMNS = "(min-width: 1100px)";
   /** A window that is, or is not, wide enough for two columns. */
   const windowIs = (wide: boolean) => vi.spyOn(window, "matchMedia").mockImplementation((query: string) => ({
-    matches: wide && query === TWO_COLUMNS,
+    matches: wide && query === WORKSPACE_TWO_COLUMNS,
     media: query,
     onchange: null,
     addListener: () => {},

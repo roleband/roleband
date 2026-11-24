@@ -46,6 +46,21 @@ describe("the pipeline's search", () => {
     }
   });
 
+  it("is not rewound by the answers to a word typed, deleted and typed on from", async () => {
+    answers.length = 0;
+    render(<HeldView />);
+    // "a", "ab", "a" again, "ac": the word "a" is on its way twice.
+    await userEvent.type(search(), "ab{Backspace}c");
+    expect(search()).toHaveValue("ac");
+    expect(answers).toHaveLength(4);
+    // The first answer, "a", is the first "a"'s: "ab" is still to come, and
+    // when it does it is an older word, not one written elsewhere.
+    for (const answer of answers.splice(0)) {
+      act(answer);
+      expect(search()).toHaveValue("ac");
+    }
+  });
+
   it("takes a query that changed elsewhere, as Reset all and the browser's Back do", async () => {
     function Outside() {
       const [filter, setFilter] = useState<BoardFilter>({ ...NONE, query: "stripe" });

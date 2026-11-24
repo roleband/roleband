@@ -1421,7 +1421,8 @@ test("where the notes editor is still loading, a press on the notes is taken up 
   // and drawn before the chunk lands.
   let release!: () => void;
   const held = new Promise<void>((resolve) => { release = resolve; });
-  await page.route(/\/assets\/NotesEditor-[^/]+\.js$/, async (route) => {
+  // The built chunk, or the source module the dev server serves.
+  await page.route(/\/(assets\/NotesEditor-[^/]+\.js|src\/features\/applications\/NotesEditor\.tsx)(\?.*)?$/, async (route) => {
     await held;
     await route.fallback();
   });
@@ -1437,6 +1438,30 @@ test("where the notes editor is still loading, a press on the notes is taken up 
   await expect(notes).toBeFocused();
   await page.keyboard.type("Ask Sam about the team");
   await expect(notes).toHaveText("Ask Sam about the team");
+});
+
+test("a press on the loading notes is let go when the person goes on to write elsewhere: the editor does not take the keyboard back", async ({ page, isMobile }) => {
+  test.skip(isMobile, "phones are not supported");
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  await page.route(/\/(assets\/NotesEditor-[^/]+\.js|src\/features\/applications\/NotesEditor\.tsx)(\?.*)?$/, async (route) => {
+    await held;
+    await route.fallback();
+  });
+  await mockGet(page, "/api/applications/303/activity", (route) => route.fulfill({ json: { items: [] } }));
+  await openLongPosting(page, { width: 1440, height: 1000 });
+  await page.goto("/company/apple/job/303?tab=workspace");
+  const standIn = detail(page).locator(".jd-main .app-ws-notes");
+  await expect(standIn).toBeVisible();
+  await standIn.click();
+  const comment = detail(page).getByRole("textbox", { name: msg("applications-comment-label") });
+  await comment.click();
+  await page.keyboard.type("Called");
+  release();
+  await expect(detail(page).getByRole("textbox", { name: msg("applications-notes-label") })).toBeVisible();
+  await expect(comment, "the keyboard stays where the person is writing").toBeFocused();
+  await page.keyboard.type(" back");
+  await expect(comment).toHaveValue("Called back");
 });
 
 /* The bar is placed over the selection's start. In a drag upward that is

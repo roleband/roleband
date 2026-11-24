@@ -917,7 +917,8 @@ or settings. It renders `PageHeader`, then its toolbar, then its content.
 Words (`look="words"`) are for a bar that shares its row with other things,
 the Pipeline's views beside their tools and a role's Posting and Workspace
 under its title: a view is its word, and the chosen one has a short mark at
-the bar's foot, on the row's hairline.
+the bar's foot, on the row's hairline. A word bar is a large control tall;
+`band="row"` makes it the height of the toolbar row it stands in.
 Settings (`routes/SettingsRoute.tsx`) and Profile mount
 `ui/SettingsDesignSystemRoot` and build their sections from `ui/Card`; the
 shared component styles are `design/settings.css`. Every section

@@ -88,8 +88,9 @@ async function focusedRing(page: Page) {
     if (box.width === 0 && box.height === 0) return null;
     if (el.matches(ringless)) {
       const cs = getComputedStyle(el);
-      const bare = (cs.outlineStyle === "none" || parseFloat(cs.outlineWidth) === 0) && cs.boxShadow === "none" && parseFloat(cs.borderTopWidth) === 0;
-      return { sig: "the notes page", ok: bare, what: `the page draws a part of a ring or a box: outline ${cs.outlineStyle} ${cs.outlineWidth}; shadow ${cs.boxShadow.slice(0, 60)}; border ${cs.borderTopWidth}` };
+      const edges = ["Top", "Right", "Bottom", "Left"].map((side) => parseFloat(cs.getPropertyValue(`border-${side.toLowerCase()}-width`)));
+      const bare = (cs.outlineStyle === "none" || parseFloat(cs.outlineWidth) === 0) && cs.boxShadow === "none" && edges.every((edge) => edge === 0);
+      return { sig: "the notes page", ok: bare, what: `the page draws a part of a ring or a box: outline ${cs.outlineStyle} ${cs.outlineWidth}; shadow ${cs.boxShadow.slice(0, 60)}; borders ${edges.join(" ")}` };
     }
     const owners = carriers.flatMap(([focused, carrier]) => {
       const owner = el.matches(focused)

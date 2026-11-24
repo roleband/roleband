@@ -823,7 +823,6 @@
 
 /* The first word starts on the page's edge. */
 .app-pipeline-toolbar > .app-tabbar {
-  --ui-tabbar-band: calc(var(--app-control-md) + 2 * var(--app-space-2));
   margin-inline: calc(-1 * var(--app-space-2)) auto;
 }
 

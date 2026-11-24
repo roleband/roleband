@@ -90,6 +90,7 @@ function PipelineView() {
         <TabBar
           className="app-tabbar"
           look="words"
+          band="row"
           label={applicationsTabsLabel()}
           idPrefix="pipeline"
           controls="pipeline-tabpanel"
