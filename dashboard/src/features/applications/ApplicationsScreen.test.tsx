@@ -135,7 +135,9 @@ describe("the board", () => {
     expect(within(closed).getByRole("group", { name: "Rejected" })).toHaveTextContent("Head of Platform");
     expect(within(closed).getByText(msg("applications-card-ended", { ending: "Rejected", stage: "Interviewing" })))
       .toBeInTheDocument();
-    expect(within(column("Researching")).getByText(msg("applications-column-empty"))).toBeInTheDocument();
+    // An empty lane is its name and its count: no line of words under them.
+    expect(column("Researching").querySelector(".app-tile")).toBeNull();
+    expect(column("Researching")).toHaveTextContent(/^Researching\s*0$/);
   });
 
   it("draws an empty ending as its quiet heading alone, so the ending that holds a card stands out", async () => {
@@ -454,7 +456,7 @@ describe("filtering", () => {
     stored = [considering, applied, due, rejected];
   });
 
-  it("shows only the matches, counts each column as matches of all, and says a column emptied by it has no matches", async () => {
+  it("shows only the matches, and counts each column as matches of all, an emptied one as none of all", async () => {
     render(atRoute("/pipeline/board"));
     await screen.findByText("Director of Product");
 
@@ -465,11 +467,13 @@ describe("filtering", () => {
     expect(screen.queryByText("Principal Engineering Manager")).toBeNull();
     expect(within(column("Applied")).getByText("Director of Product")).toBeInTheDocument();
     expect(within(column("Applied")).getByText(msg("applications-column-count-of", { count: 1, total: 2 }))).toBeInTheDocument();
-    expect(within(column("Considering")).getByText(msg("applications-column-no-matches"))).toBeInTheDocument();
+    // A lane the filter empties says so in its count alone.
+    expect(within(column("Considering")).getByText(msg("applications-column-count-of", { count: 0, total: 1 }))).toBeInTheDocument();
+    expect(column("Considering").querySelector(".app-tile")).toBeNull();
 
     await userEvent.click(screen.getByRole("button", { name: msg("applications-filter-remove", { filter: msg("applications-quick-overdue") }) }));
     expect(screen.getByText("Principal Engineering Manager")).toBeInTheDocument();
-    expect(screen.queryByText(msg("applications-column-no-matches"))).toBeNull();
+    expect(within(column("Considering")).queryByText(msg("applications-column-count-of", { count: 0, total: 1 }))).toBeNull();
   });
 
   it("highlights instead: every card stays, the matches marked and the rest not", async () => {
@@ -933,25 +937,23 @@ describe("the pipeline's empty states", () => {
       expect(screen.getByText(msg("applications-empty-hint"))).toBeInTheDocument();
       expect(screen.getByRole("link", { name: msg("applications-empty-radar") })).toHaveAttribute("href", "/");
       expect(screen.queryByRole("region", { name: "Considering" }), "no empty columns under it").toBeNull();
-      expect(screen.queryByText(msg("applications-column-empty"))).toBeNull();
       expect(screen.queryByText(msg("applications-upnext-empty"))).toBeNull();
     }
   });
 
-  it("says once that nothing matches when the filters empty the whole board, and per column otherwise", async () => {
+  it("says once that nothing matches when the filters empty the whole board, and otherwise leaves it to each column's count", async () => {
     stored = [considering, applied];
     render(atRoute("/pipeline/board"));
     await screen.findByText(considering.title);
 
     await userEvent.type(search(), "zzz");
     expect(screen.getAllByText(msg("applications-no-matches"))).toHaveLength(1);
-    expect(screen.queryByText(msg("applications-column-no-matches")), "no line in each column as well").toBeNull();
     expect(screen.getByRole("button", { name: msg("applications-filter-reset") }), "the way back is in the toolbar").toBeInTheDocument();
 
     await userEvent.clear(search());
     await userEvent.type(search(), "stripe");
     expect(screen.queryByText(msg("applications-no-matches"))).toBeNull();
-    expect(within(column("Considering")).getByText(msg("applications-column-no-matches"))).toBeInTheDocument();
+    expect(within(column("Considering")).getByText(msg("applications-column-count-of", { count: 0, total: 1 }))).toBeInTheDocument();
   });
 
   it("says nothing matches in the same words in the List and Up next", async () => {
@@ -1049,5 +1051,44 @@ describe("the board's writes", () => {
     expect(await screen.findByText(msg("applications-undo-failed", { title: considering.title }))).toBeInTheDocument();
     expect(api.dismissJob, "dismissed once, and again after the failed Undo").toHaveBeenCalledTimes(2);
     expect(api.undismissJob).toHaveBeenCalledTimes(1);
+  });
+});
+
+/* One row leads the place: its views, then the tools of the view on screen.
+ * The row is the place's and stays while views change; the tools are each
+ * view's own. */
+describe("the Pipeline's one row", () => {
+  const tabs = () => screen.getByRole("tablist", { name: msg("applications-tabs-label") });
+  const search = () => screen.getByRole("searchbox", { name: msg("applications-search-label") });
+
+  it("holds the views and the view's tools together, under a title that is the page's heading and is not drawn", async () => {
+    render(atRoute("/pipeline/board"));
+    await screen.findByText(considering.title);
+    const row = tabs().closest(".app-pipeline-toolbar");
+    expect(row, "the views stand in the row").not.toBeNull();
+    expect(row).toContainElement(search());
+    expect(row).toContainElement(screen.getByRole("button", { name: msg("applications-columns") }));
+    expect(document.querySelectorAll(".app-pipeline-toolbar"), "one row, not one a view").toHaveLength(1);
+
+    const title = screen.getByRole("heading", { level: 1, name: msg("shell-nav-pipeline") });
+    expect(title).toHaveClass("sr-only");
+    expect(document.querySelector(".page-hero"), "no title block above the row").toBeNull();
+  });
+
+  it("keeps the row, and the keyboard on its tabs, while the view under it changes", async () => {
+    render(atRoute("/pipeline/board"));
+    await screen.findByText(considering.title);
+    const row = tabs().closest(".app-pipeline-toolbar");
+    const bar = tabs();
+    screen.getByRole("tab", { name: msg("shell-tab-pipeline-board") }).focus();
+
+    await userEvent.keyboard("{ArrowRight}");
+    const upNext = screen.getByRole("tab", { name: msg("shell-tab-pipeline-up-next") });
+    expect(upNext).toHaveAttribute("aria-selected", "true");
+    expect(upNext, "the tab the arrow moved to holds the focus").toHaveFocus();
+    expect(tabs(), "the same bar, not a new one").toBe(bar);
+    // The view that left took its tools with it; the one that came drew its own.
+    expect(screen.queryByRole("button", { name: msg("applications-columns") }), "Up next has no columns").toBeNull();
+    expect(row).toContainElement(search());
   });
 });

@@ -69,7 +69,6 @@ import {
 import { PipelineToolbar } from "./PipelineToolbar";
 import { StageMenu } from "./StageMenu";
 import type { useBoardController } from "./useBoardController";
-import { usePageScrollsFirst } from "./usePageScrollsFirst";
 import { usePostings } from "./usePostings";
 import { useStageAsk } from "./useStageAsk";
 import { useReorder, ReorderMenu } from "./useReorder";
@@ -353,7 +352,6 @@ export function ListView({ board, now }: {
   const highlight = filtering && filter.mode === "highlight";
   const shown = layout.order.filter((column) => !layout.hidden.includes(column));
   const overflowing = useOverflowing(frame, shown.join());
-  usePageScrollsFirst(frame);
   const asFirst = layout.order.join() === DEFAULT_LAYOUT.order.join()
     && [...layout.hidden].sort().join() === [...DEFAULT_LAYOUT.hidden].sort().join();
 

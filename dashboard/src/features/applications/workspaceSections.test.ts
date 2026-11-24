@@ -3,7 +3,7 @@ import { viewChoicesNow } from "../../hooks/viewChoices";
 import { readViewChoices } from "../../hooks/viewChoicesRead";
 import { applicationCardFixture } from "../../test/fixtures";
 import { fakeViewChoiceServer } from "../../test/viewChoicesServer";
-import { hiddenSections, layoutOf, saveLayout, sectionOrder, workspaceStage } from "./workspaceSections";
+import { hiddenSections, layoutOf, saveLayout, sectionOrder, standsBeside, workspaceStage } from "./workspaceSections";
 
 /* What the person did to a stage's Workspace (blocks moved, blocks hidden)
  * is one of their view choices, saved with their settings: it comes back on
@@ -20,10 +20,26 @@ describe("a stage's blocks", () => {
   it("keep the next steps for an accepted offer, which still owes some, and drop them for any other ending", () => {
     const accepted = workspaceStage(applicationCardFixture({ stage: "accepted" }));
     expect(sectionOrder(accepted)).toContain("next");
-    expect(sectionOrder(accepted)[0], "how it ended leads").toBe("outcome");
     for (const stage of ["rejected", "withdrawn", "declined", "role_closed"] as const) {
       expect(sectionOrder(workspaceStage(applicationCardFixture({ stage }))), stage).not.toContain("next");
     }
+  });
+
+  it("have no block that says how a role ended: the stage facts beside the Workspace say it", () => {
+    for (const stage of ["accepted", "rejected", "withdrawn", "declined", "role_closed"] as const) {
+      expect(sectionOrder(workspaceStage(applicationCardFixture({ stage }))), stage).not.toContain("outcome");
+    }
+  });
+
+  it("read a layout saved while an ended role had an Outcome block without it, the other blocks in their saved order", () => {
+    const ended = workspaceStage(applicationCardFixture({ stage: "rejected" }));
+    expect(sectionOrder(ended, { order: ["activity", "outcome", "notes"] })).toEqual(["activity", "notes"]);
+    expect(hiddenSections(ended, { hidden: ["outcome", "notes"] })).toEqual(["notes"]);
+  });
+
+  it("stand the short lists beside the writing, and the writing in the main column", () => {
+    expect((["next", "interviews"] as const).map(standsBeside)).toEqual([true, true]);
+    expect((["notes", "activity"] as const).map(standsBeside)).toEqual([false, false]);
   });
 });
 

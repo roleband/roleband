@@ -196,11 +196,19 @@ describe("Up next", () => {
   it("hands the keyboard to the next row when an outcome takes its round away", async () => {
     const user = userEvent.setup();
     render(<Page cards={[awaiting(3, 7, "Panel", 2), awaiting(4, 8, "Onsite", 3)]} />);
-    const panel = screen.getByRole("group", { name: msg("applications-upnext-outcome-label", { label: "Panel" }) });
-    within(panel).getAllByRole("button")[0].focus();
-    await user.keyboard("{Enter}");
+    // A past round asks once; the three outcomes open from the question.
+    const panel = rows().find((row) => row.textContent?.includes("Panel"))!;
+    expect(within(panel).getAllByRole("button"), "one question, not three buttons").toHaveLength(1);
+    await user.click(within(panel).getByRole("button", { name: msg("applications-ws-ask-outcome") }));
+    const outcomes = await screen.findByRole("dialog", { name: msg("applications-upnext-outcome-label", { label: "Panel" }) });
+    expect(within(outcomes).getAllByRole("button").map((one) => one.textContent)).toEqual([
+      msg("applications-interview-outcome-passed"),
+      msg("applications-interview-outcome-not-passed"),
+      msg("applications-interview-outcome-cancelled"),
+    ]);
+    await user.click(within(outcomes).getByRole("button", { name: msg("applications-interview-outcome-passed") }));
 
-    expect(screen.queryByRole("group", { name: msg("applications-upnext-outcome-label", { label: "Panel" }) })).toBeNull();
+    await waitFor(() => expect(rows().some((row) => row.textContent?.includes("Panel role"))).toBe(false));
     const onsite = rows().find((row) => row.textContent?.includes("Onsite"));
     expect(onsite).toBeDefined();
     expect(onsite).toContainElement(document.activeElement as HTMLElement);

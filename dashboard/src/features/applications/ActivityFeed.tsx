@@ -221,7 +221,10 @@ export function ActivityFeed({ items, failed, onRetry, detail, now, onAdd, onEdi
 
   return (
     <div className="app-feed">
-      <form className="app-composer" data-writing={draft.trim() ? "" : undefined} onSubmit={submit}>
+      {/* An add line, as the next step's is: a plus where a row's mark
+          stands, and a field only while something is written in it. */}
+      <form className="app-composer app-composer-add" data-writing={draft.trim() ? "" : undefined} onSubmit={submit}>
+        <span className="app-ws-step-plus" aria-hidden="true"><Icon name="plus" size={14} /></span>
         <GrowField
           aria-label={applicationsCommentLabel()}
           placeholder={applicationsCommentPlaceholder()}

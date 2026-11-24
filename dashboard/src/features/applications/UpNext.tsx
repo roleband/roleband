@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { ApplicationBoard, ApplicationCalendarItem, ApplicationCard, ApplicationCardInterview, ApplicationStep } from "../../api";
 import { date as formatDate, time as formatTime } from "../../copy/format";
@@ -17,7 +17,6 @@ import {
   applicationsUpnextDoneLabel,
   applicationsUpnextEmpty,
   applicationsUpnextOutcome,
-  applicationsUpnextOutcomeLabel,
   applicationsUpnextOverdue,
   applicationsUpnextStepWhen,
 } from "../../copy/gen/applications";
@@ -30,6 +29,8 @@ import { beside, useFocusAfter } from "./focusAfter";
 import { FORMAT_LABEL, OUTCOME_LABEL } from "./interviewWords";
 import { VIEW_FILTERS, isFiltering, matches, quickCounts } from "./filters";
 import { dayKey } from "./monthGrid";
+import { OutcomeAsk } from "./OutcomeAsk";
+import { PipelineRowContext } from "./pipelineRow";
 import { PipelineToolbar } from "./PipelineToolbar";
 import { UpNextMonth } from "./UpNextMonth";
 import { useViewFilter } from "./useViewFilter";
@@ -65,23 +66,18 @@ function RowSide({ item, now, actions }: { item: UpNextItem; now: Date; actions:
     return (
       <>
         <span className="app-upnext-when">{formatDate(item.at, "weekday")}</span>
-        <div className="app-upnext-outcomes" role="group" aria-label={applicationsUpnextOutcomeLabel({ label: interview.label })}>
-          {(Object.keys(OUTCOME_LABEL) as Outcome[]).map((outcome) => (
-            <Button key={outcome} variant="ghost" size="sm" onClick={() => actions.onSetOutcome(card, interview, outcome)}>
-              {OUTCOME_LABEL[outcome]()}
-            </Button>
-          ))}
-        </div>
+        <OutcomeAsk interview={interview} onOutcome={(outcome) => actions.onSetOutcome(card, interview, outcome)} />
       </>
     );
   }
   const when = interview.all_day ? applicationsUpnextAllDay() : formatTime(item.at);
   return (
     <>
+      {/* Before the time, so every row's time ends on one edge. */}
+      <AddToCalendar interview={interview} role={card} />
       <span className="app-upnext-when">
         {interview.format ? applicationsNextInterviewMeta({ when, format: FORMAT_LABEL[interview.format]() }) : when}
       </span>
-      <AddToCalendar interview={interview} role={card} />
       {interview.link && (
         <ExternalLink href={interview.link} label={applicationsNextInterviewJoinLabel({ label: interview.label })}>
           {applicationsNextInterviewJoin()}
@@ -185,9 +181,14 @@ export function UpNext({ resource, now, actions }: {
   const [picked, setPicked] = useState({ day: dayKey(now), scrolls: 0 });
   const agendaRef = useRef<HTMLDivElement>(null);
   // The month and a picked day's heading sit under the docked toolbar.
+  const place = useContext(PipelineRowContext);
   const toolbar = useRef<HTMLDivElement>(null);
+  const docked = useRef<HTMLElement | null>(null);
   const split = useRef<HTMLDivElement>(null);
-  useMeasuredCssSize({ rootRef: split, elementRef: toolbar, property: "--app-upnext-toolbar-h" });
+  useLayoutEffect(() => {
+    docked.current = place ? place.row : toolbar.current;
+  });
+  useMeasuredCssSize({ rootRef: split, elementRef: docked, property: "--app-upnext-toolbar-h" });
   useEffect(() => {
     if (!picked.scrolls) return;
     const row = agendaRef.current?.querySelector<HTMLElement>(".app-upnext-item[data-picked]");
@@ -203,8 +204,10 @@ export function UpNext({ resource, now, actions }: {
   // after, else the one before, read while the row is still drawn, and only
   // once the row has gone, so a write that keeps it leaves focus where it is.
   const rowActions = useMemo<UpNextActions>(() => {
-    const handOn = () => {
-      const row = document.activeElement?.closest(".app-upnext-item");
+    // A tick is pressed in its row. An outcome is chosen in the menu its
+    // row's question opens, which stands outside the row: that row is found
+    // by the role it belongs to.
+    const handOn = (row = document.activeElement?.closest(".app-upnext-item")) => {
       const next = beside(row, agendaRef.current?.querySelectorAll(".app-upnext-item") ?? [], "button, a[href]");
       if (row && next) focusAfter(() => (row.isConnected ? null : next));
     };
@@ -214,7 +217,7 @@ export function UpNext({ resource, now, actions }: {
         actions.onFinishStep(card, step);
       },
       onSetOutcome: (card, interview, outcome) => {
-        handOn();
+        handOn(agendaRef.current?.querySelector(`.app-upnext-item[data-kind="outcome"][data-job-id="${card.job_id}"]`));
         actions.onSetOutcome(card, interview, outcome);
       },
     };

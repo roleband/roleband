@@ -1,18 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 
-/** Which ways a sideways scroller can still move, and the room its own
- *  scrollbars take, so a fade drawn over an edge stops short of them. */
+/** Which ways a sideways scroller can still move, whether it has scrolled
+ *  down (so what it holds at its top has content under it), and the room its
+ *  own scrollbars take, so a fade drawn over an edge stops short of them. */
 export interface ScrollEdges {
   back: boolean;
   on: boolean;
+  under: boolean;
   barX: number;
   barY: number;
 }
 
-const NONE: ScrollEdges = { back: false, on: false, barX: 0, barY: 0 };
+const NONE: ScrollEdges = { back: false, on: false, under: false, barX: 0, barY: 0 };
 
 const same = (a: ScrollEdges, b: ScrollEdges) =>
-  a.back === b.back && a.on === b.on && a.barX === b.barX && a.barY === b.barY;
+  a.back === b.back && a.on === b.on && a.under === b.under && a.barX === b.barX && a.barY === b.barY;
 
 /** Kept current as `node` scrolls, as it resizes, and after every render of
  *  the component that holds it: a column hidden or shown changes how far the
@@ -31,6 +33,7 @@ export function useScrollEdges(node: HTMLElement | null): ScrollEdges {
       const next = {
         back: at > 1,
         on: at < travel - 1,
+        under: node.scrollTop > 1,
         barX: node.offsetHeight - node.clientHeight,
         barY: node.offsetWidth - node.clientWidth,
       };

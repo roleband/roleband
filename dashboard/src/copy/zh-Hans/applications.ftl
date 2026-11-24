@@ -8,13 +8,7 @@ applications-column-decided = 已决定
 
 applications-column-closed = 未通过或已关闭
 
-applications-column-empty-saved = 在你的雷达上保存一个{ -role(num: "one") }，即可从这里开始。
-
-applications-column-empty = 暂无内容。
-
 applications-column-count-of = { $count }/{ $total }
-
-applications-column-no-matches = 没有匹配项。
 
 applications-no-matches = 没有符合这些筛选条件的内容。
 
@@ -274,7 +268,7 @@ applications-upnext-done-label = 标记为完成：{ $step }
 
 applications-upnext-done = 已完成 · { $step }
 
-applications-upnext-outcome = 结果如何？
+applications-upnext-outcome = 过往面试
 
 applications-upnext-outcome-label = { $label }的结果
 

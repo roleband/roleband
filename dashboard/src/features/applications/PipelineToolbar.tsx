@@ -1,4 +1,5 @@
-import { useState, type RefObject } from "react";
+import { useContext, useEffect, useRef, useState, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { useMissionActions } from "../../context/MissionState";
 import { number } from "../../copy/format";
 import { sharedFilters, sharedFiltersCount } from "../../copy/gen/shared";
@@ -31,6 +32,7 @@ import {
 import { Button, FilterChip, Icon, Kbd, Menu, MenuCheck, MenuGroup, MenuItem, MenuRadio, SearchField } from "../../ui";
 import { useFocusAfter } from "./focusAfter";
 import { isFiltering, type BoardFilter, type FilterMode, type QuickCount, type QuickFilter } from "./filters";
+import { PipelineRowContext } from "./pipelineRow";
 
 const QUICK_LABEL: Record<QuickFilter, () => string> = {
   overdue: applicationsQuickOverdue,
@@ -72,17 +74,17 @@ export interface PipelineToolbarProps<C extends string = string> {
     /** Whether the columns stand as they first did, so Reset has nothing to do. */
     asFirst?: boolean;
   };
-  /** For a view that pins something under the row, which stays at the page's
-   *  top on a wide window and so must be measured. */
+  /** The toolbar's own row, where the view stands with no place around it.
+   *  In the Pipeline the row is the place's (`PipelineRowContext`). */
   toolbarRef?: RefObject<HTMLDivElement | null>;
 }
 
 /**
- * A pipeline view's row of tools: the search, while filtering the way to
- * fade instead and the way back, the filters that are on, and at the row's
- * end the menus. A quick filter shows as a chip only while it is on, so the
- * row holds what narrows the view and nothing else. Each view draws its own,
- * over its own filter.
+ * A pipeline view's tools: the search, while filtering the way to fade
+ * instead and the way back, the menus, and on a line under them the filters
+ * that are on. A quick filter shows as a chip only while it is on, so the
+ * tools hold what narrows the view and nothing else. Each view draws its
+ * own, over its own filter, into the Pipeline's one row beside the views.
  */
 export function PipelineToolbar<C extends string>({ filter, onFilter, quickCounts, columns, toolbarRef }: PipelineToolbarProps<C>) {
   const { screenSearchRef } = useMissionActions();
@@ -94,16 +96,45 @@ export function PipelineToolbar<C extends string>({ filter, onFilter, quickCount
   const toggleQuick = (quick: QuickFilter) =>
     onFilter({ quick: filter.quick.includes(quick) ? filter.quick.filter((q) => q !== quick) : [...filter.quick, quick] });
   const highlight = filter.mode === "highlight";
+  const place = useContext(PipelineRowContext);
+  // The field holds what is typed and the address follows it: the address
+  // changes a render later, so a key that arrives first would otherwise find
+  // the field put back to the older word and lose the letters before it.
+  // `sent` holds the words on their way to the address, oldest first; a
+  // query that is not one of them came from elsewhere (Reset all, the
+  // browser's Back) and the field takes it. An answer is matched with the
+  // oldest word it could be: a word typed, deleted and typed again is on its
+  // way twice, and its first answer must not also stand for the later one.
+  // Once the address says what the field does, nothing is on its way.
+  const [typed, setTyped] = useState(filter.query);
+  const sent = useRef<string[]>([]);
+  const field = useRef(filter.query);
+  useEffect(() => {
+    const at = sent.current.indexOf(filter.query);
+    if (at >= 0) {
+      sent.current = filter.query === field.current ? [] : sent.current.slice(at + 1);
+      return;
+    }
+    sent.current = [];
+    field.current = filter.query;
+    setTyped(filter.query);
+  }, [filter.query]);
+  const search = (query: string) => {
+    sent.current.push(query);
+    field.current = query;
+    setTyped(query);
+    onFilter({ query });
+  };
 
-  return (
-    <div className="app-toolbar app-pipeline-toolbar" data-selection="chrome" ref={toolbarRef}>
+  const tools = (
+    <>
       <SearchField
         ref={screenSearchRef}
         className="app-pipeline-search"
         label={applicationsSearchLabel()}
         placeholder={applicationsSearchPlaceholder()}
-        value={filter.query}
-        onChange={(query) => onFilter({ query })}
+        value={typed}
+        onChange={search}
         trailing={<Kbd>/</Kbd>}
       />
       {filtering && (
@@ -242,6 +273,8 @@ export function PipelineToolbar<C extends string>({ filter, onFilter, quickCount
           </MenuGroup>
         </Menu>
       )}
-    </div>
+    </>
   );
+  if (place) return place.slot ? createPortal(tools, place.slot) : null;
+  return <div className="app-toolbar app-pipeline-toolbar" data-selection="chrome" ref={toolbarRef}>{tools}</div>;
 }

@@ -3,7 +3,12 @@ import { installEveryRoute } from "./routesHarness";
 
 /* ONE PAGE HEADER. Every tab of the rail names itself with the same h1, at the
    same height and the same left edge, so switching tabs moves nothing but the
-   content. Measured through the rail, the way a jump is seen. */
+   content. Measured through the rail, the way a jump is seen.
+
+   The Pipeline is the one exception: it leads with a row of its own, its
+   views and their tools, and leaves its name to the top bar and the rail. Its
+   h1 is still the page's one heading, by the same name, and is not drawn. */
+const OFF_SCREEN = new Set(["Pipeline"]);
 
 const TABS = [
   { rail: "Radar", path: "/" },
@@ -30,9 +35,15 @@ test("every tab's title is its rail label, in one place, at one size", async ({ 
     await page.goto(tab.path);
     const title = page.getByRole("main").first().getByRole("heading", { level: 1 });
     await expect(title).toHaveText(tab.rail);
-    await expect(title).toBeVisible();
     // One h1 per screen: a panel's own title is an h2 under it.
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+    if (OFF_SCREEN.has(tab.rail)) {
+      const box = (await title.boundingBox())!;
+      expect(box.width * box.height, `${tab.rail}'s title takes no room`).toBeLessThanOrEqual(1);
+      await expect(page.getByRole("main").first().locator(".page-hero"), "no title block").toHaveCount(0);
+      continue;
+    }
+    await expect(title).toBeVisible();
     seen.push(`${tab.rail}: ${await title.evaluate((node) => {
       const box = node.getBoundingClientRect();
       const style = getComputedStyle(node);

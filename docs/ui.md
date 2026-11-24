@@ -568,9 +568,13 @@ Modifier classes on top of a variant:
   it ("Show 23 more").
 - `ui-btn-tile` (with `ui-btn-tile-copy`, `-title`, `-description`): a
   full-width two-line opener. No nested controls inside it.
-- `ui-btn-bar` on a ghost or icon: a button on a floating bar's own glass
-  (the bar over words selected in the notes). No edge at rest, muted ink; on
-  or open, the chosen paint.
+- `ui-btn-bar` on a ghost or icon: a button whose place already marks it as a
+  control: on a floating bar's own glass (the bar over words selected in the
+  notes), or at the end of a list's row (the question a past interview asks).
+  No edge at rest, muted ink; on or open, the chosen paint.
+- `ui-btn-tick` on an icon: a small ring the person ticks to finish something.
+  The button keeps the icon rank's size for the pointer and draws the ring
+  inside it.
 - `ui-beacon` belongs to `patterns/jobs/MarginBeacon` only: the compare and
   dismiss pills in a job list's margin.
 
@@ -712,6 +716,10 @@ The nav rail is `--app-nav-width` (72px), or `--app-nav-width-expanded`
 (204px) when expanded. Below 860px it becomes a bottom dock that scrolls
 horizontally. Each rail tab renders `patterns/PageHeader` with its rail label
 as the `h1` (`patterns/page-header.test.ts`, `tests/ux/page-header.spec.ts`).
+The Pipeline is the one tab that does not draw that title: one row leads it,
+its views and the tools of the view on screen, and the top bar and the rail
+name the place. Its `PageHeader` is `offScreen`, so the page keeps its one
+heading for assistive technology.
 The Pipeline's views (Considering, Board, Up next) are both its tab row and
 rail entries under its star. The star is the Pipeline's rail entry: it opens
 Considering, and in the Pipeline it and the view on screen are both chosen,
@@ -723,13 +731,16 @@ on a line when it is expanded. The dock lists the views in its row
 finds its own filters again (`routing/useRememberedParams`).
 
 A list screen scrolls as one page: the title and tabs scroll away and the
-toolbar docks at the top (`.app-toolbar`, `design/surfaces.css`). Each
-Pipeline view's panel is at least the window's height, so a short list docks
-the same way. The Board and Considering keep that order around a frame of
-their own: the page scrolls until the toolbar docks, a scroll down over the
-frame moves the page first (`usePageScrollsFirst`), and the frame then fills
-the window under the toolbar and scrolls both ways, its column heads at its
-top. Up next's month sticks under the docked toolbar.
+toolbar docks at the top (`.app-toolbar`, `design/surfaces.css`). The
+Pipeline has nothing above its row, so the row is at the page's top from the
+start and stays there: the place draws it once
+(`features/applications/ApplicationsScreen.tsx`), with the views as word tabs
+at its start, and each view draws its own tools into it
+(`PipelineRowContext`). The filters that are on take a line of their own
+under the row's hairline, so a filter never moves the row. The Board and
+Considering fill the window under the row with a frame that scrolls both
+ways, its column heads at its top. Up next scrolls the page under the row,
+and its month sticks under it.
 Under the header, a list screen's count and its Reset all live in
 `patterns/ResultsSummary`; Reset all clears every filter and lens, never the
 search query.
@@ -798,7 +809,8 @@ where the ring is drawn:
 | Variant | When |
 |---|---|
 | Outside, `--app-ring-offset` | The default: buttons, chips, switches, boxes and radios |
-| Inside, `calc(-1 * var(--app-ring-offset))` | A field (text, search, select, textarea, an editable page such as the notes editor), where the ring takes the place of the field's own border, so the two never read as two lines with a gap; or the control is flush with its container, or the container clips: tabs, list rows, index entries |
+| Inside, `calc(-1 * var(--app-ring-offset))` | A field (text, search, select, textarea, an editable page), where the ring takes the place of the field's own border, so the two never read as two lines with a gap; or the control is flush with its container, or the container clips: tabs, list rows, index entries |
+| None: the caret alone | A role's notes in its Workspace, the one exception. They are the page itself, with no box to ring, and a ring round a whole page of writing would frame it again. Named in `design/focus-ring.test.ts` and `tests/ux/focus-ring.spec.ts`; no other field may join it |
 | On a carrier (`:focus-within`, `:has(:focus-visible)`) | The focused element is hidden or is only part of the visible control: `.ui-search`, the filter rail's search row |
 | As an SVG stroke at `--app-ring-width` | A mark inside a chart or map |
 | In `--rail-accent` | Anything inside the nav rail |
@@ -901,6 +913,12 @@ card). `src/companies.json` is the only per-company literal in the dashboard.
 
 A rail tab is a place with standing content: a list, a queue with a backlog,
 or settings. It renders `PageHeader`, then its toolbar, then its content.
+`TabBar` has two looks. Pills are a row of their own under a page title.
+Words (`look="words"`) are for a bar that shares its row with other things,
+the Pipeline's views beside their tools and a role's Posting and Workspace
+under its title: a view is its word, and the chosen one has a short mark at
+the bar's foot, on the row's hairline. A word bar is a large control tall;
+`band="row"` makes it the height of the toolbar row it stands in.
 Settings (`routes/SettingsRoute.tsx`) and Profile mount
 `ui/SettingsDesignSystemRoot` and build their sections from `ui/Card`; the
 shared component styles are `design/settings.css`. Every section
@@ -1386,7 +1404,7 @@ Unit gates (`npm run test:unit`) are under `dashboard/src/`; UX specs
 | Every class selector is rendered somewhere | `design/dead-rules.test.ts` |
 | A selector lives in one sheet; keyframes defined once and reachable | `design/one-definition.test.ts` |
 | Filter register type grammar | `design/filter-grammar.test.ts` |
-| Every tab wears `PageHeader` | `patterns/page-header.test.ts`, `page-header.spec.ts` |
+| Every tab wears `PageHeader`; the Pipeline's alone is off screen | `patterns/page-header.test.ts`, `page-header.spec.ts` |
 | The Pipeline's star opens Considering and is chosen with the view on screen; elsewhere its views drop out of it on a resting pointer and push the rail down | `shell/NavRail.test.tsx`, `pipeline-rail.spec.ts` |
 | Rail boundary named once | `patterns/rail-shell.test.ts` |
 | Sticky offsets derived, container queries kept | `features/companies/register.test.ts`, `features/opportunities/board-shell.test.ts` |

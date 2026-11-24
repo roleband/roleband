@@ -101,6 +101,8 @@ export type UsePostingPipeline = (
     now: Date;
     /** The side column, which the section's history opens across. */
     column: HTMLElement | null;
+    /** Where the Workspace draws the blocks that stand beside its writing. */
+    beside?: HTMLElement | null;
     /** The tab the address asks for. */
     tab: PostingTab | null;
     onTab: (tab: PostingTab) => void;
@@ -298,6 +300,8 @@ export function JobDetail({
 
   /** The side column, which the histories open across. */
   const [aside, setAside] = useState<HTMLElement | null>(null);
+  /** The room in the side column for the Workspace's short lists. */
+  const [beside, setBeside] = useState<HTMLElement | null>(null);
   // More like this is for choosing where to go next, so it stands open at the
   // top of a posting and folds once the person is reading (the pay panel has
   // left and its copy stands in the column), leaving the role's own facts
@@ -321,7 +325,7 @@ export function JobDetail({
   };
   // Where the person stands with the role, read as the pipeline reads it.
   const pipeline = usePipeline(job, {
-    showSaved, paintPosting, paintNotes, rereadPosting, onSave: saveFav, now, column: aside, tab: askedTab, onTab: showTab,
+    showSaved, paintPosting, paintNotes, rereadPosting, onSave: saveFav, now, column: aside, beside, tab: askedTab, onTab: showTab,
   });
   const { applied, tab } = pipeline;
   const onWorkspace = tab === "workspace";
@@ -384,6 +388,7 @@ export function JobDetail({
   // repeat. The server's tidied list (one label an office, countries in
   // words); the source's own when it names nothing that list can hold.
   const places = job ? (job.places?.length ? job.places : postingPlaces(job.locations)).slice(0, 4) : [];
+  const groupsBeyond = job ? placeGroupsBeyond(job.location_groups, places) : [];
   // One ask per posting per open, whatever the detail says afterwards: the
   // refresh below reads the flag again, and a server that kept saying
   // "readable" must not turn that into a loop.
@@ -551,7 +556,8 @@ export function JobDetail({
              belongs to it and does not carry over to the next. */
           <div className="jd-container" key={job.id} inert={turning} data-tabbed={tab ? "" : undefined}>
             <header className="jd-hero">
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+              {/* Who, at what level, and where: one line over the title. */}
+              <div className="jd-hero-line">
                 <CompanyChip slug={job.company} />
                 <BandBadge band={job.level_band} confidence={job.level_confidence} basis={job.level_basis} />
                 {(job.lineage_size ?? 0) > 1 ? (
@@ -561,18 +567,20 @@ export function JobDetail({
                     <Badge shape="tag" variant="tint" tone="warning"><Msg of={roleJobDetailReposted} elems={{ repost_count: job.repost_count }} /></Badge>
                   )
                 )}
+                {(places.length > 0 || groupsBeyond.length > 0) && (
+                  <div className="job-meta">
+                    {places.map((l, i) => (
+                      <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        {i === 0 && <Icon name="pin" size={13} />} <Content text={l} />
+                      </span>
+                    ))}
+                    {groupsBeyond.map((g) => (
+                      <LocBadge key={g} slug={g} />
+                    ))}
+                  </div>
+                )}
               </div>
               <h1 ref={setTitleEl}><Content text={job.title} /></h1>
-              <div className="job-meta">
-                {places.map((l, i) => (
-                  <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                    {i === 0 && <Icon name="pin" size={13} />} <Content text={l} />
-                  </span>
-                ))}
-                {placeGroupsBeyond(job.location_groups, places).map((g) => (
-                  <LocBadge key={g} slug={g} />
-                ))}
-              </div>
               {job.company_unfollowed && (
                 <p className="jd-unfollowed">{unfollowedSentence(job)}</p>
               )}
@@ -583,6 +591,8 @@ export function JobDetail({
             {tab && (
               <div className="jd-tabs" ref={setTabsEl}>
                 <TabBar<PostingTab>
+                  className="jd-tabbar"
+                  look="words"
                   label={roleJobDetailTabs()}
                   value={tab}
                   onChange={showTab}
@@ -671,6 +681,9 @@ export function JobDetail({
                     <div className="jd-dock-in"><JobCompDock job={job} /></div>
                   </div>
                 )}
+
+                {/* The Workspace's short lists, beside its writing. */}
+                {onWorkspace && <div className="jd-ws-beside" ref={setBeside} />}
 
                 {pipeline.section}
 

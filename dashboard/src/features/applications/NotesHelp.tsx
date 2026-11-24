@@ -24,6 +24,7 @@ export function NotesHelp() {
         ref={setAnchor}
         variant="icon"
         size="sm"
+        className="app-ws-tool"
         aria-label={applicationsNotesHelp()}
         aria-haspopup="dialog"
         aria-expanded={open}

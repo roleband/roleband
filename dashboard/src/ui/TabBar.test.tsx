@@ -120,5 +120,37 @@ describe("TabBar", () => {
       const consumed = [...css.matchAll(/var\((--[a-z0-9-]+)/g)].map((m) => m[1]);
       expect(consumed.filter((t) => !t.startsWith("--app-"))).toEqual([]);
     });
+
+    it("the word look marks the chosen word at the bar's foot and keeps the tab's own focus ring", () => {
+      const block = (selector: string) => {
+        const at = css.indexOf(`${selector} {`);
+        expect(at, selector).toBeGreaterThanOrEqual(0);
+        return css.slice(at, css.indexOf("}", at));
+      };
+      // The chosen word has no fill of its own: the mark under it says it.
+      expect(block('.ui-tabbar-words .ui-tab[aria-selected="true"]')).toMatch(/background:\s*transparent/);
+      expect(block('.ui-tabbar-words .ui-tab[aria-selected="true"]::after')).toMatch(/background:\s*var\(--app-chosen-mark\)/);
+      // A tab's box is its word at the small rank, so the ring goes round the word.
+      expect(block(".ui-tabbar-words .ui-tab")).toMatch(/min-height:\s*var\(--app-control-sm\)/);
+      expect(css, "the ring stays the tab's own").not.toMatch(/outline:\s*(?:none|0)\b/);
+      // The band is the bar's own, from the control scale: its own, or a toolbar row's.
+      expect(block(".ui-tabbar-words")).toMatch(/height:\s*var\(--app-control-lg\)/);
+      expect(block(".ui-tabbar-row")).toMatch(/height:\s*calc\(var\(--app-control-md\) \+ 2 \* var\(--app-space-2\)\)/);
+    });
+
+    it("a word bar takes the toolbar row's band only when asked, and pills take neither", () => {
+      const bar = (props: Partial<Parameters<typeof TabBar>[0]>) => {
+        const { container, unmount } = render(
+          <TabBar label="Views" idPrefix="t" value="a" onChange={() => {}} tabs={[{ id: "a", label: "A" }]} {...props} />,
+        );
+        const classes = container.querySelector('[role="tablist"]')!.className;
+        unmount();
+        return classes;
+      };
+      expect(bar({})).toBe("ui-tabbar");
+      expect(bar({ band: "row" }), "the band is the word look's").toBe("ui-tabbar");
+      expect(bar({ look: "words" })).toBe("ui-tabbar ui-tabbar-words");
+      expect(bar({ look: "words", band: "row" })).toBe("ui-tabbar ui-tabbar-words ui-tabbar-row");
+    });
   });
 });

@@ -56,14 +56,16 @@ export function NotesVersions({ load, onPutBack }: {
     <>
       <Button
         ref={setAnchor}
-        variant="link"
-        className="ui-btn-quiet app-notes-versions-open"
+        variant="icon"
+        size="sm"
+        className="app-notes-versions-open app-ws-tool"
+        title={applicationsNotesVersions()}
+        aria-label={applicationsNotesVersions()}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((was) => !was)}
       >
         <Icon name="clock" size={14} />
-        {applicationsNotesVersions()}
       </Button>
       <Popover isOpen={open} onClose={() => setOpen(false)} anchor={anchor} label={applicationsNotesVersions()} className="app-overlay app-notes-versions">
         <h3>{applicationsNotesVersions()}</h3>

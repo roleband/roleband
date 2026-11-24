@@ -105,28 +105,36 @@
 /* ---- hero ---------------------------------------------------------------- */
 
 .jd-hero {
-  padding-bottom: var(--app-space-5);
+  padding-bottom: var(--app-space-4);
   margin-bottom: var(--app-space-5);
   border-bottom: 1px solid var(--app-border);
 }
 
+/* Who, at what level, and where: one line over the title. */
+.jd-hero-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--app-space-2) var(--app-space-3);
+}
+
 /* ---- tabs -----------------------------------------------------------------
    A role in the pipeline reads in two tabs, its posting and the person's own
-   work on it. They stand in the hero's foot line, and once scrolled to they
-   are held under the bar: the room above them keeps their words off the
-   bar's edge, and the hero gives up as much of its own room, so nothing at
-   the top moves. What else is held (the description's headings, the side
-   column) stops under them instead of under the bar. */
+   work on it. They are words on the hero's foot line, the chosen one marked
+   on it, and once scrolled to they are held under the bar. What else is held
+   (the description's headings, the side column) stops under them instead of
+   under the bar. */
 .jd-container {
-  --jd-tabs-h: calc(var(--app-control-lg) + 2 * var(--app-space-2));
+  --jd-tabs-h: var(--app-control-lg);
 }
 
 .jd-container[data-tabbed] > .jd-hero {
-  padding-bottom: calc(var(--app-space-5) - var(--app-space-2));
+  padding-bottom: var(--app-space-2);
   margin-bottom: 0;
   border-bottom: 0;
 }
 
+/* The band is the word bar's own height (ui/TabBar.css), a large control. */
 .jd-tabs {
   position: sticky;
   top: 0;
@@ -134,8 +142,12 @@
   box-sizing: border-box;
   height: var(--jd-tabs-h);
   margin-bottom: var(--app-space-5);
-  padding-block: var(--app-space-2);
   box-shadow: inset 0 -1px 0 var(--app-border);
+}
+
+/* The first word starts on the title's edge. */
+.jd-tabbar {
+  margin-inline-start: calc(-1 * var(--app-space-2));
 }
 
 /* Held, they hide what passes beneath as a held heading does, with the page's
@@ -177,7 +189,7 @@
    rank, so one rank is spelled one way. */
 .jd-hero h1 {
   max-width: 37.5em;
-  margin: var(--app-space-3) 0 var(--app-space-3);
+  margin: var(--app-space-3) 0 0;
   font-size: var(--app-type-read-title);
   line-height: 1.15;
   letter-spacing: -0.02em;
@@ -470,10 +482,23 @@
   border-top: 1px solid var(--app-border);
 }
 
-.jd-aside > .section-title:first-child {
+.jd-aside > .section-title:first-child,
+.jd-aside > .jd-ws-beside:empty + .section-title {
   margin-top: 0;
   padding-top: 0;
   border-top: 0;
+}
+
+/* The room for the Workspace's short lists, which lead the column when the
+   window has two. Empty, it takes no room and the section after it leads. */
+.jd-ws-beside:empty {
+  display: none;
+}
+
+/* Leading the column beside the Workspace, the section's caption stands on
+   the line of the first block's caption, which is a small control tall. */
+.jd-aside > .jd-ws-beside:empty + .section-title {
+  padding-top: calc((var(--app-control-sm) - 1lh) / 2);
 }
 
 /* A heading line that also carries the way to the full record the section

@@ -197,9 +197,10 @@
   color: var(--app-chosen-mark);
 }
 
-/* The bar rank: a ghost or icon button standing on a floating bar's own
-   glass, such as the bar over words selected in the notes, whose edge already
-   marks its contents as controls. No edge of its own at rest and the words'
+/* The bar rank: a ghost or icon button whose place already marks it as a
+   control: on a floating bar's own glass, such as the bar over words selected
+   in the notes, or at the end of a list's row, such as the question a past
+   interview asks. No edge of its own at rest and the words'
    muted ink; the pointer gives it the icon rank's edge, and on or open it
    keeps the chosen paint above. */
 .ui-btn.ui-btn-bar:not([aria-pressed="true"]):not([aria-expanded="true"]) {
@@ -211,29 +212,56 @@
   color: var(--app-text);
 }
 
-/* The tick: the icon rank drawn as a round box the person ticks to finish
-   something, such as a next step. Empty at rest; the check shows in the
-   action hue while the pointer or the focus is on it. */
+/* The tick: a small ring the person ticks to finish something, such as a
+   next step. The button keeps the icon rank's size for the pointer and the
+   ring is drawn inside it, so a list of steps reads as its words. Empty at
+   rest; the ring takes the action hue and the check shows while the pointer
+   or the focus is on it. */
 .ui-btn-icon.ui-btn-tick {
-  border-color: var(--app-border-strong);
+  position: relative;
   border-radius: 50%;
   color: transparent;
 }
 
+.ui-btn-icon.ui-btn-tick::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border: 1.5px solid var(--app-border-strong);
+  border-radius: 50%;
+  transition: border-color var(--app-duration-fast), background var(--app-duration-fast);
+}
+
+.ui-btn-icon.ui-btn-tick > svg {
+  position: relative;
+  width: 10px;
+  height: 10px;
+}
+
 .ui-btn-icon.ui-btn-tick:not([aria-pressed="true"]):not(:disabled):not([aria-disabled="true"]):hover,
 .ui-btn-icon.ui-btn-tick:not([aria-pressed="true"]):focus-visible {
-  border-color: var(--app-action);
+  border-color: transparent;
   background: transparent;
   color: var(--app-action-text);
+}
+
+.ui-btn-icon.ui-btn-tick:not([aria-pressed="true"]):not(:disabled):not([aria-disabled="true"]):hover::before,
+.ui-btn-icon.ui-btn-tick:not([aria-pressed="true"]):focus-visible::before {
+  border-color: var(--app-action);
 }
 
 /* Ticked (`aria-pressed`), the check stays, on the chosen wash, under the
    pointer too; pressing it again takes the tick off. */
 .ui-btn-icon.ui-btn-tick[aria-pressed="true"],
 .ui-btn-icon.ui-btn-tick[aria-pressed="true"]:hover {
+  border-color: transparent;
+  background: transparent;
+  color: var(--app-chosen-mark);
+}
+
+.ui-btn-icon.ui-btn-tick[aria-pressed="true"]::before {
   border-color: var(--app-chosen-line);
   background: var(--app-chosen-wash);
-  color: var(--app-chosen-mark);
 }
 
 /* ---- link: a verb inside running text ------------------------------------ */

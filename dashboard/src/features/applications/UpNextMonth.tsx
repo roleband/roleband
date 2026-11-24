@@ -139,7 +139,7 @@ export function UpNextMonth({ cards, now, picked, keep, inAgenda, onPickDay }: {
   const pickedDay = fromDayKey(picked);
 
   return (
-    <section className="app-panel app-month" aria-label={applicationsMonthLabel()}>
+    <section className="app-month" aria-label={applicationsMonthLabel()}>
       <header className="app-month-head">
         <h2 id={titleId} className="app-panel-title" aria-live="polite">
           {timestamp(month, { month: "long", year: "numeric" })}

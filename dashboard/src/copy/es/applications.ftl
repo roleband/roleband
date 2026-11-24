@@ -8,13 +8,7 @@ applications-column-decided = Decididos
 
 applications-column-closed = Rechazados o cerrados
 
-applications-column-empty-saved = Guarda un { -role(num: "one") } de tu radar y aparecerá aquí.
-
-applications-column-empty = Aún no hay nada aquí.
-
 applications-column-count-of = { $count } de { $total }
-
-applications-column-no-matches = Sin coincidencias.
 
 applications-no-matches = Nada coincide con estos filtros.
 
@@ -282,7 +276,7 @@ applications-upnext-done-label = Marcar como hecho: { $step }
 
 applications-upnext-done = Hecho · { $step }
 
-applications-upnext-outcome = ¿Cómo te fue?
+applications-upnext-outcome = Entrevistas pasadas
 
 applications-upnext-outcome-label = Resultado de { $label }
 

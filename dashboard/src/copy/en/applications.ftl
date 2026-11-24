@@ -13,14 +13,8 @@ applications-board-scroll-on = Show later columns
 applications-column-decided = Decided
 # kind=name note="The column of the endings the company or the world decided: Rejected, Role closed"
 applications-column-closed = Rejected or closed
-# kind=empty note="The first column, Considering, while it holds nothing and other columns do"
-applications-column-empty-saved = Save a role on your radar to start here.
-# kind=empty note="Any other column with no application in it"
-applications-column-empty = Nothing here yet.
 # kind=status note="A column's count while filters are on: how many of its applications match"
 applications-column-count-of = { $count } of { $total }
-# kind=empty note="A column whose applications all fail the filters, while another column has a match"
-applications-column-no-matches = No matches.
 # kind=empty note="Any pipeline view whose filters leave nothing: the List, Up next, or every column of the Board. Reset all follows it"
 applications-no-matches = Nothing matches these filters.
 # kind=heading note="Any pipeline view while nothing is saved or pursued"
@@ -303,8 +297,8 @@ applications-upnext-all-day = All day
 applications-upnext-done-label = Mark done: { $step }
 # kind=toast note="A next step was marked done from Up next; $step is the step, as the person wrote it"
 applications-upnext-done = Done · { $step }
-# kind=heading same-as=applications-card-ask-outcome note="The group of rounds that took place and wait for their outcome"
-applications-upnext-outcome = How did it go?
+# kind=heading note="The group of rounds that took place and wait for their outcome; each row in it asks how it went"
+applications-upnext-outcome = Past interviews
 # kind=aria note="The three outcome buttons of one round; $label is the round's name"
 applications-upnext-outcome-label = Outcome of { $label }
 # kind=toast note="A round's outcome was set from Up next; $label is the round's name, $outcome is Passed, Didn't pass or Cancelled"

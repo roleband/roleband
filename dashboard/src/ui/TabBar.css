@@ -66,6 +66,56 @@
   outline-offset: calc(-1 * var(--app-ring-offset));
 }
 
+/* The word look. The bar is a band whose foot is its row's foot: the chosen
+   word's mark sits there. A tab's box is its word at the small control rank,
+   so the focus ring goes round the word; the whole band above and below the
+   word still takes the pointer. The band is a large control tall. */
+.ui-tabbar-words {
+  align-items: center;
+  gap: var(--app-space-1);
+  height: var(--app-control-lg);
+}
+
+.ui-tabbar-words .ui-tab {
+  position: relative;
+  min-height: var(--app-control-sm);
+  padding: 0 var(--app-space-2);
+  border-radius: var(--app-radius-sm);
+}
+
+.ui-tabbar-words .ui-tab::before {
+  content: "";
+  position: absolute;
+  inset: calc((var(--app-control-sm) - var(--app-control-lg)) / 2) 0;
+}
+
+.ui-tabbar-words .ui-tab[aria-selected="true"] {
+  background: transparent;
+}
+
+.ui-tabbar-words .ui-tab[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  inset: auto var(--app-space-2) calc((var(--app-control-sm) - var(--app-control-lg)) / 2);
+  height: 2px;
+  border-radius: 1px;
+  background: var(--app-chosen-mark);
+}
+
+/* Beside a toolbar's controls the band is the toolbar row's: a control of the
+   middle rank with the row's air above and below it. */
+.ui-tabbar-row {
+  height: calc(var(--app-control-md) + 2 * var(--app-space-2));
+}
+
+.ui-tabbar-row .ui-tab::before {
+  inset: calc((var(--app-control-sm) - var(--app-control-md)) / 2 - var(--app-space-2)) 0;
+}
+
+.ui-tabbar-row .ui-tab[aria-selected="true"]::after {
+  inset: auto var(--app-space-2) calc((var(--app-control-sm) - var(--app-control-md)) / 2 - var(--app-space-2));
+}
+
 /* A group boundary: a hairline between two runs of tabs, never a tab. */
 .ui-tabbar-rule {
   flex: none;
