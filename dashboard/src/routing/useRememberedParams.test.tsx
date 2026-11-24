@@ -4,7 +4,7 @@ import { MemoryRouter, useLocation, useSearchParams } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import { api } from "../api";
 import { readEntry, writeEntry } from "../hooks/filterMemory";
-import { forgetViewChoices } from "../hooks/viewChoices";
+import { forgetViewChoices, useViewChoicesAnswered } from "../hooks/viewChoices";
 import { useRememberedParams } from "./useRememberedParams";
 
 /* A screen whose lenses ARE the address. They already survive a reload; what
@@ -15,10 +15,12 @@ const KEYS = ["status", "category"] as const;
 
 function Harness() {
   useRememberedParams("spec", KEYS);
+  const answered = useViewChoicesAnswered();
   const [params, setParams] = useSearchParams();
   const loc = useLocation();
   return (
     <>
+      <div data-testid="answered">{answered ? "yes" : "no"}</div>
       <div data-testid="search">{loc.search}</div>
       <div data-testid="status">{params.get("status") ?? ""}</div>
       <button
@@ -151,8 +153,9 @@ describe("remembered query params before the saved choices answer", () => {
     const answer = lateRead();
     arriveAt("/notifications");
     // The screen is up on its bare address while the read is still out.
+    await waitFor(() => expect(api.viewChoices).toHaveBeenCalled());
+    expect(screen.getByTestId("answered")).toHaveTextContent("no");
     expect(screen.getByTestId("status")).toHaveTextContent("");
-    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(savedFor(NAME)).toEqual([]);
 
     answer({ [NAME]: { status: ["unread"] } });
@@ -167,7 +170,7 @@ describe("remembered query params before the saved choices answer", () => {
     arriveAt("/notifications");
     await user.click(screen.getByText("narrow"));
     answer({ [NAME]: { status: ["read"] } });
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await waitFor(() => expect(screen.getByTestId("answered")).toHaveTextContent("yes"));
     expect(screen.getByTestId("status")).toHaveTextContent("unread");
     expect(readEntry("spec:params")).toEqual({ status: ["unread"], category: ["sync_failed"] });
   });
@@ -175,7 +178,8 @@ describe("remembered query params before the saved choices answer", () => {
   it("saves nothing over the memory when the read fails", async () => {
     vi.spyOn(api, "viewChoices").mockRejectedValue(new Error("engine starting"));
     arriveAt("/notifications");
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    // A failed read counts as answered: the screen shows its defaults.
+    await waitFor(() => expect(screen.getByTestId("answered")).toHaveTextContent("yes"));
     expect(screen.getByTestId("status")).toHaveTextContent("");
     expect(savedFor(NAME)).toEqual([]);
   });

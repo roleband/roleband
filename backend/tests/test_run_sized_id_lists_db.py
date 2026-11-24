@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.agents.operations.duplicates import _yours
 from tracker.content import content_fingerprint, fingerprint_content
-from tracker.db.models import Job
+from tracker.db.models import Favorite, Job, Pursuit
 from tracker.intelligence_runtime.disclosed_comp import owed_ids, settle_stored_bands
 from tracker.lineage.detect import detect_lineage
 from tracker.lineage.twins import detect_twins
@@ -90,3 +90,18 @@ async def test_pass_reads_take_more_ids_than_the_parameter_limit(db_session, nam
     ids = list(range(1, RUN_SIZE + 1))
     await READS[name](db_session, ids)
     await db_session.rollback()
+
+
+async def test_duplicates_queue_finds_the_persons_postings_among_more_ids_than_the_limit(db_session):
+    """Which postings of a pending pair are the person's own: saved or pursued,
+    read for a run-sized list on a real database. A saved posting outside the
+    list stays out, and a listed posting neither saved nor pursued is not theirs."""
+    ids = await _seed(db_session, RUN_SIZE)
+    saved, pursued, outside = ids[-1], ids[-2], ids[0]
+    db_session.add_all([Favorite(job_id=saved), Favorite(job_id=outside), Pursuit(job_id=pursued)])
+    await db_session.commit()
+    asked = ids[1:]
+    assert len(asked) > 32_767
+
+    assert await _yours(db_session, asked) == {saved, pursued}
+
