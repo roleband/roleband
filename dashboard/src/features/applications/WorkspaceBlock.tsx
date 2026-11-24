@@ -3,13 +3,11 @@ import { Button, Icon } from "../../ui";
 import {
   applicationsFactsInterviews,
   applicationsFeedTitle,
-  applicationsInterviewOutcome,
   applicationsNotesTitle,
   applicationsWsAboutActivity,
   applicationsWsAboutInterviews,
   applicationsWsAboutNext,
   applicationsWsAboutNotes,
-  applicationsWsAboutOutcome,
   applicationsWsHide,
   applicationsWsMove,
   applicationsWsMoveDown,
@@ -23,7 +21,6 @@ export const SECTION_LABEL: Record<WorkspaceSection, () => string> = {
   interviews: applicationsFactsInterviews,
   next: applicationsWsNext,
   notes: applicationsNotesTitle,
-  outcome: applicationsInterviewOutcome,
   activity: applicationsFeedTitle,
 };
 
@@ -32,7 +29,6 @@ export const SECTION_ABOUT: Record<WorkspaceSection, () => string> = {
   interviews: applicationsWsAboutInterviews,
   next: applicationsWsAboutNext,
   notes: applicationsWsAboutNotes,
-  outcome: applicationsWsAboutOutcome,
   activity: applicationsWsAboutActivity,
 };
 
@@ -46,10 +42,11 @@ export interface BlockReorder {
   onHide: () => void;
 }
 
-/** One block of the Workspace, a card: its caption at the top left, its one
- *  action at the top right, its content under them. Pointed at or focused, it
- *  shows a grip in the margin to move it and an eye beside its caption to
- *  hide it, unless it is the last block shown. The caption takes focus when
+/** One block of the Workspace: its caption, its tools at the caption's end,
+ *  its content under them, with no frame; a hairline parts it from the block
+ *  above. Pointed at or focused, it shows a grip in the margin to move it, an
+ *  eye beside its caption to hide it (unless it is the last block shown) and
+ *  its own tools. The caption takes focus when
  *  the block is left alone, so the keyboard has a place to stay. */
 export function Block({ section, action, alone, children, reorder }: {
   section: WorkspaceSection;

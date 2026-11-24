@@ -7,6 +7,7 @@ import { PipelineSection } from "./PipelineSection";
 import { PostingStage } from "./PostingStage";
 import type { RoleTab } from "./roleLink";
 import { usePostingApplication } from "./usePostingApplication";
+import { loadNotesEditor } from "./notesEditorChunk";
 import { usePostingWorkspace } from "./usePostingWorkspace";
 
 const InterviewDialog = lazy(() => import("./InterviewDialogLazy"));
@@ -74,7 +75,7 @@ function postingKey(event: KeyboardEvent): boolean {
  */
 export function usePostingPipeline(
   job: Job | null,
-  { showSaved, paintPosting, paintNotes, rereadPosting, onSave, now, column, tab: asked, onTab }: {
+  { showSaved, paintPosting, paintNotes, rereadPosting, onSave, now, column, beside, tab: asked, onTab }: {
     /** Paints the posting's star. */
     showSaved: (on: boolean) => void;
     /** Paints the posting's own copy of its stage. */
@@ -88,6 +89,8 @@ export function usePostingPipeline(
     now: Date;
     /** The side column the section sits in, for its history to open across. */
     column: HTMLElement | null;
+    /** The room in the side column for the Workspace's short lists. */
+    beside?: HTMLElement | null;
     /** The tab the address asks for. */
     tab: RoleTab | null;
     onTab: (tab: RoleTab) => void;
@@ -97,6 +100,12 @@ export function usePostingPipeline(
   const { card, history, detail } = application;
   const tab: RoleTab | null = card ? asked ?? "posting" : null;
   const actions = usePostingWorkspace(application, { showing: tab === "workspace", paintNotes });
+  // A role in the pipeline has a Workspace: its notes editor is asked for
+  // while the posting is read, so it is there when the Workspace opens.
+  const inPipeline = card != null;
+  useEffect(() => {
+    if (inPipeline) void loadNotesEditor().catch(() => undefined);
+  }, [inPipeline]);
   const jobId = job?.id ?? null;
   const [stageOpenFor, setStageOpenFor] = useStateForJob<true>(jobId);
   const stageOpen = stageOpenFor === true;
@@ -162,6 +171,7 @@ export function usePostingPipeline(
             onAddComment={actions.addComment}
             onEditComment={actions.editComment}
             onDeleteComment={actions.deleteComment}
+            side={beside}
           />
         </Suspense>
       )}

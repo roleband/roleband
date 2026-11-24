@@ -1,63 +1,27 @@
-import { useState } from "react";
 import type { ApplicationCard, ApplicationInterview } from "../../api";
-import { Button, Content, ExternalLink, Icon, Menu, MenuGroup, MenuItem } from "../../ui";
+import { Button, Content, ExternalLink, Icon } from "../../ui";
 import {
   applicationsInterviewAdd,
   applicationsInterviewEditLabel,
   applicationsNextInterviewJoin,
   applicationsNextInterviewJoinLabel,
   applicationsNextInterviewMeta,
-  applicationsNextInterviewNone,
-  applicationsUpnextOutcomeLabel,
-  applicationsWsAskOutcome,
   applicationsWsRoundPrepare,
 } from "../../copy/gen/applications";
 import { AddToCalendar } from "./AddToCalendar";
+import { OutcomeAsk, type Outcome } from "./OutcomeAsk";
 import { FORMAT_LABEL, OUTCOME_LABEL, interviewPast, interviewWhen } from "./interviewWords";
 
-export type Outcome = NonNullable<ApplicationInterview["outcome"]>;
-
-function OutcomeAsk({ interview, onOutcome }: { interview: ApplicationInterview; onOutcome: (outcome: Outcome) => void }) {
-  const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null);
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <Button
-        ref={setAnchor}
-        variant="link"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={() => setOpen((was) => !was)}
-      >
-        {applicationsWsAskOutcome()}
-      </Button>
-      <Menu isOpen={open} onClose={() => setOpen(false)} anchor={anchor} label={applicationsUpnextOutcomeLabel({ label: interview.label })}>
-        <MenuGroup>
-          {(Object.keys(OUTCOME_LABEL) as Outcome[]).map((outcome) => (
-            <MenuItem
-              key={outcome}
-              onSelect={() => {
-                setOpen(false);
-                onOutcome(outcome);
-              }}
-            >
-              {OUTCOME_LABEL[outcome]()}
-            </MenuItem>
-          ))}
-        </MenuGroup>
-      </Menu>
-    </>
-  );
-}
 
 /** Every round: the ones to come first, soonest first, then the past ones,
  *  latest first. A round to come offers a file for the person's calendar and
  *  its call link, and with nothing written yet, the outline its notes start
  *  from; a past one asks how it went until the person says. */
-export function Interviews({ interviews, role, now, onEdit, onOutcome }: {
+export function Interviews({ interviews, role, now, onAdd, onEdit, onOutcome }: {
   interviews: readonly ApplicationInterview[];
   role: Pick<ApplicationCard, "job_id" | "company" | "title">;
   now: Date;
+  onAdd: () => void;
   onEdit: (interview: ApplicationInterview, at?: "notes") => void;
   onOutcome: (interview: ApplicationInterview, outcome: Outcome) => void;
 }) {
@@ -65,9 +29,11 @@ export function Interviews({ interviews, role, now, onEdit, onOutcome }: {
   const coming = interviews.filter((one) => !interviewPast(one, now)).sort((a, b) => at(a) - at(b));
   const past = interviews.filter((one) => interviewPast(one, now)).sort((a, b) => at(b) - at(a));
 
-  if (interviews.length === 0) return <p className="app-next-empty">{applicationsNextInterviewNone()}</p>;
+  // With no round yet the block is its one line: the way to add one.
+  if (interviews.length === 0) return <AddInterview onAdd={onAdd} />;
 
   return (
+    <>
     <ul className="app-ws-rounds">
       {[...coming, ...past].map((interview) => {
           const upcoming = !interviewPast(interview, now);
@@ -88,8 +54,8 @@ export function Interviews({ interviews, role, now, onEdit, onOutcome }: {
                 >
                   <Icon name="edit" size={14} />
                 </Button>
-                <span className="app-tile-spacer" />
                 {upcoming && <AddToCalendar interview={interview} role={role} />}
+                <span className="app-tile-spacer" />
                 {upcoming && interview.link && (
                   <ExternalLink href={interview.link} label={applicationsNextInterviewJoinLabel({ label: interview.label })}>
                     {applicationsNextInterviewJoin()}
@@ -109,13 +75,17 @@ export function Interviews({ interviews, role, now, onEdit, onOutcome }: {
           );
         })}
     </ul>
+    <AddInterview onAdd={onAdd} />
+    </>
   );
 }
 
 /** The Interviews block's one action, at the card's top right. */
-export function AddInterview({ onAdd }: { onAdd: () => void }) {
+/** The block's add line, under its rounds: a plus where a step's tick
+ *  stands, and the words. */
+function AddInterview({ onAdd }: { onAdd: () => void }) {
   return (
-    <Button variant="link" className="ui-btn-quiet app-ws-action" onClick={onAdd}>
+    <Button variant="link" className="ui-btn-quiet app-ws-addline" onClick={onAdd}>
       <Icon name="plus" size={14} />
       {applicationsInterviewAdd()}
     </Button>

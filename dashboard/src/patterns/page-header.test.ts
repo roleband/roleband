@@ -10,6 +10,10 @@ import { ROUTE_COMPONENTS } from "../routeRegistry";
  * the title never jumps or vanishes on a tab switch. The geometry is pinned
  * in the browser (`tests/ux/page-header.spec.ts`). A new tab lands here
  * unlisted and fails by name.
+ *
+ * One tab leads with a row of its own, its views and their tools, and leaves
+ * its name to the top bar and the rail: it still renders the shared header,
+ * titled the same, and says so with `offScreen`. No other tab may.
  */
 
 const src = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -27,6 +31,9 @@ const PAGE_HEADER: Record<string, string> = {
   "/settings": "routes/SettingsRoute.tsx",
 };
 
+/** The tabs whose title is the page's heading and is not drawn. */
+const OFF_SCREEN = new Set(["/pipeline"]);
+
 describe("PageHeader adoption", () => {
   it("accounts for every tab in the route table, and only those", () => {
     expect(Object.keys(PAGE_HEADER).sort()).toEqual(Object.keys(ROUTE_COMPONENTS).sort());
@@ -41,7 +48,14 @@ describe("PageHeader adoption", () => {
     const named = source.match(/<PageHeader title=\{(shellNav\w+)\(\)\}/)?.[1];
     if (named) expect((shell as unknown as Record<string, () => string>)[named](), file).toBe(label);
     else expect(source).toContain(`<PageHeader title="${label}"`);
-    // No second head of its own, and no title only a screen reader could see.
+    // No second head of its own, and no title only a screen reader could see,
+    // but for the tabs named above, which ask the shared header for it.
     expect(source).not.toMatch(/settings-head|<h1 className="sr-only"/);
+    expect(/<PageHeader\b[^>]*\boffScreen\b/.test(source), `${file} draws its title`).toBe(OFF_SCREEN.has(path));
+  });
+
+  it("an off-screen title is still the page's one heading, by the same name", () => {
+    const header = read("patterns/PageHeader.tsx");
+    expect(header).toMatch(/if \(offScreen\) return <h1 className="sr-only">\{title\}<\/h1>;/);
   });
 });

@@ -167,7 +167,9 @@ test("a hidden label far down a screen cannot make the window scroll", async ({ 
   // Seven screens, each loaded, filled and scrolled to its end.
   test.slow();
   await installEveryRoute(page);
-  for (const path of ["/", "/pipeline/list", "/statistics", "/company", "/review", "/notifications", "/settings"]) {
+  // Up next is the Pipeline view that scrolls as a page: the Board and
+  // Considering scroll in a frame under their row.
+  for (const path of ["/", "/pipeline/up-next", "/statistics", "/company", "/review", "/notifications", "/settings"]) {
     await page.goto(path);
     const main = page.getByRole("main");
     await expect(main, path).toBeVisible();

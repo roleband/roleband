@@ -116,9 +116,23 @@ describe("TabBar", () => {
       expect(css).not.toMatch(/\.ui-tab\.(on|active|selected)/);
     });
 
-    it("paints --app-* only", () => {
+    it("paints --app-* only; the one property of its own is the word look's band", () => {
       const consumed = [...css.matchAll(/var\((--[a-z0-9-]+)/g)].map((m) => m[1]);
-      expect(consumed.filter((t) => !t.startsWith("--app-"))).toEqual([]);
+      expect([...new Set(consumed.filter((t) => !t.startsWith("--app-")))]).toEqual(["--ui-tabbar-band"]);
+    });
+
+    it("the word look marks the chosen word at the bar's foot and keeps the tab's own focus ring", () => {
+      const block = (selector: string) => {
+        const at = css.indexOf(`${selector} {`);
+        expect(at, selector).toBeGreaterThanOrEqual(0);
+        return css.slice(at, css.indexOf("}", at));
+      };
+      // The chosen word has no fill of its own: the mark under it says it.
+      expect(block('.ui-tabbar-words .ui-tab[aria-selected="true"]')).toMatch(/background:\s*transparent/);
+      expect(block('.ui-tabbar-words .ui-tab[aria-selected="true"]::after')).toMatch(/background:\s*var\(--app-chosen-mark\)/);
+      // A tab's box is its word at the small rank, so the ring goes round the word.
+      expect(block(".ui-tabbar-words .ui-tab")).toMatch(/min-height:\s*var\(--app-control-sm\)/);
+      expect(css, "the ring stays the tab's own").not.toMatch(/outline:\s*(?:none|0)\b/);
     });
   });
 });

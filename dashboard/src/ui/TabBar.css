@@ -66,6 +66,44 @@
   outline-offset: calc(-1 * var(--app-ring-offset));
 }
 
+/* The word look. The bar is as tall as the row it shares
+   (`--ui-tabbar-band`, set by whoever places it) and its foot is that row's
+   foot: the chosen word's mark sits there. A tab's box is its word at the
+   small control rank, so the focus ring goes round the word; the whole band
+   above and below the word still takes the pointer. */
+.ui-tabbar-words {
+  --ui-tabbar-band: var(--app-control-lg);
+  align-items: center;
+  gap: var(--app-space-1);
+  height: var(--ui-tabbar-band);
+}
+
+.ui-tabbar-words .ui-tab {
+  position: relative;
+  min-height: var(--app-control-sm);
+  padding: 0 var(--app-space-2);
+  border-radius: var(--app-radius-sm);
+}
+
+.ui-tabbar-words .ui-tab::before {
+  content: "";
+  position: absolute;
+  inset: calc((var(--app-control-sm) - var(--ui-tabbar-band)) / 2) 0;
+}
+
+.ui-tabbar-words .ui-tab[aria-selected="true"] {
+  background: transparent;
+}
+
+.ui-tabbar-words .ui-tab[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  inset: auto var(--app-space-2) calc((var(--app-control-sm) - var(--ui-tabbar-band)) / 2);
+  height: 2px;
+  border-radius: 1px;
+  background: var(--app-chosen-mark);
+}
+
 /* A group boundary: a hairline between two runs of tabs, never a tab. */
 .ui-tabbar-rule {
   flex: none;

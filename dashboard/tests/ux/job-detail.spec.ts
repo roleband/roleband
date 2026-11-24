@@ -935,12 +935,9 @@ test("a role outside the pipeline has no tabs, and its headings and side column 
 /* A role in the pipeline reads in two tabs under its title. They take the
    hero's foot line without moving the title, and once scrolled to they are
    held under the bar with room above their words. */
-test("a role in the pipeline holds its tabs under the bar, with room above them, and its title does not move", async ({ page }) => {
+test("a role in the pipeline has its tabs right under its title, as words on the hero's foot line, and holds them under the bar", async ({ page }) => {
   const outside = await openLongPosting(page, { width: 1440, height: 1000 }, { inPipeline: false });
   const titleOutside = (await detail(page).locator(".jd-hero h1").boundingBox())!.y;
-  // The top of the hero's foot line, where the tabs' words take its place.
-  const lineOutside = await detail(page).locator(".jd-hero").evaluate((el) =>
-    el.getBoundingClientRect().bottom - parseFloat(getComputedStyle(el).borderBottomWidth));
   expect(outside.held).toBe(0);
   await page.unrouteAll({ behavior: "ignoreErrors" });
   await installBoardRoutes(page);
@@ -949,11 +946,23 @@ test("a role in the pipeline holds its tabs under the bar, with room above them,
   const panel = detail(page);
   const tabs = panel.locator(".jd-tabs");
   expect((await panel.locator(".jd-hero h1").boundingBox())!.y, "the title stands where it did").toBeCloseTo(titleOutside, 0);
-  const room = await tabs.evaluate((el) => parseFloat(getComputedStyle(el).paddingTop));
-  expect(room, "room above the tabs' words").toBeGreaterThan(0);
-  expect((await panel.getByRole("tablist").boundingBox())!.y, "the tabs' words start where the hero's line was").toBeCloseTo(lineOutside, 0);
-  await expect(panel.getByRole("tab", { name: msg("role-job-detail-tab-posting") }), "opened by its link: the posting")
-    .toHaveAttribute("aria-selected", "true");
+  // The tabs follow the title at a small step, and their band's foot is the
+  // hero's line: the chosen word's mark sits on it.
+  const title = (await panel.locator(".jd-hero h1").boundingBox())!;
+  const bar = (await panel.getByRole("tablist").boundingBox())!;
+  expect(bar.y - (title.y + title.height), "the tabs follow the title").toBeGreaterThanOrEqual(0);
+  expect(bar.y - (title.y + title.height), "at a small step, not a band's").toBeLessThanOrEqual(12);
+  const posting = panel.getByRole("tab", { name: msg("role-job-detail-tab-posting") });
+  await expect(posting, "opened by its link: the posting").toHaveAttribute("aria-selected", "true");
+  const band = (await tabs.boundingBox())!;
+  const mark = await posting.evaluate((el) => {
+    const drawn = getComputedStyle(el, "::after");
+    return { foot: el.getBoundingClientRect().bottom - parseFloat(drawn.bottom), height: parseFloat(drawn.height), fill: drawn.backgroundColor };
+  });
+  expect(mark.foot, "the chosen word's mark sits on the band's foot line").toBeCloseTo(band.y + band.height, 0);
+  expect(mark.height).toBe(2);
+  expect(mark.fill, "the mark is drawn").not.toBe("rgba(0, 0, 0, 0)");
+  expect(await posting.evaluate((el) => getComputedStyle(el).backgroundColor), "a word, not a pill").toBe("rgba(0, 0, 0, 0)");
   expect(await tabs.evaluate((el) => getComputedStyle(el).backgroundColor), "in their place, no ground over the hero's")
     .toBe("rgba(0, 0, 0, 0)");
 
@@ -962,8 +971,9 @@ test("a role in the pipeline holds its tabs under the bar, with room above them,
   const at = (await tabs.boundingBox())!;
   expect(at.y, "held at the top of the box, under the bar").toBeCloseTo(box.y, 0);
   expect(at.height).toBe(held);
-  const words = (await panel.getByRole("tablist").boundingBox())!;
-  expect(words.y - box.y, "room between the bar's edge and the tabs").toBeCloseTo(room, 0);
+  const words = (await posting.boundingBox())!;
+  expect(words.y - box.y, "the words clear of the bar's edge").toBeGreaterThanOrEqual(6);
+  expect(words.y + words.height, "and of the band's foot").toBeLessThanOrEqual(at.y + at.height - 6);
   await expect.poll(() => tabs.evaluate((el) => getComputedStyle(el).backgroundColor), "solid, so the text passes under it")
     .not.toBe("rgba(0, 0, 0, 0)");
 });
@@ -990,7 +1000,7 @@ test("switching tabs while they are held opens the other one from its start, wit
   await scrollPosting(scroll, 1500);
   expect(await scroll.evaluate((el) => el.scrollTop), "read past the tabs").toBeGreaterThan(natural);
   await panel.getByRole("tab", { name: msg("role-job-detail-tab-workspace") }).click();
-  await expect(panel.locator(".app-ws")).toBeVisible();
+  await expect(panel.locator(".jd-main .app-ws")).toBeVisible();
   // Within a pixel: a phone's scroll lands on whole device pixels.
   await expect.poll(async () => Math.abs((await scroll.evaluate((el) => el.scrollTop)) - natural), "the Workspace from its start").toBeLessThanOrEqual(1);
   expect((await tabs.boundingBox())!.y, "still held").toBeCloseTo(box.y, 0);
@@ -1024,7 +1034,7 @@ async function openWorkspace(
   }) }));
   await page.goto("/company/apple/job/303?tab=workspace");
   const panel = detail(page);
-  await expect(panel.locator(".app-ws")).toBeVisible();
+  await expect(panel.locator(".jd-main .app-ws")).toBeVisible();
   return { panel, column: panel.locator(".jd-aside"), scroll: panel.locator(".cover-scroll") };
 }
 
@@ -1128,14 +1138,19 @@ const distance = (a: Rgb, b: Rgb) => Math.max(...a.map((c, i) => Math.abs(c - b[
 const overlaps =(a: { x: number; y: number; width: number; height: number }, b: typeof a) =>
   a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 
-test("on the Workspace the side column keeps where the role stands, with no posted pay or posting facts", async ({ page }) => {
+test("on the Workspace the side column keeps where the role stands, under the short lists, with no posted pay or posting facts", async ({ page }) => {
   const { panel, column } = await openWorkspace(page, { card: { next_action: "Email the recruiter", next_action_due: tomorrowNoon() } });
   await expect(column.locator(".jd-pipeline-facts")).toBeVisible();
   await expect(column.locator(".jd-dock"), "the posted pay is the posting's").toHaveCount(0);
   await expect(column.getByText(msg("role-job-detail-details"), { exact: true }), "the posting's Details stay on its tab").toHaveCount(0);
   await expect(column.locator(".similar-row")).toHaveCount(0);
   await expect(panel.locator(".pkg-panel")).toHaveCount(0);
-  await expect(panel.locator(".jd-main").getByText("Email the recruiter")).toBeVisible();
+  // The window has two columns (the helper opens it 1440 wide): the next steps
+  // stand beside the writing, over where the role stands.
+  const step = column.getByText("Email the recruiter");
+  await expect(step).toBeVisible();
+  expect((await step.boundingBox())!.y, "the short lists lead the column").toBeLessThan((await column.locator(".jd-pipeline-facts").boundingBox())!.y);
+  await expect(panel.locator(".jd-main").getByRole("textbox", { name: msg("applications-notes-label") }), "the writing keeps the main column").toBeVisible();
   const terms = await column.locator("dl.jd-pipeline-facts dt").allTextContents();
   expect(terms).not.toContain(msg("applications-posting-next-step"));
   expect(terms).not.toContain(msg("applications-posting-due"));
@@ -1217,36 +1232,48 @@ test("a click anywhere on a step's day field opens the month, and a day picked s
 const textStart = (field: Locator) =>
   field.evaluate((el) => el.getBoundingClientRect().left + parseFloat(getComputedStyle(el).paddingLeft) + parseFloat(getComputedStyle(el).borderLeftWidth));
 
-test("the notes keep their words off the field's edge, at the comment field's inset", async ({ page }) => {
+test("the notes are the page: no box round them, no ring when written in, their words on the column's edge", async ({ page }) => {
   const { panel } = await openWorkspace(page);
   const notes = panel.getByRole("textbox", { name: msg("applications-notes-label") });
-  await notes.focus();
-  const room = await notes.evaluate((el) => {
+  await notes.click();
+  await expect(notes).toBeFocused();
+  const look = await notes.evaluate(async (el) => {
+    getComputedStyle(el).outlineWidth;
+    await Promise.all(el.getAnimations().map((animation) => animation.finished.catch(() => {})));
     const style = getComputedStyle(el);
-    return { top: parseFloat(style.paddingTop), left: parseFloat(style.paddingLeft), radius: parseFloat(style.borderTopLeftRadius) };
+    return {
+      border: parseFloat(style.borderTopWidth) + parseFloat(style.borderLeftWidth),
+      fill: style.backgroundColor,
+      ring: style.outlineStyle === "none" ? 0 : parseFloat(style.outlineWidth),
+      shadow: style.boxShadow,
+      lines: Math.round(el.getBoundingClientRect().height / parseFloat(style.lineHeight)),
+    };
   });
-  expect(room.top, "room above the first line").toBeGreaterThanOrEqual(8);
-  expect(room.left, "room before the words").toBeGreaterThanOrEqual(room.radius);
-  // The page is a field like the comment's: its words start where the comment's do.
-  const comment = panel.getByRole("textbox", { name: msg("applications-comment-label") });
-  expect(await textStart(notes)).toBeCloseTo(await textStart(comment), 0);
+  expect(look.border, "no box").toBe(0);
+  expect(look.fill, "no ground of its own").toBe("rgba(0, 0, 0, 0)");
+  expect(look.ring, "the caret is the mark of focus").toBe(0);
+  expect(look.shadow).toBe("none");
+  expect(look.lines, "a few lines stay open to write in").toBeGreaterThanOrEqual(5);
+  // Its words start on the column's edge, under the block's caption.
+  const caption = (await panel.getByRole("heading", { name: msg("applications-notes-title") }).boundingBox())!;
+  expect(await textStart(notes)).toBeCloseTo(caption.x, 0);
 });
 
-/* Every field in the Workspace is a field like any other: its ring is drawn
-   over its own edge, and the field, ring and all, stands inside its card's
-   content edges. A ring outside the edge doubles the frame; a field reaching
-   into the card's padding looks misplaced. */
-test("each Workspace field rings on its own edge and stays inside its card", async ({ page }) => {
+/* Every field in the Workspace but the notes page is a field like any other:
+   its ring is drawn over its own edge, and the field, ring and all, stands
+   inside its block's edges. A ring outside the edge doubles the frame; a
+   field reaching past its block looks misplaced. An add line starts past the
+   plus that leads it and ends on the block's edge. */
+test("each Workspace field rings on its own edge and stays inside its block", async ({ page }) => {
   const { panel } = await openWorkspace(page);
   await panel.getByRole("textbox", { name: msg("applications-ws-next-add") }).fill("Send the portfolio");
   // Which content edges a field stands on: the next step's field starts past
   // the ticks' column, where the steps' words start.
   const nextStep = panel.getByRole("textbox", { name: msg("applications-ws-next-add") });
   const fields: [string, Locator, { start: boolean; end: boolean }][] = [
-    ["notes", panel.getByRole("textbox", { name: msg("applications-notes-label") }), { start: true, end: true }],
     ["next step", nextStep, { start: false, end: true }],
     ["step day", panel.getByRole("button", { name: new RegExp(`^${msg("applications-ws-next-due")} `) }), { start: false, end: false }],
-    ["comment", panel.getByRole("textbox", { name: msg("applications-comment-label") }), { start: true, end: true }],
+    ["comment", panel.getByRole("textbox", { name: msg("applications-comment-label") }), { start: false, end: true }],
   ];
   for (const [name, field, flush] of fields) {
     // A click on the day opens its month, which takes the keyboard: the day
@@ -1285,16 +1312,17 @@ test("each Workspace field rings on its own edge and stays inside its card", asy
     expect(ring.style, `${name}: the ring`).toBe("solid");
     expect(ring.width, `${name}: the ring's width`).toBeGreaterThanOrEqual(2);
     expect(ring.offset, `${name}: the ring is over the field's edge`).toBeLessThanOrEqual(-ring.border);
-    expect(ring.before, `${name}: inside the card's left content edge`).toBeGreaterThanOrEqual(-0.5);
-    expect(ring.after, `${name}: inside the card's right content edge`).toBeGreaterThanOrEqual(-0.5);
-    if (flush.start) expect(ring.before, `${name}: on the card's left content edge`).toBeLessThanOrEqual(0.5);
-    if (flush.end) expect(ring.after, `${name}: on the card's right content edge`).toBeLessThanOrEqual(0.5);
+    expect(ring.before, `${name}: inside the block's left edge`).toBeGreaterThanOrEqual(-0.5);
+    expect(ring.after, `${name}: inside the block's right edge`).toBeGreaterThanOrEqual(-0.5);
+    if (flush.start) expect(ring.before, `${name}: on the block's left edge`).toBeLessThanOrEqual(0.5);
+    if (flush.end) expect(ring.after, `${name}: on the block's right edge`).toBeLessThanOrEqual(0.5);
   }
 });
 
 /* The line that adds a step stands at the steps' own level: a plus in the
-   ticks' column and the field where the words are. Set in under the last
-   step, it would read as part of that step. */
+   ticks' column and the field's words where the steps' words are. Set in
+   under the last step, it would read as part of that step. It is a line of
+   words until it is written in: no edge and no ground at rest. */
 test("the line that adds a step is a row of the list, level with the steps", async ({ page }) => {
   const { panel } = await openWorkspace(page, { card: { next_action: "Email the recruiter", next_action_due: tomorrowNoon() } });
   const steps = panel.locator(".app-ws-steps");
@@ -1305,11 +1333,21 @@ test("the line that adds a step is a row of the list, level with the steps", asy
   const box = (await field.boundingBox())!;
   expect(Math.abs(plus.x - tick.x), "the plus stands in the ticks' column").toBeLessThanOrEqual(0.5);
   expect(Math.abs(plus.width - tick.width), "as wide as a tick").toBeLessThanOrEqual(0.5);
-  expect(Math.abs(box.x - words.x), "the field starts where the steps' words do").toBeLessThanOrEqual(0.5);
+  expect(Math.abs((await textStart(field)) - words.x), "the field's words start where the steps' words do").toBeLessThanOrEqual(0.5);
   expect(Math.abs(plus.y + plus.height / 2 - (box.y + box.height / 2)), "the plus is level with the field").toBeLessThanOrEqual(1);
-  // The plus is the field's label: a click on it is a click into the field.
+  const drawn = () => field.evaluate(async (el) => {
+    getComputedStyle(el).borderTopColor;
+    await Promise.all(el.getAnimations().map((animation) => animation.finished.catch(() => {})));
+    const style = getComputedStyle(el);
+    return { edge: style.borderTopColor, ground: style.backgroundColor };
+  });
+  await page.mouse.move(0, 0);
+  expect(await drawn(), "a line of words at rest").toEqual({ edge: "rgba(0, 0, 0, 0)", ground: "rgba(0, 0, 0, 0)" });
+  // The plus is the field's label: a click on it is a click into the field,
+  // which then shows itself.
   await steps.locator(".app-ws-step-plus").click();
   await expect(field).toBeFocused();
+  expect((await drawn()).edge, "a field once it is written in").not.toBe("rgba(0, 0, 0, 0)");
 });
 
 /** Typing pauses save the notes: each save is answered with the notes it
@@ -1345,6 +1383,106 @@ test("the notes' headings step down in size from the first level to the third, a
 /* Selected words show a bar of styles over them, as in Google Docs and
    Notion: it stands clear of the words, its buttons keep the selection, and
    ⌘K over them links them while ⌘K anywhere else is still the palette. */
+/* The notes take a caret from the moment they are drawn. Their editor is a
+   chunk of its own, asked for while the posting is read, so the Workspace
+   draws it at once; drawn as plain text first and replaced a moment later,
+   they would look ready and take no click and no key in between. */
+test("the notes can be written in from the frame they are drawn in, with no plain-text stand-in before the editor", async ({ page, isMobile }) => {
+  test.skip(isMobile, "phones are not supported");
+  await mockGet(page, "/api/applications/303/activity", (route) => route.fulfill({ json: { items: [] } }));
+  const { scroll } = await openLongPosting(page, { width: 1440, height: 1000 });
+  await expect(scroll).toBeVisible();
+  // The posting is read first, as it is when a role opens from the Board.
+  await page.waitForLoadState("networkidle");
+  const seen = await page.evaluate(() => new Promise<{ drawn: number; editable: number }>((resolve) => {
+    const tab = [...document.querySelectorAll<HTMLElement>('[role="tab"]')].find((one) => one.id === "jd-tab-workspace")!;
+    const start = performance.now();
+    let drawn = -1;
+    const watch = new MutationObserver(() => {
+      const notes = document.querySelector<HTMLElement>(".app-ws-notes");
+      if (notes && drawn < 0) drawn = performance.now() - start;
+      if (notes?.isContentEditable) {
+        watch.disconnect();
+        resolve({ drawn, editable: performance.now() - start });
+      }
+    });
+    watch.observe(document.body, { subtree: true, childList: true, attributes: true });
+    tab.click();
+  }));
+  expect(seen.editable - seen.drawn, `drawn at ${Math.round(seen.drawn)} ms, editable at ${Math.round(seen.editable)} ms`).toBeLessThan(50);
+});
+
+test("where the notes editor is still loading, a press on the notes is taken up by it: the caret is there and the words go in", async ({ page, isMobile }) => {
+  test.skip(isMobile, "phones are not supported");
+  await mockApi(page, "PUT", "/api/jobs/303/pursuit", (route) => route.fulfill({
+    json: { pursuit: { ...appliedPursuit, job_id: 303, notes: route.request().postDataJSON().notes } },
+  }));
+  // The editor's chunk on a slow line: the Workspace is opened by its address
+  // and drawn before the chunk lands.
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  await page.route(/\/assets\/NotesEditor-[^/]+\.js$/, async (route) => {
+    await held;
+    await route.fallback();
+  });
+  await mockGet(page, "/api/applications/303/activity", (route) => route.fulfill({ json: { items: [] } }));
+  await openLongPosting(page, { width: 1440, height: 1000 });
+  await page.goto("/company/apple/job/303?tab=workspace");
+  const standIn = detail(page).locator(".jd-main .app-ws-notes");
+  await expect(standIn).toBeVisible();
+  expect(await standIn.evaluate((el) => (el as HTMLElement).isContentEditable), "the stand-in is plain text").toBe(false);
+  await standIn.click();
+  release();
+  const notes = detail(page).getByRole("textbox", { name: msg("applications-notes-label") });
+  await expect(notes).toBeFocused();
+  await page.keyboard.type("Ask Sam about the team");
+  await expect(notes).toHaveText("Ask Sam about the team");
+});
+
+/* The bar is placed over the selection's start. In a drag upward that is
+   where the pointer is, so a bar shown while the button is still down comes
+   up under the pointer, and the selection stops on it. */
+test("the style bar waits for the mouse's release, so a selection dragged upward reaches where the pointer goes", async ({ page, isMobile }) => {
+  test.skip(isMobile, "phones are not supported");
+  await mockApi(page, "PUT", "/api/jobs/303/pursuit", (route) => route.fulfill({
+    json: { pursuit: { ...appliedPursuit, job_id: 303, notes: route.request().postDataJSON().notes } },
+  }));
+  const { panel } = await openWorkspace(page);
+  const notes = panel.getByRole("textbox", { name: msg("applications-notes-label") });
+  const bar = page.getByRole("toolbar", { name: msg("applications-notes-bar") });
+  await notes.click();
+  for (const line of ["First line of the notes, the one the drag ends in", "Second line, in between", "Third line of the notes, where the drag begins"]) {
+    await page.keyboard.type(line);
+    await page.keyboard.press("Enter");
+  }
+  const first = (await notes.getByText("First line of the notes").boundingBox())!;
+  const third = (await notes.getByText("Third line of the notes").boundingBox())!;
+  const from = { x: third.x + 220, y: third.y + third.height / 2 };
+  const to = { x: first.x + 40, y: first.y + first.height / 2 };
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  const sizes: number[] = [];
+  for (let step = 1; step <= 12; step++) {
+    await page.mouse.move(from.x + ((to.x - from.x) * step) / 12, from.y + ((to.y - from.y) * step) / 12);
+    // Slower than the bar's own wait, so it would have come up by now.
+    await page.waitForTimeout(140);
+    await expect(bar, `step ${step}: no bar while the button is down`).toBeHidden();
+    sizes.push(await page.evaluate(() => getSelection()!.toString().length));
+  }
+  expect(sizes.every((size, at) => at === 0 || size >= sizes[at - 1]), `the selection only grew: ${sizes.join(", ")}`).toBe(true);
+  const dragged = await page.evaluate(() => getSelection()!.toString());
+  expect(dragged.startsWith("line of the notes, the one the drag ends in") || dragged.includes("the one the drag ends in"), dragged).toBe(true);
+  expect(dragged).toContain("Second line, in between");
+
+  // Released, the bar comes up over the selection, which is kept.
+  await page.mouse.up();
+  await expect(bar).toBeVisible();
+  expect(await page.evaluate(() => getSelection()!.toString())).toBe(dragged);
+  const words = (await page.evaluate(() => getSelection()!.getRangeAt(0).getBoundingClientRect().toJSON())) as DOMRect;
+  const box = (await bar.boundingBox())!;
+  expect(box.y + box.height, "above the words, not over them").toBeLessThanOrEqual(words.y + 1);
+});
+
 test("selected words show a bar over them that styles and links them, and ⌘K elsewhere is still the palette", async ({ page, isMobile }) => {
   test.skip(isMobile, "phones are not supported");
   const saves: string[] = [];

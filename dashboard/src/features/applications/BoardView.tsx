@@ -8,12 +8,9 @@ import {
   applicationsBoardScrollBack,
   applicationsBoardScrollOn,
   applicationsColumnCountOf,
-  applicationsColumnEmpty,
-  applicationsColumnEmptySaved,
   applicationsColumnHide,
   applicationsColumnHideLast,
   applicationsColumnMenu,
-  applicationsColumnNoMatches,
 } from "../../copy/gen/applications";
 import { ApplicationTile } from "./ApplicationTile";
 import { COLUMNS, byStage, type ColumnDef, type ColumnId } from "./board";
@@ -25,7 +22,6 @@ import { PipelineToolbar } from "./PipelineToolbar";
 import { StageRing } from "./StageRing";
 import type { useBoardController } from "./useBoardController";
 import { useCardDrag } from "./useCardDrag";
-import { usePageScrollsFirst } from "./usePageScrollsFirst";
 import { stepColumns, useScrollEdges } from "./useScrollEdges";
 import { useStageAsk } from "./useStageAsk";
 import { useViewFilter } from "./useViewFilter";
@@ -105,7 +101,6 @@ export function BoardView({ board, now }: {
     setScrollNode(node);
   }, []);
   const edges = useScrollEdges(scrollNode);
-  usePageScrollsFirst(scrollNode);
   const focusAfter = useFocusAfter();
   const besideCard = (jobId: number) => {
     const tile = scroller.current?.querySelector(`.app-tile[data-job-id="${jobId}"]`);
@@ -181,6 +176,7 @@ export function BoardView({ board, now }: {
               className="app-board-frame"
               data-more-back={edges.back || undefined}
               data-more-on={edges.on || undefined}
+              data-under={edges.under || undefined}
               style={{ "--app-board-bar-x": `${edges.barX}px`, "--app-board-bar-y": `${edges.barY}px` } as CSSProperties}
             >
               <div className="app-board-scroll" ref={setScroller}>
@@ -206,9 +202,6 @@ export function BoardView({ board, now }: {
                           </span>
                           <ColumnMenu name={name} last={shown.length === 1} onHide={() => hideKeepingFocus(column.id)} />
                         </div>
-                        {narrowed && !nothingMatches && matched === 0 && (all > 0 || sectioned) && (
-                          <p className="app-column-empty">{applicationsColumnNoMatches()}</p>
-                        )}
                         {column.stages.map((stage) => {
                           const every = groups.get(stage) ?? [];
                           const list = narrowed ? every.filter(hits) : every;
@@ -230,14 +223,9 @@ export function BoardView({ board, now }: {
                                   {STAGE_LABEL[stage]} <span className="app-column-count">{list.length}</span>
                                 </h3>
                               )}
-                              {/* An empty ending is its heading alone, drawn
-                                  quietly: its 0 says it, and an ending that
-                                  holds applications stands out beside it. */}
-                              {every.length === 0 && !sectioned && (
-                                <p className="app-column-empty">
-                                  {stage === "saved" ? applicationsColumnEmptySaved() : applicationsColumnEmpty()}
-                                </p>
-                              )}
+                              {/* An empty lane is its name and its 0, and
+                                  a lane the filter empties its "0 of n":
+                                  neither is said again in words. */}
                               {list.map((card) => (
                                 <ApplicationTile
                                   key={card.job_id}

@@ -74,12 +74,23 @@ const CARRIERS: [string, string][] = [
   [".palette-input input", ".palette-item.is-cursor"],
 ];
 
+/** The one stop that wears no ring: a role's notes are the page itself, with
+ *  no box to ring, and the caret is their mark of focus (docs/ui.md "One focus
+ *  ring", named in `src/design/focus-ring.test.ts`). They must then draw no
+ *  part of one: a faint outline or a halo there is the look the rule forbids. */
+const RINGLESS = ".app-ws-notes";
+
 async function focusedRing(page: Page) {
-  return page.evaluate(async (carriers) => {
+  return page.evaluate(async ([carriers, ringless]) => {
     const el = document.activeElement as HTMLElement | SVGElement | null;
     if (!el || el === document.body) return null;
     const box = el.getBoundingClientRect();
     if (box.width === 0 && box.height === 0) return null;
+    if (el.matches(ringless)) {
+      const cs = getComputedStyle(el);
+      const bare = (cs.outlineStyle === "none" || parseFloat(cs.outlineWidth) === 0) && cs.boxShadow === "none" && parseFloat(cs.borderTopWidth) === 0;
+      return { sig: "the notes page", ok: bare, what: `the page draws a part of a ring or a box: outline ${cs.outlineStyle} ${cs.outlineWidth}; shadow ${cs.boxShadow.slice(0, 60)}; border ${cs.borderTopWidth}` };
+    }
     const owners = carriers.flatMap(([focused, carrier]) => {
       const owner = el.matches(focused)
         ? el.closest(carrier) ?? el.closest('[role="dialog"]')?.querySelector(carrier) ?? null
@@ -141,7 +152,7 @@ async function focusedRing(page: Page) {
       if (stroked) return { sig, ok: true };
     }
     return { sig, ok: false, what: describe(el) };
-  }, CARRIERS);
+  }, [CARRIERS, RINGLESS] as const);
 }
 
 /** Role 101 on the board as interviewing: the posting carries its pursuit, so

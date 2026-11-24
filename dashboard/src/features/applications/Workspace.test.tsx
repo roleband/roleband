@@ -1,7 +1,8 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { loadNotesEditor, notesEditorNow } from "./notesEditorChunk";
 import type { ActivityItem, ApplicationCard, ApplicationDetail, ApplicationStep } from "../../api";
 import { applicationCardFixture, applicationDetailFixture, stepFixture } from "../../test/fixtures";
 import { msg } from "../../test/msg";
@@ -71,7 +72,7 @@ beforeEach(() => {
 
 /** The Workspace with the screen's own answer to a tick, a reopen or a
  *  removal: a ticked step moves from the card to the done steps and back. */
-function Harness({ card: initial, done: initialDone = [] }: { card: ApplicationCard; done?: ApplicationStep[] }) {
+function Harness({ card: initial, done: initialDone = [], side }: { card: ApplicationCard; done?: ApplicationStep[]; side?: HTMLElement }) {
   const [feed, setFeed] = useState(items);
   const [card, setCard] = useState(initial);
   const [done, setDone] = useState(initialDone);
@@ -124,6 +125,7 @@ function Harness({ card: initial, done: initialDone = [] }: { card: ApplicationC
         }}
         onEditComment={handlers.onEditComment}
         onDeleteComment={handlers.onDeleteComment}
+        side={side}
       />
     </ToastProvider>
   );
@@ -131,8 +133,8 @@ function Harness({ card: initial, done: initialDone = [] }: { card: ApplicationC
 
 /** The Workspace of the role with these fields changed; a card given a
  *  next step lists it as its one step, as the server's does. */
-function renderWorkspace(card: Partial<ApplicationCard> = {}, done: ApplicationStep[] = []) {
-  return render(<Harness card={applicationCardFixture({ ...detail.application, steps: undefined, ...card })} done={done} />);
+function renderWorkspace(card: Partial<ApplicationCard> = {}, done: ApplicationStep[] = [], side?: HTMLElement) {
+  return render(<Harness card={applicationCardFixture({ ...detail.application, steps: undefined, ...card })} done={done} side={side} />);
 }
 
 const block = (name: string) => screen.getByRole("region", { name });
@@ -950,5 +952,120 @@ describe("the interviews block", () => {
     expect(body).toContain(`DTSTART:${tomorrow.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "")}`);
     expect(document.querySelector("a[download]"), "the link leaves the page once used").toBeNull();
     click.mockRestore();
+  });
+});
+
+/* With a side column and a window wide enough, the short lists stand beside
+ * the writing. The saved order stays one list, so a narrower window, or a
+ * page with no side column, shows the same blocks in that order. */
+describe("the Workspace beside the role page's side column", () => {
+  const INTERVIEWS = () => msg("applications-facts-interviews");
+  const TWO_COLUMNS = "(min-width: 1100px)";
+  /** A window that is, or is not, wide enough for two columns. */
+  const windowIs = (wide: boolean) => vi.spyOn(window, "matchMedia").mockImplementation((query: string) => ({
+    matches: wide && query === TWO_COLUMNS,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  }) as MediaQueryList);
+  const captionsIn = (root: Element) => Array.from(root.querySelectorAll("[data-section] .app-ws-label"), (caption) => caption.textContent);
+  let side: HTMLElement;
+
+  beforeEach(() => {
+    side = document.createElement("aside");
+    document.body.append(side);
+  });
+  afterEach(() => {
+    side.remove();
+    vi.restoreAllMocks();
+  });
+
+  it("draws the short lists in the side column and the writing in the main one", () => {
+    windowIs(true);
+    const { container } = renderWorkspace({ stage: "interviewing" }, [], side);
+    expect(captionsIn(side)).toEqual([INTERVIEWS(), NEXT()]);
+    expect(captionsIn(container)).toEqual([NOTES(), ACTIVITY()]);
+  });
+
+  it("is one list in the stage's order in a narrower window, and where there is no side column", () => {
+    windowIs(false);
+    const narrow = renderWorkspace({ stage: "interviewing" }, [], side);
+    expect(captionsIn(side)).toEqual([]);
+    expect(captionsIn(narrow.container)).toEqual([INTERVIEWS(), NEXT(), NOTES(), ACTIVITY()]);
+    narrow.unmount();
+
+    windowIs(true);
+    const alone = renderWorkspace({ stage: "interviewing" });
+    expect(captionsIn(alone.container)).toEqual([INTERVIEWS(), NEXT(), NOTES(), ACTIVITY()]);
+  });
+
+  it("steps a block among the blocks of its own column, and the one saved order follows", async () => {
+    windowIs(true);
+    const wide = renderWorkspace({ stage: "interviewing" }, [], side);
+    // Next steps is the side column's last block: it can go up, past Interviews, and no lower.
+    await userEvent.click(moveButton(NEXT())!);
+    const menu = await screen.findByRole("dialog", { name: msg("applications-ws-move", { section: NEXT() }) });
+    expect(within(menu).getByRole("button", { name: msg("applications-ws-move-down") })).toBeDisabled();
+    await userEvent.click(within(menu).getByRole("button", { name: msg("applications-ws-move-up") }));
+
+    expect(captionsIn(side)).toEqual([NEXT(), INTERVIEWS()]);
+    expect(captionsIn(wide.container), "the main column is as it was").toEqual([NOTES(), ACTIVITY()]);
+    wide.unmount();
+
+    // The same order, read as one list.
+    windowIs(false);
+    const narrow = renderWorkspace({ stage: "interviewing" }, [], side);
+    expect(captionsIn(narrow.container)).toEqual([NEXT(), INTERVIEWS(), NOTES(), ACTIVITY()]);
+  });
+
+  it("leaves the side column empty for an ended role, which has no short list and no Outcome block", () => {
+    windowIs(true);
+    const { container } = renderWorkspace({ stage: "rejected" }, [], side);
+    expect(side).toBeEmptyDOMElement();
+    expect(captionsIn(container)).toEqual([NOTES(), ACTIVITY()]);
+    expect(screen.queryByRole("region", { name: msg("applications-interview-outcome") })).toBeNull();
+  });
+});
+
+describe("a block's add line", () => {
+  it("is the Interviews block's one line while there is no round, and stands under the rounds once there are", async () => {
+    const add = () => screen.getByRole("button", { name: msg("applications-interview-add") });
+    const none = renderWorkspace({ stage: "interviewing" });
+    const interviews = block(msg("applications-facts-interviews"));
+    expect(within(interviews).getAllByRole("button").filter((one) => one.closest(".app-ws-body"))).toEqual([add()]);
+    expect(interviews.querySelector(".app-ws-body")).toHaveTextContent(new RegExp(`^${msg("applications-interview-add")}$`));
+    none.unmount();
+
+    detail = { ...detail, interviews: [{
+      id: 1, label: "Panel", scheduled_at: new Date(NOW.getTime() + DAY).toISOString(), all_day: false, format: null, link: null,
+      notes: "Ask about on-call", outcome: null, created_at: "2026-11-01T09:00:00Z", updated_at: "2026-11-01T09:00:00Z",
+    }] };
+    renderWorkspace({ stage: "interviewing" });
+    const body = block(msg("applications-facts-interviews")).querySelector(".app-ws-body")!;
+    expect(body.lastElementChild, "after the rounds").toBe(add());
+  });
+});
+
+/* The notes take a caret from the frame they are drawn in: the editor's chunk
+ * is asked for ahead, and once it is here the Workspace draws the editor
+ * itself, never plain text first that looks the same and takes no key. */
+describe("the notes editor's chunk", () => {
+  it("is the notes from the Workspace's first frame once it is here", async () => {
+    await loadNotesEditor();
+    renderWorkspace();
+    const notes = document.querySelector(".app-ws-notes");
+    expect(notes, "the notes are drawn").not.toBeNull();
+    expect(notes).toHaveAttribute("contenteditable", "true");
+    expect(notes).toHaveAttribute("role", "textbox");
+  });
+
+  it("is asked for once, however many ask", async () => {
+    const [first, second] = await Promise.all([loadNotesEditor(), loadNotesEditor()]);
+    expect(first).toBe(second);
+    expect(notesEditorNow()).toBe(first);
   });
 });

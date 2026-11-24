@@ -18,6 +18,11 @@ import { CountBadge } from "./CountBadge";
  * a tab is the screen's largest, least frequent control. The bar scrolls
  * horizontally when it is narrower than its tabs and keeps the current tab
  * in view; it never scrolls the page.
+ *
+ * Two looks. `pills` (the default) is a row of its own under a page title.
+ * `words` is for a bar that shares its row with other things (a view's
+ * tools, a posting's title): a view is its word, the chosen one marked by a
+ * short line at the bar's foot, so the bar adds no fill to the row.
  */
 export interface TabBarItem<T extends string> {
   id: T;
@@ -44,10 +49,12 @@ export interface TabBarProps<T extends string> {
   idPrefix: string;
   /** id of the tabpanel every tab controls, when there is one. */
   controls?: string;
+  /** `words` for a bar that shares its row; see the note above. */
+  look?: "pills" | "words";
   className?: string;
 }
 
-export function TabBar<T extends string>({ label, value, onChange, tabs, idPrefix, controls, className }: TabBarProps<T>) {
+export function TabBar<T extends string>({ label, value, onChange, tabs, idPrefix, controls, look = "pills", className }: TabBarProps<T>) {
   const barRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -81,7 +88,7 @@ export function TabBar<T extends string>({ label, value, onChange, tabs, idPrefi
   return (
     <div
       ref={barRef}
-      className={`ui-tabbar${className ? ` ${className}` : ""}`}
+      className={`ui-tabbar${look === "words" ? " ui-tabbar-words" : ""}${className ? ` ${className}` : ""}`}
       role="tablist"
       aria-label={label}
       onKeyDown={onKeyDown}

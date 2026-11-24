@@ -114,6 +114,35 @@ export function NotesToolbar({ editor, keys }: { editor: Editor; keys: MutableRe
     if (linking) field.current?.focus();
   }, [linking]);
 
+  // While a pointer is down in the page the selection is still being made.
+  // The bar is placed over the selection's start, which in a drag upward is
+  // where the pointer is: shown then, it comes up under the pointer and the
+  // drag stops on it. So the page says a selection is under way, and the bar
+  // stays out of sight and out of the pointer's reach until the release
+  // (applications.css); the plugin goes on placing it meanwhile, so on the
+  // release it is already where it belongs.
+  useEffect(() => {
+    if (editor.isDestroyed) return;
+    const page = editor.view.dom;
+    const host = page.parentElement;
+    if (!host) return;
+    const down = (event: PointerEvent) => {
+      if (event.button === 0) host.setAttribute("data-selecting", "");
+    };
+    const up = () => host.removeAttribute("data-selecting");
+    page.addEventListener("pointerdown", down);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    window.addEventListener("blur", up);
+    return () => {
+      page.removeEventListener("pointerdown", down);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      window.removeEventListener("blur", up);
+      up();
+    };
+  }, [editor]);
+
   // The bar is placed from the selection once, when it shows; a change in its
   // own size (the link field, its error, a longer line name) places it again,
   // so it never grows over the words it styles.

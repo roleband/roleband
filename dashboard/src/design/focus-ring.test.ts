@@ -82,6 +82,7 @@ const SUPPRESSIONS: { file: string; selector: string; drawnBy: string; why: stri
   { file: "ui/Overlay.css", selector: ".ui-overlay-content", drawnBy: "", why: "focused only by script when a dialog opens with nothing focusable; never a Tab stop" },
   { file: "ui/Overlay.css", selector: ".ui-overlay-content[tabindex]:focus-visible", drawnBy: "", why: "the same, on the focus state, heavy enough to beat the global ring whatever order the sheets load in" },
   { file: "shell.css", selector: ".body:focus", drawnBy: "", why: "the page region the skip link sends focus to by script; never a Tab stop" },
+  { file: "features/applications/applications.css", selector: ".app-ws-notes:focus-visible", drawnBy: "", why: "a role's notes are the page itself, with no box to ring: the caret is the mark of focus, as in any document (docs/ui.md, One focus ring)" },
 ];
 
 type Finding = string;

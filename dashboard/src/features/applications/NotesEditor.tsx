@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Extension, InputRule, type Editor } from "@tiptap/core";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -108,13 +109,20 @@ interface Slash {
  *  them too. Saved as it is typed: a pause or leaving the page saves it.
  *  While the page has focus, what the person types wins over a re-read
  *  that lands meanwhile. */
-export default function NotesEditor({ notes, onSave, loadVersions }: {
+export default function NotesEditor({ notes, onSave, loadVersions, tools, focusAtEnd = false }: {
   notes: string | null;
   /** Saves the notes over `was`, the server's text this page last knew;
    *  `putBack` says they start with an earlier version put back. */
   onSave: (notes: string, was: string, putBack?: boolean) => Promise<NotesSaved>;
   /** Reads the notes' earlier versions; without it the page offers none. */
   loadVersions?: () => Promise<NotesVersion[]>;
+  /** Where the way to earlier versions is drawn: the head of the block the
+   *  notes stand in. Null until that head is on the page; unset, the editor
+   *  stands alone and draws it under the page. */
+  tools?: HTMLElement | null;
+  /** The person pressed on the notes before the editor was here: it opens
+   *  with the caret at their end. */
+  focusAtEnd?: boolean;
 }) {
   const [slash, setSlash] = useState<Slash | null>(null);
   // Characters past what the server keeps, from the last save tried: such a
@@ -313,6 +321,7 @@ export default function NotesEditor({ notes, onSave, loadVersions }: {
     ],
     content: notes ?? "",
     contentType: "markdown",
+    autofocus: focusAtEnd ? "end" : false,
     injectCSS: false,
     shouldRerenderOnTransaction: false,
     editorProps: {
@@ -403,21 +412,23 @@ export default function NotesEditor({ notes, onSave, loadVersions }: {
       {over > 0 && <p className="app-notes-over" role="alert">{applicationsNotesTooLong({ over })}</p>}
       {merged && <p className="app-notes-left-out" role="status">{applicationsNotesMerged()}</p>}
       {putBack && <p className="app-notes-left-out" role="status">{applicationsNotesVersionBack({ when: putBack })}</p>}
-      {loadVersions && editor && (
-        <div className="app-notes-foot">
+      {loadVersions && editor && (() => {
+        const versions = (
           <NotesVersions
-            load={loadVersions}
-            onPutBack={(text, when) => {
-              // An edit like any other: saved over the notes as they are,
-              // and undone with the editor's own undo.
-              editor.commands.setContent(text, { contentType: "markdown" });
-              setPutBack(when);
-              puttingBack.current += 1;
-              flush(editor);
-            }}
-          />
-        </div>
-      )}
+              load={loadVersions}
+              onPutBack={(text, when) => {
+                // An edit like any other: saved over the notes as they are,
+                // and undone with the editor's own undo.
+                editor.commands.setContent(text, { contentType: "markdown" });
+                setPutBack(when);
+                puttingBack.current += 1;
+                flush(editor);
+              }}
+            />
+        );
+        if (tools === undefined) return <div className="app-notes-foot">{versions}</div>;
+        return tools ? createPortal(versions, tools) : null;
+      })()}
       {leftOut > 0 && <p className="app-notes-left-out" role="status">{applicationsNotesPicturesLeftOut({ count: leftOut })}</p>}
       {/* Beside the page, not at the document's root: a role opened over a
           list is a dialog, and what stands outside it takes no pointer. */}

@@ -8,7 +8,7 @@ import type { ApplicationCard } from "../../api";
 import { setViewChoice, viewChoicesNow } from "../../hooks/viewChoices";
 import { boardStage, isMoving } from "./board";
 
-export type WorkspaceSection = "interviews" | "next" | "notes" | "outcome" | "activity";
+export type WorkspaceSection = "interviews" | "next" | "notes" | "activity";
 export type WorkspaceStage = "saved" | "researching" | "applied" | "interviewing" | "offer" | "accepted" | "ended";
 interface Layout {
   hidden: WorkspaceSection[];
@@ -23,9 +23,15 @@ const OFFERED: Record<WorkspaceStage, readonly WorkspaceSection[]> = {
   interviewing: ["interviews", "next", "notes", "activity"],
   offer: ["next", "notes", "activity"],
   // An accepted offer has ended its search and still owes steps: signing, a start date.
-  accepted: ["outcome", "next", "notes", "activity"],
-  ended: ["outcome", "notes", "activity"],
+  // How and when a role ended stands in the stage facts beside the Workspace.
+  accepted: ["next", "notes", "activity"],
+  ended: ["notes", "activity"],
 };
+
+/** The blocks that stand beside the writing where the role page has two
+ *  columns: the short lists a person checks while they write. */
+const BESIDE: ReadonlySet<WorkspaceSection> = new Set(["next", "interviews"]);
+export const standsBeside = (section: WorkspaceSection): boolean => BESIDE.has(section);
 
 export function workspaceStage(card: ApplicationCard): WorkspaceStage {
   if (card.stage === "accepted") return "accepted";

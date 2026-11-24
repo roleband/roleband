@@ -3,15 +3,19 @@ import { applicationsInterviewCalendar, applicationsInterviewCalendarLabel } fro
 import { Button, Icon } from "../../ui";
 import { interviewCalendar, interviewCalendarName, saveCalendarFile } from "./interviewCalendar";
 
-/** Saves one round to come as a file the person's calendar app imports. */
+/** Saves one round to come as a file the person's calendar app imports. A
+ *  row's own tool: its glyph, named for a pointer that rests on it and for
+ *  assistive technology. */
 export function AddToCalendar({ interview, role }: {
   interview: Pick<ApplicationInterview, "id" | "label" | "scheduled_at" | "all_day" | "format" | "link">;
   role: Pick<ApplicationCard, "job_id" | "company" | "title">;
 }) {
   return (
     <Button
-      variant="link"
-      className="ui-btn-quiet"
+      variant="icon"
+      size="sm"
+      className="app-row-tool app-calendar-tool"
+      title={applicationsInterviewCalendar()}
       aria-label={applicationsInterviewCalendarLabel({ label: interview.label })}
       onClick={() => saveCalendarFile(
         interviewCalendarName(interview, role),
@@ -19,7 +23,6 @@ export function AddToCalendar({ interview, role }: {
       )}
     >
       <Icon name="calendar" size={14} />
-      {applicationsInterviewCalendar()}
     </Button>
   );
 }

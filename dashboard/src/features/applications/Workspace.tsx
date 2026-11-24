@@ -1,7 +1,7 @@
-import { Suspense, lazy, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import type { ActivityItem, ApplicationCard, ApplicationDetail, ApplicationInterview, ApplicationStep, NotesVersion } from "../../api";
-import { date as formatDate } from "../../copy/format";
-import { STAGE_LABEL } from "../../copy/vocabulary";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { Button, Icon, Menu, MenuGroup, MenuItem, useToast } from "../../ui";
 import {
   applicationsMoveUndo,
@@ -12,40 +12,58 @@ import {
 } from "../../copy/gen/applications";
 import { ActivityFeed } from "./ActivityFeed";
 import { useFocusAfter } from "./focusAfter";
-import { endingName } from "./StageLabel";
 import { NextSteps } from "./NextSteps";
 import type { NotesSaved } from "./NotesEditor";
+import { loadNotesEditor, notesEditorNow } from "./notesEditorChunk";
 import { NotesHelp } from "./NotesHelp";
 import { useReorder } from "./useReorder";
 import { useSectionLayout } from "./useSectionLayout";
 import { Block, SECTION_ABOUT, SECTION_LABEL, type BlockReorder } from "./WorkspaceBlock";
-import { AddInterview, Interviews, type Outcome } from "./WorkspaceInterviews";
-import { workspaceStage, type WorkspaceSection } from "./workspaceSections";
+import { type Outcome } from "./OutcomeAsk";
+import { Interviews } from "./WorkspaceInterviews";
+import { standsBeside, workspaceStage, type WorkspaceSection } from "./workspaceSections";
 
-const NotesEditor = lazy(() => import("./NotesEditor"));
-
-/** The notes page. Its editor is a chunk of its own, loaded when the page
- *  first shows; until then the notes stand as text where the page will be,
- *  so nothing moves when it arrives. */
-function Notes({ notes, onSave, loadVersions }: {
+/** The notes page. Its editor is a chunk of its own, asked for before the
+ *  first Workspace opens (notesEditorChunk), so it is usually here and drawn
+ *  from the first frame. Where it is not, the notes stand as text in its
+ *  place, so nothing moves when it arrives, and it arrives the moment it has
+ *  loaded; a press on that text is a press into the notes, which the editor
+ *  takes up with the caret at their end. */
+function Notes({ notes, onSave, loadVersions, tools }: {
   notes: string | null;
   onSave: (notes: string, was: string, putBack?: boolean) => Promise<NotesSaved>;
   loadVersions: () => Promise<NotesVersion[]>;
+  tools: HTMLElement | null;
 }) {
-  return (
-    <Suspense fallback={<div className="app-notes"><p className="app-ws-notes">{notes || applicationsWsNotesHint()}</p></div>}>
-      <NotesEditor notes={notes} onSave={onSave} loadVersions={loadVersions} />
-    </Suspense>
-  );
-}
-
-function OutcomeLine({ card }: { card: ApplicationCard }) {
-  return (
-    <p className="app-ws-outcome">
-      <strong>{endingName(card) ?? STAGE_LABEL[card.stage]}</strong>
-      {card.stage_since && <span className="app-ws-round-when">{formatDate(card.stage_since, "full")}</span>}
-    </p>
-  );
+  // Chosen once: the editor is never swapped under what is written in it.
+  const [Editor, setEditor] = useState(notesEditorNow);
+  const [failed, setFailed] = useState<unknown>(null);
+  const pressed = useRef(false);
+  useEffect(() => {
+    if (Editor) return;
+    let waiting = true;
+    loadNotesEditor().then(
+      (loaded) => {
+        if (waiting) setEditor(() => loaded);
+      },
+      (error: unknown) => {
+        if (waiting) setFailed(error ?? new Error("the notes editor did not load"));
+      },
+    );
+    return () => {
+      waiting = false;
+    };
+  }, [Editor]);
+  // A chunk that did not load is the page's failure to report, as any is.
+  if (failed) throw failed;
+  if (!Editor) {
+    return (
+      <div className="app-notes">
+        <p className="app-ws-notes" onPointerDown={() => { pressed.current = true; }}>{notes || applicationsWsNotesHint()}</p>
+      </div>
+    );
+  }
+  return <Editor notes={notes} onSave={onSave} loadVersions={loadVersions} tools={tools} focusAtEnd={pressed.current} />;
 }
 
 export interface WorkspaceProps {
@@ -70,29 +88,50 @@ export interface WorkspaceProps {
   onAddComment: (body: string) => Promise<boolean>;
   onEditComment: (id: number, body: string) => Promise<boolean>;
   onDeleteComment: (id: number) => Promise<boolean>;
+  /** The role page's side column, where it has one. In a window wide enough
+   *  the short lists (next steps, interviews) are drawn there, beside the
+   *  writing; without it, or in a narrower window, every block is one list. */
+  side?: HTMLElement | null;
 }
 
-/** The person's own work on the role: the blocks the stage offers, each a
- *  card, the notes page and the role's activity among them. A block moves by
- *  its grip and hides by its eye; the plus under the last block brings a
- *  hidden one back. Order and what is hidden are kept per stage, with the
- *  person's settings; the blocks are drawn once those are read. */
+/** From this width the role page's side column has room for the short lists. */
+const TWO_COLUMNS = "(min-width: 1100px)";
+
+/** The person's own work on the role: the blocks the stage offers, the notes
+ *  page and the role's activity among them. With two columns the writing
+ *  (notes, activity) is the main one and the short lists stand beside it; a
+ *  block moves by its grip within its column and hides by its eye; the plus
+ *  under the last block brings a hidden one back. Order and what is hidden
+ *  are kept per stage as one list, with the person's settings, so a narrower
+ *  window shows the same blocks in that order; the blocks are drawn once
+ *  those are read. */
 export function Workspace(props: WorkspaceProps) {
   const { card, detail, notes, activity, now } = props;
   const stage = workspaceStage(card);
   const { toast } = useToast();
   const focusAfter = useFocusAfter();
   const host = useRef<HTMLDivElement>(null);
+  const beside = useRef<HTMLDivElement>(null);
+  const wide = useMediaQuery(TWO_COLUMNS);
+  const split = wide && props.side != null;
+  const [notesTools, setNotesTools] = useState<HTMLElement | null>(null);
   const layout = useSectionLayout(stage, () =>
     toast({ key: "workspace-layout", tone: "error", text: applicationsWsLayoutFailed() }),
   );
   const { shown, offeredBack } = layout;
   const [addFrom, setAddFrom] = useState<HTMLButtonElement | null>(null);
   const [adding, setAdding] = useState(false);
+  // One order for each column: a block is carried, and steps, among the
+  // blocks of its own column.
   const dnd = useReorder<WorkspaceSection>({ axis: "y", grip: true, onPlace: layout.place });
+  const dndBeside = useReorder<WorkspaceSection>({ axis: "y", grip: true, onPlace: layout.place });
+  const main = split ? shown.filter((section) => !standsBeside(section)) : shown;
+  const aside = split ? shown.filter(standsBeside) : [];
 
-  const inBlock = (section: WorkspaceSection, control: string) => () =>
-    host.current?.querySelector<HTMLElement>(`[data-section="${section}"] ${control}`) ?? null;
+  const inBlock = (section: WorkspaceSection, control: string) => () => {
+    const find = `[data-section="${section}"] ${control}`;
+    return host.current?.querySelector<HTMLElement>(find) ?? beside.current?.querySelector<HTMLElement>(find) ?? null;
+  };
 
   const hide = (section: WorkspaceSection) => {
     // The Workspace always shows one block.
@@ -108,23 +147,32 @@ export function Workspace(props: WorkspaceProps) {
       action: { label: applicationsMoveUndo(), onClick: () => layout.show(section) },
     });
   };
-  const step = (section: WorkspaceSection, by: -1 | 1) => {
+  const step = (column: readonly WorkspaceSection[], section: WorkspaceSection, by: -1 | 1) => {
+    const neighbour = column[column.indexOf(section) + by];
+    if (!neighbour) return;
     focusAfter(inBlock(section, ".app-ws-grip"));
-    layout.step(section, by);
+    layout.place(section, neighbour, by > 0 ? "after" : "before");
   };
 
-  const reorderFor = (section: WorkspaceSection, index: number): BlockReorder => ({
-    item: dnd.itemProps(section),
+  const reorderFor = (column: readonly WorkspaceSection[], drag: typeof dnd, section: WorkspaceSection, index: number): BlockReorder => ({
+    item: drag.itemProps(section),
     first: index === 0,
-    last: index === shown.length - 1,
-    onArm: () => dnd.arm(section),
-    onStep: (by) => step(section, by),
+    last: index === column.length - 1,
+    onArm: () => drag.arm(section),
+    onStep: (by) => step(column, section, by),
     onHide: () => hide(section),
   });
 
   const content: Record<WorkspaceSection, () => ReactNode> = {
     interviews: () => (
-      <Interviews interviews={detail.interviews} role={card} now={now} onEdit={props.onEditInterview} onOutcome={props.onOutcome} />
+      <Interviews
+        interviews={detail.interviews}
+        role={card}
+        now={now}
+        onAdd={props.onAddInterview}
+        onEdit={props.onEditInterview}
+        onOutcome={props.onOutcome}
+      />
     ),
     next: () => (
       <NextSteps
@@ -138,8 +186,7 @@ export function Workspace(props: WorkspaceProps) {
         onRemove={props.onRemoveStep}
       />
     ),
-    notes: () => <Notes notes={notes} onSave={props.onSaveNotes} loadVersions={props.onLoadNotesVersions} />,
-    outcome: () => <OutcomeLine card={card} />,
+    notes: () => <Notes notes={notes} onSave={props.onSaveNotes} loadVersions={props.onLoadNotesVersions} tools={notesTools} />,
     activity: () => (
       <ActivityFeed
         items={activity}
@@ -153,20 +200,40 @@ export function Workspace(props: WorkspaceProps) {
       />
     ),
   };
+  // The notes' own tools: the way to earlier versions, which the editor
+  // draws into the block's head, and the guide.
   const action: Partial<Record<WorkspaceSection, ReactNode>> = {
-    interviews: <AddInterview onAdd={props.onAddInterview} />,
-    notes: <NotesHelp />,
+    notes: (
+      <>
+        <span className="app-ws-tools" ref={setNotesTools} />
+        <NotesHelp />
+      </>
+    ),
   };
+  const blocks = (column: readonly WorkspaceSection[], drag: typeof dnd) => column.map((section, index) => (
+    <Block
+      key={section}
+      section={section}
+      action={action[section]}
+      alone={shown.length === 1}
+      reorder={reorderFor(column, drag, section, index)}
+    >
+      {content[section]()}
+    </Block>
+  ));
 
   if (!layout.ready) return <div className="app-ws" aria-busy="true" />;
 
   return (
+    <>
+    {split && props.side && aside.length > 0 && createPortal(
+      <div className="app-ws" ref={beside} data-dragging={dndBeside.dragging ? "" : undefined}>
+        {blocks(aside, dndBeside)}
+      </div>,
+      props.side,
+    )}
     <div className="app-ws" ref={host} data-dragging={dnd.dragging ? "" : undefined}>
-      {shown.map((section, index) => (
-        <Block key={section} section={section} action={action[section]} alone={shown.length === 1} reorder={reorderFor(section, index)}>
-          {content[section]()}
-        </Block>
-      ))}
+      {blocks(main, dnd)}
       {offeredBack.length > 0 && (
         <div className="app-ws-foot">
           <Button
@@ -200,5 +267,6 @@ export function Workspace(props: WorkspaceProps) {
         </div>
       )}
     </div>
+    </>
   );
 }
