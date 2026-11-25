@@ -187,6 +187,19 @@ describe("remembered query params before the saved choices answer", () => {
     expect(readEntry("spec:params")).toEqual({ status: ["unread"], category: ["sync_failed"] });
   });
 
+  it("keeps a reset the reader made while the read was out when it answers", async () => {
+    const user = userEvent.setup();
+    const answer = lateRead();
+    arriveAt("/notifications");
+    await user.click(screen.getByText("narrow"));
+    await user.click(screen.getByText("reset"));
+    answer({ [NAME]: { status: ["read"] } });
+    await waitFor(() => expect(screen.getByTestId("answered")).toHaveTextContent("yes"));
+    expect(screen.getByTestId("status")).toHaveTextContent("");
+    expect(screen.getByTestId("search").textContent).toBe("");
+    expect(readEntry("spec:params")).toEqual({});
+  });
+
   it("saves nothing over the memory when the read fails", async () => {
     vi.spyOn(api, "viewChoices").mockRejectedValue(new Error("engine starting"));
     arriveAt("/notifications");

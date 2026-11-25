@@ -23,8 +23,9 @@ import { useViewChoicesAnswered } from "../hooks/viewChoices";
  *     the read failed. The restore waits for the answer, nothing is saved
  *     before the restore has had its turn, and then the address is saved only
  *     when it differs from what is remembered, so a bare address the reader
- *     did not choose never overwrites what they did. A lens chosen while the
- *     read was out is the reader's choice, and the restore leaves it be.
+ *     did not choose never overwrites what they did. A lens chosen or reset
+ *     while the read was out is the reader's choice, and the restore leaves
+ *     it be.
  *
  * The screen keeps its own setters and its own `Reset all`: this hook never
  * reads or writes a lens's VALUE, only the query string as a whole. Clearing
@@ -63,12 +64,16 @@ export function useRememberedParams(
   /** The restore runs once, when the saved choices have answered; nothing
    *  is saved before it has. */
   const restored = useRef(false);
+  /** Did the reader change these params before the restore had its turn?
+   *  A change that ends where it began (narrow, then reset) still counts. */
+  const touched = useRef(false);
+  const atMount = useRef<string | null>(null);
 
   useEffect(() => {
     if (!answered || restored.current) return;
     restored.current = true;
     if (arrived.current) return;
-    if (keyList.split(" ").some((name) => name && live.current.has(name))) return;
+    if (touched.current) return;
     const stored = decodeParams(readEntry(key), keyList ? keyList.split(" ") : []);
     const names = Object.keys(stored);
     if (names.length === 0) return;
@@ -94,16 +99,21 @@ export function useRememberedParams(
        would erase the very memory being restored. The landed navigation
        re-runs this effect with the real snapshot. A late restore is the same
        commit, which is why `answered` re-runs it. */
-    if (!restored.current) return;
-    if (skipWrite.current) {
-      skipWrite.current = false;
-      return;
-    }
     const names = keyList ? keyList.split(" ") : [];
     const snapshot: ParamSnapshot = {};
     for (const name of names) {
       const values = live.current.getAll(name);
       if (values.length > 0) snapshot[name] = values;
+    }
+    if (!restored.current) {
+      const now = JSON.stringify(snapshot);
+      atMount.current ??= now;
+      if (now !== atMount.current) touched.current = true;
+      return;
+    }
+    if (skipWrite.current) {
+      skipWrite.current = false;
+      return;
     }
     if (sameSnapshot(snapshot, decodeParams(readEntry(key), names))) return;
     writeEntry(key, snapshot);
