@@ -42,7 +42,7 @@ layers = [
     # an oversight: db/ is the shared store this whole tier is built on, so the
     # siblings below import each other widely.
     # Switching this row to "|" is a re-architecture, not a lint fix.
-    "tracker.db : tracker.intelligence_runtime : tracker.enrich : tracker.skills : tracker.lineage : tracker.semantic : tracker.search : tracker.profiles : tracker.user_profile : tracker.notifications : tracker.analytics : tracker.settings_store : tracker.company_store : tracker.company_discovery : tracker.company_directory : tracker.health : tracker.content : tracker.ats_detect : tracker.board_resolve : tracker.board_relocate : tracker.osnotify : tracker.scope : tracker.pay_store : tracker.usage_stats : tracker.plugins",
+    "tracker.db : tracker.intelligence_runtime : tracker.enrich : tracker.skills : tracker.lineage : tracker.semantic : tracker.search : tracker.profiles : tracker.user_profile : tracker.notifications : tracker.picks : tracker.analytics : tracker.settings_store : tracker.company_store : tracker.company_discovery : tracker.company_directory : tracker.health : tracker.content : tracker.ats_detect : tracker.board_resolve : tracker.board_relocate : tracker.osnotify : tracker.scope : tracker.pay_store : tracker.usage_stats : tracker.plugins",
     # `intelligence` composes the model backends (it owns the provider
     # Protocol, the registry, and the adapters that wrap the two LLM clients), so
     # it sits one layer ABOVE them. This is a tightening, not an exemption.
@@ -108,6 +108,7 @@ source_modules = [
     "tracker.profiles",
     "tracker.user_profile",
     "tracker.notifications",
+    "tracker.picks",
     "tracker.analytics",
     "tracker.settings_store",
     "tracker.company_store",
@@ -285,6 +286,8 @@ files = [
     "tracker/api/routers/applications.py",
     # Agent operations: descriptors, envelope, policy, their routes and the client
     "tracker/agents/operations",
+    "tracker/picks",
+    "tracker/api/routers/picks.py",
     "tracker/agents/activity.py",
     "tracker/api/agent_operations.py",
     "tracker/api/routers/agent_activity.py",

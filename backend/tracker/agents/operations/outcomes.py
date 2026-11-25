@@ -67,6 +67,10 @@ OUTCOMES: dict[str, Outcome] = {
     "writes_disabled": Outcome(EXIT_REFUSED, 403, False),
     # A data category the operation reads is not shared with assistants.
     "category_disabled": Outcome(EXIT_REFUSED, 403, False),
+    # Top picks is off, so no routine run may begin; the person turns it on.
+    "mode_off": Outcome(EXIT_REFUSED, 409, False),
+    # Top picks cannot be turned on, or a run begun, without an active brief.
+    "brief_required": Outcome(EXIT_REFUSED, 409, False),
     # 5: the resource does not exist.
     "not_found": Outcome(EXIT_NOT_FOUND, 404, False),
     # 6: the resource changed, or the key was used for another request.
@@ -74,6 +78,8 @@ OUTCOMES: dict[str, Outcome] = {
     "idempotency_conflict": Outcome(EXIT_CONFLICT, 409, False),
     # 7: a person has to decide.
     "approval_required": Outcome(EXIT_INPUT_REQUIRED, 409, False),
+    # A change only the person makes was tried with no person present.
+    "needs_the_person": Outcome(EXIT_INPUT_REQUIRED, 409, False),
     # 8: out of time or budget.
     "deadline_exceeded": Outcome(EXIT_DEADLINE, 504, True),
     "rate_limited": Outcome(EXIT_DEADLINE, 429, True),

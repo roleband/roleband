@@ -43,6 +43,7 @@ from tracker.api.routers import (
     local_auth,
     notifications,
     ops,
+    picks,
     plugins,
     profile,
     recipes,
@@ -177,6 +178,7 @@ app.include_router(usage.router)
 app.include_router(plugins.router)
 app.include_router(agent.router)
 app.include_router(agent_activity.router)
+app.include_router(picks.router)
 
 # --------------------------------------------------------------------------- #
 # Built dashboard (single-origin). Mounted last so every /api route wins first.

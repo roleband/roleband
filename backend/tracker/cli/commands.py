@@ -20,6 +20,7 @@ every command from the bundle without loading the engine's models.
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import select
@@ -39,11 +40,15 @@ HANDSHAKE = frozenset({"status", "capabilities", "describe"})
 #: Options every command or the client itself takes; no input field may claim one.
 RESERVED = frozenset({
     "format", "json", "non_interactive", "context", "timeout", "help", "version", "input",
-    "idempotency_key", "offline", "output", "overwrite",
+    "idempotency_key", "offline", "output", "overwrite", "file",
 })
 #: The most `--input` may hold, as the engine accepts.
 MAX_INPUT_BYTES = 1024 * 1024
 _BODY_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+#: The largest file `--file` sends, as the engine stores.
+MAX_FILE_BYTES = 10 * 1024 * 1024
+#: The input fields `--file` fills: the file's name and its bytes in base64.
+FILE_FIELDS = ("filename", "content_base64")
 
 
 @dataclass(frozen=True)
@@ -81,6 +86,8 @@ class Command:
     input_only: tuple[str, ...]
     #: The answer is a document `--output` can write to a file (`tracker/cli/output.py`).
     writes_file: bool = False
+    #: The input carries a file the person named: `--file` reads it and fills `FILE_FIELDS`.
+    reads_file: bool = False
 
 
 def words_of(operation: str) -> tuple[str, ...]:
@@ -135,6 +142,13 @@ def _command(entry: dict[str, Any], route: dict[str, str]) -> Command:
     writes_file = "file_write" in entry.get("client_effects", ())
     if writes_file and operation not in output.WRITERS:
         raise ValueError(f"{operation}: it writes a file, and this client cannot lay its answer out as one")
+    reads_file = "file_read" in entry.get("client_effects", ())
+    if reads_file:
+        if missing := [name for name in FILE_FIELDS if name not in {field.name for field in flags}]:
+            raise ValueError(f"{operation}: it reads a file, and its input has no {', '.join(missing)}")
+        # The file's bytes travel in the body; no flag carries them.
+        flags = [field for field in flags if field.name not in FILE_FIELDS]
+        input_only = [*input_only, *FILE_FIELDS]
     positional.sort(key=lambda field: in_path.index(field.name))
     return Command(
         operation=operation,
@@ -148,6 +162,7 @@ def _command(entry: dict[str, Any], route: dict[str, str]) -> Command:
         flags=tuple(flags),
         input_only=tuple(input_only),
         writes_file=writes_file,
+        reads_file=reads_file,
     )
 
 
@@ -252,7 +267,10 @@ def _epilog(command: Command) -> str:
         if command.access == "write"
         else "Reads only: it needs agent access in Settings."
     )
-    only = f" Give {', '.join(command.input_only)} with --input." if command.input_only else ""
+    nested = [name for name in command.input_only if not (command.reads_file and name in FILE_FIELDS)]
+    only = f" Give {', '.join(nested)} with --input." if nested else ""
+    if command.reads_file:
+        only += " Give the file with --file."
     return f"Operation {command.operation}. {access}{only}"
 
 
@@ -288,6 +306,9 @@ def _arguments(parser: argparse.ArgumentParser, command: Command) -> None:
                                  "hash, and answer with its path, size and hash instead of its text")
         parser.add_argument("--overwrite", dest="overwrite", action="store_true",
                             help="with --output, replace a file already there")
+    if command.reads_file:
+        parser.add_argument("--file", dest="file", metavar="PATH", default=None,
+                            help="the file to send, read from this computer as it is")
     if command.keyed:
         parser.add_argument("--idempotency-key", dest="idempotency_key", metavar="KEY", default=None,
                             help="send under this key; a retry under it never writes twice (default: a new one)")
@@ -316,6 +337,18 @@ def payload(command: Command, args: argparse.Namespace, *, stdin: Any = None) ->
                 details={"fields": [name for _, name in overlap]},
             )
     data.update(dict(given.values()))
+    if command.reads_file:
+        named = getattr(args, "file", None)
+        if named is not None:
+            if twice := [name for name in FILE_FIELDS if name in data]:
+                raise ClientError(
+                    "invalid_arguments", f"--file and --input both give {', '.join(twice)}; give the file once.",
+                    details={"fields": twice},
+                )
+            data.update(read_file(named))
+        elif missing := [name for name in FILE_FIELDS if name not in data]:
+            raise ClientError("invalid_arguments", "--file is required: the path of the file to send.",
+                              details={"fields": missing})
     if missing := [field.option for field in command.flags if field.required and field.name not in data]:
         where = ", as a flag or in --input" if args.input_source is not None else ""
         raise ClientError("invalid_arguments", f"{', '.join(missing)} is required{where}.")
@@ -334,6 +367,23 @@ def payload(command: Command, args: argparse.Namespace, *, stdin: Any = None) ->
     if missing := [name for name in command.input_only if name not in data]:
         raise ClientError("invalid_arguments", f"{', '.join(missing)} can only be given with --input.")
     return data
+
+
+def read_file(path: str) -> dict[str, str]:
+    """The file at `path` as the fields an operation that reads a file takes:
+    its name and its bytes in base64. Read whole, never past the bound."""
+    try:
+        with open(os.path.expanduser(path), "rb") as handle:
+            raw = handle.read(MAX_FILE_BYTES + 1)
+    except OSError as error:
+        raise ClientError(
+            "invalid_arguments", f"--file: cannot read {path} ({error.strerror or type(error).__name__}).",
+        ) from None
+    if len(raw) > MAX_FILE_BYTES:
+        raise ClientError("invalid_arguments", f"--file: {path} is larger than {MAX_FILE_BYTES // (1024 * 1024)} MiB.")
+    if not raw:
+        raise ClientError("invalid_arguments", f"--file: {path} is empty.")
+    return {"filename": os.path.basename(path), "content_base64": base64.b64encode(raw).decode("ascii")}
 
 
 #: How much of an unread standard input is looked at to tell data from blank lines.

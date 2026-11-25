@@ -359,7 +359,7 @@ async def test_writes_answer_with_their_contract(api_client, seeded):
         f"/api/jobs/{seeded.plain}/feedback", json={"verdict": "dismissed", "reason": "wrong_role"}
     )
     assert dismissed.json() == {
-        "job_id": seeded.plain, "is_dismissed": True, "reason": "wrong_role",
+        "job_id": seeded.plain, "is_dismissed": True, "reason": "wrong_role", "reason_text": None,
         "company": "acme", "department": None, "team": None,
     }
     assert (await api_client.delete(f"/api/jobs/{seeded.plain}/feedback")).json() == {

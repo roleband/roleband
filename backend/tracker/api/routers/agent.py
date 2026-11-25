@@ -19,6 +19,8 @@ from fastapi.responses import JSONResponse
 from tracker import __version__
 from tracker.agents.operations import (
     applications,
+    background,
+    brief,
     changes,
     companies,
     duplicates,
@@ -26,6 +28,7 @@ from tracker.agents.operations import (
     insights,
     offer,
     opportunities,
+    picks,
     pursuits,
     radar,
     receipts,
@@ -927,3 +930,188 @@ async def insights_skills(
         session=session, hidden=hidden, scope=scope, company=params.company or None,
         family=params.family or None, location_group=params.location or None, limit=params.limit,
     ))
+
+
+# --- Top picks: the person's background, their brief, and an assistant's verdicts.
+
+
+@router.get(
+    f"{PREFIX}/background",
+    response_model=Envelope[background.BackgroundView],
+    openapi_extra=operation_route(background.BACKGROUND_GET),
+)
+async def background_get(
+    op: Annotated[OperationContext, Depends(admitted(background.BACKGROUND_GET))],
+) -> Envelope[Any]:
+    return op.ok(await background.get(op.session))
+
+
+@router.put(
+    f"{PREFIX}/background",
+    response_model=Envelope[background.BackgroundView],
+    openapi_extra=operation_route(background.BACKGROUND_SET),
+)
+async def background_set(
+    op: Annotated[OperationContext, Depends(admitted(background.BACKGROUND_SET))],
+) -> Envelope[Any]:
+    params = op.input_as(background.BackgroundSetInput)
+    return await op.write(
+        lambda: background.set_reading(op.session, params, host=op.host),
+        described=background.BackgroundActivity(),
+    )
+
+
+@router.post(
+    f"{PREFIX}/background/documents",
+    response_model=Envelope[background.DocumentAdded],
+    openapi_extra=operation_route(background.BACKGROUND_ADD_DOCUMENT),
+)
+async def background_add_document(
+    op: Annotated[OperationContext, Depends(admitted(background.BACKGROUND_ADD_DOCUMENT))],
+) -> Envelope[Any]:
+    params = op.input_as(background.AddDocumentInput)
+    return await op.write(
+        lambda: background.add_document(op.session, params), described=background.BackgroundActivity(),
+    )
+
+
+# Before `/brief`, so no later path under it is taken for the brief itself.
+@router.get(
+    f"{PREFIX}/brief/history",
+    response_model=Envelope[brief.BriefHistory],
+    openapi_extra=operation_route(brief.BRIEF_HISTORY),
+)
+async def brief_history(
+    op: Annotated[OperationContext, Depends(admitted(brief.BRIEF_HISTORY))],
+) -> Envelope[Any]:
+    return op.ok(await brief.history(op.session))
+
+
+@router.get(
+    f"{PREFIX}/brief",
+    response_model=Envelope[brief.BriefView],
+    openapi_extra=operation_route(brief.BRIEF_GET),
+)
+async def brief_get(
+    op: Annotated[OperationContext, Depends(admitted(brief.BRIEF_GET))],
+) -> Envelope[Any]:
+    return op.ok(await brief.get(op.session, op.input_as(brief.BriefGetInput)))
+
+
+@router.patch(
+    f"{PREFIX}/brief",
+    response_model=Envelope[brief.BriefView],
+    openapi_extra=operation_route(brief.BRIEF_PATCH),
+)
+async def brief_patch(
+    op: Annotated[OperationContext, Depends(admitted(brief.BRIEF_PATCH))],
+) -> Envelope[Any]:
+    params = op.input_as(brief.BriefPatchInput)
+    return await op.write(
+        lambda: brief.patch(op.session, params, host=op.host),
+        on_revision_conflict=[NextAction(operation=brief.BRIEF_GET.id, arguments={})],
+        described=brief.BriefActivity(tuple(sorted(params.model_fields_set & set(brief.PARTS)))),
+    )
+
+
+@router.get(
+    f"{PREFIX}/picks/status",
+    response_model=Envelope[picks.PicksStatus],
+    openapi_extra=operation_route(picks.PICKS_STATUS),
+)
+async def picks_status(
+    op: Annotated[OperationContext, Depends(admitted(picks.PICKS_STATUS))],
+) -> Envelope[Any]:
+    return op.ok(await picks.status(op.session, pursuits=op.shares("private_pursuit")))
+
+
+@router.get(
+    f"{PREFIX}/picks/samples",
+    response_model=Envelope[picks.Samples],
+    openapi_extra=operation_route(picks.PICKS_SAMPLES),
+)
+async def picks_samples(
+    op: Annotated[OperationContext, Depends(admitted(picks.PICKS_SAMPLES))],
+) -> Envelope[Any]:
+    return op.ok(await picks.samples(
+        op.session, op.input_as(picks.SamplesInput), withheld=withheld(picks.PICKS_SAMPLES, op.switches),
+    ))
+
+
+@router.post(
+    f"{PREFIX}/picks/runs",
+    response_model=Envelope[picks.RunStart],
+    openapi_extra=operation_route(picks.PICKS_BEGIN),
+)
+async def picks_begin(
+    op: Annotated[OperationContext, Depends(admitted(picks.PICKS_BEGIN))],
+) -> Envelope[Any]:
+    params = op.input_as(picks.BeginInput)
+    kept = withheld(picks.PICKS_BEGIN, op.switches)
+    return await op.write(
+        lambda: picks.begin(op.session, params, host=op.host, withheld=kept),
+        shown=lambda result: picks.shown_begin(result, kept),
+        described=picks.RunActivity(),
+    )
+
+
+@router.get(
+    f"{PREFIX}/picks/runs/next",
+    response_model=Envelope[picks.Batch],
+    openapi_extra=operation_route(picks.PICKS_NEXT),
+)
+async def picks_next(
+    op: Annotated[OperationContext, Depends(admitted(picks.PICKS_NEXT))],
+) -> Envelope[Any]:
+    return op.ok(await picks.next_batch(
+        op.session, op.input_as(picks.NextInput), withheld=withheld(picks.PICKS_NEXT, op.switches),
+    ))
+
+
+@router.post(
+    f"{PREFIX}/picks/verdicts",
+    response_model=Envelope[picks.DecideResult],
+    openapi_extra=operation_route(picks.PICKS_DECIDE),
+)
+async def picks_decide(
+    op: Annotated[OperationContext, Depends(admitted(picks.PICKS_DECIDE))],
+) -> Envelope[Any]:
+    params = op.input_as(picks.DecideInput)
+    return await op.write(lambda: picks.decide(op.session, params), described=picks.RunActivity())
+
+
+@router.post(
+    f"{PREFIX}/picks/runs/finish",
+    response_model=Envelope[picks.RunSummary],
+    openapi_extra=operation_route(picks.PICKS_FINISH),
+)
+async def picks_finish(
+    op: Annotated[OperationContext, Depends(admitted(picks.PICKS_FINISH))],
+) -> Envelope[Any]:
+    params = op.input_as(picks.FinishInput)
+    return await op.write(lambda: picks.finish(op.session, params), described=picks.RunActivity())
+
+
+@router.get(
+    f"{PREFIX}/picks",
+    response_model=Envelope[picks.PickList],
+    openapi_extra=operation_route(picks.PICKS_LIST),
+)
+async def picks_list(
+    op: Annotated[OperationContext, Depends(admitted(picks.PICKS_LIST))],
+) -> Envelope[Any]:
+    return op.ok(await picks.listed(
+        op.session, op.input_as(picks.ListInput), withheld=withheld(picks.PICKS_LIST, op.switches),
+    ))
+
+
+@router.put(
+    f"{PREFIX}/picks/mode",
+    response_model=Envelope[picks.ModeState],
+    openapi_extra=operation_route(picks.PICKS_SWITCH),
+)
+async def picks_switch(
+    op: Annotated[OperationContext, Depends(admitted(picks.PICKS_SWITCH))],
+) -> Envelope[Any]:
+    params = op.input_as(picks.SwitchInput)
+    return await op.write(lambda: picks.switch(op.session, params), described=picks.SwitchActivity())

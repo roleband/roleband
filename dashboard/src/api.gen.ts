@@ -72,6 +72,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/v1/background": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Background Get */
+        get: operations["background_get_api_agent_v1_background_get"];
+        /** Background Set */
+        put: operations["background_set_api_agent_v1_background_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/background/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Background Add Document */
+        post: operations["background_add_document_api_agent_v1_background_documents_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/brief": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Brief Get */
+        get: operations["brief_get_api_agent_v1_brief_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Brief Patch */
+        patch: operations["brief_patch_api_agent_v1_brief_patch"];
+        trace?: never;
+    };
+    "/api/agent/v1/brief/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Brief History */
+        get: operations["brief_history_api_agent_v1_brief_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/v1/capabilities": {
         parameters: {
             query?: never;
@@ -593,6 +663,142 @@ export interface paths {
         get: operations["opportunity_similar_api_agent_v1_opportunities__opportunity_id__similar_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/picks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Picks List */
+        get: operations["picks_list_api_agent_v1_picks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/picks/mode": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Picks Switch */
+        put: operations["picks_switch_api_agent_v1_picks_mode_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/picks/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Picks Begin */
+        post: operations["picks_begin_api_agent_v1_picks_runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/picks/runs/finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Picks Finish */
+        post: operations["picks_finish_api_agent_v1_picks_runs_finish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/picks/runs/next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Picks Next */
+        get: operations["picks_next_api_agent_v1_picks_runs_next_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/picks/samples": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Picks Samples */
+        get: operations["picks_samples_api_agent_v1_picks_samples_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/picks/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Picks Status */
+        get: operations["picks_status_api_agent_v1_picks_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/picks/verdicts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Picks Decide */
+        post: operations["picks_decide_api_agent_v1_picks_verdicts_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2734,6 +2940,111 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/picks/mode": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Picks Mode
+         * @description Pause or resume the checks, or change how many roles are read a day.
+         *     Off keeps everything saved; on needs the brief setup ends with, so a mode
+         *     never set up cannot be switched on here.
+         */
+        put: operations["set_picks_mode_api_picks_mode_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/picks/opened": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Picks Opened
+         * @description The person opened Top picks: no pick made before now is unseen.
+         */
+        post: operations["picks_opened_api_picks_opened_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/picks/removed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Removed Picks
+         * @description The picks the person marked Not for me, each with the reason they gave.
+         *
+         *     Removing a pick is the Board's own dismissal, so the role left Top picks
+         *     and the Radar together, and clearing that dismissal
+         *     (`DELETE /api/jobs/{job_id}/feedback`) puts it back in both.
+         */
+        get: operations["removed_picks_api_picks_removed_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/picks/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Picks Setup
+         * @description Delete the stored CV, every reading of it and the brief, clear what past
+         *     verdicts say, and return the mode to never set up. Saved roles, Not for me
+         *     marks and the Board stay.
+         */
+        delete: operations["remove_picks_setup_api_picks_setup_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/picks/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Picks State */
+        get: operations["picks_state_api_picks_state_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/plugins": {
         parameters: {
             query?: never;
@@ -4712,6 +5023,27 @@ export interface components {
              */
             state: "available" | "unavailable" | "unknown";
         };
+        /** BackgroundView */
+        BackgroundView: {
+            /**
+             * Confirmed
+             * @default false
+             */
+            confirmed: boolean;
+            document?: components["schemas"]["StoredDocument"] | null;
+            /** Reading */
+            reading?: {
+                [key: string]: unknown;
+            } | null;
+            /** Saved */
+            saved: boolean;
+            /** Saved At */
+            saved_at?: string | null;
+            /** Source */
+            source?: ("document" | "spoken" | "minimal") | null;
+            /** Version */
+            version?: number | null;
+        };
         /**
          * BandChange
          * @description A stated base band as `[min, max]`, either end unknown; null when none was stated.
@@ -4723,6 +5055,19 @@ export interface components {
             from: (number | null)[] | null;
             /** To */
             to: (number | null)[] | null;
+        };
+        /** Batch */
+        Batch: {
+            /** Batch */
+            batch: components["schemas"]["Posting"][];
+            /** Continue With */
+            continue_with: components["schemas"]["NextAction"][];
+            /** Count */
+            count: number;
+            /** Next Cursor */
+            next_cursor: number | null;
+            /** Run */
+            run: string;
         };
         /** BindPayload */
         BindPayload: {
@@ -4902,6 +5247,82 @@ export interface components {
         BoardSearchResponse: {
             candidate: components["schemas"]["MovedBoard"] | null;
         };
+        /** BriefHistory */
+        BriefHistory: {
+            /** Count */
+            count: number;
+            /** Versions */
+            versions: components["schemas"]["BriefVersion"][];
+        };
+        /** BriefState */
+        BriefState: {
+            /** Active Version */
+            active_version: number | null;
+            /** Calibrated */
+            calibrated: boolean;
+            /** Draft Version */
+            draft_version: number | null;
+        };
+        /** BriefVersion */
+        BriefVersion: {
+            /** Host */
+            host?: string | null;
+            /**
+             * Made By
+             * @enum {string}
+             */
+            made_by: "person" | "routine";
+            /** Reason */
+            reason: string;
+            /**
+             * Saved At
+             * Format: date-time
+             */
+            saved_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "active" | "superseded";
+            /** Version */
+            version: number;
+        };
+        /** BriefView */
+        BriefView: {
+            /** Body */
+            body?: {
+                [key: string]: unknown;
+            } | null;
+            /** Exists */
+            exists: boolean;
+            /** Ids */
+            ids?: {
+                [key: string]: string[];
+            };
+            /** Made By */
+            made_by?: ("person" | "routine") | null;
+            /** Parts Schema */
+            parts_schema?: {
+                [key: string]: unknown;
+            } | null;
+            /** Reason */
+            reason?: string | null;
+            /**
+             * Revision
+             * @default 0
+             */
+            revision: number;
+            /** Saved At */
+            saved_at?: string | null;
+            /** Saved Parts */
+            saved_parts?: string[];
+            /** Status */
+            status?: ("draft" | "active" | "superseded") | null;
+            /** Summary */
+            summary?: string | null;
+            /** Version */
+            version?: number | null;
+        };
         /** BrowserExchange */
         BrowserExchange: {
             /** Ticket */
@@ -4922,6 +5343,13 @@ export interface components {
             expires_in: number;
             /** Url */
             url: string;
+        };
+        /** Budget */
+        Budget: {
+            /** Per Month */
+            per_month: number;
+            /** Picks This Month */
+            picks_this_month: number;
         };
         /** CalendarInterview */
         CalendarInterview: {
@@ -6136,6 +6564,19 @@ export interface components {
              */
             unit: "days" | "listings";
         };
+        /** DecideResult */
+        DecideResult: {
+            /** Picks */
+            picks: number;
+            /** Refused */
+            refused: number;
+            /** Results */
+            results: components["schemas"]["VerdictItem"][];
+            /** Run */
+            run: string;
+            /** Saved */
+            saved: number;
+        };
         /**
          * DeckLink
          * @description Why a member is in its deck: the link that placed it and who decided.
@@ -6539,6 +6980,8 @@ export interface components {
             job_id: number;
             /** Reason */
             reason: string | null;
+            /** Reason Text */
+            reason_text?: string | null;
             /** Team */
             team: string | null;
         };
@@ -6584,6 +7027,12 @@ export interface components {
             name: string;
             /** Value */
             value: boolean | number | string | string[] | null;
+        };
+        /** DocumentAdded */
+        DocumentAdded: {
+            document: components["schemas"]["StoredDocument"];
+            /** Stored */
+            stored: boolean;
         };
         /** DraftPayload */
         DraftPayload: {
@@ -6960,6 +7409,90 @@ export interface components {
             /** Workspace Id */
             workspace_id: string | null;
         };
+        /** Envelope[BackgroundView] */
+        Envelope_BackgroundView_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["BackgroundView"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[Batch] */
+        Envelope_Batch_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["Batch"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[BriefHistory] */
+        Envelope_BriefHistory_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["BriefHistory"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[BriefView] */
+        Envelope_BriefView_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["BriefView"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
         /** Envelope[CapabilitiesResult] */
         Envelope_CapabilitiesResult_: {
             /**
@@ -7065,6 +7598,27 @@ export interface components {
             /** Workspace Id */
             workspace_id: string | null;
         };
+        /** Envelope[DecideResult] */
+        Envelope_DecideResult_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["DecideResult"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
         /** Envelope[DoctorReport] */
         Envelope_DoctorReport_: {
             /**
@@ -7073,6 +7627,27 @@ export interface components {
              */
             contract_version: string;
             data: components["schemas"]["DoctorReport"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[DocumentAdded] */
+        Envelope_DocumentAdded_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["DocumentAdded"] | null;
             error: components["schemas"]["EnvelopeError"] | null;
             meta: components["schemas"]["EnvelopeMeta"];
             /** Ok */
@@ -7443,6 +8018,27 @@ export interface components {
             /** Workspace Id */
             workspace_id: string | null;
         };
+        /** Envelope[ModeState] */
+        Envelope_ModeState_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["ModeState"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
         /** Envelope[OfferRead] */
         Envelope_OfferRead_: {
             /**
@@ -7493,6 +8089,48 @@ export interface components {
              */
             contract_version: string;
             data: components["schemas"]["OpportunityView"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[PickList] */
+        Envelope_PickList_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["PickList"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[PicksStatus] */
+        Envelope_PicksStatus_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["PicksStatus"] | null;
             error: components["schemas"]["EnvelopeError"] | null;
             meta: components["schemas"]["EnvelopeMeta"];
             /** Ok */
@@ -7695,6 +8333,69 @@ export interface components {
             /** Workspace Id */
             workspace_id: string | null;
         };
+        /** Envelope[RunStart] */
+        Envelope_RunStart_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["RunStart"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[RunSummary] */
+        Envelope_RunSummary_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["RunSummary"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /** Envelope[Samples] */
+        Envelope_Samples_: {
+            /**
+             * Contract Version
+             * @default 1.0
+             */
+            contract_version: string;
+            data: components["schemas"]["Samples"] | null;
+            error: components["schemas"]["EnvelopeError"] | null;
+            meta: components["schemas"]["EnvelopeMeta"];
+            /** Ok */
+            ok: boolean;
+            /** Operation */
+            operation: string;
+            /** Request Id */
+            request_id: string;
+            /** Warnings */
+            warnings?: components["schemas"]["EnvelopeNotice"][];
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
         /** Envelope[SavedDraft] */
         Envelope_SavedDraft_: {
             /**
@@ -7872,6 +8573,18 @@ export interface components {
             median: number | null;
             /** Provider */
             provider: string | null;
+        };
+        /**
+         * EstimatedPay
+         * @description An estimate, never the employer's figure.
+         */
+        EstimatedPay: {
+            /** Base Median */
+            base_median: number | null;
+            /** Currency */
+            currency: string | null;
+            /** Total Median */
+            total_median: number | null;
         };
         /**
          * EstimatedTotalComp
@@ -8161,6 +8874,8 @@ export interface components {
         FeedbackPayload: {
             /** Reason */
             reason?: string | null;
+            /** Reason Text */
+            reason_text?: string | null;
             /**
              * Verdict
              * @constant
@@ -10266,6 +10981,80 @@ export interface components {
              */
             unit: "per_share" | "company";
         };
+        /**
+         * Known
+         * @description What the app already holds about the person, so setup never asks for it.
+         */
+        Known: {
+            /** Aim */
+            aim: string | null;
+            /** Background Confirmed */
+            background_confirmed: boolean;
+            /** Has Background */
+            has_background: boolean;
+            /** Not For Me */
+            not_for_me?: number | null;
+            pay_floor: components["schemas"]["KnownPay"] | null;
+            /** Saved */
+            saved?: number | null;
+            scope: components["schemas"]["KnownScope"];
+        };
+        /** KnownPay */
+        KnownPay: {
+            /** Amount */
+            amount: number;
+            /** Currency */
+            currency: string;
+        };
+        /** KnownScope */
+        KnownScope: {
+            /** Levels */
+            levels: string[];
+            /** Places */
+            places: string[];
+            /** Roles */
+            roles: string[];
+        };
+        /**
+         * LastCheck
+         * @description The newest closed run of the routine.
+         */
+        LastCheck: {
+            /**
+             * Finished At
+             * Format: date-time
+             */
+            finished_at: string;
+            /** Host */
+            host: string | null;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "finished" | "stopped" | "abandoned";
+        };
+        /** LastRun */
+        LastRun: {
+            /** Finished At */
+            finished_at: string | null;
+            /** Host */
+            host: string | null;
+            /** Judged */
+            judged: number;
+            /** Note */
+            note?: string | null;
+            /** Outcome */
+            outcome: ("finished" | "stopped" | "abandoned") | null;
+            /** Picks */
+            picks: number;
+            /** Run */
+            run: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+        };
         /** LauncherHealthResponse */
         LauncherHealthResponse: {
             launcher: components["schemas"]["LauncherIdentity"];
@@ -11199,6 +11988,22 @@ export interface components {
             /** Total Bytes */
             total_bytes: number;
         };
+        /** ModeState */
+        ModeState: {
+            /** Daily Cap */
+            daily_cap: number;
+            /** Enabled At */
+            enabled_at: string | null;
+            /** Routine Host */
+            routine_host: string | null;
+            /** Schedule */
+            schedule: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "never_set_up" | "on" | "off";
+        };
         /**
          * MoveBoardPayload
          * @description A board `POST .../board/find` answered with; verified again on write.
@@ -11561,7 +12366,7 @@ export interface components {
             access: "read" | "write";
             availability: components["schemas"]["AvailabilityShape"];
             /** Client Effects */
-            client_effects: ("file_write" | "browser_open" | "app_open")[];
+            client_effects: ("file_write" | "file_read" | "browser_open" | "app_open")[];
             /** Continue With */
             continue_with: components["schemas"]["NextAction"][];
             /** Contract Version */
@@ -11614,7 +12419,7 @@ export interface components {
             access: "read" | "write";
             availability: components["schemas"]["AvailabilityShape"];
             /** Client Effects */
-            client_effects: ("file_write" | "browser_open" | "app_open")[];
+            client_effects: ("file_write" | "file_read" | "browser_open" | "app_open")[];
             /** Contract Version */
             contract_version: string;
             /** Data Classes */
@@ -11671,7 +12476,7 @@ export interface components {
             access: "read" | "write";
             availability: components["schemas"]["AvailabilityShape"];
             /** Client Effects */
-            client_effects: ("file_write" | "browser_open" | "app_open")[];
+            client_effects: ("file_write" | "file_read" | "browser_open" | "app_open")[];
             /** Data Classes */
             data_classes: ("public_posting" | "market_statistic" | "private_pursuit" | "offer" | "candidate")[];
             engine_effects: components["schemas"]["EffectsShape"];
@@ -12274,6 +13079,126 @@ export interface components {
             company: string;
             /** Roles */
             roles: number;
+        };
+        /** PickList */
+        PickList: {
+            /** Count */
+            count: number;
+            /** Picks */
+            picks: components["schemas"]["PickRow"][];
+            /**
+             * View
+             * @enum {string}
+             */
+            view: "picks" | "near_misses" | "passed" | "removed";
+        };
+        /**
+         * PickReason
+         * @description One reason of a pick: `opening` then `rest` reads as the sentence.
+         */
+        PickReason: {
+            /** Opening */
+            opening: string | null;
+            /** Rest */
+            rest: string;
+        };
+        /** PickRow */
+        PickRow: {
+            /** Against Baseline */
+            against_baseline: ("better" | "comparable" | "weaker" | "unknown") | null;
+            /** Brief Version */
+            brief_version: number;
+            /** Company */
+            company?: string | null;
+            /** Job */
+            job: number;
+            /**
+             * Judged At
+             * Format: date-time
+             */
+            judged_at: string;
+            /** Note */
+            note: string | null;
+            /** Open */
+            open: boolean;
+            /** Pass Code */
+            pass_code: ("hard_rule" | "out_of_reach" | "below_level" | "not_better" | "not_real" | "off_direction" | "other") | null;
+            reaction?: components["schemas"]["ReactionOut"] | null;
+            /** Reasons */
+            reasons: components["schemas"]["ReasonOut"][];
+            /** Title */
+            title?: string | null;
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "pick" | "near_miss" | "pass";
+        };
+        /**
+         * PicksModeInput
+         * @description What the Settings card changes: either part, or both.
+         */
+        PicksModeInput: {
+            /** Daily Limit */
+            daily_limit?: number | null;
+            /** State */
+            state?: ("on" | "off") | null;
+        };
+        /**
+         * PicksRemovedResponse
+         * @description `DELETE /api/picks/setup`: how much was deleted.
+         */
+        PicksRemovedResponse: {
+            /** Briefs */
+            briefs: number;
+            /** Documents */
+            documents: number;
+            /** Readings */
+            readings: number;
+            /** Verdicts */
+            verdicts: number;
+        };
+        /**
+         * PicksStateResponse
+         * @description `GET /api/picks/state`: what the rail and the Settings card read.
+         */
+        PicksStateResponse: {
+            /** Brief Summary */
+            brief_summary: string | null;
+            /** Daily Limit */
+            daily_limit: number;
+            /** Daily Limit Max */
+            daily_limit_max: number;
+            last_check: components["schemas"]["LastCheck"] | null;
+            /** Routine Host */
+            routine_host: string | null;
+            /** Schedule */
+            schedule: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "never_set_up" | "on" | "off";
+            /** Unseen Pick */
+            unseen_pick: boolean;
+        };
+        /** PicksStatus */
+        PicksStatus: {
+            brief: components["schemas"]["BriefState"];
+            budget: components["schemas"]["Budget"];
+            known: components["schemas"]["Known"];
+            routine: components["schemas"]["Routine"];
+            setup: components["schemas"]["SetupProgress"];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "never_set_up" | "on" | "off";
+            /** Suggested Check Times */
+            suggested_check_times: string[];
+            /** Unseen Pick */
+            unseen_pick?: boolean | null;
+            volume: components["schemas"]["VolumeView"];
         };
         /** Place */
         Place: {
@@ -12942,6 +13867,40 @@ export interface components {
             /** Roles */
             roles: number;
         };
+        /**
+         * Posting
+         * @description One posting, with what decides a verdict.
+         */
+        Posting: {
+            /** Company */
+            company: string;
+            /** Continue With */
+            continue_with: components["schemas"]["NextAction"][];
+            estimated_pay?: components["schemas"]["EstimatedPay"] | null;
+            /**
+             * First Seen
+             * Format: date
+             */
+            first_seen: string;
+            /** Fit Rank */
+            fit_rank: number;
+            /** Job */
+            job: number;
+            /** Level */
+            level: string;
+            /** Places */
+            places: string[];
+            signals: components["schemas"]["PostingSignals"];
+            stated_pay: components["schemas"]["StatedPay"] | null;
+            /** Text */
+            text: string;
+            /** Text Truncated */
+            text_truncated: boolean;
+            /** Title */
+            title: string;
+            /** Work Mode */
+            work_mode: string;
+        };
         /** PostingDates */
         PostingDates: {
             /** Closed At */
@@ -13040,6 +13999,13 @@ export interface components {
             key: string;
             /** Title */
             title: string;
+        };
+        /** PostingSignals */
+        PostingSignals: {
+            /** Open Days */
+            open_days: number;
+            /** Reposted */
+            reposted: boolean;
         };
         /**
          * PostingTextResponse
@@ -13759,6 +14725,23 @@ export interface components {
             /** Saved Opportunities */
             saved_opportunities?: number;
         };
+        /** ReactionOut */
+        ReactionOut: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "saved" | "pursued" | "not_for_me";
+            /** Reason */
+            reason?: string | null;
+            /** Reason Text */
+            reason_text?: string | null;
+        };
         /**
          * Reason
          * @description One reason a link gives, as a code and its numbers (`lineage.reasons`).
@@ -13770,6 +14753,15 @@ export interface components {
             params: {
                 [key: string]: number | null;
             };
+        };
+        /** ReasonOut */
+        ReasonOut: {
+            /** Brief Item */
+            brief_item: string;
+            /** Opening */
+            opening: string | null;
+            /** Rest */
+            rest: string;
         };
         /**
          * ReasonSaid
@@ -14056,6 +15048,44 @@ export interface components {
             /** Version */
             version: string;
         };
+        /** RemovedPick */
+        RemovedPick: {
+            /** Company */
+            company: string;
+            /** Company Slug */
+            company_slug: string;
+            /** Is Open */
+            is_open: boolean;
+            /** Job Id */
+            job_id: number;
+            /**
+             * Judged At
+             * Format: date-time
+             */
+            judged_at: string;
+            /** Reason */
+            reason: string | null;
+            /** Reason Text */
+            reason_text: string | null;
+            /** Reasons */
+            reasons: components["schemas"]["PickReason"][];
+            /**
+             * Removed At
+             * Format: date-time
+             */
+            removed_at: string;
+            /** Title */
+            title: string;
+        };
+        /**
+         * RemovedPicksResponse
+         * @description `GET /api/picks/removed`: the picks the person marked Not for me,
+         *     newest verdict first. `DELETE /api/jobs/{job_id}/feedback` puts one back.
+         */
+        RemovedPicksResponse: {
+            /** Picks */
+            picks: components["schemas"]["RemovedPick"][];
+        };
         /**
          * RepostDeck
          * @description The role listed again over time: every posting of it, oldest first.
@@ -14267,6 +15297,23 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** Routine */
+        Routine: {
+            /**
+             * Health
+             * @enum {string}
+             */
+            health: "off" | "healthy" | "never_ran" | "late" | "stopped_early";
+            /** Host */
+            host: string | null;
+            last_run: components["schemas"]["LastRun"] | null;
+            /** Oldest Waiting Since */
+            oldest_waiting_since: string | null;
+            /** Schedule */
+            schedule: string | null;
+            /** Waiting */
+            waiting: number;
+        };
         /**
          * RoutingTier
          * @description One rung of the routed-task ladder as configured, never probed.
@@ -14283,6 +15330,33 @@ export interface components {
             origin: "none" | "on_device" | "this_mac" | "cloud";
             /** Provider */
             provider: string;
+        };
+        /** RuleShareView */
+        RuleShareView: {
+            /** Removes Share */
+            removes_share: number;
+            /** Rule */
+            rule: string;
+        };
+        /** RunBudget */
+        RunBudget: {
+            /** Per Month */
+            per_month: number;
+            /** Picks */
+            picks: components["schemas"]["PickRow"][];
+            /** Picks This Month */
+            picks_this_month: number;
+        };
+        /** RunCounts */
+        RunCounts: {
+            /** Handed */
+            handed: number;
+            /** Held Back */
+            held_back: number;
+            /** Ruled Out By Rules */
+            ruled_out_by_rules: number;
+            /** Waiting */
+            waiting: number;
         };
         /**
          * RunListResponse
@@ -14326,6 +15400,66 @@ export interface components {
             started_at: string;
             /** Status */
             status: string;
+        };
+        /** RunStart */
+        RunStart: {
+            /** Batch */
+            batch: components["schemas"]["Posting"][];
+            /** Brief */
+            brief: {
+                [key: string]: unknown;
+            };
+            budget: components["schemas"]["RunBudget"];
+            /** Continue With */
+            continue_with: components["schemas"]["NextAction"][];
+            /** Count */
+            count: number;
+            counts: components["schemas"]["RunCounts"];
+            /** Next Cursor */
+            next_cursor: number | null;
+            /** Reactions */
+            reactions?: components["schemas"]["PickRow"][] | null;
+            /** Run */
+            run: string;
+            /** Trial */
+            trial: boolean;
+        };
+        /** RunSummary */
+        RunSummary: {
+            /**
+             * Finished At
+             * Format: date-time
+             */
+            finished_at: string;
+            /** Judged */
+            judged: number;
+            /** Near Misses */
+            near_misses: number;
+            /** Note */
+            note?: string | null;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "finished" | "stopped" | "abandoned";
+            /** Picks */
+            picks: number;
+            /** Run */
+            run: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Trial */
+            trial: boolean;
+        };
+        /** Samples */
+        Samples: {
+            /** Count */
+            count: number;
+            /** Samples */
+            samples: components["schemas"]["Posting"][];
         };
         /** SavedDraft */
         SavedDraft: {
@@ -15303,6 +16437,27 @@ export interface components {
             role_answers: components["schemas"]["RoleAnswerModel"][];
         };
         /**
+         * SetupProgress
+         * @description Where the setup conversation stands, read from what it has saved.
+         */
+        SetupProgress: {
+            /** Deferred */
+            deferred: string[];
+            /** Next Step */
+            next_step: string;
+            /** Saved Parts */
+            saved_parts: string[];
+            /** Steps */
+            steps: components["schemas"]["SetupStep"][];
+        };
+        /** SetupStep */
+        SetupStep: {
+            /** Done */
+            done: boolean;
+            /** Id */
+            id: string;
+        };
+        /**
          * SimilarJob
          * @description A neighbour as a list row, with its similarity to the posting asked about.
          */
@@ -15545,6 +16700,22 @@ export interface components {
             /** Period */
             period: string | null;
         };
+        /**
+         * StatedPay
+         * @description The employer's own figures, as the posting states them.
+         */
+        StatedPay: {
+            /** Base Max */
+            base_max: number | null;
+            /** Base Min */
+            base_min: number | null;
+            /** Basis */
+            basis: string | null;
+            /** Currency */
+            currency: string | null;
+            /** Period */
+            period: string | null;
+        };
         /** StatedPayChange */
         StatedPayChange: {
             after: components["schemas"]["StatedBand"];
@@ -15618,6 +16789,22 @@ export interface components {
             due?: string | null;
             /** Text */
             text: string;
+        };
+        /** StoredDocument */
+        StoredDocument: {
+            /**
+             * Added At
+             * Format: date-time
+             */
+            added_at: string;
+            /** Filename */
+            filename: string;
+            /** Id */
+            id: number;
+            /** Media Type */
+            media_type: string;
+            /** Size Bytes */
+            size_bytes: number;
         };
         /** StoredOffer */
         StoredOffer: {
@@ -16555,6 +17742,23 @@ export interface components {
             /** Since */
             since: string | null;
         };
+        /** VerdictItem */
+        VerdictItem: {
+            /** Job */
+            job: number;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "saved" | "refused";
+            /** Refusal */
+            refusal?: string | null;
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "pick" | "near_miss" | "pass";
+        };
         /**
          * ViewChoice
          * @description One choice as stored: duplicates dropped, in the order given.
@@ -16612,6 +17816,21 @@ export interface components {
             kind: "company" | "family" | "level_band" | "track" | "workplace_type" | "domain" | "location";
             /** Total */
             total: number;
+        };
+        /**
+         * VolumeView
+         * @description How many roles a day the hard rules leave for the judge, from recent
+         *     arrivals, the draft's rules included during setup.
+         */
+        VolumeView: {
+            /** Busiest Day */
+            busiest_day: number;
+            /** By Rule */
+            by_rule: components["schemas"]["RuleShareView"][];
+            /** Daily Cap */
+            daily_cap: number;
+            /** Expected Per Day */
+            expected_per_day: number;
         };
         /**
          * WiderMarketPass
@@ -16758,6 +17977,338 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Envelope_ApplicationCalendar_"];
+                };
+            };
+        };
+    };
+    background_get_api_agent_v1_background_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_BackgroundView_"];
+                };
+            };
+        };
+    };
+    background_set_api_agent_v1_background_put: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-RoleBand-Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Confirmed
+                     * @description True only after the person agreed to this reading in the chat.
+                     * @default false
+                     */
+                    confirmed?: boolean;
+                    /**
+                     * Document Id
+                     * @description The stored file the reading came from.
+                     */
+                    document_id?: number | null;
+                    /**
+                     * Reading
+                     * @description What you read of the person's background.
+                     */
+                    reading: {
+                        current?: {
+                            /** Employer */
+                            employer?: string | null;
+                            /**
+                             * Level
+                             * @description As the person states it.
+                             */
+                            level?: string | null;
+                            /** Since */
+                            since?: string | null;
+                            /** Title */
+                            title?: string | null;
+                        } | null;
+                        /** Education */
+                        education?: string[];
+                        /**
+                         * Gaps
+                         * @description What could not be established.
+                         */
+                        gaps?: string[];
+                        /** History */
+                        history?: {
+                            /** Employer */
+                            employer?: string | null;
+                            /** Line */
+                            line?: string | null;
+                            /** Title */
+                            title: string;
+                            /** Years */
+                            years?: string | null;
+                        }[];
+                        /** Languages */
+                        languages?: string[];
+                        /** Places */
+                        places?: string[];
+                        /**
+                         * Scope
+                         * @description People, budgets and scale, where stated.
+                         */
+                        scope?: string | null;
+                        /** Strengths */
+                        strengths?: string[];
+                        /**
+                         * Years
+                         * @description Total years of experience.
+                         */
+                        years?: number | null;
+                    };
+                    /**
+                     * Source
+                     * @description document (read from a file), spoken (the person described it), minimal (three facts only).
+                     * @enum {string}
+                     */
+                    source: "document" | "spoken" | "minimal";
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_BackgroundView_"];
+                };
+            };
+        };
+    };
+    background_add_document_api_agent_v1_background_documents_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-RoleBand-Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Content Base64
+                     * @description The file's bytes, in base64.
+                     */
+                    content_base64: string;
+                    /**
+                     * Filename
+                     * @description The file's name, with its extension.
+                     */
+                    filename: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_DocumentAdded_"];
+                };
+            };
+        };
+    };
+    brief_get_api_agent_v1_brief_get: {
+        parameters: {
+            query?: {
+                /** @description current (the draft when there is one, else the active brief), active, or draft. */
+                which?: "current" | "active" | "draft";
+                /** @description One version by its number, instead of `which`. */
+                number?: number | null;
+                /** @description summary leaves the parts out: the plain text and the item ids only. schema adds the JSON Schema every part of a patch is checked against. */
+                view?: "full" | "summary" | "schema";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_BriefView_"];
+                };
+            };
+        };
+    };
+    brief_patch_api_agent_v1_brief_patch: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-RoleBand-Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Activate
+                     * @description Make the draft the active brief, once the person confirmed it.
+                     * @default false
+                     */
+                    activate?: boolean;
+                    /**
+                     * Baseline
+                     * @description What they hold now: title, level, employer, pay, currency, place, work_mode, keep, missing.
+                     */
+                    baseline?: {
+                        [key: string]: unknown;
+                    } | null;
+                    /**
+                     * Budget
+                     * @description Picks a month.
+                     */
+                    budget?: number | null;
+                    /** Calibrated */
+                    calibrated?: boolean | null;
+                    /**
+                     * Direction
+                     * @description change (true for a new direction) and note.
+                     */
+                    direction?: {
+                        [key: string]: unknown;
+                    } | null;
+                    /**
+                     * Examples
+                     * @description Postings they reacted to: job, reaction (wanted, unwanted, close), reason.
+                     */
+                    examples?: {
+                        [key: string]: unknown;
+                    }[] | null;
+                    /**
+                     * Gaps
+                     * @description What is not known.
+                     */
+                    gaps?: string[] | null;
+                    /**
+                     * If Revision
+                     * @description The revision of the brief you read (brief.get); 0 when there is none yet.
+                     */
+                    if_revision: number;
+                    /**
+                     * Proposed Rules
+                     * @description Hard rules the routine proposes for the person to decide: text, check, reason.
+                     */
+                    proposed_rules?: {
+                        [key: string]: unknown;
+                    }[] | null;
+                    /**
+                     * Pulls
+                     * @description What attracts: text, weight 1 to 3, source.
+                     */
+                    pulls?: {
+                        [key: string]: unknown;
+                    }[] | null;
+                    /**
+                     * Reason
+                     * @description One line: why this change.
+                     */
+                    reason: string;
+                    /**
+                     * Rules
+                     * @description Hard rules: text, and check (a checkable form) or null when only reading can judge.
+                     */
+                    rules?: {
+                        [key: string]: unknown;
+                    }[] | null;
+                    /**
+                     * Run
+                     * @description The open run this change belongs to. Only the routine gives it, and it may then change pulls, tradeoffs, examples and proposed_rules only.
+                     */
+                    run?: string | null;
+                    /**
+                     * Summary
+                     * @description The whole brief in plain words, at most fifteen lines.
+                     */
+                    summary?: string | null;
+                    /**
+                     * Target
+                     * @description draft (start or change the draft) or active (a new active version). Left out: the draft when there is one, else the active brief.
+                     */
+                    target?: ("draft" | "active") | null;
+                    /**
+                     * Targets
+                     * @description companies, kinds and avoid, each a list.
+                     */
+                    targets?: {
+                        [key: string]: unknown;
+                    } | null;
+                    /**
+                     * Tradeoffs
+                     * @description What wins when two pulls conflict: text.
+                     */
+                    tradeoffs?: {
+                        [key: string]: unknown;
+                    }[] | null;
+                    /**
+                     * Urgency
+                     * @description not_looking, open, active or between_roles.
+                     */
+                    urgency?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_BriefView_"];
+                };
+            };
+        };
+    };
+    brief_history_api_agent_v1_brief_history_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_BriefHistory_"];
                 };
             };
         };
@@ -17694,6 +19245,323 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Envelope_SimilarRoles_"];
+                };
+            };
+        };
+    };
+    picks_list_api_agent_v1_picks_get: {
+        parameters: {
+            query?: {
+                /** @description picks, near_misses, passed, or removed (picks the person marked Not for me, with why). */
+                view?: "picks" | "near_misses" | "passed" | "removed";
+                /** @description How far back near misses and passes go. */
+                days?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PickList_"];
+                };
+            };
+        };
+    };
+    picks_switch_api_agent_v1_picks_mode_put: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-RoleBand-Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Daily Cap
+                     * @description The most roles read in a day, when the person asks to change it; the rest wait for the next day.
+                     */
+                    daily_cap?: number | null;
+                    /**
+                     * Routine Host
+                     * @description The assistant that runs the routine.
+                     */
+                    routine_host?: ("claude-code" | "codex") | null;
+                    /**
+                     * Schedule
+                     * @description When it runs, in words, such as 'daily 09:30 and 17:30'.
+                     */
+                    schedule?: string | null;
+                    /**
+                     * State
+                     * @description on or off; left out, the mode stays as it is.
+                     */
+                    state?: ("on" | "off") | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_ModeState_"];
+                };
+            };
+        };
+    };
+    picks_begin_api_agent_v1_picks_runs_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-RoleBand-Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Limit
+                     * @description Most postings in the first batch.
+                     * @default 50
+                     */
+                    limit?: number;
+                    /**
+                     * Model
+                     * @description Your own model's name.
+                     */
+                    model?: string | null;
+                    /**
+                     * Trial
+                     * @description The trial at the end of setup: every open role, its verdicts kept apart.
+                     * @default false
+                     */
+                    trial?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_RunStart_"];
+                };
+            };
+        };
+    };
+    picks_finish_api_agent_v1_picks_runs_finish_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-RoleBand-Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Note
+                     * @description Why it stopped; a stopped run needs one.
+                     */
+                    note?: string | null;
+                    /**
+                     * Outcome
+                     * @description finished, or stopped when you ended early.
+                     * @enum {string}
+                     */
+                    outcome: "finished" | "stopped";
+                    /** Run */
+                    run: string;
+                    /**
+                     * Tokens
+                     * @description Tokens the run used, as you count them.
+                     */
+                    tokens?: number | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_RunSummary_"];
+                };
+            };
+        };
+    };
+    picks_next_api_agent_v1_picks_runs_next_get: {
+        parameters: {
+            query: {
+                /** @description The run, as picks.begin named it. */
+                run: string;
+                /** @description The next_cursor of the batch before. */
+                cursor: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_Batch_"];
+                };
+            };
+        };
+    };
+    picks_samples_api_agent_v1_picks_samples_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_Samples_"];
+                };
+            };
+        };
+    };
+    picks_status_api_agent_v1_picks_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PicksStatus_"];
+                };
+            };
+        };
+    };
+    picks_decide_api_agent_v1_picks_verdicts_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-RoleBand-Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Brief Version
+                     * @description The version of the brief you judged against.
+                     */
+                    brief_version: number;
+                    /**
+                     * Run
+                     * @description The open run, as picks.begin named it.
+                     */
+                    run: string;
+                    /**
+                     * Verdicts
+                     * @description 1 to 50 verdicts, each on its own posting.
+                     */
+                    verdicts: {
+                        /**
+                         * Against Baseline
+                         * @description How the role stands against what the person holds. A pick is never weaker.
+                         */
+                        against_baseline?: ("better" | "comparable" | "weaker" | "unknown") | null;
+                        /** Job */
+                        job: number;
+                        /**
+                         * Note
+                         * @description One line, at most 200 characters.
+                         */
+                        note?: string | null;
+                        /**
+                         * Pass Code
+                         * @description Why a pass; a pass needs one.
+                         */
+                        pass_code?: ("hard_rule" | "out_of_reach" | "below_level" | "not_better" | "not_real" | "off_direction" | "other") | null;
+                        /**
+                         * Reasons
+                         * @description A pick: 2 to 4, one fact each. A near miss: 1, the thing that failed. A pass: none.
+                         */
+                        reasons?: {
+                            /**
+                             * Brief Item
+                             * @description The item of the brief this rests on: a rule, pull or trade-off id, or baseline, targets, direction or urgency.
+                             */
+                            brief_item: string;
+                            /**
+                             * Opening
+                             * @description The fact the sentence opens with, such as 'Staff level'. Leave out to mark none.
+                             */
+                            opening?: string | null;
+                            /**
+                             * Rest
+                             * @description The rest of the sentence, starting where the opening ends, with its own leading space or punctuation: ', one step above your role today.' Opening and rest together: at most 140 characters, plain text.
+                             */
+                            rest: string;
+                        }[];
+                        /**
+                         * Verdict
+                         * @description pick, near_miss (fails on exactly one thing) or pass.
+                         * @enum {string}
+                         */
+                        verdict: "pick" | "near_miss" | "pass";
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_DecideResult_"];
                 };
             };
         };
@@ -21506,6 +23374,119 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PayCoverage"];
+                };
+            };
+        };
+    };
+    set_picks_mode_api_picks_mode_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PicksModeInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PicksStateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    picks_opened_api_picks_opened_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PicksStateResponse"];
+                };
+            };
+        };
+    };
+    removed_picks_api_picks_removed_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemovedPicksResponse"];
+                };
+            };
+        };
+    };
+    remove_picks_setup_api_picks_setup_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PicksRemovedResponse"];
+                };
+            };
+        };
+    };
+    picks_state_api_picks_state_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PicksStateResponse"];
                 };
             };
         };

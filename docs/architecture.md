@@ -1445,7 +1445,7 @@ atomically, so there only `--overwrite` writes), and reports its path, size and 
 nothing: the switches still decide each call.
 
 Discovery answers fit the standard tier's capability index budget, 1,500
-tokens, and the default index 1,000 (`tests/test_agent_operations.py`,
+tokens, and the default index 1,300 (`tests/test_agent_operations.py`,
 `tests/test_cli.py`), because every session reads them and a small model
 carries them on every turn. By default `capabilities` lists each resource's
 one-line summary (`RESOURCES` in `catalog.py`) with the ids of its

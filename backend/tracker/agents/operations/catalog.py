@@ -13,6 +13,8 @@ from typing import Any
 
 from tracker.agents.operations import (
     applications,
+    background,
+    brief,
     changes,
     companies,
     duplicates,
@@ -21,6 +23,7 @@ from tracker.agents.operations import (
     meta,
     offer,
     opportunities,
+    picks,
     pursuits,
     radar,
     receipts,
@@ -53,6 +56,9 @@ REGISTERED: tuple[OperationDescriptor, ...] = (
     *export.OPERATIONS,
     *insights.OPERATIONS,
     *duplicates.OPERATIONS,
+    *background.OPERATIONS,
+    *brief.OPERATIONS,
+    *picks.OPERATIONS,
 )
 
 
@@ -84,6 +90,8 @@ CATALOG = Catalog(REGISTERED)
 #: own summary to `describe`. Every resource of the catalog has one.
 RESOURCES: dict[str, str] = {
     "applications": "Applications: the board of stages and the interview calendar.",
+    "background": "Who the person is: their background, as read and confirmed.",
+    "brief": "What the person wants from a move, in versions.",
     "capabilities": "The operations this engine offers.",
     "changes": "What changed after a position: postings, stated pay, steps due, source health.",
     "companies": "Followed companies: profiles, sourced facts, share prices.",
@@ -94,6 +102,7 @@ RESOURCES: dict[str, str] = {
     "insights": "Market figures: open roles, pay by level and country, trends, skills.",
     "offer": "The person's own offer.",
     "opportunities": "Open roles: search, one posting, its history, similar and duplicates.",
+    "picks": "Top picks: roles to judge, verdicts, the mode.",
     "pursuits": "Saved and pursued roles: stage, priority, notes, next steps.",
     "radar": "Counts of open and saved roles, pursuits by stage, overdue steps.",
     "receipts": "What a write sent under an idempotency key did.",

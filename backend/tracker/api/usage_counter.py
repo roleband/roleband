@@ -128,6 +128,9 @@ NOT_COUNTED: Mapping[tuple[str, str], str] = {
     ("PUT", "/api/plugins/{plugin_id}/robots"): (
         "a consent the user gives a plugin past its sites' robots rules: recorded on its install, "
         "not counted"),
+    ("PUT", "/api/picks/mode"): "pausing the person's own top picks or changing its daily limit: a new action would re-ask every sharer",
+    ("POST", "/api/picks/opened"): "a visit mark that puts out the rail's dot: opening a screen is not an action",
+    ("DELETE", "/api/picks/setup"): "the person taking back their CV and brief must not leave a trace",
     ("POST", "/api/usage/install-id/reset"): "usage sharing's own control: a reset must not leave a trace",
     ("POST", "/api/agent/v1/recipes/validate"): (
         "an agent read that sends its recipe as a body: it changes nothing, and no agent read is counted"),
@@ -144,6 +147,13 @@ NOT_COUNTED: Mapping[tuple[str, str], str] = {
             ("PATCH", "/api/agent/v1/pursuits/{opportunity_id}/steps/{step_id}"),
             ("POST", "/api/agent/v1/pursuits/{opportunity_id}/steps/{step_id}/done"),
             ("POST", "/api/agent/v1/pursuits/{opportunity_id}/steps/{step_id}/undo"),
+            ("PUT", "/api/agent/v1/background"),
+            ("POST", "/api/agent/v1/background/documents"),
+            ("PATCH", "/api/agent/v1/brief"),
+            ("POST", "/api/agent/v1/picks/runs"),
+            ("POST", "/api/agent/v1/picks/verdicts"),
+            ("POST", "/api/agent/v1/picks/runs/finish"),
+            ("PUT", "/api/agent/v1/picks/mode"),
         )
     },
     **{

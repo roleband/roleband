@@ -652,6 +652,8 @@ class DismissResponse(Built):
     job_id: int
     is_dismissed: bool
     reason: str | None = Field(json_schema_extra=text("code"))
+    #: The person's own words, when they gave any.
+    reason_text: str | None = Field(default=None, json_schema_extra=text("record"))
     company: str
     department: str | None
     team: str | None

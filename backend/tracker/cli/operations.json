@@ -711,6 +711,1549 @@
    ]
   },
   {
+   "access": "write",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [
+    "file_read"
+   ],
+   "contract_version": "1.0",
+   "data_classes": [
+    "candidate"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": true
+   },
+   "examples": [],
+   "idempotency": "required_key",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "content_base64": {
+      "description": "The file's bytes, in base64.",
+      "maxLength": 13981021,
+      "minLength": 1,
+      "title": "Content Base64",
+      "type": "string"
+     },
+     "filename": {
+      "description": "The file's name, with its extension.",
+      "maxLength": 255,
+      "minLength": 1,
+      "title": "Filename",
+      "type": "string"
+     }
+    },
+    "required": [
+     "filename",
+     "content_base64"
+    ],
+    "title": "AddDocumentInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "background.add_document",
+   "output_schema": {
+    "$defs": {
+     "StoredDocument": {
+      "additionalProperties": false,
+      "properties": {
+       "added_at": {
+        "format": "date-time",
+        "title": "Added At",
+        "type": "string"
+       },
+       "filename": {
+        "title": "Filename",
+        "type": "string",
+        "x-text": "content"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "media_type": {
+        "title": "Media Type",
+        "type": "string",
+        "x-text": "code"
+       },
+       "size_bytes": {
+        "minimum": 0,
+        "title": "Size Bytes",
+        "type": "integer"
+       }
+      },
+      "required": [
+       "id",
+       "filename",
+       "media_type",
+       "size_bytes",
+       "added_at"
+      ],
+      "title": "StoredDocument",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "document": {
+      "$ref": "#/$defs/StoredDocument"
+     },
+     "stored": {
+      "title": "Stored",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "document",
+     "stored"
+    ],
+    "title": "DocumentAdded",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled",
+    "agent_access.allow_writes"
+   ],
+   "summary": "Store the file the person gave about themselves (a CV), as it is. The command reads it with --file; the engine never parses it.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "candidate"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "description": "The input of an operation that takes none.",
+    "properties": {},
+    "title": "NoInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "background.get",
+   "output_schema": {
+    "$defs": {
+     "StoredDocument": {
+      "additionalProperties": false,
+      "properties": {
+       "added_at": {
+        "format": "date-time",
+        "title": "Added At",
+        "type": "string"
+       },
+       "filename": {
+        "title": "Filename",
+        "type": "string",
+        "x-text": "content"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "media_type": {
+        "title": "Media Type",
+        "type": "string",
+        "x-text": "code"
+       },
+       "size_bytes": {
+        "minimum": 0,
+        "title": "Size Bytes",
+        "type": "integer"
+       }
+      },
+      "required": [
+       "id",
+       "filename",
+       "media_type",
+       "size_bytes",
+       "added_at"
+      ],
+      "title": "StoredDocument",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "confirmed": {
+      "default": false,
+      "title": "Confirmed",
+      "type": "boolean"
+     },
+     "document": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/StoredDocument"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "reading": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Reading"
+     },
+     "saved": {
+      "title": "Saved",
+      "type": "boolean"
+     },
+     "saved_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Saved At"
+     },
+     "source": {
+      "anyOf": [
+       {
+        "enum": [
+         "document",
+         "spoken",
+         "minimal"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Source",
+      "x-text": "code"
+     },
+     "version": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Version"
+     }
+    },
+    "required": [
+     "saved"
+    ],
+    "title": "BackgroundView",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "Read the newest reading of the person's background, and whether they confirmed it.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "write",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "candidate"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": true
+   },
+   "examples": [
+    {
+     "confirmed": true,
+     "reading": {
+      "current": {
+       "employer": "Acme",
+       "title": "Senior Product Manager"
+      },
+      "strengths": [
+       "Platform products",
+       "Pricing"
+      ],
+      "years": 9
+     },
+     "source": "spoken"
+    }
+   ],
+   "idempotency": "required_key",
+   "input_schema": {
+    "$defs": {
+     "CurrentRole": {
+      "additionalProperties": false,
+      "properties": {
+       "employer": {
+        "anyOf": [
+         {
+          "maxLength": 200,
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Employer"
+       },
+       "level": {
+        "anyOf": [
+         {
+          "maxLength": 80,
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "description": "As the person states it.",
+        "title": "Level"
+       },
+       "since": {
+        "anyOf": [
+         {
+          "maxLength": 40,
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Since"
+       },
+       "title": {
+        "anyOf": [
+         {
+          "maxLength": 200,
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Title"
+       }
+      },
+      "title": "CurrentRole",
+      "type": "object"
+     },
+     "EarlierRole": {
+      "additionalProperties": false,
+      "properties": {
+       "employer": {
+        "anyOf": [
+         {
+          "maxLength": 200,
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Employer"
+       },
+       "line": {
+        "anyOf": [
+         {
+          "maxLength": 300,
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Line"
+       },
+       "title": {
+        "maxLength": 300,
+        "minLength": 1,
+        "title": "Title",
+        "type": "string"
+       },
+       "years": {
+        "anyOf": [
+         {
+          "maxLength": 40,
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Years"
+       }
+      },
+      "required": [
+       "title"
+      ],
+      "title": "EarlierRole",
+      "type": "object"
+     },
+     "Reading": {
+      "additionalProperties": false,
+      "description": "What an assistant read of the person's background.",
+      "properties": {
+       "current": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/CurrentRole"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null
+       },
+       "education": {
+        "items": {
+         "maxLength": 300,
+         "minLength": 1,
+         "type": "string"
+        },
+        "maxItems": 8,
+        "title": "Education",
+        "type": "array"
+       },
+       "gaps": {
+        "description": "What could not be established.",
+        "items": {
+         "maxLength": 300,
+         "minLength": 1,
+         "type": "string"
+        },
+        "maxItems": 12,
+        "title": "Gaps",
+        "type": "array"
+       },
+       "history": {
+        "items": {
+         "$ref": "#/$defs/EarlierRole"
+        },
+        "maxItems": 6,
+        "title": "History",
+        "type": "array"
+       },
+       "languages": {
+        "items": {
+         "maxLength": 300,
+         "minLength": 1,
+         "type": "string"
+        },
+        "maxItems": 8,
+        "title": "Languages",
+        "type": "array"
+       },
+       "places": {
+        "items": {
+         "maxLength": 300,
+         "minLength": 1,
+         "type": "string"
+        },
+        "maxItems": 12,
+        "title": "Places",
+        "type": "array"
+       },
+       "scope": {
+        "anyOf": [
+         {
+          "maxLength": 600,
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "description": "People, budgets and scale, where stated.",
+        "title": "Scope"
+       },
+       "strengths": {
+        "items": {
+         "maxLength": 300,
+         "minLength": 1,
+         "type": "string"
+        },
+        "maxItems": 8,
+        "title": "Strengths",
+        "type": "array"
+       },
+       "years": {
+        "anyOf": [
+         {
+          "maximum": 70,
+          "minimum": 0,
+          "type": "number"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "description": "Total years of experience.",
+        "title": "Years"
+       }
+      },
+      "title": "Reading",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "confirmed": {
+      "default": false,
+      "description": "True only after the person agreed to this reading in the chat.",
+      "title": "Confirmed",
+      "type": "boolean"
+     },
+     "document_id": {
+      "anyOf": [
+       {
+        "minimum": 1,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "The stored file the reading came from.",
+      "title": "Document Id"
+     },
+     "reading": {
+      "$ref": "#/$defs/Reading",
+      "description": "What you read of the person's background."
+     },
+     "source": {
+      "description": "document (read from a file), spoken (the person described it), minimal (three facts only).",
+      "enum": [
+       "document",
+       "spoken",
+       "minimal"
+      ],
+      "title": "Source",
+      "type": "string"
+     }
+    },
+    "required": [
+     "reading",
+     "source"
+    ],
+    "title": "BackgroundSetInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "background.set",
+   "output_schema": {
+    "$defs": {
+     "StoredDocument": {
+      "additionalProperties": false,
+      "properties": {
+       "added_at": {
+        "format": "date-time",
+        "title": "Added At",
+        "type": "string"
+       },
+       "filename": {
+        "title": "Filename",
+        "type": "string",
+        "x-text": "content"
+       },
+       "id": {
+        "title": "Id",
+        "type": "integer"
+       },
+       "media_type": {
+        "title": "Media Type",
+        "type": "string",
+        "x-text": "code"
+       },
+       "size_bytes": {
+        "minimum": 0,
+        "title": "Size Bytes",
+        "type": "integer"
+       }
+      },
+      "required": [
+       "id",
+       "filename",
+       "media_type",
+       "size_bytes",
+       "added_at"
+      ],
+      "title": "StoredDocument",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "confirmed": {
+      "default": false,
+      "title": "Confirmed",
+      "type": "boolean"
+     },
+     "document": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/StoredDocument"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "reading": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Reading"
+     },
+     "saved": {
+      "title": "Saved",
+      "type": "boolean"
+     },
+     "saved_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Saved At"
+     },
+     "source": {
+      "anyOf": [
+       {
+        "enum": [
+         "document",
+         "spoken",
+         "minimal"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Source",
+      "x-text": "code"
+     },
+     "version": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Version"
+     }
+    },
+    "required": [
+     "saved"
+    ],
+    "title": "BackgroundView",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled",
+    "agent_access.allow_writes"
+   ],
+   "summary": "Save a reading of the person's background as a new version. Set confirmed only after the person agreed to it.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "candidate"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [
+    {},
+    {
+     "view": "summary"
+    },
+    {
+     "which": "active"
+    }
+   ],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "number": {
+      "anyOf": [
+       {
+        "minimum": 1,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "One version by its number, instead of `which`.",
+      "title": "Number"
+     },
+     "view": {
+      "default": "full",
+      "description": "summary leaves the parts out: the plain text and the item ids only. schema adds the JSON Schema every part of a patch is checked against.",
+      "enum": [
+       "full",
+       "summary",
+       "schema"
+      ],
+      "title": "View",
+      "type": "string"
+     },
+     "which": {
+      "default": "current",
+      "description": "current (the draft when there is one, else the active brief), active, or draft.",
+      "enum": [
+       "current",
+       "active",
+       "draft"
+      ],
+      "title": "Which",
+      "type": "string"
+     }
+    },
+    "title": "BriefGetInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "brief.get",
+   "output_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "body": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Body"
+     },
+     "exists": {
+      "title": "Exists",
+      "type": "boolean"
+     },
+     "ids": {
+      "additionalProperties": {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      "title": "Ids",
+      "type": "object"
+     },
+     "made_by": {
+      "anyOf": [
+       {
+        "enum": [
+         "person",
+         "routine"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Made By",
+      "x-text": "code"
+     },
+     "parts_schema": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Parts Schema"
+     },
+     "reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Reason",
+      "x-text": "content"
+     },
+     "revision": {
+      "default": 0,
+      "title": "Revision",
+      "type": "integer"
+     },
+     "saved_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Saved At"
+     },
+     "saved_parts": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Saved Parts",
+      "type": "array",
+      "x-text": "code"
+     },
+     "status": {
+      "anyOf": [
+       {
+        "enum": [
+         "draft",
+         "active",
+         "superseded"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Status",
+      "x-text": "code"
+     },
+     "summary": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Summary",
+      "x-text": "content"
+     },
+     "version": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Version"
+     }
+    },
+    "required": [
+     "exists"
+    ],
+    "title": "BriefView",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "Read the person's brief: what they want from a move, with the revision a patch must name.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "candidate"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "description": "The input of an operation that takes none.",
+    "properties": {},
+    "title": "NoInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "brief.history",
+   "output_schema": {
+    "$defs": {
+     "BriefVersion": {
+      "additionalProperties": false,
+      "properties": {
+       "host": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Host",
+        "x-text": "code"
+       },
+       "made_by": {
+        "enum": [
+         "person",
+         "routine"
+        ],
+        "title": "Made By",
+        "type": "string",
+        "x-text": "code"
+       },
+       "reason": {
+        "title": "Reason",
+        "type": "string",
+        "x-text": "content"
+       },
+       "saved_at": {
+        "format": "date-time",
+        "title": "Saved At",
+        "type": "string"
+       },
+       "status": {
+        "enum": [
+         "draft",
+         "active",
+         "superseded"
+        ],
+        "title": "Status",
+        "type": "string",
+        "x-text": "code"
+       },
+       "version": {
+        "title": "Version",
+        "type": "integer"
+       }
+      },
+      "required": [
+       "version",
+       "status",
+       "reason",
+       "made_by",
+       "saved_at"
+      ],
+      "title": "BriefVersion",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "count": {
+      "minimum": 0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "versions": {
+      "items": {
+       "$ref": "#/$defs/BriefVersion"
+      },
+      "title": "Versions",
+      "type": "array"
+     }
+    },
+    "required": [
+     "count",
+     "versions"
+    ],
+    "title": "BriefHistory",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "List the brief's versions, newest first, with who made each and why.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "write",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "candidate"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": true
+   },
+   "examples": [
+    {
+     "baseline": {
+      "level": "senior",
+      "pay": 210000,
+      "title": "Senior Product Manager"
+     },
+     "if_revision": 0,
+     "reason": "Where they stand today.",
+     "urgency": "not_looking"
+    },
+    {
+     "activate": true,
+     "if_revision": 4,
+     "reason": "The person confirmed the brief."
+    }
+   ],
+   "idempotency": "required_key",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "activate": {
+      "default": false,
+      "description": "Make the draft the active brief, once the person confirmed it.",
+      "title": "Activate",
+      "type": "boolean"
+     },
+     "baseline": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "What they hold now: title, level, employer, pay, currency, place, work_mode, keep, missing.",
+      "title": "Baseline"
+     },
+     "budget": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Picks a month.",
+      "title": "Budget"
+     },
+     "calibrated": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Calibrated"
+     },
+     "direction": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "change (true for a new direction) and note.",
+      "title": "Direction"
+     },
+     "examples": {
+      "anyOf": [
+       {
+        "items": {
+         "additionalProperties": true,
+         "type": "object"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Postings they reacted to: job, reaction (wanted, unwanted, close), reason.",
+      "title": "Examples"
+     },
+     "gaps": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "What is not known.",
+      "title": "Gaps"
+     },
+     "if_revision": {
+      "description": "The revision of the brief you read (brief.get); 0 when there is none yet.",
+      "minimum": 0,
+      "title": "If Revision",
+      "type": "integer"
+     },
+     "proposed_rules": {
+      "anyOf": [
+       {
+        "items": {
+         "additionalProperties": true,
+         "type": "object"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Hard rules the routine proposes for the person to decide: text, check, reason.",
+      "title": "Proposed Rules"
+     },
+     "pulls": {
+      "anyOf": [
+       {
+        "items": {
+         "additionalProperties": true,
+         "type": "object"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "What attracts: text, weight 1 to 3, source.",
+      "title": "Pulls"
+     },
+     "reason": {
+      "description": "One line: why this change.",
+      "maxLength": 200,
+      "minLength": 3,
+      "title": "Reason",
+      "type": "string"
+     },
+     "rules": {
+      "anyOf": [
+       {
+        "items": {
+         "additionalProperties": true,
+         "type": "object"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Hard rules: text, and check (a checkable form) or null when only reading can judge.",
+      "title": "Rules"
+     },
+     "run": {
+      "anyOf": [
+       {
+        "maxLength": 24,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "The open run this change belongs to. Only the routine gives it, and it may then change pulls, tradeoffs, examples and proposed_rules only.",
+      "title": "Run"
+     },
+     "summary": {
+      "anyOf": [
+       {
+        "maxLength": 2000,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "The whole brief in plain words, at most fifteen lines.",
+      "title": "Summary"
+     },
+     "target": {
+      "anyOf": [
+       {
+        "enum": [
+         "draft",
+         "active"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "draft (start or change the draft) or active (a new active version). Left out: the draft when there is one, else the active brief.",
+      "title": "Target"
+     },
+     "targets": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "companies, kinds and avoid, each a list.",
+      "title": "Targets"
+     },
+     "tradeoffs": {
+      "anyOf": [
+       {
+        "items": {
+         "additionalProperties": true,
+         "type": "object"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "What wins when two pulls conflict: text.",
+      "title": "Tradeoffs"
+     },
+     "urgency": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "not_looking, open, active or between_roles.",
+      "title": "Urgency"
+     }
+    },
+    "required": [
+     "if_revision",
+     "reason"
+    ],
+    "title": "BriefPatchInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "brief.patch",
+   "output_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "body": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Body"
+     },
+     "exists": {
+      "title": "Exists",
+      "type": "boolean"
+     },
+     "ids": {
+      "additionalProperties": {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      "title": "Ids",
+      "type": "object"
+     },
+     "made_by": {
+      "anyOf": [
+       {
+        "enum": [
+         "person",
+         "routine"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Made By",
+      "x-text": "code"
+     },
+     "parts_schema": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Parts Schema"
+     },
+     "reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Reason",
+      "x-text": "content"
+     },
+     "revision": {
+      "default": 0,
+      "title": "Revision",
+      "type": "integer"
+     },
+     "saved_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Saved At"
+     },
+     "saved_parts": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Saved Parts",
+      "type": "array",
+      "x-text": "code"
+     },
+     "status": {
+      "anyOf": [
+       {
+        "enum": [
+         "draft",
+         "active",
+         "superseded"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Status",
+      "x-text": "code"
+     },
+     "summary": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Summary",
+      "x-text": "content"
+     },
+     "version": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Version"
+     }
+    },
+    "required": [
+     "exists"
+    ],
+    "title": "BriefView",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled",
+    "agent_access.allow_writes"
+   ],
+   "summary": "Change parts of the brief: a part given replaces that part, a part left out stays. Changing the active brief makes a new version.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "standard",
+    "full"
+   ]
+  },
+  {
    "access": "read",
    "availability": {
     "reason": "offline",
@@ -1036,6 +2579,7 @@
         "items": {
          "enum": [
           "file_write",
+          "file_read",
           "browser_open",
           "app_open"
          ],
@@ -4151,6 +5695,7 @@
         "items": {
          "enum": [
           "file_write",
+          "file_read",
           "browser_open",
           "app_open"
          ],
@@ -4311,6 +5856,7 @@
         "items": {
          "enum": [
           "file_write",
+          "file_read",
           "browser_open",
           "app_open"
          ],
@@ -15996,6 +17542,3009 @@
    ]
   },
   {
+   "access": "write",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "candidate",
+    "public_posting",
+    "market_statistic",
+    "private_pursuit"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": true
+   },
+   "examples": [
+    {},
+    {
+     "model": "claude-fable-5-2",
+     "trial": true
+    }
+   ],
+   "idempotency": "required_key",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "limit": {
+      "default": 50,
+      "description": "Most postings in the first batch.",
+      "maximum": 50,
+      "minimum": 1,
+      "title": "Limit",
+      "type": "integer"
+     },
+     "model": {
+      "anyOf": [
+       {
+        "maxLength": 128,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Your own model's name.",
+      "title": "Model"
+     },
+     "trial": {
+      "default": false,
+      "description": "The trial at the end of setup: every open role, its verdicts kept apart.",
+      "title": "Trial",
+      "type": "boolean"
+     }
+    },
+    "title": "BeginInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "picks.begin",
+   "output_schema": {
+    "$defs": {
+     "EstimatedPay": {
+      "additionalProperties": false,
+      "description": "An estimate, never the employer's figure.",
+      "properties": {
+       "base_median": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Base Median"
+       },
+       "currency": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Currency",
+        "x-text": "code"
+       },
+       "total_median": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Total Median"
+       }
+      },
+      "required": [
+       "base_median",
+       "total_median",
+       "currency"
+      ],
+      "title": "EstimatedPay",
+      "type": "object"
+     },
+     "NextAction": {
+      "additionalProperties": false,
+      "description": "A typed suggestion of an operation to call next. Never a shell string,\nand never a permission the caller did not already have.",
+      "properties": {
+       "arguments": {
+        "additionalProperties": true,
+        "title": "Arguments",
+        "type": "object"
+       },
+       "operation": {
+        "title": "Operation",
+        "type": "string",
+        "x-text": "identifier"
+       }
+      },
+      "required": [
+       "operation"
+      ],
+      "title": "NextAction",
+      "type": "object"
+     },
+     "PickRow": {
+      "additionalProperties": false,
+      "properties": {
+       "against_baseline": {
+        "anyOf": [
+         {
+          "enum": [
+           "better",
+           "comparable",
+           "weaker",
+           "unknown"
+          ],
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Against Baseline",
+        "x-text": "code"
+       },
+       "brief_version": {
+        "title": "Brief Version",
+        "type": "integer"
+       },
+       "company": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Company",
+        "x-text": "content"
+       },
+       "job": {
+        "title": "Job",
+        "type": "integer"
+       },
+       "judged_at": {
+        "format": "date-time",
+        "title": "Judged At",
+        "type": "string"
+       },
+       "note": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Note",
+        "x-text": "content"
+       },
+       "open": {
+        "title": "Open",
+        "type": "boolean"
+       },
+       "pass_code": {
+        "anyOf": [
+         {
+          "enum": [
+           "hard_rule",
+           "out_of_reach",
+           "below_level",
+           "not_better",
+           "not_real",
+           "off_direction",
+           "other"
+          ],
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Pass Code",
+        "x-text": "code"
+       },
+       "reaction": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/ReactionOut"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null
+       },
+       "reasons": {
+        "items": {
+         "$ref": "#/$defs/ReasonOut"
+        },
+        "title": "Reasons",
+        "type": "array"
+       },
+       "title": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Title",
+        "x-text": "content"
+       },
+       "verdict": {
+        "enum": [
+         "pick",
+         "near_miss",
+         "pass"
+        ],
+        "title": "Verdict",
+        "type": "string",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "job",
+       "open",
+       "verdict",
+       "reasons",
+       "against_baseline",
+       "pass_code",
+       "note",
+       "brief_version",
+       "judged_at"
+      ],
+      "title": "PickRow",
+      "type": "object"
+     },
+     "Posting": {
+      "additionalProperties": false,
+      "description": "One posting, with what decides a verdict.",
+      "properties": {
+       "company": {
+        "title": "Company",
+        "type": "string",
+        "x-text": "content"
+       },
+       "continue_with": {
+        "items": {
+         "$ref": "#/$defs/NextAction"
+        },
+        "title": "Continue With",
+        "type": "array"
+       },
+       "estimated_pay": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/EstimatedPay"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null
+       },
+       "first_seen": {
+        "format": "date",
+        "title": "First Seen",
+        "type": "string"
+       },
+       "fit_rank": {
+        "title": "Fit Rank",
+        "type": "integer"
+       },
+       "job": {
+        "title": "Job",
+        "type": "integer"
+       },
+       "level": {
+        "title": "Level",
+        "type": "string",
+        "x-text": "code"
+       },
+       "places": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Places",
+        "type": "array",
+        "x-text": "content"
+       },
+       "signals": {
+        "$ref": "#/$defs/PostingSignals"
+       },
+       "stated_pay": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/StatedPay"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "text": {
+        "title": "Text",
+        "type": "string",
+        "x-text": "content"
+       },
+       "text_truncated": {
+        "title": "Text Truncated",
+        "type": "boolean"
+       },
+       "title": {
+        "title": "Title",
+        "type": "string",
+        "x-text": "content"
+       },
+       "work_mode": {
+        "title": "Work Mode",
+        "type": "string",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "job",
+       "title",
+       "company",
+       "places",
+       "work_mode",
+       "level",
+       "stated_pay",
+       "first_seen",
+       "signals",
+       "fit_rank",
+       "text",
+       "text_truncated",
+       "continue_with"
+      ],
+      "title": "Posting",
+      "type": "object"
+     },
+     "PostingSignals": {
+      "additionalProperties": false,
+      "properties": {
+       "open_days": {
+        "title": "Open Days",
+        "type": "integer"
+       },
+       "reposted": {
+        "title": "Reposted",
+        "type": "boolean"
+       }
+      },
+      "required": [
+       "reposted",
+       "open_days"
+      ],
+      "title": "PostingSignals",
+      "type": "object"
+     },
+     "ReactionOut": {
+      "additionalProperties": false,
+      "properties": {
+       "at": {
+        "format": "date-time",
+        "title": "At",
+        "type": "string"
+       },
+       "kind": {
+        "enum": [
+         "saved",
+         "pursued",
+         "not_for_me"
+        ],
+        "title": "Kind",
+        "type": "string",
+        "x-text": "code"
+       },
+       "reason": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Reason",
+        "x-text": "code"
+       },
+       "reason_text": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Reason Text",
+        "x-text": "content"
+       }
+      },
+      "required": [
+       "kind",
+       "at"
+      ],
+      "title": "ReactionOut",
+      "type": "object"
+     },
+     "ReasonOut": {
+      "additionalProperties": false,
+      "properties": {
+       "brief_item": {
+        "title": "Brief Item",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "opening": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Opening",
+        "x-text": "content"
+       },
+       "rest": {
+        "title": "Rest",
+        "type": "string",
+        "x-text": "content"
+       }
+      },
+      "required": [
+       "opening",
+       "rest",
+       "brief_item"
+      ],
+      "title": "ReasonOut",
+      "type": "object"
+     },
+     "RunBudget": {
+      "additionalProperties": false,
+      "properties": {
+       "per_month": {
+        "title": "Per Month",
+        "type": "integer"
+       },
+       "picks": {
+        "items": {
+         "$ref": "#/$defs/PickRow"
+        },
+        "title": "Picks",
+        "type": "array"
+       },
+       "picks_this_month": {
+        "title": "Picks This Month",
+        "type": "integer"
+       }
+      },
+      "required": [
+       "per_month",
+       "picks_this_month",
+       "picks"
+      ],
+      "title": "RunBudget",
+      "type": "object"
+     },
+     "RunCounts": {
+      "additionalProperties": false,
+      "properties": {
+       "handed": {
+        "title": "Handed",
+        "type": "integer"
+       },
+       "held_back": {
+        "title": "Held Back",
+        "type": "integer"
+       },
+       "ruled_out_by_rules": {
+        "title": "Ruled Out By Rules",
+        "type": "integer"
+       },
+       "waiting": {
+        "title": "Waiting",
+        "type": "integer"
+       }
+      },
+      "required": [
+       "waiting",
+       "ruled_out_by_rules",
+       "handed",
+       "held_back"
+      ],
+      "title": "RunCounts",
+      "type": "object"
+     },
+     "StatedPay": {
+      "additionalProperties": false,
+      "description": "The employer's own figures, as the posting states them.",
+      "properties": {
+       "base_max": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Base Max"
+       },
+       "base_min": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Base Min"
+       },
+       "basis": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Basis",
+        "x-text": "code"
+       },
+       "currency": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Currency",
+        "x-text": "code"
+       },
+       "period": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Period",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "base_min",
+       "base_max",
+       "currency",
+       "basis",
+       "period"
+      ],
+      "title": "StatedPay",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "batch": {
+      "items": {
+       "$ref": "#/$defs/Posting"
+      },
+      "title": "Batch",
+      "type": "array"
+     },
+     "brief": {
+      "additionalProperties": true,
+      "title": "Brief",
+      "type": "object"
+     },
+     "budget": {
+      "$ref": "#/$defs/RunBudget"
+     },
+     "continue_with": {
+      "items": {
+       "$ref": "#/$defs/NextAction"
+      },
+      "title": "Continue With",
+      "type": "array"
+     },
+     "count": {
+      "minimum": 0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "counts": {
+      "$ref": "#/$defs/RunCounts"
+     },
+     "next_cursor": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Cursor"
+     },
+     "reactions": {
+      "anyOf": [
+       {
+        "items": {
+         "$ref": "#/$defs/PickRow"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Reactions"
+     },
+     "run": {
+      "title": "Run",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "trial": {
+      "title": "Trial",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "run",
+     "trial",
+     "brief",
+     "budget",
+     "counts",
+     "count",
+     "batch",
+     "next_cursor",
+     "continue_with"
+    ],
+    "title": "RunStart",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled",
+    "agent_access.allow_writes"
+   ],
+   "summary": "Open a run of the judge: the brief, this month's picks, the person's reactions since the last run, and the postings to judge, best fit first.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "write",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "candidate"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": true
+   },
+   "examples": [
+    {
+     "brief_version": 4,
+     "run": "run_8f3k2a91c0de",
+     "verdicts": [
+      {
+       "against_baseline": "better",
+       "job": 13301,
+       "reasons": [
+        {
+         "brief_item": "p3",
+         "opening": "Staff level",
+         "rest": ", one step above your Senior role today."
+        },
+        {
+         "brief_item": "baseline",
+         "opening": "240,000 to 310,000 base",
+         "rest": ", above the 210,000 you hold."
+        }
+       ],
+       "verdict": "pick"
+      },
+      {
+       "job": 13302,
+       "pass_code": "not_better",
+       "verdict": "pass"
+      }
+     ]
+    }
+   ],
+   "idempotency": "required_key",
+   "input_schema": {
+    "$defs": {
+     "ReasonInput": {
+      "additionalProperties": false,
+      "properties": {
+       "brief_item": {
+        "description": "The item of the brief this rests on: a rule, pull or trade-off id, or baseline, targets, direction or urgency.",
+        "maxLength": 40,
+        "minLength": 1,
+        "title": "Brief Item",
+        "type": "string"
+       },
+       "opening": {
+        "anyOf": [
+         {
+          "maxLength": 1000,
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "description": "The fact the sentence opens with, such as 'Staff level'. Leave out to mark none.",
+        "title": "Opening"
+       },
+       "rest": {
+        "description": "The rest of the sentence, starting where the opening ends, with its own leading space or punctuation: ', one step above your role today.' Opening and rest together: at most 140 characters, plain text.",
+        "maxLength": 2000,
+        "minLength": 1,
+        "title": "Rest",
+        "type": "string"
+       }
+      },
+      "required": [
+       "rest",
+       "brief_item"
+      ],
+      "title": "ReasonInput",
+      "type": "object"
+     },
+     "VerdictInput": {
+      "additionalProperties": false,
+      "properties": {
+       "against_baseline": {
+        "anyOf": [
+         {
+          "enum": [
+           "better",
+           "comparable",
+           "weaker",
+           "unknown"
+          ],
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "description": "How the role stands against what the person holds. A pick is never weaker.",
+        "title": "Against Baseline"
+       },
+       "job": {
+        "minimum": 1,
+        "title": "Job",
+        "type": "integer"
+       },
+       "note": {
+        "anyOf": [
+         {
+          "maxLength": 2000,
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "description": "One line, at most 200 characters.",
+        "title": "Note"
+       },
+       "pass_code": {
+        "anyOf": [
+         {
+          "enum": [
+           "hard_rule",
+           "out_of_reach",
+           "below_level",
+           "not_better",
+           "not_real",
+           "off_direction",
+           "other"
+          ],
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "description": "Why a pass; a pass needs one.",
+        "title": "Pass Code"
+       },
+       "reasons": {
+        "description": "A pick: 2 to 4, one fact each. A near miss: 1, the thing that failed. A pass: none.",
+        "items": {
+         "$ref": "#/$defs/ReasonInput"
+        },
+        "maxItems": 12,
+        "title": "Reasons",
+        "type": "array"
+       },
+       "verdict": {
+        "description": "pick, near_miss (fails on exactly one thing) or pass.",
+        "enum": [
+         "pick",
+         "near_miss",
+         "pass"
+        ],
+        "title": "Verdict",
+        "type": "string"
+       }
+      },
+      "required": [
+       "job",
+       "verdict"
+      ],
+      "title": "VerdictInput",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "brief_version": {
+      "description": "The version of the brief you judged against.",
+      "minimum": 1,
+      "title": "Brief Version",
+      "type": "integer"
+     },
+     "run": {
+      "description": "The open run, as picks.begin named it.",
+      "maxLength": 24,
+      "minLength": 1,
+      "title": "Run",
+      "type": "string"
+     },
+     "verdicts": {
+      "description": "1 to 50 verdicts, each on its own posting.",
+      "items": {
+       "$ref": "#/$defs/VerdictInput"
+      },
+      "maxItems": 50,
+      "minItems": 1,
+      "title": "Verdicts",
+      "type": "array"
+     }
+    },
+    "required": [
+     "run",
+     "brief_version",
+     "verdicts"
+    ],
+    "title": "DecideInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "picks.decide",
+   "output_schema": {
+    "$defs": {
+     "VerdictItem": {
+      "additionalProperties": false,
+      "properties": {
+       "job": {
+        "title": "Job",
+        "type": "integer"
+       },
+       "outcome": {
+        "enum": [
+         "saved",
+         "refused"
+        ],
+        "title": "Outcome",
+        "type": "string",
+        "x-text": "code"
+       },
+       "refusal": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Refusal",
+        "x-text": "code"
+       },
+       "verdict": {
+        "enum": [
+         "pick",
+         "near_miss",
+         "pass"
+        ],
+        "title": "Verdict",
+        "type": "string",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "job",
+       "verdict",
+       "outcome"
+      ],
+      "title": "VerdictItem",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "picks": {
+      "minimum": 0,
+      "title": "Picks",
+      "type": "integer"
+     },
+     "refused": {
+      "minimum": 0,
+      "title": "Refused",
+      "type": "integer"
+     },
+     "results": {
+      "items": {
+       "$ref": "#/$defs/VerdictItem"
+      },
+      "title": "Results",
+      "type": "array"
+     },
+     "run": {
+      "title": "Run",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "saved": {
+      "minimum": 0,
+      "title": "Saved",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "run",
+     "saved",
+     "refused",
+     "picks",
+     "results"
+    ],
+    "title": "DecideResult",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled",
+    "agent_access.allow_writes"
+   ],
+   "summary": "Record verdicts on a run's postings: pick, near_miss or pass, each reason a plain sentence with its opening fact marked. A refused verdict leaves the others alone.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "write",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "candidate"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": true
+   },
+   "examples": [
+    {
+     "outcome": "finished",
+     "run": "run_8f3k2a91c0de"
+    }
+   ],
+   "idempotency": "required_key",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "note": {
+      "anyOf": [
+       {
+        "maxLength": 300,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Why it stopped; a stopped run needs one.",
+      "title": "Note"
+     },
+     "outcome": {
+      "description": "finished, or stopped when you ended early.",
+      "enum": [
+       "finished",
+       "stopped"
+      ],
+      "title": "Outcome",
+      "type": "string"
+     },
+     "run": {
+      "maxLength": 24,
+      "minLength": 1,
+      "title": "Run",
+      "type": "string"
+     },
+     "tokens": {
+      "anyOf": [
+       {
+        "maximum": 1000000000000,
+        "minimum": 0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Tokens the run used, as you count them.",
+      "title": "Tokens"
+     }
+    },
+    "required": [
+     "run",
+     "outcome"
+    ],
+    "title": "FinishInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "picks.finish",
+   "output_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "finished_at": {
+      "format": "date-time",
+      "title": "Finished At",
+      "type": "string"
+     },
+     "judged": {
+      "title": "Judged",
+      "type": "integer"
+     },
+     "near_misses": {
+      "title": "Near Misses",
+      "type": "integer"
+     },
+     "note": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Note",
+      "x-text": "content"
+     },
+     "outcome": {
+      "enum": [
+       "finished",
+       "stopped",
+       "abandoned"
+      ],
+      "title": "Outcome",
+      "type": "string",
+      "x-text": "code"
+     },
+     "picks": {
+      "title": "Picks",
+      "type": "integer"
+     },
+     "run": {
+      "title": "Run",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "started_at": {
+      "format": "date-time",
+      "title": "Started At",
+      "type": "string"
+     },
+     "trial": {
+      "title": "Trial",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "run",
+     "trial",
+     "outcome",
+     "started_at",
+     "finished_at",
+     "judged",
+     "picks",
+     "near_misses"
+    ],
+    "title": "RunSummary",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled",
+    "agent_access.allow_writes"
+   ],
+   "summary": "Close a run: finished, or stopped with a line saying why.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "candidate",
+    "public_posting",
+    "private_pursuit"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [
+    {},
+    {
+     "view": "removed"
+    },
+    {
+     "days": 14,
+     "view": "near_misses"
+    }
+   ],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "days": {
+      "default": 7,
+      "description": "How far back near misses and passes go.",
+      "maximum": 90,
+      "minimum": 1,
+      "title": "Days",
+      "type": "integer"
+     },
+     "limit": {
+      "default": 50,
+      "maximum": 200,
+      "minimum": 1,
+      "title": "Limit",
+      "type": "integer"
+     },
+     "view": {
+      "default": "picks",
+      "description": "picks, near_misses, passed, or removed (picks the person marked Not for me, with why).",
+      "enum": [
+       "picks",
+       "near_misses",
+       "passed",
+       "removed"
+      ],
+      "title": "View",
+      "type": "string"
+     }
+    },
+    "title": "ListInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "picks.list",
+   "output_schema": {
+    "$defs": {
+     "PickRow": {
+      "additionalProperties": false,
+      "properties": {
+       "against_baseline": {
+        "anyOf": [
+         {
+          "enum": [
+           "better",
+           "comparable",
+           "weaker",
+           "unknown"
+          ],
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Against Baseline",
+        "x-text": "code"
+       },
+       "brief_version": {
+        "title": "Brief Version",
+        "type": "integer"
+       },
+       "company": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Company",
+        "x-text": "content"
+       },
+       "job": {
+        "title": "Job",
+        "type": "integer"
+       },
+       "judged_at": {
+        "format": "date-time",
+        "title": "Judged At",
+        "type": "string"
+       },
+       "note": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Note",
+        "x-text": "content"
+       },
+       "open": {
+        "title": "Open",
+        "type": "boolean"
+       },
+       "pass_code": {
+        "anyOf": [
+         {
+          "enum": [
+           "hard_rule",
+           "out_of_reach",
+           "below_level",
+           "not_better",
+           "not_real",
+           "off_direction",
+           "other"
+          ],
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Pass Code",
+        "x-text": "code"
+       },
+       "reaction": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/ReactionOut"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null
+       },
+       "reasons": {
+        "items": {
+         "$ref": "#/$defs/ReasonOut"
+        },
+        "title": "Reasons",
+        "type": "array"
+       },
+       "title": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Title",
+        "x-text": "content"
+       },
+       "verdict": {
+        "enum": [
+         "pick",
+         "near_miss",
+         "pass"
+        ],
+        "title": "Verdict",
+        "type": "string",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "job",
+       "open",
+       "verdict",
+       "reasons",
+       "against_baseline",
+       "pass_code",
+       "note",
+       "brief_version",
+       "judged_at"
+      ],
+      "title": "PickRow",
+      "type": "object"
+     },
+     "ReactionOut": {
+      "additionalProperties": false,
+      "properties": {
+       "at": {
+        "format": "date-time",
+        "title": "At",
+        "type": "string"
+       },
+       "kind": {
+        "enum": [
+         "saved",
+         "pursued",
+         "not_for_me"
+        ],
+        "title": "Kind",
+        "type": "string",
+        "x-text": "code"
+       },
+       "reason": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Reason",
+        "x-text": "code"
+       },
+       "reason_text": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Reason Text",
+        "x-text": "content"
+       }
+      },
+      "required": [
+       "kind",
+       "at"
+      ],
+      "title": "ReactionOut",
+      "type": "object"
+     },
+     "ReasonOut": {
+      "additionalProperties": false,
+      "properties": {
+       "brief_item": {
+        "title": "Brief Item",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "opening": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Opening",
+        "x-text": "content"
+       },
+       "rest": {
+        "title": "Rest",
+        "type": "string",
+        "x-text": "content"
+       }
+      },
+      "required": [
+       "opening",
+       "rest",
+       "brief_item"
+      ],
+      "title": "ReasonOut",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "count": {
+      "minimum": 0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "picks": {
+      "items": {
+       "$ref": "#/$defs/PickRow"
+      },
+      "title": "Picks",
+      "type": "array"
+     },
+     "view": {
+      "enum": [
+       "picks",
+       "near_misses",
+       "passed",
+       "removed"
+      ],
+      "title": "View",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "view",
+     "count",
+     "picks"
+    ],
+    "title": "PickList",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "Read the verdicts that stand: picks, near misses, passes, or the picks the person removed with their reason, each with what the person did about it.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "public_posting",
+    "market_statistic"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "cursor": {
+      "description": "The next_cursor of the batch before.",
+      "minimum": 0,
+      "title": "Cursor",
+      "type": "integer"
+     },
+     "limit": {
+      "default": 50,
+      "maximum": 50,
+      "minimum": 1,
+      "title": "Limit",
+      "type": "integer"
+     },
+     "run": {
+      "description": "The run, as picks.begin named it.",
+      "maxLength": 24,
+      "minLength": 1,
+      "title": "Run",
+      "type": "string"
+     }
+    },
+    "required": [
+     "run",
+     "cursor"
+    ],
+    "title": "NextInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "picks.next",
+   "output_schema": {
+    "$defs": {
+     "EstimatedPay": {
+      "additionalProperties": false,
+      "description": "An estimate, never the employer's figure.",
+      "properties": {
+       "base_median": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Base Median"
+       },
+       "currency": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Currency",
+        "x-text": "code"
+       },
+       "total_median": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Total Median"
+       }
+      },
+      "required": [
+       "base_median",
+       "total_median",
+       "currency"
+      ],
+      "title": "EstimatedPay",
+      "type": "object"
+     },
+     "NextAction": {
+      "additionalProperties": false,
+      "description": "A typed suggestion of an operation to call next. Never a shell string,\nand never a permission the caller did not already have.",
+      "properties": {
+       "arguments": {
+        "additionalProperties": true,
+        "title": "Arguments",
+        "type": "object"
+       },
+       "operation": {
+        "title": "Operation",
+        "type": "string",
+        "x-text": "identifier"
+       }
+      },
+      "required": [
+       "operation"
+      ],
+      "title": "NextAction",
+      "type": "object"
+     },
+     "Posting": {
+      "additionalProperties": false,
+      "description": "One posting, with what decides a verdict.",
+      "properties": {
+       "company": {
+        "title": "Company",
+        "type": "string",
+        "x-text": "content"
+       },
+       "continue_with": {
+        "items": {
+         "$ref": "#/$defs/NextAction"
+        },
+        "title": "Continue With",
+        "type": "array"
+       },
+       "estimated_pay": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/EstimatedPay"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null
+       },
+       "first_seen": {
+        "format": "date",
+        "title": "First Seen",
+        "type": "string"
+       },
+       "fit_rank": {
+        "title": "Fit Rank",
+        "type": "integer"
+       },
+       "job": {
+        "title": "Job",
+        "type": "integer"
+       },
+       "level": {
+        "title": "Level",
+        "type": "string",
+        "x-text": "code"
+       },
+       "places": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Places",
+        "type": "array",
+        "x-text": "content"
+       },
+       "signals": {
+        "$ref": "#/$defs/PostingSignals"
+       },
+       "stated_pay": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/StatedPay"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "text": {
+        "title": "Text",
+        "type": "string",
+        "x-text": "content"
+       },
+       "text_truncated": {
+        "title": "Text Truncated",
+        "type": "boolean"
+       },
+       "title": {
+        "title": "Title",
+        "type": "string",
+        "x-text": "content"
+       },
+       "work_mode": {
+        "title": "Work Mode",
+        "type": "string",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "job",
+       "title",
+       "company",
+       "places",
+       "work_mode",
+       "level",
+       "stated_pay",
+       "first_seen",
+       "signals",
+       "fit_rank",
+       "text",
+       "text_truncated",
+       "continue_with"
+      ],
+      "title": "Posting",
+      "type": "object"
+     },
+     "PostingSignals": {
+      "additionalProperties": false,
+      "properties": {
+       "open_days": {
+        "title": "Open Days",
+        "type": "integer"
+       },
+       "reposted": {
+        "title": "Reposted",
+        "type": "boolean"
+       }
+      },
+      "required": [
+       "reposted",
+       "open_days"
+      ],
+      "title": "PostingSignals",
+      "type": "object"
+     },
+     "StatedPay": {
+      "additionalProperties": false,
+      "description": "The employer's own figures, as the posting states them.",
+      "properties": {
+       "base_max": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Base Max"
+       },
+       "base_min": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Base Min"
+       },
+       "basis": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Basis",
+        "x-text": "code"
+       },
+       "currency": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Currency",
+        "x-text": "code"
+       },
+       "period": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Period",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "base_min",
+       "base_max",
+       "currency",
+       "basis",
+       "period"
+      ],
+      "title": "StatedPay",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "batch": {
+      "items": {
+       "$ref": "#/$defs/Posting"
+      },
+      "title": "Batch",
+      "type": "array"
+     },
+     "continue_with": {
+      "items": {
+       "$ref": "#/$defs/NextAction"
+      },
+      "title": "Continue With",
+      "type": "array"
+     },
+     "count": {
+      "minimum": 0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "next_cursor": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Cursor"
+     },
+     "run": {
+      "title": "Run",
+      "type": "string",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "run",
+     "count",
+     "batch",
+     "next_cursor",
+     "continue_with"
+    ],
+    "title": "Batch",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "Read the next batch of an open run.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "public_posting",
+    "market_statistic"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "limit": {
+      "default": 8,
+      "maximum": 12,
+      "minimum": 1,
+      "title": "Limit",
+      "type": "integer"
+     }
+    },
+    "title": "SamplesInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "picks.samples",
+   "output_schema": {
+    "$defs": {
+     "EstimatedPay": {
+      "additionalProperties": false,
+      "description": "An estimate, never the employer's figure.",
+      "properties": {
+       "base_median": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Base Median"
+       },
+       "currency": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Currency",
+        "x-text": "code"
+       },
+       "total_median": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Total Median"
+       }
+      },
+      "required": [
+       "base_median",
+       "total_median",
+       "currency"
+      ],
+      "title": "EstimatedPay",
+      "type": "object"
+     },
+     "NextAction": {
+      "additionalProperties": false,
+      "description": "A typed suggestion of an operation to call next. Never a shell string,\nand never a permission the caller did not already have.",
+      "properties": {
+       "arguments": {
+        "additionalProperties": true,
+        "title": "Arguments",
+        "type": "object"
+       },
+       "operation": {
+        "title": "Operation",
+        "type": "string",
+        "x-text": "identifier"
+       }
+      },
+      "required": [
+       "operation"
+      ],
+      "title": "NextAction",
+      "type": "object"
+     },
+     "Posting": {
+      "additionalProperties": false,
+      "description": "One posting, with what decides a verdict.",
+      "properties": {
+       "company": {
+        "title": "Company",
+        "type": "string",
+        "x-text": "content"
+       },
+       "continue_with": {
+        "items": {
+         "$ref": "#/$defs/NextAction"
+        },
+        "title": "Continue With",
+        "type": "array"
+       },
+       "estimated_pay": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/EstimatedPay"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null
+       },
+       "first_seen": {
+        "format": "date",
+        "title": "First Seen",
+        "type": "string"
+       },
+       "fit_rank": {
+        "title": "Fit Rank",
+        "type": "integer"
+       },
+       "job": {
+        "title": "Job",
+        "type": "integer"
+       },
+       "level": {
+        "title": "Level",
+        "type": "string",
+        "x-text": "code"
+       },
+       "places": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Places",
+        "type": "array",
+        "x-text": "content"
+       },
+       "signals": {
+        "$ref": "#/$defs/PostingSignals"
+       },
+       "stated_pay": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/StatedPay"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "text": {
+        "title": "Text",
+        "type": "string",
+        "x-text": "content"
+       },
+       "text_truncated": {
+        "title": "Text Truncated",
+        "type": "boolean"
+       },
+       "title": {
+        "title": "Title",
+        "type": "string",
+        "x-text": "content"
+       },
+       "work_mode": {
+        "title": "Work Mode",
+        "type": "string",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "job",
+       "title",
+       "company",
+       "places",
+       "work_mode",
+       "level",
+       "stated_pay",
+       "first_seen",
+       "signals",
+       "fit_rank",
+       "text",
+       "text_truncated",
+       "continue_with"
+      ],
+      "title": "Posting",
+      "type": "object"
+     },
+     "PostingSignals": {
+      "additionalProperties": false,
+      "properties": {
+       "open_days": {
+        "title": "Open Days",
+        "type": "integer"
+       },
+       "reposted": {
+        "title": "Reposted",
+        "type": "boolean"
+       }
+      },
+      "required": [
+       "reposted",
+       "open_days"
+      ],
+      "title": "PostingSignals",
+      "type": "object"
+     },
+     "StatedPay": {
+      "additionalProperties": false,
+      "description": "The employer's own figures, as the posting states them.",
+      "properties": {
+       "base_max": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Base Max"
+       },
+       "base_min": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Base Min"
+       },
+       "basis": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Basis",
+        "x-text": "code"
+       },
+       "currency": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Currency",
+        "x-text": "code"
+       },
+       "period": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Period",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "base_min",
+       "base_max",
+       "currency",
+       "basis",
+       "period"
+      ],
+      "title": "StatedPay",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "count": {
+      "minimum": 0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "samples": {
+      "items": {
+       "$ref": "#/$defs/Posting"
+      },
+      "title": "Samples",
+      "type": "array"
+     }
+    },
+    "required": [
+     "count",
+     "samples"
+    ],
+    "title": "Samples",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "A few postings from the person's own Radar, chosen for contrast, to learn their reactions from.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "read",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "candidate",
+    "private_pursuit"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": false
+   },
+   "examples": [],
+   "idempotency": "read",
+   "input_schema": {
+    "additionalProperties": false,
+    "description": "The input of an operation that takes none.",
+    "properties": {},
+    "title": "NoInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "picks.status",
+   "output_schema": {
+    "$defs": {
+     "BriefState": {
+      "additionalProperties": false,
+      "properties": {
+       "active_version": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Active Version"
+       },
+       "calibrated": {
+        "title": "Calibrated",
+        "type": "boolean"
+       },
+       "draft_version": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Draft Version"
+       }
+      },
+      "required": [
+       "active_version",
+       "draft_version",
+       "calibrated"
+      ],
+      "title": "BriefState",
+      "type": "object"
+     },
+     "Budget": {
+      "additionalProperties": false,
+      "properties": {
+       "per_month": {
+        "title": "Per Month",
+        "type": "integer"
+       },
+       "picks_this_month": {
+        "title": "Picks This Month",
+        "type": "integer"
+       }
+      },
+      "required": [
+       "per_month",
+       "picks_this_month"
+      ],
+      "title": "Budget",
+      "type": "object"
+     },
+     "Known": {
+      "additionalProperties": false,
+      "description": "What the app already holds about the person, so setup never asks for it.",
+      "properties": {
+       "aim": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Aim",
+        "x-text": "content"
+       },
+       "background_confirmed": {
+        "title": "Background Confirmed",
+        "type": "boolean"
+       },
+       "has_background": {
+        "title": "Has Background",
+        "type": "boolean"
+       },
+       "not_for_me": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Not For Me"
+       },
+       "pay_floor": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/KnownPay"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "saved": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Saved"
+       },
+       "scope": {
+        "$ref": "#/$defs/KnownScope"
+       }
+      },
+      "required": [
+       "scope",
+       "pay_floor",
+       "aim",
+       "has_background",
+       "background_confirmed"
+      ],
+      "title": "Known",
+      "type": "object"
+     },
+     "KnownPay": {
+      "additionalProperties": false,
+      "properties": {
+       "amount": {
+        "title": "Amount",
+        "type": "integer"
+       },
+       "currency": {
+        "title": "Currency",
+        "type": "string",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "amount",
+       "currency"
+      ],
+      "title": "KnownPay",
+      "type": "object"
+     },
+     "KnownScope": {
+      "additionalProperties": false,
+      "properties": {
+       "levels": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Levels",
+        "type": "array",
+        "x-text": "code"
+       },
+       "places": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Places",
+        "type": "array",
+        "x-text": "code"
+       },
+       "roles": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Roles",
+        "type": "array",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "roles",
+       "levels",
+       "places"
+      ],
+      "title": "KnownScope",
+      "type": "object"
+     },
+     "LastRun": {
+      "additionalProperties": false,
+      "properties": {
+       "finished_at": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Finished At"
+       },
+       "host": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Host",
+        "x-text": "code"
+       },
+       "judged": {
+        "title": "Judged",
+        "type": "integer"
+       },
+       "note": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Note",
+        "x-text": "content"
+       },
+       "outcome": {
+        "anyOf": [
+         {
+          "enum": [
+           "finished",
+           "stopped",
+           "abandoned"
+          ],
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Outcome",
+        "x-text": "code"
+       },
+       "picks": {
+        "title": "Picks",
+        "type": "integer"
+       },
+       "run": {
+        "title": "Run",
+        "type": "string",
+        "x-text": "identifier"
+       },
+       "started_at": {
+        "format": "date-time",
+        "title": "Started At",
+        "type": "string"
+       }
+      },
+      "required": [
+       "run",
+       "host",
+       "outcome",
+       "started_at",
+       "finished_at",
+       "judged",
+       "picks"
+      ],
+      "title": "LastRun",
+      "type": "object"
+     },
+     "Routine": {
+      "additionalProperties": false,
+      "properties": {
+       "health": {
+        "enum": [
+         "off",
+         "healthy",
+         "never_ran",
+         "late",
+         "stopped_early"
+        ],
+        "title": "Health",
+        "type": "string",
+        "x-text": "code"
+       },
+       "host": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Host",
+        "x-text": "code"
+       },
+       "last_run": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/LastRun"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "oldest_waiting_since": {
+        "anyOf": [
+         {
+          "format": "date-time",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Oldest Waiting Since"
+       },
+       "schedule": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Schedule",
+        "x-text": "content"
+       },
+       "waiting": {
+        "title": "Waiting",
+        "type": "integer"
+       }
+      },
+      "required": [
+       "host",
+       "schedule",
+       "health",
+       "last_run",
+       "waiting",
+       "oldest_waiting_since"
+      ],
+      "title": "Routine",
+      "type": "object"
+     },
+     "RuleShareView": {
+      "additionalProperties": false,
+      "properties": {
+       "removes_share": {
+        "title": "Removes Share",
+        "type": "number"
+       },
+       "rule": {
+        "title": "Rule",
+        "type": "string",
+        "x-text": "identifier"
+       }
+      },
+      "required": [
+       "rule",
+       "removes_share"
+      ],
+      "title": "RuleShareView",
+      "type": "object"
+     },
+     "SetupProgress": {
+      "additionalProperties": false,
+      "description": "Where the setup conversation stands, read from what it has saved.",
+      "properties": {
+       "deferred": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Deferred",
+        "type": "array",
+        "x-text": "code"
+       },
+       "next_step": {
+        "title": "Next Step",
+        "type": "string",
+        "x-text": "code"
+       },
+       "saved_parts": {
+        "items": {
+         "type": "string"
+        },
+        "title": "Saved Parts",
+        "type": "array",
+        "x-text": "code"
+       },
+       "steps": {
+        "items": {
+         "$ref": "#/$defs/SetupStep"
+        },
+        "title": "Steps",
+        "type": "array"
+       }
+      },
+      "required": [
+       "next_step",
+       "steps",
+       "saved_parts",
+       "deferred"
+      ],
+      "title": "SetupProgress",
+      "type": "object"
+     },
+     "SetupStep": {
+      "additionalProperties": false,
+      "properties": {
+       "done": {
+        "title": "Done",
+        "type": "boolean"
+       },
+       "id": {
+        "title": "Id",
+        "type": "string",
+        "x-text": "code"
+       }
+      },
+      "required": [
+       "id",
+       "done"
+      ],
+      "title": "SetupStep",
+      "type": "object"
+     },
+     "VolumeView": {
+      "additionalProperties": false,
+      "description": "How many roles a day the hard rules leave for the judge, from recent\narrivals, the draft's rules included during setup.",
+      "properties": {
+       "busiest_day": {
+        "title": "Busiest Day",
+        "type": "integer"
+       },
+       "by_rule": {
+        "items": {
+         "$ref": "#/$defs/RuleShareView"
+        },
+        "title": "By Rule",
+        "type": "array"
+       },
+       "daily_cap": {
+        "title": "Daily Cap",
+        "type": "integer"
+       },
+       "expected_per_day": {
+        "title": "Expected Per Day",
+        "type": "integer"
+       }
+      },
+      "required": [
+       "expected_per_day",
+       "busiest_day",
+       "daily_cap",
+       "by_rule"
+      ],
+      "title": "VolumeView",
+      "type": "object"
+     }
+    },
+    "additionalProperties": false,
+    "properties": {
+     "brief": {
+      "$ref": "#/$defs/BriefState"
+     },
+     "budget": {
+      "$ref": "#/$defs/Budget"
+     },
+     "known": {
+      "$ref": "#/$defs/Known"
+     },
+     "routine": {
+      "$ref": "#/$defs/Routine"
+     },
+     "setup": {
+      "$ref": "#/$defs/SetupProgress"
+     },
+     "state": {
+      "enum": [
+       "never_set_up",
+       "on",
+       "off"
+      ],
+      "title": "State",
+      "type": "string",
+      "x-text": "code"
+     },
+     "suggested_check_times": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Suggested Check Times",
+      "type": "array",
+      "x-text": "code"
+     },
+     "unseen_pick": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Unseen Pick"
+     },
+     "volume": {
+      "$ref": "#/$defs/VolumeView"
+     }
+    },
+    "required": [
+     "state",
+     "setup",
+     "known",
+     "brief",
+     "routine",
+     "budget",
+     "volume",
+     "suggested_check_times"
+    ],
+    "title": "PicksStatus",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled"
+   ],
+   "summary": "Where top picks stands: the mode, the next setup step and what setup has saved, what the app already knows about the person, the routine's health, the budget and the daily volume.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "standard",
+    "full"
+   ]
+  },
+  {
+   "access": "write",
+   "availability": {
+    "reason": "offline",
+    "state": "unknown"
+   },
+   "client_effects": [],
+   "contract_version": "1.0",
+   "data_classes": [
+    "candidate"
+   ],
+   "engine_effects": {
+    "external_action": false,
+    "model_egress": false,
+    "outbound_network": false,
+    "state_write": true
+   },
+   "examples": [
+    {
+     "routine_host": "claude-code",
+     "schedule": "daily 09:30 and 17:30",
+     "state": "on"
+    },
+    {
+     "daily_cap": 300
+    }
+   ],
+   "idempotency": "required_key",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "daily_cap": {
+      "anyOf": [
+       {
+        "maximum": 5000,
+        "minimum": 1,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "The most roles read in a day, when the person asks to change it; the rest wait for the next day.",
+      "title": "Daily Cap"
+     },
+     "routine_host": {
+      "anyOf": [
+       {
+        "enum": [
+         "claude-code",
+         "codex"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "The assistant that runs the routine.",
+      "title": "Routine Host"
+     },
+     "schedule": {
+      "anyOf": [
+       {
+        "maxLength": 120,
+        "minLength": 1,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "When it runs, in words, such as 'daily 09:30 and 17:30'.",
+      "title": "Schedule"
+     },
+     "state": {
+      "anyOf": [
+       {
+        "enum": [
+         "on",
+         "off"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "on or off; left out, the mode stays as it is.",
+      "title": "State"
+     }
+    },
+    "title": "SwitchInput",
+    "type": "object"
+   },
+   "introduced": "1.0",
+   "metadata_source": "bundled",
+   "operation": "picks.switch",
+   "output_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "daily_cap": {
+      "title": "Daily Cap",
+      "type": "integer"
+     },
+     "enabled_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Enabled At"
+     },
+     "routine_host": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Routine Host",
+      "x-text": "code"
+     },
+     "schedule": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Schedule",
+      "x-text": "content"
+     },
+     "state": {
+      "enum": [
+       "never_set_up",
+       "on",
+       "off"
+      ],
+      "title": "State",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "state",
+     "enabled_at",
+     "routine_host",
+     "schedule",
+     "daily_cap"
+    ],
+    "title": "ModeState",
+    "type": "object"
+   },
+   "output_schema_ref": "#/output_schema",
+   "required_scopes": [
+    "agent_access.enabled",
+    "agent_access.allow_writes"
+   ],
+   "summary": "Turn top picks on or off, record which assistant runs the routine and when, or change how many roles are read a day. On needs an active brief.",
+   "supports_dry_run": false,
+   "tool_tiers": [
+    "standard",
+    "full"
+   ]
+  },
+  {
    "access": "read",
    "availability": {
     "reason": "offline",
@@ -19921,6 +24470,8 @@
  ],
  "resources": {
   "applications": "Applications: the board of stages and the interview calendar.",
+  "background": "Who the person is: their background, as read and confirmed.",
+  "brief": "What the person wants from a move, in versions.",
   "capabilities": "The operations this engine offers.",
   "changes": "What changed after a position: postings, stated pay, steps due, source health.",
   "companies": "Followed companies: profiles, sourced facts, share prices.",
@@ -19931,6 +24482,7 @@
   "insights": "Market figures: open roles, pay by level and country, trends, skills.",
   "offer": "The person's own offer.",
   "opportunities": "Open roles: search, one posting, its history, similar and duplicates.",
+  "picks": "Top picks: roles to judge, verdicts, the mode.",
   "pursuits": "Saved and pursued roles: stage, priority, notes, next steps.",
   "radar": "Counts of open and saved roles, pursuits by stage, overdue steps.",
   "receipts": "What a write sent under an idempotency key did.",
@@ -19948,6 +24500,30 @@
   "applications.calendar": {
    "method": "GET",
    "path": "/api/agent/v1/applications/calendar"
+  },
+  "background.add_document": {
+   "method": "POST",
+   "path": "/api/agent/v1/background/documents"
+  },
+  "background.get": {
+   "method": "GET",
+   "path": "/api/agent/v1/background"
+  },
+  "background.set": {
+   "method": "PUT",
+   "path": "/api/agent/v1/background"
+  },
+  "brief.get": {
+   "method": "GET",
+   "path": "/api/agent/v1/brief"
+  },
+  "brief.history": {
+   "method": "GET",
+   "path": "/api/agent/v1/brief/history"
+  },
+  "brief.patch": {
+   "method": "PATCH",
+   "path": "/api/agent/v1/brief"
   },
   "capabilities": {
    "method": "GET",
@@ -20072,6 +24648,38 @@
   "opportunities.similar": {
    "method": "GET",
    "path": "/api/agent/v1/opportunities/{opportunity_id}/similar"
+  },
+  "picks.begin": {
+   "method": "POST",
+   "path": "/api/agent/v1/picks/runs"
+  },
+  "picks.decide": {
+   "method": "POST",
+   "path": "/api/agent/v1/picks/verdicts"
+  },
+  "picks.finish": {
+   "method": "POST",
+   "path": "/api/agent/v1/picks/runs/finish"
+  },
+  "picks.list": {
+   "method": "GET",
+   "path": "/api/agent/v1/picks"
+  },
+  "picks.next": {
+   "method": "GET",
+   "path": "/api/agent/v1/picks/runs/next"
+  },
+  "picks.samples": {
+   "method": "GET",
+   "path": "/api/agent/v1/picks/samples"
+  },
+  "picks.status": {
+   "method": "GET",
+   "path": "/api/agent/v1/picks/status"
+  },
+  "picks.switch": {
+   "method": "PUT",
+   "path": "/api/agent/v1/picks/mode"
   },
   "pursuits.get": {
    "method": "GET",

@@ -77,10 +77,13 @@ CONTRACT_EXITS = {
     "access_disabled": 4,
     "writes_disabled": 4,
     "category_disabled": 4,
+    "mode_off": 4,
+    "brief_required": 4,
     "not_found": 5,
     "revision_conflict": 6,
     "idempotency_conflict": 6,
     "approval_required": 7,
+    "needs_the_person": 7,
     "deadline_exceeded": 8,
     "rate_limited": 8,
     "partial_result": 9,
@@ -533,7 +536,7 @@ async def test_capabilities_lists_each_operation_with_live_availability(api_clie
 DISCOVERY_BUDGET = 1_500 * 4
 #: The most the default index may take, with room under the budget for the
 #: operations still to come.
-INDEX_BUDGET = 1_000 * 4
+INDEX_BUDGET = 1_300 * 4
 
 
 @pytest.mark.asyncio

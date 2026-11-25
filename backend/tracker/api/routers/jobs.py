@@ -47,6 +47,7 @@ from tracker.api.serializers.jobs import application_form_view, serialize_job
 from tracker.company_store import visible_company_names
 from tracker.db.models import (
     FEEDBACK_REASONS,
+    FEEDBACK_TEXT_MAX,
     CompareSelection,
     Favorite,
     Job,
@@ -809,6 +810,8 @@ async def put_compare_selection(
 class FeedbackPayload(BaseModel):
     verdict: Literal["dismissed"]
     reason: str | None = Field(None, json_schema_extra=text("code"))
+    #: Why, in the person's own words, beside or instead of a reason code.
+    reason_text: str | None = Field(None, max_length=FEEDBACK_TEXT_MAX, json_schema_extra=text("record"))
 
 
 @router.put("/api/jobs/{job_id}/feedback", response_model=DismissResponse)
@@ -825,19 +828,22 @@ async def set_feedback(job_id: int, payload: FeedbackPayload, session: SessionDe
     job = await session.get(Job, job_id)
     if job is None:
         raise api_error(404, ErrorCode.JOB_NOT_FOUND, "job not found")
+    words = " ".join((payload.reason_text or "").split()) or None
     row = await session.scalar(select(JobFeedback).where(JobFeedback.job_id == job_id))
     if row is None:
-        session.add(JobFeedback(job_id=job_id, verdict=payload.verdict, reason=payload.reason))
+        session.add(JobFeedback(job_id=job_id, verdict=payload.verdict, reason=payload.reason, reason_text=words))
     else:
         # A re-mark after an undo is a NEW mark: the lens orders by it.
         row.verdict = payload.verdict
         row.reason = payload.reason
+        row.reason_text = words
         row.created_at = datetime.now(UTC)
     await session.commit()
     return {
         "job_id": job_id,
         "is_dismissed": True,
         "reason": payload.reason,
+        "reason_text": words,
         # Everything the dismiss flow needs to OFFER an employer-vocabulary
         # exclusion without another read. Offer only — a rule is
         # written solely by explicit confirmation via POST /api/scope/rules.

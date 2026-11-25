@@ -968,6 +968,81 @@ async def clear_pay_floor(session: AsyncSession) -> None:
 
 
 
+# --- Top picks ------ #
+
+#: `{"state", "enabled_at", "routine": {"host", "schedule"}, "daily_cap",
+#: "last_opened_at"}`: whether an assistant chooses the person's top picks,
+#: since when, which assistant runs the routine, how many postings a day it is
+#: handed, and when the person last opened their picks.
+TOP_PICKS_KEY = "top_picks"
+#: Held from the read to the end of the transaction by every change of the row.
+TOP_PICKS_LOCK_KEY = 91253
+TOP_PICKS_STATES = ("never_set_up", "on", "off")
+#: A day's new roles are in the hundreds: the limit is a guard against a runaway
+#: day, set high enough that an ordinary day is read whole.
+DAILY_CAP_DEFAULT = 1000
+DAILY_CAP_MAX = 5000
+
+
+@dataclass(frozen=True)
+class TopPicksSettings:
+    state: str = "never_set_up"
+    #: When the mode was last turned on: a role already open then has waited
+    #: for a judgment only since.
+    enabled_at: datetime | None = None
+    routine_host: str | None = None
+    #: Free text for display, such as "daily 09:30 and 17:30".
+    schedule: str | None = None
+    daily_cap: int = DAILY_CAP_DEFAULT
+    #: When the person last opened Top picks: a pick made after it is unseen.
+    last_opened_at: datetime | None = None
+
+
+def _top_picks_from(value: object) -> TopPicksSettings:
+    """The stored row, each part falling back to its default when unreadable:
+    a state the engine does not know reads as never set up, never as on."""
+    if not isinstance(value, dict):
+        return TopPicksSettings()
+    state = value.get("state")
+    routine = value.get("routine") if isinstance(value.get("routine"), dict) else {}
+    cap = value.get("daily_cap")
+    host, schedule = routine.get("host"), routine.get("schedule")
+    return TopPicksSettings(
+        state=state if state in TOP_PICKS_STATES else "never_set_up",
+        enabled_at=_when(value.get("enabled_at")),
+        routine_host=host if isinstance(host, str) and host else None,
+        schedule=schedule if isinstance(schedule, str) and schedule else None,
+        daily_cap=cap if isinstance(cap, int) and not isinstance(cap, bool) and 1 <= cap <= DAILY_CAP_MAX
+        else DAILY_CAP_DEFAULT,
+        last_opened_at=_when(value.get("last_opened_at")),
+    )
+
+
+async def get_top_picks_settings(session: AsyncSession) -> TopPicksSettings:
+    return _top_picks_from(await get_setting_dict(session, TOP_PICKS_KEY))
+
+
+async def update_top_picks_settings(session: AsyncSession, **changes: Any) -> TopPicksSettings:
+    """Change the named parts and keep every other as stored, under the row's
+    lock, so two changes of different parts cannot write each other back.
+    Raises ValueError for a state or a cap the row cannot hold."""
+    await advisory_xact_lock(session, TOP_PICKS_LOCK_KEY)
+    row = await session.get(AppSetting, TOP_PICKS_KEY, populate_existing=True)
+    settings = replace(_top_picks_from(row.value if row is not None else None), **changes)
+    if settings.state not in TOP_PICKS_STATES:
+        raise ValueError(f"unknown top picks state: {settings.state!r}")
+    if isinstance(settings.daily_cap, bool) or not 1 <= settings.daily_cap <= DAILY_CAP_MAX:
+        raise ValueError(f"the daily cap is 1 to {DAILY_CAP_MAX}")
+    await set_setting_dict(session, TOP_PICKS_KEY, {
+        "state": settings.state,
+        "enabled_at": settings.enabled_at.isoformat() if settings.enabled_at else None,
+        "routine": {"host": settings.routine_host, "schedule": settings.schedule},
+        "daily_cap": settings.daily_cap,
+        "last_opened_at": settings.last_opened_at.isoformat() if settings.last_opened_at else None,
+    })
+    return settings
+
+
 # --- language and region (docs/copy.md) ------ #
 
 #: `{"language": "en", "region": null}`. Language picks the dashboard's copy

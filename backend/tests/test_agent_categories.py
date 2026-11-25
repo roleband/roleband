@@ -764,6 +764,22 @@ LEFT_OUT_BY: dict[tuple[str, DataClass], str] = {
         "test_agent_relation_reads::test_similar_rows_leave_out_the_pursuit_and_estimate_columns_of_a_category_off",
     ("opportunities.similar", "private_pursuit"):
         "test_agent_relation_reads::test_similar_rows_leave_out_the_pursuit_and_estimate_columns_of_a_category_off",
+    ("picks.begin", "public_posting"):
+        "test_agent_picks_db::test_a_run_does_not_begin_while_postings_are_not_shared",
+    ("picks.begin", "market_statistic"):
+        "test_agent_picks_db::test_a_batch_leaves_the_estimate_out_while_market_statistics_are_not_shared",
+    ("picks.begin", "private_pursuit"):
+        "test_agent_picks_db::test_a_run_says_nothing_of_the_persons_reactions_while_pursuits_are_not_shared",
+    ("picks.list", "public_posting"):
+        "test_agent_picks_db::test_the_list_leaves_out_postings_and_reactions_the_person_does_not_share",
+    ("picks.list", "private_pursuit"):
+        "test_agent_picks_db::test_the_list_leaves_out_postings_and_reactions_the_person_does_not_share",
+    ("picks.next", "market_statistic"):
+        "test_agent_picks_db::test_a_batch_leaves_the_estimate_out_while_market_statistics_are_not_shared",
+    ("picks.samples", "market_statistic"):
+        "test_agent_picks_db::test_a_batch_leaves_the_estimate_out_while_market_statistics_are_not_shared",
+    ("picks.status", "private_pursuit"):
+        "test_agent_picks_db::test_status_counts_saves_and_dismissals_only_while_pursuits_are_shared",
     ("pursuits.get", "public_posting"):
         "test_agent_categories::test_pursuits_answer_without_their_posting_when_postings_are_off",
     ("pursuits.list", "public_posting"):

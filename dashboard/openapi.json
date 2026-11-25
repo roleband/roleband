@@ -1626,6 +1626,87 @@
     "title": "AvailabilityShape",
     "type": "object"
    },
+   "BackgroundView": {
+    "additionalProperties": false,
+    "properties": {
+     "confirmed": {
+      "default": false,
+      "title": "Confirmed",
+      "type": "boolean"
+     },
+     "document": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/StoredDocument"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "reading": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reading"
+     },
+     "saved": {
+      "title": "Saved",
+      "type": "boolean"
+     },
+     "saved_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Saved At"
+     },
+     "source": {
+      "anyOf": [
+       {
+        "enum": [
+         "document",
+         "spoken",
+         "minimal"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source",
+      "x-text": "code"
+     },
+     "version": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Version"
+     }
+    },
+    "required": [
+     "saved"
+    ],
+    "title": "BackgroundView",
+    "type": "object"
+   },
    "BandChange": {
     "additionalProperties": false,
     "description": "A stated base band as `[min, max]`, either end unknown; null when none was stated.",
@@ -1690,6 +1771,55 @@
      "currency"
     ],
     "title": "BandChange",
+    "type": "object"
+   },
+   "Batch": {
+    "additionalProperties": false,
+    "properties": {
+     "batch": {
+      "items": {
+       "$ref": "#/components/schemas/Posting"
+      },
+      "title": "Batch",
+      "type": "array"
+     },
+     "continue_with": {
+      "items": {
+       "$ref": "#/components/schemas/NextAction"
+      },
+      "title": "Continue With",
+      "type": "array"
+     },
+     "count": {
+      "minimum": 0.0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "next_cursor": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Cursor"
+     },
+     "run": {
+      "title": "Run",
+      "type": "string",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "run",
+     "count",
+     "batch",
+     "next_cursor",
+     "continue_with"
+    ],
+    "title": "Batch",
     "type": "object"
    },
    "BindPayload": {
@@ -2231,6 +2361,267 @@
     "title": "BoardSearchResponse",
     "type": "object"
    },
+   "BriefHistory": {
+    "additionalProperties": false,
+    "properties": {
+     "count": {
+      "minimum": 0.0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "versions": {
+      "items": {
+       "$ref": "#/components/schemas/BriefVersion"
+      },
+      "title": "Versions",
+      "type": "array"
+     }
+    },
+    "required": [
+     "count",
+     "versions"
+    ],
+    "title": "BriefHistory",
+    "type": "object"
+   },
+   "BriefState": {
+    "additionalProperties": false,
+    "properties": {
+     "active_version": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Active Version"
+     },
+     "calibrated": {
+      "title": "Calibrated",
+      "type": "boolean"
+     },
+     "draft_version": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Draft Version"
+     }
+    },
+    "required": [
+     "active_version",
+     "draft_version",
+     "calibrated"
+    ],
+    "title": "BriefState",
+    "type": "object"
+   },
+   "BriefVersion": {
+    "additionalProperties": false,
+    "properties": {
+     "host": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Host",
+      "x-text": "code"
+     },
+     "made_by": {
+      "enum": [
+       "person",
+       "routine"
+      ],
+      "title": "Made By",
+      "type": "string",
+      "x-text": "code"
+     },
+     "reason": {
+      "title": "Reason",
+      "type": "string",
+      "x-text": "content"
+     },
+     "saved_at": {
+      "format": "date-time",
+      "title": "Saved At",
+      "type": "string"
+     },
+     "status": {
+      "enum": [
+       "draft",
+       "active",
+       "superseded"
+      ],
+      "title": "Status",
+      "type": "string",
+      "x-text": "code"
+     },
+     "version": {
+      "title": "Version",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "version",
+     "status",
+     "reason",
+     "made_by",
+     "saved_at"
+    ],
+    "title": "BriefVersion",
+    "type": "object"
+   },
+   "BriefView": {
+    "additionalProperties": false,
+    "properties": {
+     "body": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Body"
+     },
+     "exists": {
+      "title": "Exists",
+      "type": "boolean"
+     },
+     "ids": {
+      "additionalProperties": {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      "title": "Ids",
+      "type": "object"
+     },
+     "made_by": {
+      "anyOf": [
+       {
+        "enum": [
+         "person",
+         "routine"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Made By",
+      "x-text": "code"
+     },
+     "parts_schema": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Parts Schema"
+     },
+     "reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reason",
+      "x-text": "content"
+     },
+     "revision": {
+      "default": 0,
+      "title": "Revision",
+      "type": "integer"
+     },
+     "saved_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Saved At"
+     },
+     "saved_parts": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Saved Parts",
+      "type": "array",
+      "x-text": "code"
+     },
+     "status": {
+      "anyOf": [
+       {
+        "enum": [
+         "draft",
+         "active",
+         "superseded"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Status",
+      "x-text": "code"
+     },
+     "summary": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Summary",
+      "x-text": "content"
+     },
+     "version": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Version"
+     }
+    },
+    "required": [
+     "exists"
+    ],
+    "title": "BriefView",
+    "type": "object"
+   },
    "BrowserExchange": {
     "additionalProperties": false,
     "properties": {
@@ -2294,6 +2685,25 @@
      "expires_in"
     ],
     "title": "BrowserTicket",
+    "type": "object"
+   },
+   "Budget": {
+    "additionalProperties": false,
+    "properties": {
+     "per_month": {
+      "title": "Per Month",
+      "type": "integer"
+     },
+     "picks_this_month": {
+      "title": "Picks This Month",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "per_month",
+     "picks_this_month"
+    ],
+    "title": "Budget",
     "type": "object"
    },
    "CalendarInterview": {
@@ -5971,6 +6381,47 @@
     "title": "Criterion",
     "type": "object"
    },
+   "DecideResult": {
+    "additionalProperties": false,
+    "properties": {
+     "picks": {
+      "minimum": 0.0,
+      "title": "Picks",
+      "type": "integer"
+     },
+     "refused": {
+      "minimum": 0.0,
+      "title": "Refused",
+      "type": "integer"
+     },
+     "results": {
+      "items": {
+       "$ref": "#/components/schemas/VerdictItem"
+      },
+      "title": "Results",
+      "type": "array"
+     },
+     "run": {
+      "title": "Run",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "saved": {
+      "minimum": 0.0,
+      "title": "Saved",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "run",
+     "saved",
+     "refused",
+     "picks",
+     "results"
+    ],
+    "title": "DecideResult",
+    "type": "object"
+   },
    "DeckLink": {
     "additionalProperties": false,
     "description": "Why a member is in its deck: the link that placed it and who decided.",
@@ -7102,6 +7553,18 @@
       "title": "Reason",
       "x-text": "code"
      },
+     "reason_text": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reason Text",
+      "x-text": "record"
+     },
      "team": {
       "anyOf": [
        {
@@ -7274,6 +7737,24 @@
      "value"
     ],
     "title": "DoctorSetting",
+    "type": "object"
+   },
+   "DocumentAdded": {
+    "additionalProperties": false,
+    "properties": {
+     "document": {
+      "$ref": "#/components/schemas/StoredDocument"
+     },
+     "stored": {
+      "title": "Stored",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "document",
+     "stored"
+    ],
+    "title": "DocumentAdded",
     "type": "object"
    },
    "DraftPayload": {
@@ -8438,6 +8919,318 @@
     "title": "Envelope[ApplicationCalendar]",
     "type": "object"
    },
+   "Envelope_BackgroundView_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/BackgroundView"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[BackgroundView]",
+    "type": "object"
+   },
+   "Envelope_Batch_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Batch"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[Batch]",
+    "type": "object"
+   },
+   "Envelope_BriefHistory_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/BriefHistory"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[BriefHistory]",
+    "type": "object"
+   },
+   "Envelope_BriefView_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/BriefView"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[BriefView]",
+    "type": "object"
+   },
    "Envelope_CapabilitiesResult_": {
     "additionalProperties": false,
     "properties": {
@@ -8828,6 +9621,84 @@
     "title": "Envelope[ContextExport]",
     "type": "object"
    },
+   "Envelope_DecideResult_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/DecideResult"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[DecideResult]",
+    "type": "object"
+   },
    "Envelope_DoctorReport_": {
     "additionalProperties": false,
     "properties": {
@@ -8904,6 +9775,84 @@
      "error"
     ],
     "title": "Envelope[DoctorReport]",
+    "type": "object"
+   },
+   "Envelope_DocumentAdded_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/DocumentAdded"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[DocumentAdded]",
     "type": "object"
    },
    "Envelope_DuplicateQueue_": {
@@ -10232,6 +11181,84 @@
     "title": "Envelope[ListingHistory]",
     "type": "object"
    },
+   "Envelope_ModeState_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ModeState"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[ModeState]",
+    "type": "object"
+   },
    "Envelope_OfferRead_": {
     "additionalProperties": false,
     "properties": {
@@ -10464,6 +11491,162 @@
      "error"
     ],
     "title": "Envelope[OpportunityView]",
+    "type": "object"
+   },
+   "Envelope_PickList_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PickList"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[PickList]",
+    "type": "object"
+   },
+   "Envelope_PicksStatus_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PicksStatus"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[PicksStatus]",
     "type": "object"
    },
    "Envelope_PostingDecks_": {
@@ -11168,6 +12351,240 @@
     "title": "Envelope[RecipeValidation]",
     "type": "object"
    },
+   "Envelope_RunStart_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/RunStart"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[RunStart]",
+    "type": "object"
+   },
+   "Envelope_RunSummary_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/RunSummary"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[RunSummary]",
+    "type": "object"
+   },
+   "Envelope_Samples_": {
+    "additionalProperties": false,
+    "properties": {
+     "contract_version": {
+      "default": "1.0",
+      "title": "Contract Version",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "data": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Samples"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EnvelopeError"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "meta": {
+      "$ref": "#/components/schemas/EnvelopeMeta"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "operation": {
+      "title": "Operation",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/EnvelopeNotice"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "workspace_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workspace Id",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "request_id",
+     "workspace_id",
+     "operation",
+     "ok",
+     "data",
+     "meta",
+     "error"
+    ],
+    "title": "Envelope[Samples]",
+    "type": "object"
+   },
    "Envelope_SavedDraft_": {
     "additionalProperties": false,
     "properties": {
@@ -11853,6 +13270,53 @@
      "as_of"
     ],
     "title": "EstimatedBase",
+    "type": "object"
+   },
+   "EstimatedPay": {
+    "additionalProperties": false,
+    "description": "An estimate, never the employer's figure.",
+    "properties": {
+     "base_median": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Base Median"
+     },
+     "currency": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Currency",
+      "x-text": "code"
+     },
+     "total_median": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Total Median"
+     }
+    },
+    "required": [
+     "base_median",
+     "total_median",
+     "currency"
+    ],
+    "title": "EstimatedPay",
     "type": "object"
    },
    "EstimatedTotalComp": {
@@ -12658,6 +14122,19 @@
       ],
       "title": "Reason",
       "x-text": "code"
+     },
+     "reason_text": {
+      "anyOf": [
+       {
+        "maxLength": 200,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reason Text",
+      "x-text": "record"
      },
      "verdict": {
       "const": "dismissed",
@@ -20213,6 +21690,259 @@
     "title": "KeptValuation",
     "type": "object"
    },
+   "Known": {
+    "additionalProperties": false,
+    "description": "What the app already holds about the person, so setup never asks for it.",
+    "properties": {
+     "aim": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Aim",
+      "x-text": "content"
+     },
+     "background_confirmed": {
+      "title": "Background Confirmed",
+      "type": "boolean"
+     },
+     "has_background": {
+      "title": "Has Background",
+      "type": "boolean"
+     },
+     "not_for_me": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Not For Me"
+     },
+     "pay_floor": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/KnownPay"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "saved": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Saved"
+     },
+     "scope": {
+      "$ref": "#/components/schemas/KnownScope"
+     }
+    },
+    "required": [
+     "scope",
+     "pay_floor",
+     "aim",
+     "has_background",
+     "background_confirmed"
+    ],
+    "title": "Known",
+    "type": "object"
+   },
+   "KnownPay": {
+    "additionalProperties": false,
+    "properties": {
+     "amount": {
+      "title": "Amount",
+      "type": "integer"
+     },
+     "currency": {
+      "title": "Currency",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "amount",
+     "currency"
+    ],
+    "title": "KnownPay",
+    "type": "object"
+   },
+   "KnownScope": {
+    "additionalProperties": false,
+    "properties": {
+     "levels": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Levels",
+      "type": "array",
+      "x-text": "code"
+     },
+     "places": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Places",
+      "type": "array",
+      "x-text": "code"
+     },
+     "roles": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Roles",
+      "type": "array",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "roles",
+     "levels",
+     "places"
+    ],
+    "title": "KnownScope",
+    "type": "object"
+   },
+   "LastCheck": {
+    "additionalProperties": false,
+    "description": "The newest closed run of the routine.",
+    "properties": {
+     "finished_at": {
+      "format": "date-time",
+      "title": "Finished At",
+      "type": "string"
+     },
+     "host": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Host",
+      "x-text": "code"
+     },
+     "outcome": {
+      "enum": [
+       "finished",
+       "stopped",
+       "abandoned"
+      ],
+      "title": "Outcome",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "host",
+     "finished_at",
+     "outcome"
+    ],
+    "title": "LastCheck",
+    "type": "object"
+   },
+   "LastRun": {
+    "additionalProperties": false,
+    "properties": {
+     "finished_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Finished At"
+     },
+     "host": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Host",
+      "x-text": "code"
+     },
+     "judged": {
+      "title": "Judged",
+      "type": "integer"
+     },
+     "note": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Note",
+      "x-text": "content"
+     },
+     "outcome": {
+      "anyOf": [
+       {
+        "enum": [
+         "finished",
+         "stopped",
+         "abandoned"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Outcome",
+      "x-text": "code"
+     },
+     "picks": {
+      "title": "Picks",
+      "type": "integer"
+     },
+     "run": {
+      "title": "Run",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "started_at": {
+      "format": "date-time",
+      "title": "Started At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "run",
+     "host",
+     "outcome",
+     "started_at",
+     "finished_at",
+     "judged",
+     "picks"
+    ],
+    "title": "LastRun",
+    "type": "object"
+   },
    "LauncherHealthResponse": {
     "additionalProperties": false,
     "properties": {
@@ -22724,6 +24454,70 @@
     "title": "MatchingUnpinned",
     "type": "object"
    },
+   "ModeState": {
+    "additionalProperties": false,
+    "properties": {
+     "daily_cap": {
+      "title": "Daily Cap",
+      "type": "integer"
+     },
+     "enabled_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Enabled At"
+     },
+     "routine_host": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Routine Host",
+      "x-text": "code"
+     },
+     "schedule": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Schedule",
+      "x-text": "content"
+     },
+     "state": {
+      "enum": [
+       "never_set_up",
+       "on",
+       "off"
+      ],
+      "title": "State",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "state",
+     "enabled_at",
+     "routine_host",
+     "schedule",
+     "daily_cap"
+    ],
+    "title": "ModeState",
+    "type": "object"
+   },
    "MoveBoardPayload": {
     "description": "A board `POST .../board/find` answered with; verified again on write.",
     "properties": {
@@ -23851,6 +25645,7 @@
       "items": {
        "enum": [
         "file_write",
+        "file_read",
         "browser_open",
         "app_open"
        ],
@@ -24011,6 +25806,7 @@
       "items": {
        "enum": [
         "file_write",
+        "file_read",
         "browser_open",
         "app_open"
        ],
@@ -24175,6 +25971,7 @@
       "items": {
        "enum": [
         "file_write",
+        "file_read",
         "browser_open",
         "app_open"
        ],
@@ -26318,6 +28115,422 @@
      "roles"
     ],
     "title": "PayTableUnplaced",
+    "type": "object"
+   },
+   "PickList": {
+    "additionalProperties": false,
+    "properties": {
+     "count": {
+      "minimum": 0.0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "picks": {
+      "items": {
+       "$ref": "#/components/schemas/PickRow"
+      },
+      "title": "Picks",
+      "type": "array"
+     },
+     "view": {
+      "enum": [
+       "picks",
+       "near_misses",
+       "passed",
+       "removed"
+      ],
+      "title": "View",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "view",
+     "count",
+     "picks"
+    ],
+    "title": "PickList",
+    "type": "object"
+   },
+   "PickReason": {
+    "additionalProperties": false,
+    "description": "One reason of a pick: `opening` then `rest` reads as the sentence.",
+    "properties": {
+     "opening": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Opening",
+      "x-text": "record"
+     },
+     "rest": {
+      "title": "Rest",
+      "type": "string",
+      "x-text": "record"
+     }
+    },
+    "required": [
+     "opening",
+     "rest"
+    ],
+    "title": "PickReason",
+    "type": "object"
+   },
+   "PickRow": {
+    "additionalProperties": false,
+    "properties": {
+     "against_baseline": {
+      "anyOf": [
+       {
+        "enum": [
+         "better",
+         "comparable",
+         "weaker",
+         "unknown"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Against Baseline",
+      "x-text": "code"
+     },
+     "brief_version": {
+      "title": "Brief Version",
+      "type": "integer"
+     },
+     "company": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Company",
+      "x-text": "content"
+     },
+     "job": {
+      "title": "Job",
+      "type": "integer"
+     },
+     "judged_at": {
+      "format": "date-time",
+      "title": "Judged At",
+      "type": "string"
+     },
+     "note": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Note",
+      "x-text": "content"
+     },
+     "open": {
+      "title": "Open",
+      "type": "boolean"
+     },
+     "pass_code": {
+      "anyOf": [
+       {
+        "enum": [
+         "hard_rule",
+         "out_of_reach",
+         "below_level",
+         "not_better",
+         "not_real",
+         "off_direction",
+         "other"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Pass Code",
+      "x-text": "code"
+     },
+     "reaction": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ReactionOut"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "reasons": {
+      "items": {
+       "$ref": "#/components/schemas/ReasonOut"
+      },
+      "title": "Reasons",
+      "type": "array"
+     },
+     "title": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Title",
+      "x-text": "content"
+     },
+     "verdict": {
+      "enum": [
+       "pick",
+       "near_miss",
+       "pass"
+      ],
+      "title": "Verdict",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "job",
+     "open",
+     "verdict",
+     "reasons",
+     "against_baseline",
+     "pass_code",
+     "note",
+     "brief_version",
+     "judged_at"
+    ],
+    "title": "PickRow",
+    "type": "object"
+   },
+   "PicksModeInput": {
+    "description": "What the Settings card changes: either part, or both.",
+    "properties": {
+     "daily_limit": {
+      "anyOf": [
+       {
+        "maximum": 5000.0,
+        "minimum": 1.0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Daily Limit"
+     },
+     "state": {
+      "anyOf": [
+       {
+        "enum": [
+         "on",
+         "off"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "State"
+     }
+    },
+    "title": "PicksModeInput",
+    "type": "object"
+   },
+   "PicksRemovedResponse": {
+    "additionalProperties": false,
+    "description": "`DELETE /api/picks/setup`: how much was deleted.",
+    "properties": {
+     "briefs": {
+      "title": "Briefs",
+      "type": "integer"
+     },
+     "documents": {
+      "title": "Documents",
+      "type": "integer"
+     },
+     "readings": {
+      "title": "Readings",
+      "type": "integer"
+     },
+     "verdicts": {
+      "title": "Verdicts",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "briefs",
+     "readings",
+     "documents",
+     "verdicts"
+    ],
+    "title": "PicksRemovedResponse",
+    "type": "object"
+   },
+   "PicksStateResponse": {
+    "additionalProperties": false,
+    "description": "`GET /api/picks/state`: what the rail and the Settings card read.",
+    "properties": {
+     "brief_summary": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Brief Summary",
+      "x-text": "record"
+     },
+     "daily_limit": {
+      "title": "Daily Limit",
+      "type": "integer"
+     },
+     "daily_limit_max": {
+      "title": "Daily Limit Max",
+      "type": "integer"
+     },
+     "last_check": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/LastCheck"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "routine_host": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Routine Host",
+      "x-text": "code"
+     },
+     "schedule": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Schedule",
+      "x-text": "record"
+     },
+     "state": {
+      "enum": [
+       "never_set_up",
+       "on",
+       "off"
+      ],
+      "title": "State",
+      "type": "string",
+      "x-text": "code"
+     },
+     "unseen_pick": {
+      "title": "Unseen Pick",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "state",
+     "routine_host",
+     "schedule",
+     "last_check",
+     "brief_summary",
+     "unseen_pick",
+     "daily_limit",
+     "daily_limit_max"
+    ],
+    "title": "PicksStateResponse",
+    "type": "object"
+   },
+   "PicksStatus": {
+    "additionalProperties": false,
+    "properties": {
+     "brief": {
+      "$ref": "#/components/schemas/BriefState"
+     },
+     "budget": {
+      "$ref": "#/components/schemas/Budget"
+     },
+     "known": {
+      "$ref": "#/components/schemas/Known"
+     },
+     "routine": {
+      "$ref": "#/components/schemas/Routine"
+     },
+     "setup": {
+      "$ref": "#/components/schemas/SetupProgress"
+     },
+     "state": {
+      "enum": [
+       "never_set_up",
+       "on",
+       "off"
+      ],
+      "title": "State",
+      "type": "string",
+      "x-text": "code"
+     },
+     "suggested_check_times": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Suggested Check Times",
+      "type": "array",
+      "x-text": "code"
+     },
+     "unseen_pick": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Unseen Pick"
+     },
+     "volume": {
+      "$ref": "#/components/schemas/VolumeView"
+     }
+    },
+    "required": [
+     "state",
+     "setup",
+     "known",
+     "brief",
+     "routine",
+     "budget",
+     "volume",
+     "suggested_check_times"
+    ],
+    "title": "PicksStatus",
     "type": "object"
    },
    "Place": {
@@ -28494,6 +30707,109 @@
     "title": "PostedUnplaced",
     "type": "object"
    },
+   "Posting": {
+    "additionalProperties": false,
+    "description": "One posting, with what decides a verdict.",
+    "properties": {
+     "company": {
+      "title": "Company",
+      "type": "string",
+      "x-text": "content"
+     },
+     "continue_with": {
+      "items": {
+       "$ref": "#/components/schemas/NextAction"
+      },
+      "title": "Continue With",
+      "type": "array"
+     },
+     "estimated_pay": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/EstimatedPay"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "first_seen": {
+      "format": "date",
+      "title": "First Seen",
+      "type": "string"
+     },
+     "fit_rank": {
+      "title": "Fit Rank",
+      "type": "integer"
+     },
+     "job": {
+      "title": "Job",
+      "type": "integer"
+     },
+     "level": {
+      "title": "Level",
+      "type": "string",
+      "x-text": "code"
+     },
+     "places": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Places",
+      "type": "array",
+      "x-text": "content"
+     },
+     "signals": {
+      "$ref": "#/components/schemas/PostingSignals"
+     },
+     "stated_pay": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/StatedPay"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "text": {
+      "title": "Text",
+      "type": "string",
+      "x-text": "content"
+     },
+     "text_truncated": {
+      "title": "Text Truncated",
+      "type": "boolean"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string",
+      "x-text": "content"
+     },
+     "work_mode": {
+      "title": "Work Mode",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "job",
+     "title",
+     "company",
+     "places",
+     "work_mode",
+     "level",
+     "stated_pay",
+     "first_seen",
+     "signals",
+     "fit_rank",
+     "text",
+     "text_truncated",
+     "continue_with"
+    ],
+    "title": "Posting",
+    "type": "object"
+   },
    "PostingDates": {
     "additionalProperties": false,
     "properties": {
@@ -28804,6 +31120,25 @@
      "content"
     ],
     "title": "PostingSection",
+    "type": "object"
+   },
+   "PostingSignals": {
+    "additionalProperties": false,
+    "properties": {
+     "open_days": {
+      "title": "Open Days",
+      "type": "integer"
+     },
+     "reposted": {
+      "title": "Reposted",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "reposted",
+     "open_days"
+    ],
+    "title": "PostingSignals",
     "type": "object"
    },
    "PostingTextResponse": {
@@ -31146,6 +33481,56 @@
     "title": "RadarSummary",
     "type": "object"
    },
+   "ReactionOut": {
+    "additionalProperties": false,
+    "properties": {
+     "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+     },
+     "kind": {
+      "enum": [
+       "saved",
+       "pursued",
+       "not_for_me"
+      ],
+      "title": "Kind",
+      "type": "string",
+      "x-text": "code"
+     },
+     "reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reason",
+      "x-text": "code"
+     },
+     "reason_text": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reason Text",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "kind",
+     "at"
+    ],
+    "title": "ReactionOut",
+    "type": "object"
+   },
    "Reason": {
     "additionalProperties": false,
     "description": "One reason a link gives, as a code and its numbers (`lineage.reasons`).",
@@ -31175,6 +33560,40 @@
      "params"
     ],
     "title": "Reason",
+    "type": "object"
+   },
+   "ReasonOut": {
+    "additionalProperties": false,
+    "properties": {
+     "brief_item": {
+      "title": "Brief Item",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "opening": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Opening",
+      "x-text": "content"
+     },
+     "rest": {
+      "title": "Rest",
+      "type": "string",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "opening",
+     "rest",
+     "brief_item"
+    ],
+    "title": "ReasonOut",
     "type": "object"
    },
    "ReasonSaid": {
@@ -31999,6 +34418,107 @@
     "title": "ReleaseNotesResponse",
     "type": "object"
    },
+   "RemovedPick": {
+    "additionalProperties": false,
+    "properties": {
+     "company": {
+      "title": "Company",
+      "type": "string",
+      "x-text": "content"
+     },
+     "company_slug": {
+      "title": "Company Slug",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "is_open": {
+      "title": "Is Open",
+      "type": "boolean"
+     },
+     "job_id": {
+      "title": "Job Id",
+      "type": "integer"
+     },
+     "judged_at": {
+      "format": "date-time",
+      "title": "Judged At",
+      "type": "string"
+     },
+     "reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reason",
+      "x-text": "code"
+     },
+     "reason_text": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reason Text",
+      "x-text": "record"
+     },
+     "reasons": {
+      "items": {
+       "$ref": "#/components/schemas/PickReason"
+      },
+      "title": "Reasons",
+      "type": "array"
+     },
+     "removed_at": {
+      "format": "date-time",
+      "title": "Removed At",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string",
+      "x-text": "content"
+     }
+    },
+    "required": [
+     "job_id",
+     "title",
+     "company",
+     "company_slug",
+     "is_open",
+     "reasons",
+     "reason",
+     "reason_text",
+     "removed_at",
+     "judged_at"
+    ],
+    "title": "RemovedPick",
+    "type": "object"
+   },
+   "RemovedPicksResponse": {
+    "additionalProperties": false,
+    "description": "`GET /api/picks/removed`: the picks the person marked Not for me,\nnewest verdict first. `DELETE /api/jobs/{job_id}/feedback` puts one back.",
+    "properties": {
+     "picks": {
+      "items": {
+       "$ref": "#/components/schemas/RemovedPick"
+      },
+      "title": "Picks",
+      "type": "array"
+     }
+    },
+    "required": [
+     "picks"
+    ],
+    "title": "RemovedPicksResponse",
+    "type": "object"
+   },
    "RepostDeck": {
     "additionalProperties": false,
     "description": "The role listed again over time: every posting of it, oldest first.",
@@ -32643,6 +35163,83 @@
     "title": "RouteAttemptRecord",
     "type": "object"
    },
+   "Routine": {
+    "additionalProperties": false,
+    "properties": {
+     "health": {
+      "enum": [
+       "off",
+       "healthy",
+       "never_ran",
+       "late",
+       "stopped_early"
+      ],
+      "title": "Health",
+      "type": "string",
+      "x-text": "code"
+     },
+     "host": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Host",
+      "x-text": "code"
+     },
+     "last_run": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/LastRun"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "oldest_waiting_since": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Oldest Waiting Since"
+     },
+     "schedule": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Schedule",
+      "x-text": "content"
+     },
+     "waiting": {
+      "title": "Waiting",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "host",
+     "schedule",
+     "health",
+     "last_run",
+     "waiting",
+     "oldest_waiting_since"
+    ],
+    "title": "Routine",
+    "type": "object"
+   },
    "RoutingTier": {
     "additionalProperties": false,
     "description": "One rung of the routed-task ladder as configured, never probed.",
@@ -32692,6 +35289,82 @@
      "blocked_reason"
     ],
     "title": "RoutingTier",
+    "type": "object"
+   },
+   "RuleShareView": {
+    "additionalProperties": false,
+    "properties": {
+     "removes_share": {
+      "title": "Removes Share",
+      "type": "number"
+     },
+     "rule": {
+      "title": "Rule",
+      "type": "string",
+      "x-text": "identifier"
+     }
+    },
+    "required": [
+     "rule",
+     "removes_share"
+    ],
+    "title": "RuleShareView",
+    "type": "object"
+   },
+   "RunBudget": {
+    "additionalProperties": false,
+    "properties": {
+     "per_month": {
+      "title": "Per Month",
+      "type": "integer"
+     },
+     "picks": {
+      "items": {
+       "$ref": "#/components/schemas/PickRow"
+      },
+      "title": "Picks",
+      "type": "array"
+     },
+     "picks_this_month": {
+      "title": "Picks This Month",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "per_month",
+     "picks_this_month",
+     "picks"
+    ],
+    "title": "RunBudget",
+    "type": "object"
+   },
+   "RunCounts": {
+    "additionalProperties": false,
+    "properties": {
+     "handed": {
+      "title": "Handed",
+      "type": "integer"
+     },
+     "held_back": {
+      "title": "Held Back",
+      "type": "integer"
+     },
+     "ruled_out_by_rules": {
+      "title": "Ruled Out By Rules",
+      "type": "integer"
+     },
+     "waiting": {
+      "title": "Waiting",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "waiting",
+     "ruled_out_by_rules",
+     "handed",
+     "held_back"
+    ],
+    "title": "RunCounts",
     "type": "object"
    },
    "RunListResponse": {
@@ -32795,6 +35468,181 @@
      "notes"
     ],
     "title": "RunRow",
+    "type": "object"
+   },
+   "RunStart": {
+    "additionalProperties": false,
+    "properties": {
+     "batch": {
+      "items": {
+       "$ref": "#/components/schemas/Posting"
+      },
+      "title": "Batch",
+      "type": "array"
+     },
+     "brief": {
+      "additionalProperties": true,
+      "title": "Brief",
+      "type": "object"
+     },
+     "budget": {
+      "$ref": "#/components/schemas/RunBudget"
+     },
+     "continue_with": {
+      "items": {
+       "$ref": "#/components/schemas/NextAction"
+      },
+      "title": "Continue With",
+      "type": "array"
+     },
+     "count": {
+      "minimum": 0.0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "counts": {
+      "$ref": "#/components/schemas/RunCounts"
+     },
+     "next_cursor": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Cursor"
+     },
+     "reactions": {
+      "anyOf": [
+       {
+        "items": {
+         "$ref": "#/components/schemas/PickRow"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reactions"
+     },
+     "run": {
+      "title": "Run",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "trial": {
+      "title": "Trial",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "run",
+     "trial",
+     "brief",
+     "budget",
+     "counts",
+     "count",
+     "batch",
+     "next_cursor",
+     "continue_with"
+    ],
+    "title": "RunStart",
+    "type": "object"
+   },
+   "RunSummary": {
+    "additionalProperties": false,
+    "properties": {
+     "finished_at": {
+      "format": "date-time",
+      "title": "Finished At",
+      "type": "string"
+     },
+     "judged": {
+      "title": "Judged",
+      "type": "integer"
+     },
+     "near_misses": {
+      "title": "Near Misses",
+      "type": "integer"
+     },
+     "note": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Note",
+      "x-text": "content"
+     },
+     "outcome": {
+      "enum": [
+       "finished",
+       "stopped",
+       "abandoned"
+      ],
+      "title": "Outcome",
+      "type": "string",
+      "x-text": "code"
+     },
+     "picks": {
+      "title": "Picks",
+      "type": "integer"
+     },
+     "run": {
+      "title": "Run",
+      "type": "string",
+      "x-text": "identifier"
+     },
+     "started_at": {
+      "format": "date-time",
+      "title": "Started At",
+      "type": "string"
+     },
+     "trial": {
+      "title": "Trial",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "run",
+     "trial",
+     "outcome",
+     "started_at",
+     "finished_at",
+     "judged",
+     "picks",
+     "near_misses"
+    ],
+    "title": "RunSummary",
+    "type": "object"
+   },
+   "Samples": {
+    "additionalProperties": false,
+    "properties": {
+     "count": {
+      "minimum": 0.0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "samples": {
+      "items": {
+       "$ref": "#/components/schemas/Posting"
+      },
+      "title": "Samples",
+      "type": "array"
+     }
+    },
+    "required": [
+     "count",
+     "samples"
+    ],
+    "title": "Samples",
     "type": "object"
    },
    "SavedDraft": {
@@ -35604,6 +38452,68 @@
     "title": "SettingsSaveResponse",
     "type": "object"
    },
+   "SetupProgress": {
+    "additionalProperties": false,
+    "description": "Where the setup conversation stands, read from what it has saved.",
+    "properties": {
+     "deferred": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Deferred",
+      "type": "array",
+      "x-text": "code"
+     },
+     "next_step": {
+      "title": "Next Step",
+      "type": "string",
+      "x-text": "code"
+     },
+     "saved_parts": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Saved Parts",
+      "type": "array",
+      "x-text": "code"
+     },
+     "steps": {
+      "items": {
+       "$ref": "#/components/schemas/SetupStep"
+      },
+      "title": "Steps",
+      "type": "array"
+     }
+    },
+    "required": [
+     "next_step",
+     "steps",
+     "saved_parts",
+     "deferred"
+    ],
+    "title": "SetupProgress",
+    "type": "object"
+   },
+   "SetupStep": {
+    "additionalProperties": false,
+    "properties": {
+     "done": {
+      "title": "Done",
+      "type": "boolean"
+     },
+     "id": {
+      "title": "Id",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "id",
+     "done"
+    ],
+    "title": "SetupStep",
+    "type": "object"
+   },
    "SimilarJob": {
     "additionalProperties": false,
     "description": "A neighbour as a list row, with its similarity to the posting asked about.",
@@ -36475,6 +39385,79 @@
     "title": "StatedBand",
     "type": "object"
    },
+   "StatedPay": {
+    "additionalProperties": false,
+    "description": "The employer's own figures, as the posting states them.",
+    "properties": {
+     "base_max": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Base Max"
+     },
+     "base_min": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Base Min"
+     },
+     "basis": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Basis",
+      "x-text": "code"
+     },
+     "currency": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Currency",
+      "x-text": "code"
+     },
+     "period": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Period",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "base_min",
+     "base_max",
+     "currency",
+     "basis",
+     "period"
+    ],
+    "title": "StatedPay",
+    "type": "object"
+   },
    "StatedPayChange": {
     "additionalProperties": false,
     "properties": {
@@ -36700,6 +39683,44 @@
      "text"
     ],
     "title": "StepWrite",
+    "type": "object"
+   },
+   "StoredDocument": {
+    "additionalProperties": false,
+    "properties": {
+     "added_at": {
+      "format": "date-time",
+      "title": "Added At",
+      "type": "string"
+     },
+     "filename": {
+      "title": "Filename",
+      "type": "string",
+      "x-text": "content"
+     },
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "media_type": {
+      "title": "Media Type",
+      "type": "string",
+      "x-text": "code"
+     },
+     "size_bytes": {
+      "minimum": 0.0,
+      "title": "Size Bytes",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id",
+     "filename",
+     "media_type",
+     "size_bytes",
+     "added_at"
+    ],
+    "title": "StoredDocument",
     "type": "object"
    },
    "StoredOffer": {
@@ -39383,6 +42404,53 @@
     "title": "VelocityOut",
     "type": "object"
    },
+   "VerdictItem": {
+    "additionalProperties": false,
+    "properties": {
+     "job": {
+      "title": "Job",
+      "type": "integer"
+     },
+     "outcome": {
+      "enum": [
+       "saved",
+       "refused"
+      ],
+      "title": "Outcome",
+      "type": "string",
+      "x-text": "code"
+     },
+     "refusal": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Refusal",
+      "x-text": "code"
+     },
+     "verdict": {
+      "enum": [
+       "pick",
+       "near_miss",
+       "pass"
+      ],
+      "title": "Verdict",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "job",
+     "verdict",
+     "outcome"
+    ],
+    "title": "VerdictItem",
+    "type": "object"
+   },
    "ViewChoice": {
     "description": "One choice as stored: duplicates dropped, in the order given.",
     "properties": {
@@ -39525,6 +42593,39 @@
      "items"
     ],
     "title": "VocabularyPage",
+    "type": "object"
+   },
+   "VolumeView": {
+    "additionalProperties": false,
+    "description": "How many roles a day the hard rules leave for the judge, from recent\narrivals, the draft's rules included during setup.",
+    "properties": {
+     "busiest_day": {
+      "title": "Busiest Day",
+      "type": "integer"
+     },
+     "by_rule": {
+      "items": {
+       "$ref": "#/components/schemas/RuleShareView"
+      },
+      "title": "By Rule",
+      "type": "array"
+     },
+     "daily_cap": {
+      "title": "Daily Cap",
+      "type": "integer"
+     },
+     "expected_per_day": {
+      "title": "Expected Per Day",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "expected_per_day",
+     "busiest_day",
+     "daily_cap",
+     "by_rule"
+    ],
+    "title": "VolumeView",
     "type": "object"
    },
    "WiderMarketPass": {
@@ -39950,6 +43051,751 @@
      "agent"
     ],
     "x-operation": "applications.calendar"
+   }
+  },
+  "/api/agent/v1/background": {
+   "get": {
+    "operationId": "background_get_api_agent_v1_background_get",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_BackgroundView_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Background Get",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "background.get"
+   },
+   "put": {
+    "operationId": "background_set_api_agent_v1_background_put",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "X-RoleBand-Idempotency-Key",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": false,
+        "properties": {
+         "confirmed": {
+          "default": false,
+          "description": "True only after the person agreed to this reading in the chat.",
+          "title": "Confirmed",
+          "type": "boolean"
+         },
+         "document_id": {
+          "anyOf": [
+           {
+            "minimum": 1,
+            "type": "integer"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "The stored file the reading came from.",
+          "title": "Document Id"
+         },
+         "reading": {
+          "additionalProperties": false,
+          "description": "What you read of the person's background.",
+          "properties": {
+           "current": {
+            "anyOf": [
+             {
+              "additionalProperties": false,
+              "properties": {
+               "employer": {
+                "anyOf": [
+                 {
+                  "maxLength": 200,
+                  "type": "string"
+                 },
+                 {
+                  "type": "null"
+                 }
+                ],
+                "title": "Employer"
+               },
+               "level": {
+                "anyOf": [
+                 {
+                  "maxLength": 80,
+                  "type": "string"
+                 },
+                 {
+                  "type": "null"
+                 }
+                ],
+                "description": "As the person states it.",
+                "title": "Level"
+               },
+               "since": {
+                "anyOf": [
+                 {
+                  "maxLength": 40,
+                  "type": "string"
+                 },
+                 {
+                  "type": "null"
+                 }
+                ],
+                "title": "Since"
+               },
+               "title": {
+                "anyOf": [
+                 {
+                  "maxLength": 200,
+                  "type": "string"
+                 },
+                 {
+                  "type": "null"
+                 }
+                ],
+                "title": "Title"
+               }
+              },
+              "title": "CurrentRole",
+              "type": "object"
+             },
+             {
+              "type": "null"
+             }
+            ]
+           },
+           "education": {
+            "items": {
+             "maxLength": 300,
+             "minLength": 1,
+             "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Education",
+            "type": "array"
+           },
+           "gaps": {
+            "description": "What could not be established.",
+            "items": {
+             "maxLength": 300,
+             "minLength": 1,
+             "type": "string"
+            },
+            "maxItems": 12,
+            "title": "Gaps",
+            "type": "array"
+           },
+           "history": {
+            "items": {
+             "additionalProperties": false,
+             "properties": {
+              "employer": {
+               "anyOf": [
+                {
+                 "maxLength": 200,
+                 "type": "string"
+                },
+                {
+                 "type": "null"
+                }
+               ],
+               "title": "Employer"
+              },
+              "line": {
+               "anyOf": [
+                {
+                 "maxLength": 300,
+                 "type": "string"
+                },
+                {
+                 "type": "null"
+                }
+               ],
+               "title": "Line"
+              },
+              "title": {
+               "maxLength": 300,
+               "minLength": 1,
+               "title": "Title",
+               "type": "string"
+              },
+              "years": {
+               "anyOf": [
+                {
+                 "maxLength": 40,
+                 "type": "string"
+                },
+                {
+                 "type": "null"
+                }
+               ],
+               "title": "Years"
+              }
+             },
+             "required": [
+              "title"
+             ],
+             "title": "EarlierRole",
+             "type": "object"
+            },
+            "maxItems": 6,
+            "title": "History",
+            "type": "array"
+           },
+           "languages": {
+            "items": {
+             "maxLength": 300,
+             "minLength": 1,
+             "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Languages",
+            "type": "array"
+           },
+           "places": {
+            "items": {
+             "maxLength": 300,
+             "minLength": 1,
+             "type": "string"
+            },
+            "maxItems": 12,
+            "title": "Places",
+            "type": "array"
+           },
+           "scope": {
+            "anyOf": [
+             {
+              "maxLength": 600,
+              "type": "string"
+             },
+             {
+              "type": "null"
+             }
+            ],
+            "description": "People, budgets and scale, where stated.",
+            "title": "Scope"
+           },
+           "strengths": {
+            "items": {
+             "maxLength": 300,
+             "minLength": 1,
+             "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Strengths",
+            "type": "array"
+           },
+           "years": {
+            "anyOf": [
+             {
+              "maximum": 70,
+              "minimum": 0,
+              "type": "number"
+             },
+             {
+              "type": "null"
+             }
+            ],
+            "description": "Total years of experience.",
+            "title": "Years"
+           }
+          },
+          "title": "Reading",
+          "type": "object"
+         },
+         "source": {
+          "description": "document (read from a file), spoken (the person described it), minimal (three facts only).",
+          "enum": [
+           "document",
+           "spoken",
+           "minimal"
+          ],
+          "title": "Source",
+          "type": "string"
+         }
+        },
+        "required": [
+         "reading",
+         "source"
+        ],
+        "title": "BackgroundSetInput",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_BackgroundView_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Background Set",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "background.set"
+   }
+  },
+  "/api/agent/v1/background/documents": {
+   "post": {
+    "operationId": "background_add_document_api_agent_v1_background_documents_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "X-RoleBand-Idempotency-Key",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": false,
+        "properties": {
+         "content_base64": {
+          "description": "The file's bytes, in base64.",
+          "maxLength": 13981021,
+          "minLength": 1,
+          "title": "Content Base64",
+          "type": "string"
+         },
+         "filename": {
+          "description": "The file's name, with its extension.",
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "Filename",
+          "type": "string"
+         }
+        },
+        "required": [
+         "filename",
+         "content_base64"
+        ],
+        "title": "AddDocumentInput",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_DocumentAdded_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Background Add Document",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "background.add_document"
+   }
+  },
+  "/api/agent/v1/brief": {
+   "get": {
+    "operationId": "brief_get_api_agent_v1_brief_get",
+    "parameters": [
+     {
+      "description": "current (the draft when there is one, else the active brief), active, or draft.",
+      "in": "query",
+      "name": "which",
+      "required": false,
+      "schema": {
+       "default": "current",
+       "enum": [
+        "current",
+        "active",
+        "draft"
+       ],
+       "title": "Which",
+       "type": "string"
+      }
+     },
+     {
+      "description": "One version by its number, instead of `which`.",
+      "in": "query",
+      "name": "number",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "minimum": 1,
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Number"
+      }
+     },
+     {
+      "description": "summary leaves the parts out: the plain text and the item ids only. schema adds the JSON Schema every part of a patch is checked against.",
+      "in": "query",
+      "name": "view",
+      "required": false,
+      "schema": {
+       "default": "full",
+       "enum": [
+        "full",
+        "summary",
+        "schema"
+       ],
+       "title": "View",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_BriefView_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Brief Get",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "brief.get"
+   },
+   "patch": {
+    "operationId": "brief_patch_api_agent_v1_brief_patch",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "X-RoleBand-Idempotency-Key",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": false,
+        "properties": {
+         "activate": {
+          "default": false,
+          "description": "Make the draft the active brief, once the person confirmed it.",
+          "title": "Activate",
+          "type": "boolean"
+         },
+         "baseline": {
+          "anyOf": [
+           {
+            "additionalProperties": true,
+            "type": "object"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "What they hold now: title, level, employer, pay, currency, place, work_mode, keep, missing.",
+          "title": "Baseline"
+         },
+         "budget": {
+          "anyOf": [
+           {
+            "type": "integer"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "Picks a month.",
+          "title": "Budget"
+         },
+         "calibrated": {
+          "anyOf": [
+           {
+            "type": "boolean"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "title": "Calibrated"
+         },
+         "direction": {
+          "anyOf": [
+           {
+            "additionalProperties": true,
+            "type": "object"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "change (true for a new direction) and note.",
+          "title": "Direction"
+         },
+         "examples": {
+          "anyOf": [
+           {
+            "items": {
+             "additionalProperties": true,
+             "type": "object"
+            },
+            "type": "array"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "Postings they reacted to: job, reaction (wanted, unwanted, close), reason.",
+          "title": "Examples"
+         },
+         "gaps": {
+          "anyOf": [
+           {
+            "items": {
+             "type": "string"
+            },
+            "type": "array"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "What is not known.",
+          "title": "Gaps"
+         },
+         "if_revision": {
+          "description": "The revision of the brief you read (brief.get); 0 when there is none yet.",
+          "minimum": 0,
+          "title": "If Revision",
+          "type": "integer"
+         },
+         "proposed_rules": {
+          "anyOf": [
+           {
+            "items": {
+             "additionalProperties": true,
+             "type": "object"
+            },
+            "type": "array"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "Hard rules the routine proposes for the person to decide: text, check, reason.",
+          "title": "Proposed Rules"
+         },
+         "pulls": {
+          "anyOf": [
+           {
+            "items": {
+             "additionalProperties": true,
+             "type": "object"
+            },
+            "type": "array"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "What attracts: text, weight 1 to 3, source.",
+          "title": "Pulls"
+         },
+         "reason": {
+          "description": "One line: why this change.",
+          "maxLength": 200,
+          "minLength": 3,
+          "title": "Reason",
+          "type": "string"
+         },
+         "rules": {
+          "anyOf": [
+           {
+            "items": {
+             "additionalProperties": true,
+             "type": "object"
+            },
+            "type": "array"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "Hard rules: text, and check (a checkable form) or null when only reading can judge.",
+          "title": "Rules"
+         },
+         "run": {
+          "anyOf": [
+           {
+            "maxLength": 24,
+            "type": "string"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "The open run this change belongs to. Only the routine gives it, and it may then change pulls, tradeoffs, examples and proposed_rules only.",
+          "title": "Run"
+         },
+         "summary": {
+          "anyOf": [
+           {
+            "maxLength": 2000,
+            "type": "string"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "The whole brief in plain words, at most fifteen lines.",
+          "title": "Summary"
+         },
+         "target": {
+          "anyOf": [
+           {
+            "enum": [
+             "draft",
+             "active"
+            ],
+            "type": "string"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "draft (start or change the draft) or active (a new active version). Left out: the draft when there is one, else the active brief.",
+          "title": "Target"
+         },
+         "targets": {
+          "anyOf": [
+           {
+            "additionalProperties": true,
+            "type": "object"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "companies, kinds and avoid, each a list.",
+          "title": "Targets"
+         },
+         "tradeoffs": {
+          "anyOf": [
+           {
+            "items": {
+             "additionalProperties": true,
+             "type": "object"
+            },
+            "type": "array"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "What wins when two pulls conflict: text.",
+          "title": "Tradeoffs"
+         },
+         "urgency": {
+          "anyOf": [
+           {
+            "type": "string"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "not_looking, open, active or between_roles.",
+          "title": "Urgency"
+         }
+        },
+        "required": [
+         "if_revision",
+         "reason"
+        ],
+        "title": "BriefPatchInput",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_BriefView_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Brief Patch",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "brief.patch"
+   }
+  },
+  "/api/agent/v1/brief/history": {
+   "get": {
+    "operationId": "brief_history_api_agent_v1_brief_history_get",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_BriefHistory_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Brief History",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "brief.history"
    }
   },
   "/api/agent/v1/capabilities": {
@@ -42731,6 +46577,656 @@
      "agent"
     ],
     "x-operation": "opportunities.similar"
+   }
+  },
+  "/api/agent/v1/picks": {
+   "get": {
+    "operationId": "picks_list_api_agent_v1_picks_get",
+    "parameters": [
+     {
+      "description": "picks, near_misses, passed, or removed (picks the person marked Not for me, with why).",
+      "in": "query",
+      "name": "view",
+      "required": false,
+      "schema": {
+       "default": "picks",
+       "enum": [
+        "picks",
+        "near_misses",
+        "passed",
+        "removed"
+       ],
+       "title": "View",
+       "type": "string"
+      }
+     },
+     {
+      "description": "How far back near misses and passes go.",
+      "in": "query",
+      "name": "days",
+      "required": false,
+      "schema": {
+       "default": 7,
+       "maximum": 90,
+       "minimum": 1,
+       "title": "Days",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 50,
+       "maximum": 200,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_PickList_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Picks List",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "picks.list"
+   }
+  },
+  "/api/agent/v1/picks/mode": {
+   "put": {
+    "operationId": "picks_switch_api_agent_v1_picks_mode_put",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "X-RoleBand-Idempotency-Key",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": false,
+        "properties": {
+         "daily_cap": {
+          "anyOf": [
+           {
+            "maximum": 5000,
+            "minimum": 1,
+            "type": "integer"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "The most roles read in a day, when the person asks to change it; the rest wait for the next day.",
+          "title": "Daily Cap"
+         },
+         "routine_host": {
+          "anyOf": [
+           {
+            "enum": [
+             "claude-code",
+             "codex"
+            ],
+            "type": "string"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "The assistant that runs the routine.",
+          "title": "Routine Host"
+         },
+         "schedule": {
+          "anyOf": [
+           {
+            "maxLength": 120,
+            "minLength": 1,
+            "type": "string"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "When it runs, in words, such as 'daily 09:30 and 17:30'.",
+          "title": "Schedule"
+         },
+         "state": {
+          "anyOf": [
+           {
+            "enum": [
+             "on",
+             "off"
+            ],
+            "type": "string"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "on or off; left out, the mode stays as it is.",
+          "title": "State"
+         }
+        },
+        "required": [],
+        "title": "SwitchInput",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_ModeState_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Picks Switch",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "picks.switch"
+   }
+  },
+  "/api/agent/v1/picks/runs": {
+   "post": {
+    "operationId": "picks_begin_api_agent_v1_picks_runs_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "X-RoleBand-Idempotency-Key",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": false,
+        "properties": {
+         "limit": {
+          "default": 50,
+          "description": "Most postings in the first batch.",
+          "maximum": 50,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+         },
+         "model": {
+          "anyOf": [
+           {
+            "maxLength": 128,
+            "type": "string"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "Your own model's name.",
+          "title": "Model"
+         },
+         "trial": {
+          "default": false,
+          "description": "The trial at the end of setup: every open role, its verdicts kept apart.",
+          "title": "Trial",
+          "type": "boolean"
+         }
+        },
+        "required": [],
+        "title": "BeginInput",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_RunStart_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Picks Begin",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "picks.begin"
+   }
+  },
+  "/api/agent/v1/picks/runs/finish": {
+   "post": {
+    "operationId": "picks_finish_api_agent_v1_picks_runs_finish_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "X-RoleBand-Idempotency-Key",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": false,
+        "properties": {
+         "note": {
+          "anyOf": [
+           {
+            "maxLength": 300,
+            "type": "string"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "Why it stopped; a stopped run needs one.",
+          "title": "Note"
+         },
+         "outcome": {
+          "description": "finished, or stopped when you ended early.",
+          "enum": [
+           "finished",
+           "stopped"
+          ],
+          "title": "Outcome",
+          "type": "string"
+         },
+         "run": {
+          "maxLength": 24,
+          "minLength": 1,
+          "title": "Run",
+          "type": "string"
+         },
+         "tokens": {
+          "anyOf": [
+           {
+            "maximum": 1000000000000,
+            "minimum": 0,
+            "type": "integer"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "description": "Tokens the run used, as you count them.",
+          "title": "Tokens"
+         }
+        },
+        "required": [
+         "run",
+         "outcome"
+        ],
+        "title": "FinishInput",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_RunSummary_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Picks Finish",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "picks.finish"
+   }
+  },
+  "/api/agent/v1/picks/runs/next": {
+   "get": {
+    "operationId": "picks_next_api_agent_v1_picks_runs_next_get",
+    "parameters": [
+     {
+      "description": "The run, as picks.begin named it.",
+      "in": "query",
+      "name": "run",
+      "required": true,
+      "schema": {
+       "maxLength": 24,
+       "minLength": 1,
+       "title": "Run",
+       "type": "string"
+      }
+     },
+     {
+      "description": "The next_cursor of the batch before.",
+      "in": "query",
+      "name": "cursor",
+      "required": true,
+      "schema": {
+       "minimum": 0,
+       "title": "Cursor",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 50,
+       "maximum": 50,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_Batch_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Picks Next",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "picks.next"
+   }
+  },
+  "/api/agent/v1/picks/samples": {
+   "get": {
+    "operationId": "picks_samples_api_agent_v1_picks_samples_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 8,
+       "maximum": 12,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_Samples_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Picks Samples",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "picks.samples"
+   }
+  },
+  "/api/agent/v1/picks/status": {
+   "get": {
+    "operationId": "picks_status_api_agent_v1_picks_status_get",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_PicksStatus_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Picks Status",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "picks.status"
+   }
+  },
+  "/api/agent/v1/picks/verdicts": {
+   "post": {
+    "operationId": "picks_decide_api_agent_v1_picks_verdicts_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "X-RoleBand-Idempotency-Key",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": false,
+        "properties": {
+         "brief_version": {
+          "description": "The version of the brief you judged against.",
+          "minimum": 1,
+          "title": "Brief Version",
+          "type": "integer"
+         },
+         "run": {
+          "description": "The open run, as picks.begin named it.",
+          "maxLength": 24,
+          "minLength": 1,
+          "title": "Run",
+          "type": "string"
+         },
+         "verdicts": {
+          "description": "1 to 50 verdicts, each on its own posting.",
+          "items": {
+           "additionalProperties": false,
+           "properties": {
+            "against_baseline": {
+             "anyOf": [
+              {
+               "enum": [
+                "better",
+                "comparable",
+                "weaker",
+                "unknown"
+               ],
+               "type": "string"
+              },
+              {
+               "type": "null"
+              }
+             ],
+             "description": "How the role stands against what the person holds. A pick is never weaker.",
+             "title": "Against Baseline"
+            },
+            "job": {
+             "minimum": 1,
+             "title": "Job",
+             "type": "integer"
+            },
+            "note": {
+             "anyOf": [
+              {
+               "maxLength": 2000,
+               "type": "string"
+              },
+              {
+               "type": "null"
+              }
+             ],
+             "description": "One line, at most 200 characters.",
+             "title": "Note"
+            },
+            "pass_code": {
+             "anyOf": [
+              {
+               "enum": [
+                "hard_rule",
+                "out_of_reach",
+                "below_level",
+                "not_better",
+                "not_real",
+                "off_direction",
+                "other"
+               ],
+               "type": "string"
+              },
+              {
+               "type": "null"
+              }
+             ],
+             "description": "Why a pass; a pass needs one.",
+             "title": "Pass Code"
+            },
+            "reasons": {
+             "description": "A pick: 2 to 4, one fact each. A near miss: 1, the thing that failed. A pass: none.",
+             "items": {
+              "additionalProperties": false,
+              "properties": {
+               "brief_item": {
+                "description": "The item of the brief this rests on: a rule, pull or trade-off id, or baseline, targets, direction or urgency.",
+                "maxLength": 40,
+                "minLength": 1,
+                "title": "Brief Item",
+                "type": "string"
+               },
+               "opening": {
+                "anyOf": [
+                 {
+                  "maxLength": 1000,
+                  "type": "string"
+                 },
+                 {
+                  "type": "null"
+                 }
+                ],
+                "description": "The fact the sentence opens with, such as 'Staff level'. Leave out to mark none.",
+                "title": "Opening"
+               },
+               "rest": {
+                "description": "The rest of the sentence, starting where the opening ends, with its own leading space or punctuation: ', one step above your role today.' Opening and rest together: at most 140 characters, plain text.",
+                "maxLength": 2000,
+                "minLength": 1,
+                "title": "Rest",
+                "type": "string"
+               }
+              },
+              "required": [
+               "rest",
+               "brief_item"
+              ],
+              "title": "ReasonInput",
+              "type": "object"
+             },
+             "maxItems": 12,
+             "title": "Reasons",
+             "type": "array"
+            },
+            "verdict": {
+             "description": "pick, near_miss (fails on exactly one thing) or pass.",
+             "enum": [
+              "pick",
+              "near_miss",
+              "pass"
+             ],
+             "title": "Verdict",
+             "type": "string"
+            }
+           },
+           "required": [
+            "job",
+            "verdict"
+           ],
+           "title": "VerdictInput",
+           "type": "object"
+          },
+          "maxItems": 50,
+          "minItems": 1,
+          "title": "Verdicts",
+          "type": "array"
+         }
+        },
+        "required": [
+         "run",
+         "brief_version",
+         "verdicts"
+        ],
+        "title": "DecideInput",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Envelope_DecideResult_"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Picks Decide",
+    "tags": [
+     "agent"
+    ],
+    "x-operation": "picks.decide"
    }
   },
   "/api/agent/v1/pursuits": {
@@ -48525,6 +53021,135 @@
      }
     },
     "summary": "Pay Coverage"
+   }
+  },
+  "/api/picks/mode": {
+   "put": {
+    "description": "Pause or resume the checks, or change how many roles are read a day.\nOff keeps everything saved; on needs the brief setup ends with, so a mode\nnever set up cannot be switched on here.",
+    "operationId": "set_picks_mode_api_picks_mode_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PicksModeInput"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PicksStateResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Set Picks Mode",
+    "tags": [
+     "picks"
+    ]
+   }
+  },
+  "/api/picks/opened": {
+   "post": {
+    "description": "The person opened Top picks: no pick made before now is unseen.",
+    "operationId": "picks_opened_api_picks_opened_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PicksStateResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Picks Opened",
+    "tags": [
+     "picks"
+    ]
+   }
+  },
+  "/api/picks/removed": {
+   "get": {
+    "description": "The picks the person marked Not for me, each with the reason they gave.\n\nRemoving a pick is the Board's own dismissal, so the role left Top picks\nand the Radar together, and clearing that dismissal\n(`DELETE /api/jobs/{job_id}/feedback`) puts it back in both.",
+    "operationId": "removed_picks_api_picks_removed_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RemovedPicksResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Removed Picks",
+    "tags": [
+     "picks"
+    ]
+   }
+  },
+  "/api/picks/setup": {
+   "delete": {
+    "description": "Delete the stored CV, every reading of it and the brief, clear what past\nverdicts say, and return the mode to never set up. Saved roles, Not for me\nmarks and the Board stay.",
+    "operationId": "remove_picks_setup_api_picks_setup_delete",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PicksRemovedResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Remove Picks Setup",
+    "tags": [
+     "picks"
+    ]
+   }
+  },
+  "/api/picks/state": {
+   "get": {
+    "operationId": "picks_state_api_picks_state_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PicksStateResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Picks State",
+    "tags": [
+     "picks"
+    ]
    }
   },
   "/api/plugins": {

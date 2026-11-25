@@ -92,7 +92,8 @@ IDEMPOTENCY_KEY_HEADER = "X-RoleBand-Idempotency-Key"
 _IDEMPOTENCY_KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{7,127}$")
 #: The methods whose JSON body is part of an operation's input.
 _BODY_METHODS = frozenset({"POST", "PUT", "PATCH"})
-#: A body larger than this is refused before it is parsed.
+#: A body larger than this is refused before it is parsed, unless the operation
+#: names a bound of its own (`OperationDescriptor.max_body_bytes`).
 MAX_BODY_BYTES = 1024 * 1024
 _OPERATION_KEY = "x-operation"
 
@@ -353,7 +354,7 @@ def _refuse_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return dict(pairs)
 
 
-async def _body(request: Request) -> dict[str, Any]:
+async def _body(request: Request, limit: int = MAX_BODY_BYTES) -> dict[str, Any]:
     if request.method not in _BODY_METHODS:
         return {}
     too_large = OperationError("invalid_input", "The request body is larger than the engine accepts.")
@@ -362,7 +363,7 @@ async def _body(request: Request) -> dict[str, Any]:
     # Read in chunks and stop at the bound, so an oversized body is never held whole.
     async for chunk in request.stream():
         size += len(chunk)
-        if size > MAX_BODY_BYTES:
+        if size > limit:
             raise too_large
         chunks.append(chunk)
     raw = b"".join(chunks)
@@ -391,7 +392,7 @@ def list_fields(descriptor: OperationDescriptor) -> frozenset[str]:
 
 
 async def _input(descriptor: OperationDescriptor, request: Request, lists: frozenset[str]) -> BaseModel:
-    raw: dict[str, Any] = await _body(request)
+    raw: dict[str, Any] = await _body(request, descriptor.max_body_bytes or MAX_BODY_BYTES)
     for key in request.query_params:
         if key in raw:
             raise OperationError("invalid_input", f"{key!r} is given twice.", details={"field": key})

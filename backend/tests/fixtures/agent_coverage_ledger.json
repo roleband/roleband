@@ -16,6 +16,50 @@
   {
    "operation": "steps.undo",
    "why": "The dashboard opens a ticked step again through the step's own PATCH, the route steps.edit covers: an assistant names the undo as its own write, so its activity entry and receipt say what was done."
+  },
+  {
+   "operation": "background.get",
+   "why": "The reading of the person's background is made and read in their assistant's chat; no dashboard route serves it."
+  },
+  {
+   "operation": "background.set",
+   "why": "An assistant builds the reading from a CV or from what the person says, and the person confirms it in the chat; the dashboard has no form for it."
+  },
+  {
+   "operation": "background.add_document",
+   "why": "The person gives their CV to their assistant, which sends the file as it is; the dashboard has no upload."
+  },
+  {
+   "operation": "brief.get",
+   "why": "The brief is written and read in the assistant's chat; no dashboard route serves it."
+  },
+  {
+   "operation": "brief.patch",
+   "why": "Setup is a conversation in the person's assistant, which saves each part as it goes; the dashboard has no form for the brief."
+  },
+  {
+   "operation": "brief.history",
+   "why": "The brief's versions are listed for the assistant that changes it; no dashboard route serves them."
+  },
+  {
+   "operation": "picks.samples",
+   "why": "Calibration shows the person a few of their own Radar postings in the chat; the dashboard has no such list."
+  },
+  {
+   "operation": "picks.begin",
+   "why": "Judging is an assistant's work: it opens a run and reads what to judge. The dashboard never judges."
+  },
+  {
+   "operation": "picks.next",
+   "why": "A further batch of an open run, for the assistant judging it. The dashboard never judges."
+  },
+  {
+   "operation": "picks.decide",
+   "why": "A verdict is an assistant's judgment written back; the person reacts to a pick through the Board's own save and Not for me."
+  },
+  {
+   "operation": "picks.finish",
+   "why": "An assistant closes the run it opened; the dashboard holds no run."
   }
  ],
  "rows": [
@@ -69,6 +113,12 @@
    "method": "DELETE",
    "path": "/api/lineage/links/{link_id}",
    "operation": "duplicates.decide"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/picks/setup",
+   "excluded": "destructive",
+   "reason": "Deletes the person's CV, every reading of it and the brief, and clears what past verdicts say; only the person removes them, in Settings."
   },
   {
    "method": "DELETE",
@@ -340,6 +390,16 @@
    "method": "GET",
    "path": "/api/pay-coverage",
    "operation": "plugins.list"
+  },
+  {
+   "method": "GET",
+   "path": "/api/picks/removed",
+   "operation": "picks.list"
+  },
+  {
+   "method": "GET",
+   "path": "/api/picks/state",
+   "operation": "picks.status"
   },
   {
    "method": "GET",
@@ -770,6 +830,12 @@
   },
   {
    "method": "POST",
+   "path": "/api/picks/opened",
+   "excluded": "internal",
+   "reason": "Marks that the person opened the Top picks screen, which puts out the rail's dot; an assistant opens no screen."
+  },
+  {
+   "method": "POST",
    "path": "/api/plugins/{plugin_id}/approve",
    "excluded": "person_only",
    "reason": "Approving a plugin's install as shown is the person's consent to run its code."
@@ -958,6 +1024,11 @@
    "method": "PUT",
    "path": "/api/jobs/{job_id}/pursuit/comments/{comment_id}",
    "operation": "comments.correct"
+  },
+  {
+   "method": "PUT",
+   "path": "/api/picks/mode",
+   "operation": "picks.switch"
   },
   {
    "method": "PUT",
