@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tracker.agents import receipts
 from tracker.api.deps import SessionDep
 from tracker.api.errors import ErrorCode, api_error
 from tracker.api.schemas.picks import (
@@ -25,6 +26,10 @@ from tracker.picks.brief import BriefBody
 from tracker.settings_store import DAILY_CAP_MAX, get_top_picks_settings
 
 router = APIRouter(tags=["picks"])
+
+#: The assistant writes whose answers carry the person's background or brief:
+#: Remove deletes their receipts with what they saved.
+PERSONAL_WRITES = frozenset({"background.set", "background.add_document", "brief.patch", "picks.begin"})
 
 
 @router.get("/api/picks/removed", response_model=RemovedPicksResponse)
@@ -99,9 +104,11 @@ async def picks_opened(session: SessionDep) -> PicksStateResponse:
 @router.delete("/api/picks/setup", response_model=PicksRemovedResponse)
 async def remove_picks_setup(session: SessionDep) -> PicksRemovedResponse:
     """Delete the stored CV, every reading of it and the brief, clear what past
-    verdicts say, and return the mode to never set up. Saved roles, Not for me
+    verdicts say and the receipts that repeat any of it, and return the mode to never set up. Saved roles, Not for me
     marks and the Board stay."""
     removed = await mode.remove(session, datetime.now(UTC))
+    # The receipts of the writes that saved these hold them too.
+    await receipts.forget(session, PERSONAL_WRITES)
     await session.commit()
     return PicksRemovedResponse(
         briefs=removed.briefs, readings=removed.readings, documents=removed.documents, verdicts=removed.verdicts,

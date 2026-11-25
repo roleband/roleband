@@ -3019,7 +3019,7 @@ export interface paths {
         /**
          * Remove Picks Setup
          * @description Delete the stored CV, every reading of it and the brief, clear what past
-         *     verdicts say, and return the mode to never set up. Saved roles, Not for me
+         *     verdicts say and the receipts that repeat any of it, and return the mode to never set up. Saved roles, Not for me
          *     marks and the Board stay.
          */
         delete: operations["remove_picks_setup_api_picks_setup_delete"];

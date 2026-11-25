@@ -53111,7 +53111,7 @@
   },
   "/api/picks/setup": {
    "delete": {
-    "description": "Delete the stored CV, every reading of it and the brief, clear what past\nverdicts say, and return the mode to never set up. Saved roles, Not for me\nmarks and the Board stay.",
+    "description": "Delete the stored CV, every reading of it and the brief, clear what past\nverdicts say and the receipts that repeat any of it, and return the mode to never set up. Saved roles, Not for me\nmarks and the Board stay.",
     "operationId": "remove_picks_setup_api_picks_setup_delete",
     "responses": {
      "200": {

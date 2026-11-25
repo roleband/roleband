@@ -25,6 +25,7 @@ from tracker.api.agent_operations import IDEMPOTENCY_KEY_HEADER, MAX_BODY_BYTES,
 from tracker.db.models import (
     AgentActivity,
     CandidateDocument,
+    CommandReceipt,
     Favorite,
     Job,
     JobFeedback,
@@ -1098,6 +1099,11 @@ async def test_remove_deletes_the_cv_the_reading_and_the_brief_and_nothing_else(
     await db_session.commit()
     open_run = await _begin(api_client)
     assert len(list(tmp_path.iterdir())) == 1
+    async with _fresh(db_session) as session:
+        held = (await session.scalars(select(CommandReceipt))).all()
+    # Before Remove the receipts do hold the person's facts, so their absence after it means something.
+    assert {"background.set", "background.add_document", "brief.patch", "picks.begin"} <= {row.operation for row in held}
+    assert "210000" in str([row.result for row in held]) and "Senior Product Manager" in str([row.result for row in held])
 
     removed = await api_client.delete("/api/picks/setup")
 
@@ -1125,6 +1131,11 @@ async def test_remove_deletes_the_cv_the_reading_and_the_brief_and_nothing_else(
         for model in (PickVerdict, PickRun):
             rows = (await session.scalars(select(model))).all()
             assert "210,000" not in str([vars(row) for row in rows])
+    # The receipts of the writes that saved the reading and the brief repeated them: gone with them.
+    async with _fresh(db_session) as session:
+        receipts = (await session.scalars(select(CommandReceipt))).all()
+    assert {row.operation for row in receipts} == {"picks.decide", "picks.finish"}, "other receipts stay"
+    assert not any(word in str([row.result for row in receipts]) for word in ("210", "Senior Product Manager", "Dana"))
     assert _data(*await _read(api_client, "/picks"))["picks"] == [], "a pick with nothing left to say is no pick"
     assert (await api_client.get("/api/picks/removed")).json() == {"picks": []}
     assert (left_open.outcome, left_open.note) == ("abandoned", "Top picks was removed.")

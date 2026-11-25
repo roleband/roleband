@@ -31,11 +31,11 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Collection
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.db.models import CommandReceipt
@@ -163,3 +163,16 @@ async def execute_once(
     )
     await session.flush()
     return Executed(result=result, replayed=False)
+
+
+async def forget(session: AsyncSession, operations: Collection[str]) -> int:
+    """Delete every receipt of `operations` and say how many went.
+
+    A receipt keeps its write's whole answer, so the receipt of a write that
+    saved something about the person holds it too. When the person removes
+    that, its receipts go with it: a retry under an old key then runs as a new
+    write. Nothing else deletes a receipt."""
+    if not operations:
+        return 0
+    removed = await session.execute(delete(CommandReceipt).where(CommandReceipt.operation.in_(list(operations))))
+    return removed.rowcount or 0

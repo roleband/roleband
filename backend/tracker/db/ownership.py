@@ -633,10 +633,12 @@ TABLE_OWNERS: dict[str, TableOwnership] = {
         readers=("tracker/api/routers/ops.py",),
     ),
     # One row per agent write, in the write's own transaction; replayed by
-    # a retry with the same key, never updated.
+    # a retry with the same key, never updated. A receipt holds its write's
+    # answer, so the person removing what a write saved about them deletes
+    # that write's receipts (`receipts.forget`); nothing else does.
     "command_receipts": TableOwnership(
         claim="user",
-        lifecycle="append_only",
+        lifecycle="operational",
         writers=("tracker/agents/receipts.py",),
         readers=("tracker/agents/receipts.py",),
     ),
