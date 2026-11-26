@@ -1137,3 +1137,95 @@
 .intel-aim .ledger-form-actions {
   justify-content: flex-start;
 }
+
+/* ---- top picks: the switch, what is looked for, the limit, Remove ------- */
+
+/* The switch row is the Assistant apps gate without its frame: that frame
+   marks the tab's one consent, and this switch is a setting. */
+.intel-picks-gate {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-4);
+  padding: var(--app-space-3) 0;
+}
+
+/* A row: its name and what it does on the left, its one control on the
+   right, a hairline above it, as a capability row has. */
+.intel-picks-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--app-space-3) var(--app-space-5);
+  min-height: 48px;
+  padding: var(--app-space-3) 0;
+  border-top: 1px solid var(--app-border);
+}
+
+.intel-picks-row-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  /* A reading measure: the brief is prose, and a 2000px card would run it
+     into one line the eye cannot follow back. */
+  max-width: 760px;
+}
+
+/* The row's name: a heading where the row holds text, the field's label
+   where it holds a field. One look for both. */
+.intel-picks-row-name {
+  margin: 0;
+  color: var(--app-text);
+  font-size: var(--app-type-title);
+  font-weight: var(--app-weight-name);
+  line-height: 1.4;
+}
+
+.intel-picks-row-note {
+  color: var(--app-text-muted);
+  font-size: var(--app-type-body);
+  line-height: 1.5;
+}
+
+/* What the person looks for is the assistant's prose: a long unspaced run
+   breaks where it must instead of widening the card. */
+.intel-picks-brief { overflow-wrap: anywhere; }
+
+.intel-picks-copy {
+  flex: none;
+  display: grid;
+  justify-items: end;
+  gap: var(--app-space-1);
+}
+
+/* The sentence is what the person types to their assistant, so it is set as
+   code, as a command is in the setup dialog. */
+.intel-picks-sentence code {
+  font-family: var(--app-font-mono);
+  font-size: var(--app-type-meta);
+}
+
+/* The daily limit: the register's field, sized to its largest value and set
+   in figures. */
+.intel-picks-limit {
+  flex: none;
+  box-sizing: border-box;
+  width: 96px;
+  min-height: var(--app-control-md);
+  padding: 0 var(--app-control-md-pad);
+  border: 1px solid var(--app-border-control);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface);
+  color: var(--app-text);
+  font-family: var(--app-font-mono);
+  font-size: var(--app-type-body);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* Why a field or a copy did not take, under its row's text. */
+.intel-picks-field-note {
+  color: var(--app-danger);
+  font-size: var(--app-type-meta);
+  line-height: 1.45;
+}
