@@ -311,6 +311,30 @@ describe("TopPicksCard: the daily limit", () => {
     expect(mocked.setPicksDailyLimit).toHaveBeenCalledOnce();
   });
 
+  it("sends no limit while the switch's change is still saving, and keeps what was typed", async () => {
+    mocked.setPicksDailyLimit.mockRejectedValueOnce(new Error("refused"));
+    let answer!: (state: PicksState) => void;
+    mocked.setPicksMode.mockImplementation(() => new Promise((resolve) => { answer = resolve; }));
+    const user = userEvent.setup();
+    // The save fails as the person leaves the field, so the pause starts with
+    // the field out of focus and what was typed still unsaved.
+    const { region, field } = await typeLimit("250", "{Tab}");
+    expect(await within(region).findByRole("alert")).toHaveTextContent(msg("ai-top-picks-card-limit-failed"));
+    await user.click(within(region).getByRole("checkbox", { name: msg("ai-top-picks-card-check") }));
+    expect(mocked.setPicksMode).toHaveBeenCalledExactlyOnceWith("off");
+    await user.click(field);
+    await user.keyboard("{Enter}");
+    expect(mocked.setPicksDailyLimit).toHaveBeenCalledOnce();
+    expect(field).toHaveValue("250");
+    // Once the switch's change is saved, Enter sends the limit.
+    answer(setUp({ state: "off", health: "off" }));
+    await waitFor(() => expect(field).not.toHaveAttribute("readonly"));
+    mocked.setPicksDailyLimit.mockImplementation(async (limit) => setUp({ state: "off", health: "off", daily_limit: limit }));
+    await user.keyboard("{Enter}");
+    expect(mocked.setPicksDailyLimit).toHaveBeenCalledTimes(2);
+    expect(mocked.setPicksDailyLimit).toHaveBeenLastCalledWith(250);
+  });
+
   it("sends nothing when the limit did not change", async () => {
     await typeLimit("1000");
     expect(mocked.setPicksDailyLimit).not.toHaveBeenCalled();

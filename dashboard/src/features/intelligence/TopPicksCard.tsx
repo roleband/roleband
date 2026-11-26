@@ -246,15 +246,12 @@ function DailyLimit({ value, max, saving, onSave }: {
   const noteId = useId();
   const rangeId = useId();
   const read = readLimit(draft, max);
-  // Enter and then leaving the field both commit: the value on its way is
-  // sent once. A failed save clears it, so leaving the field tries again.
-  const sending = useRef<number | null>(null);
-  useEffect(() => {
-    if (!saving) sending.current = null;
-  }, [saving]);
+  // Nothing is sent while any save of the card is on its way: each answers
+  // with the whole state, so two at once could land out of order. Enter and
+  // then leaving the field therefore write once, and what was typed stays to
+  // send once the other save is done.
   const commit = () => {
-    if (read == null || read === value || read === sending.current) return;
-    sending.current = read;
+    if (saving || read == null || read === value) return;
     onSave(read);
   };
   const submit = (event: FormEvent) => {

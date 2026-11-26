@@ -53,7 +53,7 @@ test("before setup the AI tab has no Top picks card", async ({ page }) => {
   await installSettingsRoutes(page);
   await page.goto("/settings/intelligence");
   await expect(page.getByRole("region", { name: msg("ai-assistants-card-assistant-apps-2") })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Extended capabilities" })).toBeVisible();
+  await expect(page.getByRole("region", { name: msg("ai-capabilities-card-extended-capabilities-2") })).toBeVisible();
   await expect(picksCard(page)).toHaveCount(0);
 });
 
@@ -65,7 +65,7 @@ test("once set up the card sits after Assistant apps, with its five parts", asyn
   // After the assistants it depends on, before the capabilities.
   const assistants = await page.getByRole("region", { name: msg("ai-assistants-card-assistant-apps-2") }).boundingBox();
   const own = await card.boundingBox();
-  const capabilities = await page.getByRole("region", { name: "Extended capabilities" }).boundingBox();
+  const capabilities = await page.getByRole("region", { name: msg("ai-capabilities-card-extended-capabilities-2") }).boundingBox();
   expect(assistants!.y).toBeLessThan(own!.y);
   expect(own!.y).toBeLessThan(capabilities!.y);
 
@@ -90,7 +90,9 @@ test("the switch pauses the checks and resumes them, each a write of its own", a
   // The whole row's switch is the target; the track is what the pointer hits.
   await toggle.click();
   await expect(toggle).not.toBeChecked();
-  await expect(card.getByText(/^off · /)).toBeVisible();
+  await expect(card.getByText(msg("ai-top-picks-card-status", {
+    state: "paused-checked", host: msg("picks-host", { host: "claude-code" }), when: "2 hours ago",
+  }), { exact: true })).toBeVisible();
   await toggle.click();
   await expect(toggle).toBeChecked();
   expect(writes).toEqual([
