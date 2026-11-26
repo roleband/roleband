@@ -22,7 +22,17 @@ import {
   picksResume,
   picksResumeFailed,
 } from "../../copy/gen/picks";
-import { radarExactHead, radarLoadFailed, radarLoading, radarOtherHead, radarReset, radarShowOther } from "../../copy/gen/radar";
+import {
+  radarBoardFreshChanged,
+  radarBoardFreshMore,
+  radarBoardFreshShow,
+  radarExactHead,
+  radarLoadFailed,
+  radarLoading,
+  radarOtherHead,
+  radarReset,
+  radarShowOther,
+} from "../../copy/gen/radar";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { api, type Job, type PicksState } from "../../api";
 import { relative } from "../../copy/format";
@@ -89,7 +99,7 @@ function TopPicksList({ picks, rootRef, onPicksChange }: {
   const {
     filters, facets, facetsError, retryFacets, list, listError, retryList, baseline,
     total, isDirect, relatedTotal, expanded, pageableTotal,
-    update, updateFilters, onSort, toggleFav, dismiss, dismissal, undoDismiss,
+    update, updateFilters, onSort, toggleFav, dismiss, dismissal, undoDismiss, fresh, showFresh,
   } = useBoardController({ companyParam, onCompanyParamChange, mode: "open", onModeChange: ignoreMode }, surface);
   const { viewedIds, compareIds, compareFull, compareCap } = useJobWorkspace();
   const { openJob, toggleCompare } = useJobActions();
@@ -236,6 +246,16 @@ function TopPicksList({ picks, rootRef, onPicksChange }: {
         noun="pick"
       />
       <PicksNotes picks={picks} onPicksChange={onPicksChange} />
+      {/* A scan ended while the list was open: as on the Radar, the update
+          waits for the reader, so no row moves under them mid-read. */}
+      {fresh && (
+        <div className="empty-hint" role="status">
+          {fresh.more > 0 ? radarBoardFreshMore({ count: fresh.more }) : radarBoardFreshChanged()}{" "}
+          <Button variant="ghost" size="sm" onClick={showFresh}>
+            {radarBoardFreshShow()}
+          </Button>
+        </div>
+      )}
       <RailShell railMode={railMode} register={register} className="board-shell">
         {content}
       </RailShell>

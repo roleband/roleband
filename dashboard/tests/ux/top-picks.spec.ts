@@ -5,6 +5,7 @@
 
 import type { Locator, Page } from "@playwright/test";
 import { relative } from "../../src/copy/format";
+import { statusFixture } from "../../src/test/fixtures";
 import { msg } from "../../src/test/msg";
 import { expect, mockApi, mockGet, test } from "./fixtures";
 import { laidOut, overlapping } from "./geometry";
@@ -233,6 +234,30 @@ test("a search finds no pick: it says so, and the Radar's search stays its own",
   await page.locator('.nav-rail a[href="/"]').click();
   await expect(page.locator(".job-row").first()).toBeVisible();
   await expect(page.getByRole("searchbox").first()).toHaveValue("");
+});
+
+test("a scan that ends while Top picks is open offers the new list, and moves no row until it is taken", async ({ page }) => {
+  await installTopPicksRoutes(page);
+  let running = true;
+  let list = picksList();
+  await mockGet(page, "/api/status", (route) => route.fulfill({ json: { ...statusFixture, running } }));
+  await mockGet(page, "/api/jobs?**", (route) =>
+    new URL(route.request().url()).searchParams.get("top_picks") === "true" ? route.fulfill({ json: list }) : route.fallback());
+  await page.goto("/top-picks");
+  const rows = page.getByRole("main").getByRole("article");
+  await expect(rows).toHaveCount(2);
+
+  list = picksList([pickFixture({ id: 503, title: "Group Product Manager, Payments" }), ...picksList().items]);
+  running = false;
+
+  const offer = page.getByRole("status").filter({ hasText: msg("radar-board-fresh-more", { count: 1 }) });
+  // The scan's end is seen on the next status read, three seconds apart while a scan runs.
+  await expect(offer).toBeVisible({ timeout: 10_000 });
+  await expect(rows).toHaveCount(2);
+  await offer.getByRole("button", { name: msg("radar-board-fresh-show") }).click();
+  await expect(rows).toHaveCount(3);
+  await expect(rows.first()).toContainText("Group Product Manager, Payments");
+  await expect(offer).toHaveCount(0);
 });
 
 test("paused checks say so above the list, and Resume checks turns them back on", async ({ page }) => {
