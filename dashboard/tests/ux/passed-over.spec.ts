@@ -198,7 +198,10 @@ for (const theme of ["light", "dark"] as const) {
 
     await page.goto("/top-picks");
     await pickRow(page, "Staff Product Manager, API").getByRole("button", { name: "Not for me" }).click();
-    await expect(page.getByRole("dialog", { name: msg("picks-why-title") })).toBeVisible();
+    const dialog = page.getByRole("dialog", { name: msg("picks-why-title") });
+    await expect(dialog).toBeVisible();
+    // It fades in: contrast is read once it has settled, not through the fade.
+    await expect.poll(() => dialog.evaluate((el) => el.getAnimations({ subtree: true }).every((one) => one.playState === "finished"))).toBe(true);
     expect(await serious()).toEqual([]);
   });
 }
