@@ -1577,17 +1577,15 @@ Its rows are a column table sized to the tool tier's budget; under a location
 filter a row names first a place the filter matched. A page whose rows
 outgrow it stops early with a `page_shortened` warning, and an offset cursor
 bound to the request and the workspace (`agents/operations/cursor.py`) continues it.
-`roleband connect claude-code|codex --print|--apply` (`backend/tracker/cli/connect.py`)
+`roleband connect [claude-code|codex] --print|--apply` (`backend/tracker/cli/connect.py`)
 writes what a host needs to run the command without a prompt per call: for
 Claude Code the sandbox exclusion `roleband *` and the rule `Bash(roleband *)`,
 for Codex `network_access` in workspace-write mode. It merges into the person's
-file, keeps a backup, changes nothing on a second run, and installs the skill in
-`backend/tracker/cli/skills/` unless the person edited their copy. Any other host
-is refused as `unsupported_host`. `roleband capabilities`, the skill's first
-call, brings an installed skill whose recorded version is older than the
-client's up to date under the same rule, and says so in `warnings`
-(`skill_updated`, or `skill_outdated` for a copy it leaves); a newer copy, one
-connect never installed and one the person deleted stay as they are.
+file, keeps a backup, changes nothing on a second run, and installs the skills
+in `backend/tracker/cli/skills/` file by file, never over a file the person
+edited. Any other host is refused as `unsupported_host`. How the host is found
+when none is named, and how the skills are kept current, is in
+[cli.md](cli.md#connecting-an-agent).
 `roleband tools export --dialect openai|anthropic [--tier small|standard|full]`
 (`backend/tracker/cli/tools.py`) gives someone who builds their own agent one
 tool per operation, in the OpenAI-compatible or Anthropic format. The tools come

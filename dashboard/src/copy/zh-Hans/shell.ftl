@@ -30,7 +30,7 @@ shell-tab-settings-retention = 数据保留
 ## 个人资料标签页
 shell-tab-profile-looking-for = 求职意向
 shell-tab-profile-experience = 你的经历
-shell-tab-settings-language = 语言
+shell-tab-settings-preferences = 偏好设置
 
 ## 顶部栏
 shell-route-welcome = 欢迎
@@ -185,7 +185,6 @@ shell-compare-chip-aria = 对比中有 { $count } 个职位
 shell-compare-chip-title = 打开对比
 shell-compare-save-failed = 无法保留你的对比选择。重新加载后可能会丢失。
 shell-compare-cleared = 已从对比中移除 { $count } 个职位
-shell-rail-pending = { $count } 个待处理
 shell-rail-picks-unseen = 有新内容
 shell-rail-item-count = { $label }，{ $badge }
 

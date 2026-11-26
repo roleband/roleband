@@ -23,7 +23,7 @@ test("the tabs run from what RoleBand reads to the person's own data, Privacy la
   // among the preferences.
   await page.goto("/settings/companies");
   await expect(page.getByRole("tab")).toHaveText([
-    "Followed companies", "AI", "Schedule", "Plugins", "Recipes", "Language", "Data retention", "Privacy",
+    "Followed companies", "AI", "Schedule", "Plugins", "Recipes", "Preferences", "Data retention", "Privacy",
   ]);
 });
 
@@ -34,7 +34,7 @@ test("every card on a kit tab and on AI is titled by a real h2 at one size", asy
   // heads, a different rank.
   for (const [slug, first] of [
     ["intelligence", "Fit ranking"], ["schedule", "Scan clock"], ["plugins", "Plugins"],
-    ["recipes", "Recipes"], ["language", "Language and region"], ["retention", "Data retention"],
+    ["recipes", "Recipes"], ["preferences", "Side bar"], ["retention", "Data retention"],
     ["privacy", "Privacy"],
   ] as const) {
     await page.goto(`/settings/${slug}`);
@@ -66,6 +66,13 @@ test("Pay data is gone: its old address lands on Plugins", async ({ page }) => {
   await expect(page).toHaveURL(/\/settings\/plugins$/);
   await expect(page.getByRole("tab", { name: "Plugins" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("tab", { name: "Pay data" })).toHaveCount(0);
+});
+
+test("Language is a card of Preferences: its old address lands there", async ({ page }) => {
+  await page.goto("/settings/language");
+  await expect(page).toHaveURL(/\/settings\/preferences$/);
+  await expect(page.getByRole("tab", { name: "Preferences" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("heading", { level: 2, name: "Language and region" })).toBeVisible();
 });
 
 test("switching tabs pushes, so Back returns to Companies", async ({ page }) => {

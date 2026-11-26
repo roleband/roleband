@@ -62,8 +62,8 @@ shell-tab-pipeline-up-next = Up next
 shell-tab-profile-looking-for = Looking for
 # kind=label
 shell-tab-profile-experience = Your experience
-# kind=label
-shell-tab-settings-language = Language
+# kind=label note="The Settings tab for the side bar's places and the language and region"
+shell-tab-settings-preferences = Preferences
 # kind=label
 shell-tab-settings-privacy = Privacy
 
@@ -373,11 +373,9 @@ shell-compare-cleared = { $count ->
     [one] Cleared { $count } role from compare
    *[other] Cleared { $count } roles from compare
 }
-# kind=status note="A rail badge's count, spoken: Duplicates, 342 pending"
-shell-rail-pending = { $count } pending
 # kind=status note="Said with the Top picks rail item while its dot is lit, a pick having arrived since the person last opened it: Top picks, new picks"
 shell-rail-picks-unseen = new picks
-# kind=aria note="A rail item named with its badge: Notifications, 7 unread"
+# kind=aria note="A rail item named with its mark: Top picks, new picks"
 shell-rail-item-count = { $label }, { $badge }
 
 ## src/shell/CommandPalette.tsx (by hand)

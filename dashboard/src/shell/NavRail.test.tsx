@@ -1,8 +1,12 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NavRail } from "./NavRail";
+import { forgetViewChoices, setViewChoice } from "../hooks/viewChoices";
+import { fakeViewChoiceServer } from "../test/viewChoicesServer";
+import { msg } from "../test/msg";
+import { PreferencesSection } from "../features/settings/PreferencesSection";
 
 vi.mock("../context/JobWorkspace", () => ({
   useJobWorkspace: () => ({ compareIds: new Set<number>() }),
@@ -66,45 +70,52 @@ describe("NavRail", () => {
     expect(screen.getByRole("button", { name: "Collapse navigation" })).toHaveAttribute("aria-expanded", "true");
   });
 
-  /* The badge policy, at the two counts that decide it.
-   *
-   * `review_pending` is the pending duplicate queue, which can sit in the
-   * hundreds — so a saturated `99+` badge would be the one rail item that
-   * never settles and never says anything. */
-  it("shows a count a user can act on as the number it is", () => {
-    stats = { notif_unread: 0, review_pending: 12 };
-    rail();
+  const names = (group: string) =>
+    Array.from(screen.getByRole("navigation", { name: "Main" }).querySelectorAll(`${group} .rail-item`)).map((item) =>
+      item.getAttribute("aria-label"));
 
-    const review = screen.getByRole("link", { name: "Duplicates, 12 pending" });
-    const badge = review.querySelector(".rail-badge")!;
-    expect(badge).toHaveTextContent("12");
-    expect(badge).not.toHaveClass("rail-badge-dot");
+  it("lists the work at the top and the person and the app at the foot, and neither Duplicates nor Notifications", () => {
+    rail();
+    expect(names(".rail-top")).toEqual(["Radar", "Top picks", "Pipeline", "Insights", "Companies"]);
+    expect(names(".rail-bottom")).toEqual(["Profile", "Settings", msg("shell-theme-aria")]);
+    expect(screen.queryByRole("link", { name: /Duplicates|Notifications/ })).toBeNull();
   });
 
-  it("stops claiming to be a count past the cap, keeping the exact number", () => {
-    stats = { notif_unread: 0, review_pending: 342 };
+  it("lists Duplicates once the person turns it on, with no count however long its queue", () => {
+    stats = { notif_unread: 7, review_pending: 342 };
+    forgetViewChoices({ "sidebar.duplicates": true });
     rail();
-
-    // The number is on the item — as its name, its hover tooltip collapsed
-    // (`data-tip`) and expanded (`title`) — not saturated inside the badge.
-    const review = screen.getByRole("link", { name: "Duplicates, 342 pending" });
-    expect(review).toHaveAttribute("data-tip", "Duplicates, 342 pending");
-    expect(review).toHaveAttribute("title", "Duplicates, 342 pending");
-
-    const badge = review.querySelector(".rail-badge")!;
-    expect(badge).toHaveClass("rail-badge-dot");
-    expect(badge).toHaveTextContent("");
-    expect(review).not.toHaveTextContent("99+");
-  });
-
-  it("leaves an item with nothing pending unbadged and unrenamed", () => {
-    rail();
-
     const review = screen.getByRole("link", { name: "Duplicates" });
     expect(review.querySelector(".rail-badge")).toBeNull();
-    expect(screen.getByRole("link", { name: "Notifications" })).toBeTruthy();
+    expect(names(".rail-top")).toEqual(["Radar", "Top picks", "Pipeline", "Insights", "Companies", "Duplicates"]);
   });
 
+  it("follows the switches of Settings › Preferences at once", async () => {
+    fakeViewChoiceServer({});
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={["/settings/preferences"]}>
+        <NavRail expanded={false} onToggleExpanded={vi.fn()} theme="dark" onToggleTheme={vi.fn()} />
+        <PreferencesSection />
+      </MemoryRouter>,
+    );
+    const nav = within(screen.getByRole("navigation", { name: "Main" }));
+    const card = within(screen.getByRole("region", { name: msg("settings-side-bar-title") }));
+    expect(nav.queryByRole("link", { name: "Duplicates" })).toBeNull();
+    await user.click(card.getByRole("checkbox", { name: "Duplicates" }));
+    expect(nav.getByRole("link", { name: "Duplicates" })).toBeInTheDocument();
+    await user.click(card.getByRole("checkbox", { name: "Insights" }));
+    expect(nav.queryByRole("link", { name: "Insights" })).toBeNull();
+  });
+
+  it("takes a place off the moment the person turns it off elsewhere on the page", async () => {
+    const server = fakeViewChoiceServer({});
+    rail();
+    expect(await screen.findByRole("link", { name: "Insights" })).toBeInTheDocument();
+    await act(() => setViewChoice("sidebar.insights", false));
+    expect(screen.queryByRole("link", { name: "Insights" })).toBeNull();
+    expect(server.saved()).toEqual({ "sidebar.insights": false });
+  });
 });
 
 /* The Pipeline is a star. Collapsed, the star stands alone and the page's

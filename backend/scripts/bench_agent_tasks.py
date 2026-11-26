@@ -1090,7 +1090,7 @@ def prepare_connect(run_dir: Path) -> dict:
         if result.returncode != 0 or not envelope.get("ok"):
             raise SystemExit(f"roleband connect {host} --apply failed ({result.returncode}): {result.stdout[-400:]}")
         record[host] = {"home": str(home), "files": [item["path"] for item in envelope["data"]["files"]],
-                        "skill": envelope["data"]["skill"]}
+                        "skills": envelope["data"]["skills"]}
     claude_home = homes["claude-code"][1]
     record["claude_settings"] = json.loads((claude_home / "settings.json").read_text())
     record["claude_settings_path"] = str(claude_home / "settings.json")

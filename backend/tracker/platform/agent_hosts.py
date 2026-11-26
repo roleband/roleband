@@ -14,6 +14,7 @@ import os
 import re
 import tomllib
 from collections.abc import Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
@@ -32,18 +33,44 @@ CLAUDE_RULE = "Bash(roleband *)"
 CODEX_TABLE = "sandbox_workspace_write"
 CODEX_KEY = "network_access"
 
-#: The skill's version. A copy installed at a lower one, and never edited, is out of date.
-SKILL_VERSION = 6
+#: The sidecar `connect` writes in each skill folder it installs: the version
+#: it installed and the hash of each file it wrote, so a file the person
+#: edited is told apart from an older unedited one.
 SKILL_RECORD = ".roleband-skill.json"
+_RECORD_FORMAT = 2
 
 #: The command's bundled index of operations, which ships beside it in `tracker/cli/`.
 OPERATIONS_INDEX = Path(__file__).resolve().parents[1] / "cli" / "operations.json"
+#: The skills `connect` installs ship beside the command, one folder each.
+SKILLS_SOURCE = Path(__file__).resolve().parents[1] / "cli" / "skills"
+
+
+@dataclass(frozen=True)
+class Skill:
+    """A skill `connect` installs into a host: a folder of files, versioned as
+    one. A folder installed at a lower version holds older files."""
+
+    name: str
+    version: int
+    files: tuple[str, ...]
+
+    @property
+    def source(self) -> Path:
+        return SKILLS_SOURCE / self.name
+
+
+ROLEBAND_SKILL = Skill("roleband", 6, ("SKILL.md",))
+TOP_PICKS_SKILL = Skill("roleband-top-picks", 1, ("SKILL.md", "setup.md", "judging.md"))
+#: Every skill `connect` installs. The first is the one a connected host
+#: always has: without it the host was never connected.
+SKILLS: tuple[Skill, ...] = (ROLEBAND_SKILL, TOP_PICKS_SKILL)
 
 #: What a host's files say about it, or None when it was never connected.
-#: `outdated` is an unedited skill older than `SKILL_VERSION`; `rule_missing`
-#: is a skill whose host no longer lets `roleband` run without asking;
-#: `read_only` is Codex set to its read-only sandbox, which blocks the engine
-#: whatever `connect` wrote and which `connect` never changes.
+#: `outdated` is a host where `connect` would install or update a skill file:
+#: a skill it never installed there, or an unedited file of an older version;
+#: `rule_missing` is a skill whose host no longer lets `roleband` run without
+#: asking; `read_only` is Codex set to its read-only sandbox, which blocks the
+#: engine whatever `connect` wrote and which `connect` never changes.
 Connection = Literal["connected", "outdated", "rule_missing", "read_only"]
 
 
@@ -65,8 +92,99 @@ def host_dir(host: Host) -> Path:
     return claude_dir() if host == "claude-code" else codex_dir()
 
 
-def skill_dir(host: Host) -> Path:
-    return host_dir(host) / "skills" / "roleband"
+def skill_dir(host: Host, skill: Skill = ROLEBAND_SKILL) -> Path:
+    return host_dir(host) / "skills" / skill.name
+
+
+# --------------------------------------------------------------------------- #
+# What installing a skill would do
+# --------------------------------------------------------------------------- #
+
+FileAction = Literal["install", "update", "unchanged", "kept_edited"]
+
+
+@dataclass(frozen=True)
+class Record:
+    """A skill folder's sidecar: the version `connect` installed, and the hash
+    of each file as it wrote it."""
+
+    version: int | None
+    files: dict[str, str] = field(default_factory=dict)
+
+    def as_json(self) -> str:
+        return json.dumps({"format": _RECORD_FORMAT, "version": self.version, "files": self.files},
+                          sort_keys=True) + "\n"
+
+
+def sha256(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def read_record(directory: Path) -> Record | None:
+    """The sidecar in `directory`, or None when there is none to read. A
+    one-file sidecar (`sha256`, from before skills were folders) names the
+    hash of `SKILL.md`."""
+    try:
+        document = json.loads((directory / SKILL_RECORD).read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, ValueError):
+        return None
+    if not isinstance(document, dict):
+        return None
+    version = document.get("version")
+    if not isinstance(version, int) or isinstance(version, bool):
+        version = None
+    files = document.get("files")
+    if isinstance(files, dict):
+        hashes = {name: value for name, value in files.items() if isinstance(name, str) and isinstance(value, str)}
+    elif isinstance(document.get("sha256"), str):
+        hashes = {"SKILL.md": document["sha256"]}
+    else:
+        hashes = {}
+    return Record(version, hashes)
+
+
+@dataclass
+class FilePlan:
+    """What installing does to one file of a skill folder."""
+
+    name: str
+    path: Path
+    action: FileAction
+    #: The shipped bytes.
+    content: bytes
+    #: What was there when the plan was made; None when nothing was.
+    present: bytes | None = None
+
+
+def plan_skill(skill: Skill, directory: Path, record: Record | None) -> list[FilePlan]:
+    """What `connect` does to each file of `skill` in `directory`: install a
+    missing one, update one that is an unedited copy of another version (its
+    hash is the one `record` holds), leave a current one, and keep one the
+    person edited, linked or wrote themself. Raises OSError when a shipped
+    file cannot be read."""
+    plans = []
+    for name in skill.files:
+        shipped = (skill.source / name).read_bytes()
+        target = directory / name
+        if target.is_symlink():
+            plans.append(FilePlan(name, target, "kept_edited", shipped))
+            continue
+        try:
+            present = target.read_bytes()
+        except FileNotFoundError:
+            plans.append(FilePlan(name, target, "install", shipped))
+            continue
+        except OSError:
+            plans.append(FilePlan(name, target, "kept_edited", shipped))
+            continue
+        if present == shipped:
+            action: FileAction = "unchanged"
+        elif record is not None and record.files.get(name) == sha256(present):
+            action = "update"
+        else:
+            action = "kept_edited"
+        plans.append(FilePlan(name, target, action, shipped, present))
+    return plans
 
 
 def running_host(environ: Mapping[str, str]) -> Host | None:
@@ -174,28 +292,35 @@ def _codex_read_only() -> bool:
         return False
 
 
-def _skill_state(host: Host) -> Literal["current", "outdated"] | None:
-    """The installed skill: None when there is none, `outdated` when it is an
-    unedited copy of an older version. An edited copy is the person's and
-    counts as current: `connect` never replaces it, nor a link in its place."""
-    directory = skill_dir(host)
-    path = directory / "SKILL.md"
+def _outdated(skill: Skill, directory: Path) -> bool:
+    """Whether `connect` would install or update a file of `skill` in
+    `directory`. A folder it never installed, with files in it, is the
+    person's; one installed at this client's version or a newer one is
+    current; an edited or linked file is the person's and counts as current."""
+    record = read_record(directory)
+    if record is None:
+        return not any((directory / name).exists() or (directory / name).is_symlink() for name in skill.files)
+    if record.version is not None and record.version >= skill.version:
+        return False
     try:
-        present = path.read_bytes()
+        plans = plan_skill(skill, directory, record)
+    except OSError:
+        return False
+    # A file the record lists and the folder lacks was deleted by the person.
+    return any(plan.action == "update" or (plan.action == "install" and plan.name not in record.files)
+               for plan in plans)
+
+
+def _skill_state(host: Host) -> Literal["current", "outdated"] | None:
+    """The installed skills: None when the host has no `roleband` skill,
+    `outdated` when `connect` would install or update one of their files."""
+    try:
+        (skill_dir(host) / "SKILL.md").stat()
     except OSError:
         return None
-    if path.is_symlink():
-        return "current"
-    try:
-        record = json.loads((directory / SKILL_RECORD).read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, ValueError):
-        return "current"
-    if not isinstance(record, dict):
-        return "current"
-    version = record.get("version")
-    unedited = record.get("sha256") == hashlib.sha256(present).hexdigest()
-    older = isinstance(version, int) and not isinstance(version, bool) and version < SKILL_VERSION
-    return "outdated" if unedited and older else "current"
+    if any(_outdated(skill, skill_dir(host, skill)) for skill in SKILLS):
+        return "outdated"
+    return "current"
 
 
 def connection(host: Host) -> Connection | None:

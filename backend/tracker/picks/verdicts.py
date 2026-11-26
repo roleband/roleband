@@ -42,6 +42,11 @@ from tracker.picks.runs import queue_of
 VerdictKind = Literal["pick", "near_miss", "pass"]
 AgainstBaseline = Literal["better", "comparable", "weaker", "unknown"]
 PassCode = Literal["hard_rule", "out_of_reach", "below_level", "not_better", "not_real", "off_direction", "other"]
+#: Why one verdict of a batch is refused: the run's own state, then the form.
+Refusal = Literal[
+    "not_in_run", "brief_changed", "posting_changed", "already_judged", "incomplete", "too_many_reasons",
+    "too_long", "not_plain_text", "unknown_brief_item", "weaker_than_baseline", "not_for_a_pass",
+]
 View = Literal["picks", "near_misses", "passed", "removed"]
 
 #: The most characters of one reason, its opening and the rest together.
@@ -77,7 +82,7 @@ class Saved:
 
     job: int
     verdict: VerdictKind
-    refusal: str | None = None
+    refusal: Refusal | None = None
     #: The stored reasons of a saved item.
     reasons: list[dict[str, Any]] = field(default_factory=list)
 
@@ -104,7 +109,7 @@ def sentence(reason: dict[str, Any]) -> str:
     return f"{reason.get('opening') or ''}{reason.get('rest') or ''}"
 
 
-def refusal(item: VerdictIn, body: BriefBody) -> str | None:
+def refusal(item: VerdictIn, body: BriefBody) -> Refusal | None:
     """Why the form of `item` is refused, or None when it may be saved."""
     low, high = {"pick": PICK_REASONS, "near_miss": NEAR_MISS_REASONS, "pass": (0, 0)}[item.verdict]
     if item.verdict == "pass":
@@ -189,7 +194,7 @@ async def save(
 async def _refusal_in_run(
     session: AsyncSession, run: PickRun, item: VerdictIn, handed: dict[int, str], jobs: dict[int, Job], *,
     body: BriefBody, active_version: int,
-) -> str | None:
+) -> Refusal | None:
     job = jobs.get(item.job)
     if job is None or item.job not in handed:
         return "not_in_run"
