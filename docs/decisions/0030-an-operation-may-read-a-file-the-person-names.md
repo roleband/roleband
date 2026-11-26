@@ -37,7 +37,7 @@ names.
 - Remove deletes every file in that directory, before the rows, with the
   readings, the brief and the receipts of the writes that saved them
   (`DELETE /api/picks/setup`). A Remove that fails keeps every row, and any
-  file it had not deleted yet; a second Remove clears what is left
+  file it had not deleted yet; a second Remove retries what is left
   ([architecture.md](../architecture.md#top-picks)).
 
 ## Consequences

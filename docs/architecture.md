@@ -1388,7 +1388,7 @@ me marks, postings, runs and verdict rows stay. Files go before rows. A Remove
 that fails after deleting the files leaves no CV on disk, only rows naming
 files that are gone; one that fails while deleting them leaves the file it
 could not delete and those it had not reached. Either way every row stays,
-and Remove again clears what is left; until then the same bytes given again
+and another Remove retries what is left; until then the same bytes given again
 write a missing file back under the id the readings name.
 
 **What the app reads.** `GET /api/jobs?top_picks=true` is the Radar's own list
