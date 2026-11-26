@@ -86,6 +86,13 @@ The Radar and the ranking pictures come from a real install.</sub>
 - **Any company, one link.** Paste a careers link, and its roles join your
   radar.
 - **Alerts that matter.** Save a role, and hear when it closes.
+- **Top picks.** Your AI assistant learns what you want, reads the open roles
+  on your Radar, and keeps the few worth a move, each with the reasons it
+  chose it. A role whose posted pay, level or place breaks one of your hard
+  rules is ruled out before it is read, and Passed over shows what it read and
+  did not pick.
+  It runs in the assistant you already use, such as Claude Code or Codex,
+  through the `roleband` CLI.
 - **A CLI for your AI assistant.** Claude Code, Codex or your own scripts use
   the `roleband` CLI to search roles, read pay and market data, and save roles
   and notes for you. Turn it on in **Settings › AI**, and see what it did under

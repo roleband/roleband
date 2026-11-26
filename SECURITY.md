@@ -42,6 +42,23 @@ RoleBand is a single-user application that runs on your own computer.
   in the answer. `doctor` redacts secrets, credentials in URLs and paths outside
   the data folder before it answers
   ([agent operations](docs/architecture.md#api-contract)).
+- Top picks keeps what your assistant learns about you in that database: its
+  reading of your background, your brief and its verdicts. When you give your
+  assistant your CV as a file, it can store a copy as the file came, in the
+  `documents` folder of RoleBand's data folder (`~/.roleband/documents` in the
+  Mac app, `data/documents` in a source checkout), created readable by your
+  account only. RoleBand never opens that file and no route sends it back. The
+  database backups RoleBand makes (`deploy/backup_db.sh`) hold the reading and
+  the brief but not the file
+  ([decision 0030](docs/decisions/0030-an-operation-may-read-a-file-the-person-names.md)).
+  RoleBand sends none of this anywhere: your assistant reads the reading and
+  the brief through the `roleband` command, like any data it reads, and sends
+  them to its own model provider under your sign-in, unless you keep the
+  candidate profile from assistants. Removing Top picks
+  (`DELETE /api/picks/setup`) deletes every file in that folder, every reading
+  and the brief, and clears what past picks say about you; a database backup
+  made before keeps its copy of the rows
+  ([Top picks](docs/architecture.md#top-picks)).
 - The Mac app installs an update only when its release files are signed with one
   of the app's two release keys and the new app meets the signing rule the installed
   app carries. A candidate that fails is discarded. The app sends the person to a
