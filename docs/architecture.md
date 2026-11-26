@@ -692,7 +692,7 @@ dispatching twice.
 |---|---|---|
 | L6 interface | `api`, `mcp`, `cli` | Independent front doors onto the same services. `api/app.py` only composes. `cli` is the `roleband` client: it reaches the engine over HTTP and imports no database module. `mcp` holds only the entry point older agent hosts launch, which imports nothing and names `roleband connect` ([0023](decisions/0023-the-mcp-server-is-removed.md)). |
 | L5 workflows | `workflows`, `daily`, `scheduler`, `watchdog`, `discover_roles`, `agents`, `supervisor` | Runs, scheduling, supervision. |
-| L4 services | The L4 row of the layers contract in `backend/pyproject.toml` is the list: `db`, the services (`enrich`, `skills`, `lineage`, `semantic`, `search`, `scope`, `profiles`, `analytics`, `notifications`, `intelligence_runtime`, `plugins`, ...) and the stores (`settings_store`, `pay_store`, `company_store`, ...) | Same-layer imports allowed; `db` is the shared store. `intelligence` sits just above L3 and composes the model backends. |
+| L4 services | The L4 row of the layers contract in `backend/pyproject.toml` is the list: `db`, the services (`enrich`, `skills`, `lineage`, `semantic`, `search`, `scope`, `profiles`, `analytics`, `notifications`, `picks`, `intelligence_runtime`, `plugins`, ...) and the stores (`settings_store`, `pay_store`, `company_store`, ...) | Same-layer imports allowed; `db` is the shared store. `intelligence` sits just above L3 and composes the model backends. |
 | L3 implementations | `connectors`, `comp_providers`, `prices`, `cloud_llm`, `local_llm` | Never import each other. Their contracts and registries live inside them. |
 | L1 vocabulary | `schema.py`, `config.py`, `taxonomy`, `levels`, `blueprint.py`, `company_catalog.py`, `source_policy.py`, `source_review.py`, `provider_pacing.py`, `pay_*`, `plugin_manifest.py` | Domain types and settings. |
 | L0 primitives | `platform`, `vendored.py` | HTTP, rate limits, paging, locks, clocks, paths. Imports no other tracker module. Robots evaluation is `roleband_robots`, its own distribution, because the plugin SDK's fake host answers with the same code and the API may not load the SDK. |
@@ -1197,7 +1197,9 @@ OpenAI-compatible profiles (`backend/tracker/local_llm/`, loopback only) and
 cloud profiles (`backend/tracker/cloud_llm/`), unreachable unless the user turns
 on AI egress (`ai_egress_enabled`, off by default). The one model task the
 product runs is duplicate review, on a pair the user picks, by their local model
-(`backend/tracker/intelligence/duplicate_review.py`). The one line that can add a
+(`backend/tracker/intelligence/duplicate_review.py`). [Top picks](#top-picks)
+is judged by the person's own assistant, outside the engine, so it adds none.
+The one line that can add a
 cloud tier is in `backend/tracker/intelligence_runtime/routing.py`, a ladder only
 the model bench drives. Search query parsing (`backend/tracker/search/llm.py`)
 takes the same switch. The tool-calling transport below refuses a tier the
@@ -1263,6 +1265,150 @@ permissible band set. Multiple native rungs can support one coarse band, but
 cross-band alternatives cannot become a single-band target. Exclusion versus
 set preservation is an explicit study policy. Pending or incomplete reviews
 produce no targets; admission alone does not pass grouping or promotion gates.
+
+## Top picks
+
+Top picks is the few open roles worth leaving a job for, chosen by the
+person's own assistant ([0028](decisions/0028-an-assistant-chooses-the-top-picks.md)).
+The conversation and the scheduled check are the assistant's: the engine
+starts no assistant and calls no model for it
+([0029](decisions/0029-model-conversations-happen-in-the-persons-assistant.md)).
+`backend/tracker/picks/` holds everything code decides, an L4 service:
+`background` (who the person is), `brief` (what they want), `rules` (the
+checkable hard rules), `queue`, `runs`, `verdicts`, `health`, `setup` (where
+setup stands, read from what is saved) and `mode` (on, off, opened, Remove).
+Nothing in it commits; the operation or route around it owns the transaction.
+The assistant reaches it through the `background`, `brief` and `picks`
+operations (`tracker/agents/operations/`), the app through
+`tracker/api/routers/picks.py` and the Radar's own list. Every operation whose
+answer carries the background, the brief or a verdict declares the candidate
+profile as its first data class, so keeping that category from assistants
+refuses it as `category_disabled`; `picks.next` and `picks.samples` answer
+postings only.
+
+**Storage and ownership.** Five tables, each claimed `user` and `authored` in
+`db/ownership.py`, since nothing upstream can rebuild them, and each written
+only by its module in `tracker/picks/`: `candidate_document` (the file the
+person gave, by name, type, size and SHA-256), `candidate_background` (each
+reading of the person's background, the newest standing), `pick_brief` (one
+row per version of the brief), `pick_run` (each run of the judge, written by
+`runs.py` and by `verdicts.py`, which counts a run's verdicts on its row) and
+`pick_verdict`. A stored file's bytes are not in the database: they sit in the
+data folder's `documents` directory under a name the engine makes, readable by
+this account only, never parsed and never returned by any route
+([0030](decisions/0030-an-operation-may-read-a-file-the-person-names.md)).
+The mode is the `top_picks` row of `app_settings` (`settings_store.py`): its
+state (`never_set_up`, `on` or `off`), when it was last turned on, the
+assistant that runs the check and when, the daily limit, when the person last
+opened Top picks, and the highest brief revision a removed brief held. Every
+write of the picks tables holds one advisory lock (`picks/lock.py`) from
+before its first read until its commit, so a version number, the one active
+brief and a run's queue are each decided by one writer; a write that also
+changes the `top_picks` row takes the picks lock first.
+
+**The brief.** One JSON document of named parts and a plain-text summary
+(`picks/brief.py`). At most one row is `active`, which the judge reads, and
+at most one `draft`, which setup writes until the person confirms it; a change
+of the active brief is a new version, with who made it (`person` or
+`routine`) and why, and the version it replaces is `superseded`. A revision is
+never reused, Remove included, so a change stated against a replaced version
+is refused rather than applied to the new one. The engine gives each rule,
+pull, trade-off and proposed rule an id it never reuses, so a verdict's reason
+keeps pointing at the item it rests on. A write that names its run is the
+routine's: it may change the pulls, trade-offs, examples and proposed rules,
+and any other part, the summary or activating a draft answers
+`needs_the_person`.
+
+**Hard rules.** A rule is checkable when one of six forms decides it (a base
+floor, a total floor, places, work modes, a level floor, companies to avoid),
+and judged otherwise. `picks/rules.py` turns each checkable form into a SQL
+condition that is true or false, never NULL, and rules a posting out only on
+a field it states: no pay band, no placed level, an unknown work mode or no
+place keeps the posting for the judge. A pay floor reads the employer's stated
+band on its basis (base or total), in the rule's currency and per year (a band
+with no stored period counts as yearly only when only a year can hold it),
+and only its top: a band with no top rules nothing out, and an estimate is
+never read. A places rule with remote accepted keeps a posting that states no
+work mode.
+
+**The queue is a query.** Nothing stores it (`picks/queue.py`). It starts
+from the Board's own visible set (`apply_job_filters` with the open roles and
+the hidden companies: in scope, at a followed company, not marked Not for me,
+one row per place set), so the judge never reads a posting the Board would
+not show, and narrows it in three steps: the newest posting the Board shows of
+each duplicate stack; no posting whose case is closed, because it or another
+posting of its stack or place set has a verdict for its current text
+(`content_hash`) that stands; and no posting a checkable rule rules out. A
+newer brief takes a second look only where its change could turn the answer:
+a pick the person has not saved, pursued or marked, a near miss of the last 14
+days, and a pass as `not_better` on a posting first seen in the last 14 days.
+What is left is ordered best fit first (`search/fit.fit_expr` against the
+person's intent, newest listing first without one, a posting with no
+embedding last); fit orders the work and drops nothing. Roles open before the
+mode was turned on are in the queue like any other, and a role waits from its
+first sighting or from that moment, whichever is later, so an old role does
+not make the routine look late. A trial, at the end of setup, takes every open
+role the rules leave, judged or not, up to 30, and its verdicts are kept
+apart. `queue.volume` reads the rules against the last 21 days of arrivals,
+for the expected daily volume and the share each rule removes.
+
+**Runs and verdicts.** `picks.begin` opens a run with its queue (each
+posting's id and content hash) and the active brief's version, and answers
+what the judge needs in one call: the brief, this month's picks, the person's
+reactions since the last run and the first postings. `picks.next` reads a
+further batch, `picks.decide` records up to 50 verdicts and `picks.finish`
+closes the run, `finished` or `stopped` with a note. The engine closes a run as
+`abandoned` when it stays open past two hours or when the same assistant
+begins another. A day's routine runs, by the local day, are handed at most the
+daily limit (1,000 by default, 1 to 5,000); a trial counts apart. A verdict
+(`picks/verdicts.py`) is a `pick` (two to four reasons, never `weaker` than
+the person's baseline), a `near_miss` (the one reason it failed) or a `pass`
+(a code); a reason is plain text of at most 140 characters, its `opening` fact
+apart from the `rest`, naming the brief item it rests on. Each verdict is
+checked and saved in its own savepoint, so one refused item (`not_in_run`,
+`posting_changed`, `brief_changed`, or out of form) leaves the batch's others
+saved. A posting is judged once per text, brief version and trial
+(`uq_pick_verdict_case`); a verdict on a new case supersedes the one before.
+`picks/health.py` reads the stored runs: `off`, `stopped_early` when the run
+that ended last stopped or was abandoned, `never_ran`, `late` when a role has
+waited over 36 hours and no run finished in that time, else `healthy`.
+
+**The mode and Remove.** Off pauses the checks: `picks.begin` answers
+`mode_off`, except for a trial, and everything saved stays. On needs an
+active brief (`brief_required`). The assistant changes the mode and the daily
+limit with `picks.switch`; the app with `PUT /api/picks/mode`.
+`DELETE /api/picks/setup`, the app's Remove, has no operation: under the picks
+lock it deletes every file in the `documents` directory, every reading and
+document row and every version of the brief; clears the reasons and notes of
+past verdicts and runs, ending the verdicts that stand, since a reason quotes
+the person's own facts; closes a run still open as abandoned; deletes the
+receipts of the writes whose answers carry the background or the brief
+(`receipts.forget`, the one place a receipt is deleted, so `command_receipts`
+is `operational`); and returns the mode to never set up. Saved roles, Not for
+me marks, postings, runs and verdict rows stay. Files go before rows. A Remove
+that fails after deleting the files leaves no CV on disk, only rows naming
+files that are gone; one that fails while deleting them leaves the file it
+could not delete and those it had not reached. Either way every row stays,
+and another Remove retries what is left; until then the same bytes given again
+write a missing file back under the id the readings name.
+
+**What the app reads.** `GET /api/jobs?top_picks=true` is the Radar's own list
+with one condition more: the role is a pick that stands and no current hard
+rule rules it out. Every filter, the search, each sort and the paging work as
+on the Radar; Newest orders by when the pick was made, and each row carries
+`pick_reasons` and `picked_at`. `GET /api/facets?top_picks=true` offers only
+what the picks contain. `GET /api/picks/state` answers the mode, its health,
+what waits, the week's reads and passes, the last check, the daily limit,
+whether a pick arrived since the person last opened Top picks (`unseen_pick`,
+which `POST /api/picks/opened` resets) and the routine assistant's connection
+as its own files state it. `GET /api/picks/passed` lists the last seven days'
+near misses, passes by code and what the rules ruled out before any reading;
+`GET /api/picks/removed` lists the picks marked Not for me. Not for me is the
+Board's own dismissal (`PUT /api/jobs/{job_id}/feedback`), which keeps a
+reason code and up to 200 characters of the person's words
+(`job_feedback.reason_text`) for the assistant to read back; clearing it puts
+a pick back on both screens. These routes are the app's: the agent switches do
+not gate them and Activity lists nothing for them.
 
 ## API contract
 
@@ -1615,10 +1761,12 @@ schema in process. `vite preview` serves the same
 file, and `dashboard/tests/ux/csp.spec.ts` walks every route of the build for a
 refusal.
 
-**Profile background and sign-in.** There are no profile background, activity or
-LinkedIn routes, and no LinkedIn app, grant or sign-in state is stored. Such a
+**Outside profiles and sign-in.** There are no LinkedIn profile, activity or
+sign-in routes, and no LinkedIn app, grant or sign-in state is stored. Such a
 feature arrives only with a screen that uses it, its secrets encrypted as
-[SECURITY.md](../SECURITY.md#the-security-model) describes.
+[SECURITY.md](../SECURITY.md#the-security-model) describes. The person's
+background for Top picks is what their assistant read and the file the person
+gave it ([Top picks](#top-picks)), not an outside profile.
 
 ## Dashboard
 
