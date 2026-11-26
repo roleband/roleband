@@ -36,8 +36,8 @@ names.
   reading, and the Activity entry names the document by id, not by its name.
 - Remove deletes every file in that directory, before the rows, with the
   readings, the brief and the receipts of the writes that saved them
-  (`DELETE /api/picks/setup`), so a Remove that fails part way leaves no file
-  behind and a second one finishes it
+  (`DELETE /api/picks/setup`). A Remove that fails keeps every row, and any
+  file it had not deleted yet; a second Remove clears what is left
   ([architecture.md](../architecture.md#top-picks)).
 
 ## Consequences
@@ -45,9 +45,11 @@ names.
 - The person's CV is on disk beside the database, not in it: a database
   backup does not hold it, and a copy of the data folder does.
   [SECURITY.md](../../SECURITY.md#the-security-model) says where it is kept.
-- A write whose transaction rolls back deletes the file it made, and a failed
-  write leaves no part of one. Remove clears every file in the folder, whether
-  or not a row names it, since the folder is the engine's own.
+- A write that adds a new document and then rolls back deletes the file it
+  made, and a failed write leaves no part of one. A file written back for a
+  document already stored belongs to that row and stays. Remove clears every
+  file in the folder, whether or not a row names it, since the folder is the
+  engine's own.
 - A later operation that takes a file uses the same effect, flag and checks.
 - `backend/tests/test_cli_file_input.py` holds the client's checks, and
   `backend/tests/test_picks_engine.py` and `test_agent_picks_db.py` hold the
