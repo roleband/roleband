@@ -10,12 +10,14 @@ import { ONBOARD_POLL_MS, TopPicksOnboarding, setupRows } from "./TopPicksOnboar
 const picksState = vi.fn<() => Promise<PicksState>>();
 const agentAccess = vi.fn<() => Promise<AgentAccessState>>();
 const setAgentAccess = vi.fn<(access: { enabled: boolean; allow_writes?: boolean }) => Promise<AgentAccessState>>();
+const patchAgentAccess = vi.fn<(choices: { groups?: Record<string, string> }) => Promise<AgentAccessState>>();
 vi.mock("../../api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../api")>()),
   api: {
     picksState: () => picksState(),
     agentAccess: () => agentAccess(),
     setAgentAccess: (access: { enabled: boolean; allow_writes?: boolean }) => setAgentAccess(access),
+    patchAgentAccess: (choices: { groups?: Record<string, string> }) => patchAgentAccess(choices),
   },
 }));
 
@@ -42,6 +44,7 @@ beforeEach(() => {
   picksState.mockReset().mockReturnValue(new Promise(() => {}));
   agentAccess.mockReset().mockResolvedValue(access());
   setAgentAccess.mockReset();
+  patchAgentAccess.mockReset();
 });
 
 function renderOnboarding(picks: PicksState = picksStateFixture(), onPicksChange = vi.fn()) {
@@ -172,6 +175,36 @@ describe("TopPicksOnboarding before the conversation saves anything", () => {
     expect(screen.queryByRole("checkbox")).toBeNull();
   });
 
+  it("turns on the radar's changes too when the switch finds them off", async () => {
+    agentAccess.mockResolvedValue(access({}, false));
+    setAgentAccess.mockResolvedValue({ ...access(), groups: { ...agentAccessFixture.groups, tuning_radar: "off" } });
+    patchAgentAccess.mockResolvedValue(access());
+    renderOnboarding();
+    await settle();
+    await userEvent.click(screen.getByRole("checkbox", { name: msg("ai-assistants-card-allow-assistant-apps-to-connect") }));
+    expect(patchAgentAccess).toHaveBeenCalledExactlyOnceWith({ groups: { tuning_radar: "on" } });
+    expect(screen.queryByRole("checkbox")).toBeNull();
+  });
+
+  for (const [what, refusing] of [
+    ["makes no changes", { allow_writes: false }],
+    ["may not tune the radar", { groups: { ...agentAccessFixture.groups, tuning_radar: "off" as const } }],
+  ] as const) {
+    it(`asks for the radar's changes alone when a connection ${what}, since setup saves through them`, async () => {
+      agentAccess.mockResolvedValue({ ...access(), ...refusing });
+      patchAgentAccess.mockResolvedValue(access());
+      renderOnboarding();
+      await settle();
+      expect(screen.queryByRole("checkbox", { name: msg("ai-assistants-card-allow-assistant-apps-to-connect") })).toBeNull();
+      const tuning = screen.getByRole("checkbox", { name: msg("ai-access-dialog-tuning-the-radar") });
+      expect(tuning).not.toBeChecked();
+      await userEvent.click(tuning);
+      expect(patchAgentAccess).toHaveBeenCalledExactlyOnceWith({ groups: { tuning_radar: "on" } });
+      expect(setAgentAccess).not.toHaveBeenCalled();
+      expect(screen.queryByRole("checkbox")).toBeNull();
+    });
+  }
+
   it("shows no switch while access is unknown or on", async () => {
     agentAccess.mockRejectedValue(new Error("engine away"));
     renderOnboarding();
@@ -265,6 +298,29 @@ describe("TopPicksOnboarding's reads", () => {
       });
       expect(picksState).toHaveBeenCalledTimes(2);
       expect(onPicksChange).toHaveBeenLastCalledWith(saved);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps answers from reads slower than the interval", async () => {
+    vi.useFakeTimers();
+    try {
+      const answers: ((state: PicksState) => void)[] = [];
+      picksState.mockImplementation(() => new Promise((resolve) => { answers.push(resolve); }));
+      const { onPicksChange } = renderOnboarding();
+      await act(async () => {
+        vi.advanceTimersByTime(ONBOARD_POLL_MS);
+      });
+      expect(answers).toHaveLength(2);
+      // The first read answers while the second is still out: nothing newer has answered.
+      const first = picksStateFixture({ setup: picksSetupFixture("situation") });
+      await act(async () => answers[0](first));
+      expect(onPicksChange).toHaveBeenCalledExactlyOnceWith(first);
+      const second = picksStateFixture({ setup: picksSetupFixture("bar") });
+      await act(async () => answers[1](second));
+      expect(onPicksChange).toHaveBeenLastCalledWith(second);
+      expect(onPicksChange).toHaveBeenCalledTimes(2);
     } finally {
       vi.useRealTimers();
     }

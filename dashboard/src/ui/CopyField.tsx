@@ -14,16 +14,24 @@ export const COPIED_MS = 2_000;
    the text is selected so the person can copy it, and a line under the field
    says so. The text wraps rather than clip: what is to be said is read whole. */
 export function CopyField({ text, className }: { text: string; className?: string }) {
-  // Counts the presses that copied: each starts the two seconds again.
-  const [copied, setCopied] = useState(0);
-  const [failed, setFailed] = useState(false);
+  // What the last press did, and to which text: feedback for a text no longer
+  // shown is not shown. Each press is a new object, so a press within the two
+  // seconds starts them again.
+  const [press, setPress] = useState<{ text: string; copied: boolean } | null>(null);
+  const shown = press?.text === text ? press : null;
+  const copied = shown?.copied === true;
+  const failed = shown?.copied === false;
   const textRef = useRef<HTMLElement>(null);
+  const latest = useRef(text);
+  useEffect(() => {
+    latest.current = text;
+  }, [text]);
 
   useEffect(() => {
-    if (copied === 0) return;
-    const timer = window.setTimeout(() => setCopied(0), COPIED_MS);
+    if (!press?.copied) return;
+    const timer = window.setTimeout(() => setPress(null), COPIED_MS);
     return () => window.clearTimeout(timer);
-  }, [copied]);
+  }, [press]);
 
   const selectText = () => {
     const node = textRef.current;
@@ -36,21 +44,19 @@ export function CopyField({ text, className }: { text: string; className?: strin
   };
 
   const copy = () => {
+    const pressed = text;
+    // The clipboard answers later: an answer for a text the field no longer
+    // holds says nothing.
+    const answer = (copiedIt: boolean) => {
+      if (latest.current !== pressed) return;
+      setPress({ text: pressed, copied: copiedIt });
+      if (!copiedIt) selectText();
+    };
     // `navigator.clipboard` is missing outside a secure context: that refusal
     // is a failure like any other.
     Promise.resolve()
-      .then(() => navigator.clipboard.writeText(text))
-      .then(
-        () => {
-          setFailed(false);
-          setCopied((n) => n + 1);
-        },
-        () => {
-          setCopied(0);
-          setFailed(true);
-          selectText();
-        },
-      );
+      .then(() => navigator.clipboard.writeText(pressed))
+      .then(() => answer(true), () => answer(false));
   };
 
   return (
@@ -63,7 +69,7 @@ export function CopyField({ text, className }: { text: string; className?: strin
       >
         {/* The text stays selectable inside the button, for a refused clipboard. */}
         <code className="ui-copy-field-text" data-selection="content" ref={textRef}>{text}</code>
-        {copied > 0 && <span className="ui-copy-field-done" aria-hidden="true">{sharedCopied()}</span>}
+        {copied && <span className="ui-copy-field-done" aria-hidden="true">{sharedCopied()}</span>}
         <Icon name={copied ? "check" : "copy"} size={15} />
       </button>
       <span className="sr-only" role="status">{copied ? sharedCopied() : ""}</span>

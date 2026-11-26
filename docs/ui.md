@@ -1081,8 +1081,9 @@ Top picks' onboarding (`features/opportunities/TopPicksOnboarding.tsx`) has two
 steps. Step 1 is one sentence that connects the person's assistant and starts
 the setup conversation in it; Terminal is the quiet fallback, the engine's
 command for the chosen assistant and then the sentence's second half. An
-assistant already connected is given only the second half. While assistant
-apps may not connect, Settings › AI's own switch comes first. Once the
+assistant already connected is given only the second half. While anything
+refuses the setup's saves, Settings › AI's own switch for it comes first:
+Allow assistant apps to connect, or else its "Tuning the radar" change. Once the
 conversation has saved anything (`setup.started` in `GET /api/picks/state`),
 the screen lists the stages saved, the one being asked, the next, and any that
 wait for roles. The list takes over once the checks are set up.

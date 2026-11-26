@@ -113,6 +113,34 @@
 .picks-picture-bar.is-more { width: 38%; height: 10px; }
 .picks-picture-bar.is-more-long { width: 52%; height: 10px; }
 
+/* Contrast themes repaint backgrounds, which would blank the dots and bars:
+   they keep their shape in system colours, a pick as a ring where the theme
+   would otherwise tell it apart by hue alone (docs/ui.md › Forced colours). */
+@media (forced-colors: active) {
+  .picks-picture-dots > i,
+  .picks-picture-glow,
+  .picks-picture-bar,
+  .picks-picture-arrow {
+    forced-color-adjust: none;
+  }
+
+  .picks-picture-dots > i,
+  .picks-picture-bar,
+  .picks-picture-bar.is-title {
+    background: CanvasText;
+  }
+
+  .picks-picture-dots > i.is-lit,
+  .picks-picture-glow {
+    background: Canvas;
+    box-shadow: inset 0 0 0 2px CanvasText;
+  }
+
+  .picks-picture-arrow {
+    stroke: CanvasText;
+  }
+}
+
 .picks-picture-row {
   display: grid;
   gap: var(--app-space-2);

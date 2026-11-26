@@ -82,4 +82,38 @@ describe("CopyField", () => {
     expect(screen.queryByRole("alert")).toBeNull();
     expect(field()).toHaveClass("is-copied");
   });
+  it("shows no feedback for a new text: Copied and the refusal belong to the text pressed", async () => {
+    const COMMAND = "roleband connect codex --apply";
+    const named = (text: string) => screen.getByRole("button", { name: msg("shared-copy-text", { text }) });
+    const { rerender } = render(<CopyField text={SENTENCE} />);
+    await press();
+    rerender(<CopyField text={COMMAND} />);
+    expect(named(COMMAND)).not.toHaveClass("is-copied");
+    expect(screen.getByRole("status")).toHaveTextContent("");
+
+    writeText.mockRejectedValueOnce(new DOMException("denied", "NotAllowedError"));
+    fireEvent.click(named(COMMAND));
+    await act(async () => {});
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    rerender(<CopyField text={SENTENCE} />);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("ignores a clipboard answer that arrives after the text changed", async () => {
+    const COMMAND = "roleband connect codex --apply";
+    let settle: () => void = () => {};
+    writeText.mockReturnValueOnce(new Promise<void>((resolve) => { settle = resolve; }));
+    const { rerender } = render(<CopyField text={SENTENCE} />);
+    await press();
+    expect(writeText).toHaveBeenCalledExactlyOnceWith(SENTENCE);
+    rerender(<CopyField text={COMMAND} />);
+    await act(async () => settle());
+    const now = screen.getByRole("button", { name: msg("shared-copy-text", { text: COMMAND }) });
+    expect(now).not.toHaveClass("is-copied");
+    expect(screen.getByRole("status")).toHaveTextContent("");
+
+    // Back on the first text, the late answer is still not shown as its own.
+    rerender(<CopyField text={SENTENCE} />);
+    expect(field()).not.toHaveClass("is-copied");
+  });
 });

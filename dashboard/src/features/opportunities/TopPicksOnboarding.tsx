@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { aiAssistantsCardAllowAssistantAppsToConnect } from "../../copy/gen/ai";
+import { aiAccessDialogTuningTheRadar, aiAssistantsCardAllowAssistantAppsToConnect } from "../../copy/gen/ai";
 import {
   picksHost,
   picksOnboardAccess,
@@ -101,19 +101,26 @@ export function TopPicksOnboarding({ picks, onPicksChange }: {
   onPicksChange: (next: PicksState) => void;
 }) {
   const [access, setAccess] = useState<AgentAccessState | null>(null);
-  // Each read answers only if no read of the same kind started after it.
-  const reads = useRef({ picks: 0, access: 0 });
+  // A read answers unless a read of the same kind that started after it has
+  // answered already: an older answer never overwrites a newer one, and reads
+  // slower than the interval still answer.
+  const started = useRef({ picks: 0, access: 0 });
+  const answered = useRef({ picks: 0, access: 0 });
   const poll = useCallback(() => {
-    const picksRead = ++reads.current.picks;
+    const picksRead = ++started.current.picks;
     api.picksState()
       .then((next) => {
-        if (picksRead === reads.current.picks) onPicksChange(next);
+        if (picksRead < answered.current.picks) return;
+        answered.current.picks = picksRead;
+        onPicksChange(next);
       })
       .catch(() => {});
-    const accessRead = ++reads.current.access;
+    const accessRead = ++started.current.access;
     api.agentAccess()
       .then((next) => {
-        if (accessRead === reads.current.access) setAccess(next);
+        if (accessRead < answered.current.access) return;
+        answered.current.access = accessRead;
+        setAccess(next);
       })
       .catch(() => {});
   }, [onPicksChange]);
@@ -163,7 +170,7 @@ function Invitation({ access, onAccess }: {
   const sentence = connected ? picksOnboardSentenceConnected() : picksOnboardSentence();
   return (
     <>
-      {access && !access.enabled && <AccessLine onAccess={onAccess} />}
+      {access && setupRefused(access) && <AccessLine access={access} onAccess={onAccess} />}
       {terminal && !connected ? (
         <TerminalLines access={access} onBack={() => setTerminal(false)} />
       ) : (
@@ -191,15 +198,34 @@ function Invitation({ access, onAccess }: {
   );
 }
 
-/** Assistant apps may not connect yet: the switch that lets them comes
- *  first. It is Settings › AI's own switch, saved the same way. */
-function AccessLine({ onAccess }: { onAccess: (next: AgentAccessState) => void }) {
+/** The setup conversation saves through changes in the "Tuning the radar"
+ *  group: the engine refuses them unless assistant apps may connect, may make
+ *  changes, and that group is on (a group left out is on). */
+function setupRefused(access: AgentAccessState): boolean {
+  return !access.enabled || !access.allow_writes || access.groups.tuning_radar === "off";
+}
+
+/** What refuses the setup's saves comes first, as a switch: Settings › AI's
+ *  own switch while assistant apps may not connect, else its "Tuning the
+ *  radar" change, each saved the way Settings › AI saves it. */
+function AccessLine({ access, onAccess }: {
+  access: AgentAccessState;
+  onAccess: (next: AgentAccessState) => void;
+}) {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
+  const label = access.enabled ? aiAccessDialogTuningTheRadar() : aiAssistantsCardAllowAssistantAppsToConnect();
   const allow = (next: boolean) => {
     if (!next) return;
     setSaving(true);
-    api.setAgentAccess({ enabled: true, allow_writes: true })
+    // On a connection that makes no changes, the engine turns on only the
+    // group named; every other kind of change stays off.
+    const tuning = () => api.patchAgentAccess({ groups: { tuning_radar: "on" } });
+    const open = access.enabled
+      ? tuning()
+      : api.setAgentAccess({ enabled: true, allow_writes: true })
+        .then((opened) => (opened.groups.tuning_radar === "off" ? tuning() : opened));
+    open
       .then(onAccess)
       .catch((e: unknown) => toast({ key: "top-picks-access", text: errorText(e), tone: "error" }))
       .finally(() => setSaving(false));
@@ -207,10 +233,10 @@ function AccessLine({ onAccess }: { onAccess: (next: AgentAccessState) => void }
   return (
     <div className="picks-onboard-access">
       <div>
-        <b>{aiAssistantsCardAllowAssistantAppsToConnect()}</b>
+        <b>{label}</b>
         <p>{picksOnboardAccess()}</p>
       </div>
-      <Switch checked={false} disabled={saving} onChange={allow} label={aiAssistantsCardAllowAssistantAppsToConnect()} />
+      <Switch checked={false} disabled={saving} onChange={allow} label={label} />
     </div>
   );
 }

@@ -144,7 +144,7 @@ test.describe("layout", () => {
     test(`in ${language}, every line stays inside its column, the sentence too`, async ({ page, isMobile }) => {
       test.skip(isMobile, "desktop screens only");
       await page.setViewportSize({ width: 1440, height: 1000 });
-      await page.route("/api/settings/locale", (route) => route.fulfill({ json: { language, region: null } }));
+      await mockGet(page, "/api/settings/locale", (route) => route.fulfill({ json: { language, region: null } }));
       await installOnboarding(page, { picks: picksStateFixture(), access: agentAccessFixture });
       await page.goto("/top-picks");
       await expect(page.locator("html")).toHaveAttribute("lang", language);
@@ -172,6 +172,31 @@ test.describe("layout", () => {
     await expect(rows).toHaveCount(10);
     await expect(page.locator(".picks-setup-row.is-waits")).toContainText(msg("picks-onboard-row-waits"));
     expect(overlapping(await laidOut(page.locator(".picks-setup-rows"), ".picks-setup-row > *"))).toEqual([]);
+  });
+
+  test("in a contrast theme the picture keeps its dots, its pick and its bars", async ({ page, isMobile }) => {
+    test.skip(isMobile, "desktop screens only");
+    await page.emulateMedia({ forcedColors: "active" });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await installOnboarding(page, { picks: picksStateFixture(), access: agentAccessFixture });
+    await page.goto("/top-picks");
+    await expect(page.locator(".picks-picture")).toBeVisible();
+    const paint = await page.evaluate(() => {
+      const style = (selector: string) => getComputedStyle(document.querySelector(selector)!);
+      const ground = getComputedStyle(document.querySelector(".onboard")!.closest(".main") ?? document.body).backgroundColor;
+      return {
+        ground,
+        dot: style(".picks-picture-dots > i:not(.is-lit)").backgroundColor,
+        lit: style(".picks-picture-dots > i.is-lit").boxShadow,
+        bar: style(".picks-picture-bar").backgroundColor,
+        arrow: style(".picks-picture-arrow").stroke,
+      };
+    });
+    const blank = (color: string) => color === paint.ground || color === "rgba(0, 0, 0, 0)" || color === "transparent";
+    expect(blank(paint.dot), `a dot paints ${paint.dot} on ${paint.ground}`).toBe(false);
+    expect(blank(paint.bar), `a bar paints ${paint.bar} on ${paint.ground}`).toBe(false);
+    expect(paint.lit, "a lit dot has no ring").toContain("inset");
+    expect(blank(paint.arrow), "the arrow has no stroke").toBe(false);
   });
 
   test("the copy control shows its focus ring inside its own edge", async ({ page, isMobile }) => {
