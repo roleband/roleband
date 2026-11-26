@@ -34,8 +34,11 @@ names.
   stored.
 - No operation and no route returns the stored bytes. An assistant reads the
   reading, and the Activity entry names the document by id, not by its name.
-- Remove deletes every file in that directory with the readings, the brief and
-  the receipts of the writes that saved them (`DELETE /api/picks/setup`).
+- Remove deletes every file in that directory, before the rows, with the
+  readings, the brief and the receipts of the writes that saved them
+  (`DELETE /api/picks/setup`), so a Remove that fails part way leaves no file
+  behind and a second one finishes it
+  ([architecture.md](../architecture.md#top-picks)).
 
 ## Consequences
 

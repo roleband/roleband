@@ -88,8 +88,9 @@ The Radar and the ranking pictures come from a real install.</sub>
 - **Alerts that matter.** Save a role, and hear when it closes.
 - **Top picks.** Your AI assistant learns what you want, reads the open roles
   on your Radar, and keeps the few worth a move, each with the reasons it
-  chose it. Your hard rules, such as a pay floor or a level, rule roles out
-  before it reads them, and Passed over shows what it read and did not pick.
+  chose it. A role whose posted pay, level or place breaks one of your hard
+  rules is ruled out before it is read, and Passed over shows what it read and
+  did not pick.
   It runs in the assistant you already use, such as Claude Code or Codex,
   through the `roleband` CLI.
 - **A CLI for your AI assistant.** Claude Code, Codex or your own scripts use

@@ -24,13 +24,11 @@ so what it may change on its own has to be fixed in advance.
   stands, less those a checkable hard rule rules out, best fit first. Fit
   orders the work and never cuts it. Roles open before Top picks was turned on
   are read too, a day's limit at a time.
-- **A hard rule is checkable or judged.** A checkable rule is one of six forms
-  (a base floor, a total floor, places, work modes, a level floor, companies to
-  avoid) that the engine applies before any model reads the posting
-  (`tracker/picks/rules.py`). It rules a posting out only on a field the
-  posting states: a posting that states no pay, no level, no place or no work
-  mode goes to the judge. A pay floor reads only the employer's stated yearly
-  band with a top, never an estimate. Any other rule is judged by reading.
+- **A hard rule is checkable or judged.** The engine applies a checkable rule
+  before any model reads the posting, and only on a field the posting has (a
+  stated pay band, a placed level, a place, a work mode, the company), never
+  on estimated pay: a posting without the field goes to the judge. Any other rule is judged by reading. The forms and how each is read
+  are in [architecture.md](../architecture.md#top-picks).
 - **A verdict has a form the engine holds it to.** A pick has two to four
   reasons and is never weaker than what the person holds; a near miss has the
   one reason it failed; a pass has a code. A reason is one sentence of plain

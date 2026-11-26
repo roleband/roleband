@@ -1279,7 +1279,11 @@ setup stands, read from what is saved) and `mode` (on, off, opened, Remove).
 Nothing in it commits; the operation or route around it owns the transaction.
 The assistant reaches it through the `background`, `brief` and `picks`
 operations (`tracker/agents/operations/`), the app through
-`tracker/api/routers/picks.py` and the Radar's own list.
+`tracker/api/routers/picks.py` and the Radar's own list. Every operation whose
+answer carries the background, the brief or a verdict declares the candidate
+profile as its first data class, so keeping that category from assistants
+refuses it as `category_disabled`; `picks.next` and `picks.samples` answer
+postings only.
 
 **Storage and ownership.** Five tables, each claimed `user` and `authored` in
 `db/ownership.py`, since nothing upstream can rebuild them, and each written
@@ -1380,7 +1384,11 @@ the person's own facts; closes a run still open as abandoned; deletes the
 receipts of the writes whose answers carry the background or the brief
 (`receipts.forget`, the one place a receipt is deleted, so `command_receipts`
 is `operational`); and returns the mode to never set up. Saved roles, Not for
-me marks, postings, runs and verdict rows stay.
+me marks, postings, runs and verdict rows stay. Files go before rows, so a
+Remove that fails part way never leaves a CV on disk: its rows stay, naming
+files that are gone, and Remove again clears every file left and every row;
+until then the same bytes given again write the file back under the id the
+readings name.
 
 **What the app reads.** `GET /api/jobs?top_picks=true` is the Radar's own list
 with one condition more: the role is a pick that stands and no current hard
