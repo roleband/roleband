@@ -20052,6 +20052,18 @@
       "title": "New Listing",
       "type": "boolean"
      },
+     "pick_reasons": {
+      "items": {
+       "$ref": "#/components/schemas/PickReasonText"
+      },
+      "title": "Pick Reasons",
+      "type": "array"
+     },
+     "picked_at": {
+      "format": "date-time",
+      "title": "Picked At",
+      "type": "string"
+     },
      "pipeline_stage": {
       "anyOf": [
        {
@@ -21837,6 +21849,18 @@
       "title": "Host",
       "x-text": "code"
      },
+     "note": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Note",
+      "x-text": "record"
+     },
      "outcome": {
       "enum": [
        "finished",
@@ -21851,7 +21875,8 @@
     "required": [
      "host",
      "finished_at",
-     "outcome"
+     "outcome",
+     "note"
     ],
     "title": "LastCheck",
     "type": "object"
@@ -28181,6 +28206,35 @@
     "title": "PickReason",
     "type": "object"
    },
+   "PickReasonText": {
+    "additionalProperties": false,
+    "description": "One reason of a pick: `opening` then `rest` reads as the sentence.",
+    "properties": {
+     "opening": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Opening",
+      "x-text": "record"
+     },
+     "rest": {
+      "title": "Rest",
+      "type": "string",
+      "x-text": "record"
+     }
+    },
+    "required": [
+     "opening",
+     "rest"
+    ],
+    "title": "PickReasonText",
+    "type": "object"
+   },
    "PickRow": {
     "additionalProperties": false,
     "properties": {
@@ -28407,6 +28461,18 @@
       "title": "Daily Limit Max",
       "type": "integer"
      },
+     "health": {
+      "enum": [
+       "off",
+       "healthy",
+       "never_ran",
+       "late",
+       "stopped_early"
+      ],
+      "title": "Health",
+      "type": "string",
+      "x-text": "code"
+     },
      "last_check": {
       "anyOf": [
        {
@@ -28416,6 +28482,14 @@
         "type": "null"
        }
       ]
+     },
+     "passed_this_week": {
+      "title": "Passed This Week",
+      "type": "integer"
+     },
+     "read_this_week": {
+      "title": "Read This Week",
+      "type": "integer"
      },
      "routine_host": {
       "anyOf": [
@@ -28427,6 +28501,24 @@
        }
       ],
       "title": "Routine Host",
+      "x-text": "code"
+     },
+     "routine_host_connection": {
+      "anyOf": [
+       {
+        "enum": [
+         "connected",
+         "outdated",
+         "rule_missing",
+         "read_only"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Routine Host Connection",
       "x-text": "code"
      },
      "schedule": {
@@ -28454,6 +28546,10 @@
      "unseen_pick": {
       "title": "Unseen Pick",
       "type": "boolean"
+     },
+     "waiting": {
+      "title": "Waiting",
+      "type": "integer"
      }
     },
     "required": [
@@ -28463,6 +28559,11 @@
      "last_check",
      "brief_summary",
      "unseen_pick",
+     "health",
+     "waiting",
+     "read_this_week",
+     "passed_this_week",
+     "routine_host_connection",
      "daily_limit",
      "daily_limit_max"
     ],
@@ -49896,8 +49997,20 @@
   },
   "/api/facets": {
    "get": {
-    "description": "Filter-sidebar options with open-job counts.",
+    "description": "Filter-sidebar options with open-job counts. With `top_picks`, the\noptions and counts of the Top picks list: only what the picks contain.",
     "operationId": "facets_api_facets_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "top_picks",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Top Picks",
+       "type": "boolean"
+      }
+     }
+    ],
     "responses": {
      "200": {
       "content": {
@@ -49908,6 +50021,16 @@
        }
       },
       "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
      }
     },
     "summary": "Facets"
@@ -51168,6 +51291,16 @@
       "schema": {
        "default": false,
        "title": "Include Related",
+       "type": "boolean"
+      }
+     },
+     {
+      "in": "query",
+      "name": "top_picks",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Top Picks",
        "type": "boolean"
       }
      },

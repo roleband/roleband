@@ -1834,7 +1834,8 @@ export interface paths {
         };
         /**
          * Facets
-         * @description Filter-sidebar options with open-job counts.
+         * @description Filter-sidebar options with open-job counts. With `top_picks`, the
+         *     options and counts of the Top picks list: only what the picks contain.
          */
         get: operations["facets_api_facets_get"];
         put?: never;
@@ -10531,6 +10532,13 @@ export interface components {
             matched_via?: string[];
             /** New Listing */
             new_listing: boolean;
+            /** Pick Reasons */
+            pick_reasons?: components["schemas"]["PickReasonText"][];
+            /**
+             * Picked At
+             * Format: date-time
+             */
+            picked_at?: string;
             /** Pipeline Stage */
             pipeline_stage: ("saved" | "researching" | "networking" | "applied" | "interviewing" | "offer" | "accepted" | "declined" | "withdrawn" | "rejected" | "role_closed") | null;
             /** Place Count */
@@ -11027,6 +11035,8 @@ export interface components {
             finished_at: string;
             /** Host */
             host: string | null;
+            /** Note */
+            note: string | null;
             /**
              * Outcome
              * @enum {string}
@@ -13102,6 +13112,16 @@ export interface components {
             /** Rest */
             rest: string;
         };
+        /**
+         * PickReasonText
+         * @description One reason of a pick: `opening` then `rest` reads as the sentence.
+         */
+        PickReasonText: {
+            /** Opening */
+            opening: string | null;
+            /** Rest */
+            rest: string;
+        };
         /** PickRow */
         PickRow: {
             /** Against Baseline */
@@ -13169,9 +13189,20 @@ export interface components {
             daily_limit: number;
             /** Daily Limit Max */
             daily_limit_max: number;
+            /**
+             * Health
+             * @enum {string}
+             */
+            health: "off" | "healthy" | "never_ran" | "late" | "stopped_early";
             last_check: components["schemas"]["LastCheck"] | null;
+            /** Passed This Week */
+            passed_this_week: number;
+            /** Read This Week */
+            read_this_week: number;
             /** Routine Host */
             routine_host: string | null;
+            /** Routine Host Connection */
+            routine_host_connection: ("connected" | "outdated" | "rule_missing" | "read_only") | null;
             /** Schedule */
             schedule: string | null;
             /**
@@ -13181,6 +13212,8 @@ export interface components {
             state: "never_set_up" | "on" | "off";
             /** Unseen Pick */
             unseen_pick: boolean;
+            /** Waiting */
+            waiting: number;
         };
         /** PicksStatus */
         PicksStatus: {
@@ -21299,7 +21332,9 @@ export interface operations {
     };
     facets_api_facets_get: {
         parameters: {
-            query?: never;
+            query?: {
+                top_picks?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -21313,6 +21348,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FacetsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -22117,6 +22161,7 @@ export interface operations {
                 sort?: "relevance" | "first_seen" | "dismissed_at" | "posted_at" | "last_seen" | "comp_median" | "base_pay" | "location" | "company" | "title" | "level_band" | "days_open";
                 order?: "asc" | "desc";
                 include_related?: boolean;
+                top_picks?: boolean;
                 limit?: number;
                 offset?: number;
             };

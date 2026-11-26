@@ -18,8 +18,10 @@ from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracker.picks import background, runs, verdicts
+from tracker.db.models import PickBrief, PickRun
+from tracker.picks import background, queue, runs, verdicts
 from tracker.picks import brief as briefs
+from tracker.picks.health import Health, health
 from tracker.picks.lock import lock_picks
 from tracker.settings_store import (
     DAILY_CAP_DEFAULT,
@@ -82,3 +84,42 @@ async def remove(session: AsyncSession, now: datetime, *, directory: Path | None
         daily_cap=DAILY_CAP_DEFAULT, last_opened_at=None,
     )
     return removed
+
+
+@dataclass(frozen=True)
+class Standing:
+    """How the routine stands now."""
+
+    health: Health
+    #: Roles waiting for a judgment, and since when the longest has waited.
+    waiting: int
+    oldest_waiting_since: datetime | None
+    #: The newest run of the routine, open or closed.
+    newest: PickRun | None
+
+
+async def standing(
+    session: AsyncSession, settings: TopPicksSettings, active: PickBrief | None, now: datetime,
+) -> Standing:
+    """The routine's health and what waits for it. Nothing waits while the
+    mode is not on or there is no active brief: nothing is being judged."""
+    waiting = queue.QueueCounts()
+    if settings.state == "on" and active is not None:
+        waiting = await queue.counts(
+            session,
+            queue.candidates(
+                await queue.board_filters(session), trial=False, active_version=active.version, now=now,
+            ),
+            briefs.body_of(active), since=settings.enabled_at,
+        )
+    newest = await runs.newest_routine_run(session)
+    finished = await runs.last_finished(session)
+    return Standing(
+        health=health(
+            state=settings.state,
+            newest=runs.as_fact(newest, now) if newest is not None else None,
+            last_finished_at=finished.finished_at if finished is not None else None,
+            oldest_waiting_since=waiting.oldest_waiting_since, now=now,
+        ),
+        waiting=waiting.waiting, oldest_waiting_since=waiting.oldest_waiting_since, newest=newest,
+    )

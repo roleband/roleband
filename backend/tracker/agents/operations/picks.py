@@ -54,7 +54,6 @@ from tracker.picks import background, mode, queue, runs, verdicts
 from tracker.picks import brief as briefs
 from tracker.picks import setup as setup_steps
 from tracker.picks.brief import DEFAULT_BUDGET, BriefBody, checkable_rules, judged_rules
-from tracker.picks.health import health as read_health
 from tracker.picks.lock import lock_picks
 from tracker.picks.runs import RunError
 from tracker.picks.verdicts import (
@@ -734,15 +733,7 @@ async def status(session: AsyncSession, *, pursuits: bool, now: datetime | None 
         routine_ran=settings.state == "on" and finished is not None,
         has_postings=open_roles > 0,
     ))
-    waiting = queue.QueueCounts()
-    if settings.state == "on" and active is not None:
-        waiting = await queue.counts(
-            session,
-            queue.candidates(
-                filters, trial=False, active_version=active.version, now=now,
-            ),
-            briefs.body_of(active), since=settings.enabled_at,
-        )
+    stands = await mode.standing(session, settings, active, now)
     persona = await get_persona_profile(session) or {}
     floor = await get_pay_floor(session)
     aim = persona.get("intent_statement")
@@ -783,15 +774,9 @@ async def status(session: AsyncSession, *, pursuits: bool, now: datetime | None 
             calibrated=bool(writing.calibrated),
         ),
         routine=Routine(
-            host=settings.routine_host, schedule=settings.schedule,
-            health=read_health(
-                state=settings.state,
-                newest=runs.as_fact(newest, now) if newest is not None else None,
-                last_finished_at=finished.finished_at if finished is not None else None,
-                oldest_waiting_since=waiting.oldest_waiting_since, now=now,
-            ),
+            host=settings.routine_host, schedule=settings.schedule, health=stands.health,
             last_run=_last_run(newest, now) if newest is not None else None,
-            waiting=waiting.waiting, oldest_waiting_since=waiting.oldest_waiting_since,
+            waiting=stands.waiting, oldest_waiting_since=stands.oldest_waiting_since,
         ),
         budget=Budget(per_month=writing.budget or DEFAULT_BUDGET, picks_this_month=len(month)),
         unseen_pick=unseen,

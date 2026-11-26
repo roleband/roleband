@@ -220,7 +220,7 @@ def pair_on_board(left, right, hidden: list[str]):
     return or_(left.in_(ids), right.in_(ids))
 
 
-def _open_members(columns: list, hidden: list[str]) -> Select:
+def _open_members(columns: list, hidden: list[str], within: Select | None = None) -> Select:
     """Open, in-scope postings of visible companies with `columns`, each
     labelled with its role: a place set's id (negated, so it cannot meet a
     job id), else the posting's own. Counting distinct `role` per value
@@ -232,40 +232,41 @@ def _open_members(columns: list, hidden: list[str]) -> Select:
         select(*columns, role.label("role"))
         .select_from(Job)
         .outerjoin(member, and_(member.job_id == Job.id, member.status == "auto"))
-        .where(Job.status == "open", Job.in_scope.is_(True)),
+        .where(Job.status == "open", Job.in_scope.is_(True), *([Job.id.in_(within)] if within is not None else [])),
         hidden,
     )
 
 
-def _roles_per_value(value, hidden: list[str]) -> Select:
-    sub = _open_members([value.label("value")], hidden).subquery()
+def _roles_per_value(value, hidden: list[str], within: Select | None = None) -> Select:
+    sub = _open_members([value.label("value")], hidden, within).subquery()
     return select(sub.c.value, func.count(func.distinct(sub.c.role))).group_by(sub.c.value)
 
 
-def facet_count_stmt(column, hidden: list[str]) -> Select:
+def facet_count_stmt(column, hidden: list[str], within: Select | None = None) -> Select:
     """Open roles per value of `column`: the count beside a filter option is
     the rows that option lists, so a place set counts once, under
-    each value a member has."""
-    return _roles_per_value(column, hidden)
+    each value a member has. `within`, a select of posting ids, counts only
+    those postings: the options of a list that shows a part of the Board."""
+    return _roles_per_value(column, hidden, within)
 
 
-def domain_facet_count_stmt(hidden: list[str]) -> Select:
+def domain_facet_count_stmt(hidden: list[str], within: Select | None = None) -> Select:
     """Open roles per world (`domains` is an array, so it is unnested)."""
-    return _roles_per_value(func.unnest(Job.domains), hidden)
+    return _roles_per_value(func.unnest(Job.domains), hidden, within)
 
 
-def unclassified_domain_count_stmt(hidden: list[str]) -> Select:
+def unclassified_domain_count_stmt(hidden: list[str], within: Select | None = None) -> Select:
     """Open roles no world was read for: NULL (never classified) or `{}` (honestly unknown)."""
     sub = _open_members(
-        [], hidden
+        [], hidden, within
     ).where(or_(Job.domains.is_(None), func.cardinality(Job.domains) == 0)).subquery()
     return select(func.count(func.distinct(sub.c.role)))
 
 
-def place_facet_count_stmt(hidden: list[str]) -> Select:
+def place_facet_count_stmt(hidden: list[str], within: Select | None = None) -> Select:
     """Open roles per location group. A place set counts once at EVERY place a
     member is at, because the place filter admits it there."""
-    return _roles_per_value(func.unnest(Job.location_groups), hidden)
+    return _roles_per_value(func.unnest(Job.location_groups), hidden, within)
 
 
 def listed_recently_clause(now: datetime):
@@ -574,6 +575,10 @@ def posting_conds(params: dict, entity=Job) -> list:
         conds.append(J.viewed_at.isnot(None))
     elif params.get("viewed") == "unread":
         conds.append(J.viewed_at.is_(None))
+    # Top picks: the postings an assistant picked. A fact of the posting, so a
+    # place set is shown through the member that was judged.
+    if params.get("pick_ids") is not None:
+        conds.append(J.id.in_(params["pick_ids"]))
     if params.get("discloses_pay"):
         # `pay_disclosure.band_stated` in SQL, as the row's `discloses_pay`
         # serializes it: a stored band, whoever wrote it. Not the text pass's
@@ -990,10 +995,12 @@ class JobPage:
 
 
 async def browse_jobs(
-    session: AsyncSession, params: dict, *, sort: str, order: str, limit: int, offset: int
+    session: AsyncSession, params: dict, *, sort: str, order: str, limit: int, offset: int,
+    ordering: list | None = None,
 ) -> JobPage:
     """The job list under any column sort: the filtered set's size, one ordered
-    page of it, and that page's per-row context."""
+    page of it, and that page's per-row context. `ordering`, when given, is
+    the caller's own ORDER BY in place of the sort key's."""
     base = apply_job_filters(select(Job), params)
 
     placed_total = None
@@ -1002,7 +1009,7 @@ async def browse_jobs(
     else:
         total = await session.scalar(select(func.count()).select_from(base.subquery()))
 
-    stmt = list_rows(base.order_by(*resolve_ordering(sort, order)).limit(limit).offset(offset))
+    stmt = list_rows(base.order_by(*(ordering or resolve_ordering(sort, order))).limit(limit).offset(offset))
     jobs = list((await session.scalars(stmt)).all())
     return JobPage(
         total=total or 0,

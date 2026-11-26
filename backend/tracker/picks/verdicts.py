@@ -30,8 +30,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Literal
 
-from sqlalchemy import func, not_, select, update
+from sqlalchemy import Select, func, not_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from tracker.db.models import Favorite, Job, JobFeedback, PickRun, PickVerdict, Pursuit
 from tracker.picks.brief import BriefBody, item_ids
@@ -248,6 +249,73 @@ async def reactions_of(session: AsyncSession, job_ids: list[int]) -> dict[int, R
 
 def _dismissed() -> Any:
     return select(JobFeedback.job_id).where(JobFeedback.verdict == "dismissed")
+
+
+_PICKED = aliased(Job)
+
+
+def standing_pick_ids(body: BriefBody, *, keep_removed: bool = False) -> Select[Any]:
+    """Ids of the postings that are picks now: a pick that stands, on a
+    posting no current hard rule of `body` rules out and, unless
+    `keep_removed`, the person has not marked Not for me."""
+    stmt = (
+        select(PickVerdict.job_id)
+        .join(_PICKED, _PICKED.id == PickVerdict.job_id)
+        .where(
+            PickVerdict.trial.is_(False), PickVerdict.superseded_at.is_(None), PickVerdict.verdict == "pick",
+            not_(ruled_out(body, _PICKED)),
+        )
+    )
+    return stmt if keep_removed else stmt.where(PickVerdict.job_id.notin_(_dismissed()))
+
+
+def picked_at(entity: Any = Job) -> Any:
+    """When the posting was picked: its standing pick's time, as a column to order by."""
+    return (
+        select(func.max(PickVerdict.created_at))
+        .where(
+            PickVerdict.job_id == entity.id, PickVerdict.trial.is_(False), PickVerdict.superseded_at.is_(None),
+            PickVerdict.verdict == "pick",
+        )
+        .correlate(entity)
+        .scalar_subquery()
+    )
+
+
+async def standing_picks_of(session: AsyncSession, job_ids: list[int]) -> dict[int, PickVerdict]:
+    """The pick that stands on each of `job_ids` that has one."""
+    if not job_ids:
+        return {}
+    rows = (await session.scalars(
+        select(PickVerdict).where(
+            PickVerdict.job_id.in_(job_ids), PickVerdict.trial.is_(False), PickVerdict.superseded_at.is_(None),
+            PickVerdict.verdict == "pick",
+        )
+    )).all()
+    return {row.job_id: row for row in rows}
+
+
+@dataclass(frozen=True)
+class Tally:
+    #: Roles an assistant read, and those it did not pick.
+    read: int
+    passed_over: int
+
+
+async def tally_since(session: AsyncSession, since: datetime) -> Tally:
+    """How many roles were read since `since`, each once however often it was
+    judged, and how many of them were never a pick in that time."""
+    picked = func.bool_or(PickVerdict.verdict == "pick")
+    per_role = (
+        select(PickVerdict.job_id, picked.label("picked"))
+        .where(PickVerdict.trial.is_(False), PickVerdict.created_at >= since)
+        .group_by(PickVerdict.job_id)
+        .subquery()
+    )
+    read, passed = (await session.execute(
+        select(func.count(), func.count().filter(not_(per_role.c.picked))).select_from(per_role)
+    )).one()
+    return Tally(read=read or 0, passed_over=passed or 0)
 
 
 async def listed(

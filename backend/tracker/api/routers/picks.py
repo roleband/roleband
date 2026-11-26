@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+import asyncio
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,6 +24,7 @@ from tracker.db.queries.companies import display_names
 from tracker.picks import brief as briefs
 from tracker.picks import mode, runs, verdicts
 from tracker.picks.brief import BriefBody
+from tracker.platform import agent_hosts
 from tracker.settings_store import DAILY_CAP_MAX, get_top_picks_settings
 
 router = APIRouter(tags=["picks"])
@@ -54,20 +56,32 @@ async def removed_picks(session: SessionDep) -> RemovedPicksResponse:
 
 
 async def _state(session: AsyncSession) -> PicksStateResponse:
+    now = datetime.now(UTC)
     settings = await get_top_picks_settings(session)
     active = await briefs.active(session)
+    stands = await mode.standing(session, settings, active, now)
     newest = await runs.newest_closed_routine_run(session)
+    week = await verdicts.tally_since(session, now - timedelta(days=7))
+    host = settings.routine_host
+    # The host's own files are read off the event loop, as the Assistant apps card reads them.
+    connection = (
+        await asyncio.to_thread(agent_hosts.connection, host) if host in agent_hosts.HOSTS else None
+    )
     return PicksStateResponse(
         state=settings.state,  # type: ignore[arg-type]
-        routine_host=settings.routine_host, schedule=settings.schedule,
+        routine_host=host, schedule=settings.schedule,
         last_check=LastCheck(
             host=newest.host, finished_at=newest.finished_at,
             outcome=newest.outcome,  # type: ignore[arg-type]
+            note=newest.note if newest.outcome != "finished" else None,
         ) if newest is not None and newest.finished_at is not None else None,
         brief_summary=(active.summary or None) if active is not None else None,
         unseen_pick=await verdicts.unseen_pick(
             session, body=briefs.body_of(active), last_opened_at=settings.last_opened_at,
         ),
+        health=stands.health, waiting=stands.waiting,
+        read_this_week=week.read, passed_this_week=week.passed_over,
+        routine_host_connection=connection,
         daily_limit=settings.daily_cap, daily_limit_max=DAILY_CAP_MAX,
     )
 

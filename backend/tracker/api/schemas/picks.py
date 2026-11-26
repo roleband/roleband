@@ -46,6 +46,8 @@ class LastCheck(Built):
     host: str | None = Field(json_schema_extra=text("code"))
     finished_at: datetime
     outcome: Literal["finished", "stopped", "abandoned"] = Field(json_schema_extra=text("code"))
+    #: Why it stopped, in the assistant's words, when it did not finish.
+    note: str | None = Field(json_schema_extra=text("record"))
 
 
 class PicksStateResponse(Built):
@@ -60,6 +62,21 @@ class PicksStateResponse(Built):
     brief_summary: str | None = Field(json_schema_extra=text("record"))
     #: A pick was made since the person last opened Top picks. Never a count.
     unseen_pick: bool
+    #: Whether the checks are doing their job: `late` when roles have waited
+    #: more than a day and a half with no check finished in that time.
+    health: Literal["off", "healthy", "never_ran", "late", "stopped_early"] = Field(json_schema_extra=text("code"))
+    #: Roles waiting to be read now.
+    waiting: int
+    #: Roles read in the last seven days, and those of them not picked.
+    read_this_week: int
+    passed_this_week: int
+    #: What the routine host's own files say of its connection: `connected`,
+    #: `outdated` (an older skill), `rule_missing` (it asks before each
+    #: command) or `read_only`. Null when no host runs the routine, or the
+    #: host is no longer connected.
+    routine_host_connection: Literal["connected", "outdated", "rule_missing", "read_only"] | None = Field(
+        json_schema_extra=text("code"),
+    )
     #: The most roles read in a day, and the most it can be set to.
     daily_limit: int
     daily_limit_max: int

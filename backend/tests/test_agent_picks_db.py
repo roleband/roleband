@@ -32,12 +32,14 @@ from tracker.db.models import (
     PickBrief,
     PickRun,
     PickVerdict,
+    TrackedCompany,
 )
 from tracker.picks import background as background_store
 from tracker.picks import brief as briefs
 from tracker.picks.background import Reading
 from tracker.picks.brief import Patch
 from tracker.picks.verdicts import REASON_MAX
+from tracker.platform import agent_hosts
 from tracker.settings_store import get_top_picks_settings, update_top_picks_settings
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("no_escape")]
@@ -1076,7 +1078,8 @@ async def test_the_app_cannot_switch_on_a_mode_that_was_never_set_up(api_client,
     assert (await get_top_picks_settings(db_session)).state == "never_set_up"
     assert await _state(api_client) == {
         "state": "never_set_up", "routine_host": None, "schedule": None, "last_check": None, "brief_summary": None,
-        "unseen_pick": False, "daily_limit": 1000, "daily_limit_max": 5000,
+        "unseen_pick": False, "health": "off", "waiting": 0, "read_this_week": 0, "passed_this_week": 0,
+        "routine_host_connection": None, "daily_limit": 1000, "daily_limit_max": 5000,
     }
 
 
@@ -1232,3 +1235,213 @@ async def test_the_first_run_after_setup_reads_the_roles_already_open_and_a_resu
 
     resumed = await _begin(api_client)
     assert [posting["job"] for posting in resumed["batch"]] == [arrived.id], "seen during the pause, read after it"
+
+
+# --------------------------------------------------------------------------- #
+# The Top picks screen: the Radar's own list, narrowed to the picks
+# --------------------------------------------------------------------------- #
+
+
+async def _radar(api_client, **params) -> dict:
+    response = await api_client.get("/api/jobs", params=params)
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+async def _judged(api_client, workspace) -> None:
+    """Two picks (staff, then principal a little later), a pass and nothing on the fourth role."""
+    jobs = workspace["jobs"]
+    run = await _begin(api_client)
+    await _outcomes(api_client, run, [_pick(jobs["staff"])])
+    await _outcomes(api_client, run, [
+        _pick(jobs["principal"], [_reason("Leads risk", " for the whole company.", "p1"),
+                                  _reason("Stripe", " is on your list.", "targets")]),
+        {"job": jobs["lead"], "verdict": "pass", "pass_code": "not_better"},
+    ])
+    _data(*await _write(api_client, "POST", "/picks/runs/finish", {"run": run["run"], "outcome": "finished"}))
+
+
+async def test_the_radar_list_narrowed_to_picks_is_the_radars_rows_with_their_reasons(api_client, db_session, workspace):
+    jobs = workspace["jobs"]
+    await _judged(api_client, workspace)
+    # The app reads its own list: the assistant's switches do not gate it and nothing is logged as the assistant's.
+    await set_agent_access(db_session, AgentAccessConfig(enabled=False, allow_writes=False))
+    await db_session.commit()
+    async with _fresh(db_session) as session:
+        logged = await session.scalar(select(func.count()).select_from(AgentActivity))
+
+    picks = await _radar(api_client, top_picks=True)
+    radar = await _radar(api_client)
+
+    assert picks["total"] == 2 and radar["total"] == 4
+    assert [row["id"] for row in picks["items"]] == [jobs["principal"], jobs["staff"]], "newest pick first"
+    by_id = {row["id"]: row for row in radar["items"]}
+    for row in picks["items"]:
+        plain = by_id[row["id"]]
+        assert {key: value for key, value in row.items() if key not in ("pick_reasons", "picked_at")} == plain
+        assert "pick_reasons" not in plain and "picked_at" not in plain, "the Radar's own rows are unchanged"
+    staff = next(row for row in picks["items"] if row["id"] == jobs["staff"])
+    assert staff["pick_reasons"] == [
+        {"opening": "Staff level", "rest": ", one step above your Senior role today."},
+        {"opening": "240,000 to 310,000 base", "rest": ", above the 210,000 you hold."},
+    ]
+    assert datetime.fromisoformat(staff["picked_at"]) > workspace["now"]
+    async with _fresh(db_session) as session:
+        assert await session.scalar(select(func.count()).select_from(AgentActivity)) == logged
+
+    # Every Radar control still narrows, orders and pages the picks.
+    assert [row["id"] for row in (await _radar(api_client, top_picks=True, company="stripe"))["items"]] == [jobs["principal"]]
+    async with _fresh(db_session) as session:
+        await session.execute(update(Job).values(search_vector=func.to_tsvector("english", Job.title)))
+        await session.commit()
+    assert [row["id"] for row in (await _radar(api_client, top_picks=True, q="Pricing"))["items"]] == [jobs["staff"]]
+    assert (await _radar(api_client, top_picks=True, q="Billing"))["total"] == 0, "a role that is no pick is not found"
+    assert (await _radar(api_client, q="Billing"))["total"] == 1
+    assert [row["id"] for row in (await _radar(api_client, top_picks=True, discloses_pay=True))["items"]] == [
+        jobs["staff"],
+    ]
+    assert [row["id"] for row in (await _radar(api_client, top_picks=True, level_band="principal"))["items"]] == [
+        jobs["principal"],
+    ]
+    by_title = await _radar(api_client, top_picks=True, sort="title", order="asc")
+    assert [row["title"] for row in by_title["items"]] == [
+        "Principal Product Manager, Risk", "Staff Product Manager, Pricing",
+    ]
+    oldest_first = await _radar(api_client, top_picks=True, order="asc")
+    assert [row["id"] for row in oldest_first["items"]] == [jobs["staff"], jobs["principal"]]
+    second = await _radar(api_client, top_picks=True, limit=1, offset=1)
+    assert (second["total"], [row["id"] for row in second["items"]]) == (2, [jobs["staff"]])
+
+
+async def test_newest_among_picks_is_the_newest_pick_not_the_newest_posting(api_client, db_session, workspace):
+    jobs = workspace["jobs"]
+    await _judged(api_client, workspace)
+    # The staff role was posted last, but picked first.
+    async with _fresh(db_session) as session:
+        await session.execute(update(Job).where(Job.id == jobs["staff"]).values(first_seen=datetime.now(UTC)))
+        await session.commit()
+
+    assert [row["id"] for row in (await _radar(api_client, top_picks=True))["items"]] == [
+        jobs["principal"], jobs["staff"],
+    ]
+    # Control: on the Radar itself Newest is still the newest posting.
+    assert (await _radar(api_client))["items"][0]["id"] == jobs["staff"]
+
+
+async def test_a_role_the_radar_would_not_show_is_never_listed_as_a_pick(api_client, db_session, workspace):
+    jobs = workspace["jobs"]
+    await _judged(api_client, workspace)
+
+    async def listed() -> set[int]:
+        return {row["id"] for row in (await _radar(api_client, top_picks=True))["items"]}
+
+    assert await listed() == {jobs["staff"], jobs["principal"]}
+
+    await api_client.put(f"/api/jobs/{jobs['staff']}/feedback", json={"verdict": "dismissed", "reason": "company"})
+    assert await listed() == {jobs["principal"]}, "Not for me removes it here as on the Radar"
+    assert [row["id"] for row in (await _radar(api_client, top_picks=True, dismissed_only=True))["items"]] == [
+        jobs["staff"]
+    ]
+    await api_client.delete(f"/api/jobs/{jobs['staff']}/feedback")
+
+    async with _fresh(db_session) as session:
+        await session.execute(update(TrackedCompany).where(TrackedCompany.slug == "stripe").values(visible=False))
+        await session.commit()
+    assert await listed() == {jobs["staff"]}, "a hidden company's role is no pick to show"
+    async with _fresh(db_session) as session:
+        await session.execute(update(TrackedCompany).where(TrackedCompany.slug == "stripe").values(visible=True))
+        await session.execute(update(Job).where(Job.id == jobs["staff"]).values(in_scope=False))
+        await session.commit()
+    assert await listed() == {jobs["principal"]}, "nor one outside the saved scope"
+    async with _fresh(db_session) as session:
+        await session.execute(update(Job).where(Job.id == jobs["staff"]).values(in_scope=True))
+        await session.execute(update(Job).where(Job.id == jobs["principal"]).values(status="closed"))
+        await session.commit()
+    assert await listed() == {jobs["staff"]}, "nor a closed one"
+
+
+async def test_only_a_pick_that_stands_is_listed(api_client, db_session, workspace):
+    jobs = workspace["jobs"]
+    trial = await _begin(api_client, trial=True)
+    await _outcomes(api_client, trial, [_pick(jobs["lead"])])
+    _data(*await _write(api_client, "POST", "/picks/runs/finish", {"run": trial["run"], "outcome": "finished"}))
+    run = await _begin(api_client)
+    await _outcomes(api_client, run, [
+        _pick(jobs["staff"]),
+        {"job": jobs["principal"], "verdict": "near_miss", "against_baseline": "comparable",
+         "reasons": [_reason("Leads risk", ", but on call.", "r1")]},
+    ])
+
+    # Not the trial's pick, not the near miss, not the role nobody judged.
+    assert [row["id"] for row in (await _radar(api_client, top_picks=True))["items"]] == [jobs["staff"]]
+
+    _data(*await _write(api_client, "PATCH", "/brief", {
+        "if_revision": 1, "reason": "Not Google.",
+        "rules": [{"id": "r1", "text": "No on-call"},
+                  {"text": "Not Google", "check": {"form": "avoid_companies", "companies": ["google"]}}],
+    }))
+    assert (await _radar(api_client, top_picks=True))["total"] == 0, "a new hard rule takes the pick away at once"
+
+
+async def test_the_filter_options_of_the_picks_offer_only_what_the_picks_contain(api_client, workspace):
+    await _judged(api_client, workspace)
+
+    picks = (await api_client.get("/api/facets", params={"top_picks": True})).json()
+    radar = (await api_client.get("/api/facets")).json()
+
+    assert (picks["total"], radar["total"]) == (2, 4)
+    assert picks["counts"]["company"] == {"google": 1, "stripe": 1}
+    assert radar["counts"]["company"] == {"google": 2, "stripe": 2}
+    assert picks["counts"]["level_band"] == {"staff": 1, "principal": 1}
+    assert radar["counts"]["level_band"] == {"staff": 2, "principal": 2}
+    assert picks["counts"]["location_group"] == {"silicon_valley": 2}
+    assert set(picks["families"]) == {"product_management"} and len(radar["families"]) > 1
+
+    # A pick the person removed no longer offers its company.
+    await api_client.put(f"/api/jobs/{workspace['jobs']['staff']}/feedback", json={"verdict": "dismissed"})
+    removed = (await api_client.get("/api/facets", params={"top_picks": True})).json()
+    assert (removed["total"], removed["counts"]["company"], set(removed["companies"])) == (1, {"stripe": 1}, {"stripe"})
+
+
+async def test_the_state_says_how_the_checks_stand_and_what_the_week_held(api_client, db_session, workspace, monkeypatch):
+    jobs = workspace["jobs"]
+    # Only a host `connect` sets up has files to read: asking about any other is a defect.
+    connections: dict[str, str | None] = {"claude-code": "rule_missing", "codex": "connected"}
+    monkeypatch.setattr(agent_hosts, "connection", lambda host: connections[host])
+    before = await _state(api_client)
+    assert (before["health"], before["waiting"], before["read_this_week"], before["passed_this_week"]) == (
+        "never_ran", 3, 0, 0,
+    )
+    assert before["routine_host_connection"] is None, "no assistant is named as running the checks yet"
+
+    await update_top_picks_settings_through(api_client)
+    await _judged(api_client, workspace)
+    after = await _state(api_client)
+    assert (after["health"], after["waiting"], after["read_this_week"], after["passed_this_week"]) == (
+        "healthy", 0, 3, 1,
+    )
+    assert after["routine_host_connection"] == "rule_missing", "it asks before each command"
+    assert after["last_check"]["note"] is None
+
+    # A role read twice this week counts once; one judged before the week does not count.
+    async with _fresh(db_session) as session:
+        await session.execute(update(Job).where(Job.id == jobs["lead"]).values(content_hash="h-lead-2"))
+        await session.execute(
+            update(PickVerdict).where(PickVerdict.job_id == jobs["principal"])
+            .values(created_at=datetime.now(UTC) - timedelta(days=8))
+        )
+        await session.commit()
+    again = await _begin(api_client)
+    assert (await _state(api_client))["waiting"] == 1
+    await _outcomes(api_client, again, [{"job": jobs["lead"], "verdict": "pass", "pass_code": "other"}])
+    _data(*await _write(api_client, "POST", "/picks/runs/finish", {
+        "run": again["run"], "outcome": "stopped", "note": "The plan's limit was reached.",
+    }))
+
+    stopped = await _state(api_client)
+    assert (stopped["read_this_week"], stopped["passed_this_week"]) == (2, 1)
+    assert (stopped["health"], stopped["last_check"]["outcome"], stopped["last_check"]["note"]) == (
+        "stopped_early", "stopped", "The plan's limit was reached.",
+    )
+    connections["claude-code"] = None
+    assert (await _state(api_client))["routine_host_connection"] is None, "no longer connected"
