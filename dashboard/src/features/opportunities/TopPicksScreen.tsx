@@ -19,6 +19,7 @@ import {
   picksNoteDisconnected,
   picksNoteFix,
   picksNotePaused,
+  picksRefreshFailed,
   picksResume,
   picksResumeFailed,
 } from "../../copy/gen/picks";
@@ -102,7 +103,7 @@ function TopPicksList({ picks, rootRef, onPicksChange }: {
   const [search, setSearch] = useState("");
   const surface: BoardSurface = { topPicks: true, search };
   const {
-    filters, facets, facetsError, retryFacets, list, listError, retryList, baseline,
+    filters, facets, facetsError, retryFacets, list, listError, listRefreshError, retryList, baseline,
     total, isDirect, relatedTotal, expanded, pageableTotal,
     update, updateFilters, onSort, toggleFav, dismiss, dismissal, undoDismiss, fresh, showFresh,
   } = useBoardController({ companyParam, onCompanyParamChange, mode: "open", onModeChange: ignoreMode }, surface);
@@ -191,9 +192,13 @@ function TopPicksList({ picks, rootRef, onPicksChange }: {
   const content = (
     <div className="board-content job-margin-host" ref={hostRef}>
       <AsyncBoundary
-        resource={{ data: list, error: list ? null : listError, loading: !list && !listError, retry: retryList }}
+        resource={{
+          data: list, error: list ? null : listError, loading: !list && !listError,
+          retry: retryList, refreshError: listRefreshError,
+        }}
         loading={radarLoading()}
         failed={radarLoadFailed()}
+        refreshFailed={picksRefreshFailed()}
         skeleton={<JobList><RowSkeleton rows={4} /></JobList>}
       >
         {() => total === 0 && relatedTotal === 0 ? empty : (

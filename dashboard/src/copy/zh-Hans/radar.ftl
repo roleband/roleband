@@ -52,6 +52,7 @@ radar-exclude-failed = 无法为“{ $value }”保存此设置。请重试。
 ## 列表
 radar-loading = 正在加载你的雷达…
 radar-load-failed = 无法加载你的雷达
+radar-refresh-failed = 无法更新你的雷达。显示的是上一次的结果。
 radar-filters-load-failed = 无法加载筛选条件
 radar-board-fresh-more = 自此列表加载以来，又有 { $count } 个{ -role }符合条件。
 radar-board-fresh-changed = 自加载以来，此列表已有变化。

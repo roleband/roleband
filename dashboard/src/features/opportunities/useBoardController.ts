@@ -237,6 +237,7 @@ export function useBoardController({
   const {
     data: list,
     error: listError,
+    refreshError: listRefreshError,
     mutate: mutateList,
     retry: retryList,
     refresh: refreshList,
@@ -475,7 +476,7 @@ export function useBoardController({
   const bestFitUnranked = filters.sort === "relevance" && !filters.q && list != null && list.ranked_by !== "intent";
 
   return {
-    filters, facets, list, listError, retryList, baseline, mode, onModeChange,
+    filters, facets, list, listError, listRefreshError, retryList, baseline, mode, onModeChange,
     facetsError: facetsResource.error,
     retryFacets: facetsResource.retry,
     total, isDirect, relatedTotal, expanded, pageableTotal, bestFitUnranked,

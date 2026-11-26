@@ -3,6 +3,7 @@
 ## 页面
 picks-loading = 正在加载你的首选…
 picks-load-failed = 无法加载你的首选
+picks-refresh-failed = 无法更新你的首选。显示的是上一次的结果。
 picks-host = { $host ->
     [claude-code] Claude Code
     [codex] Codex
