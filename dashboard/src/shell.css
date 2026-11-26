@@ -1457,7 +1457,7 @@ html[data-ground="plain"] body {
 /* ---- responsive ---------------------------------------------------------- */
 
 @media (max-width: 1240px) {
-  .top-stats .stat-chip:nth-child(3) {
+  .top-stats .stat-chip-reposted {
     display: none;
   }
 }
@@ -1726,21 +1726,10 @@ html[data-ground="plain"] body {
     display: none;
   }
 
-  /* Keep the actionable new-signal count in the compact header. The other
-     telemetry stays hidden so freshness and sync retain room. */
+  /* The new count stays in the compact header; reposted is already hidden
+     below 1240, so freshness and sync keep their room. */
   .top-stats {
     margin-left: 0;
-  }
-
-  .top-stats .stat-chip:first-child,
-  .top-stats .stat-chip:nth-child(3) {
-    display: none;
-  }
-
-  /* The first VISIBLE section carries no divider: `open` is hidden here, so
-     `new` is first on screen and its tick would stand alone. */
-  .top-stats .stat-chip:nth-child(2)::before {
-    display: none;
   }
 
   /* Tighter inset, same recipe. */

@@ -326,10 +326,10 @@ test("company profiles show provenance, and surface conflicting signals", async 
   // The screen leads with the same page header as every other route.
   await expect(page.getByRole("heading", { level: 1, name: "Companies" })).toBeVisible();
 
-  // The toolbar owns the counts and flags how many need attention, of the
-  // companies SHOWN: not the roster's own totals over a list the search box
-  // and the review lens have already narrowed.
-  await expect(page.getByText(/1 needs review/)).toBeVisible();
+  // The toolbar counts the companies shown and nothing else: a profile that
+  // needs review is found with the switch, not priced in the count.
+  await expect(page.locator(".prof-toolbar .results-count")).toHaveText(/^\d+\s+compan(y|ies)$/);
+  await expect(page.getByRole("checkbox", { name: "Needs review only" })).toBeEnabled();
   // The screen wears the register material, like settings/companies — without
   // it the shared action set falls back to gold and the register look is gone.
   await expect(page.locator("body")).toHaveAttribute("data-material", "register");

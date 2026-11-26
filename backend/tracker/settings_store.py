@@ -1184,6 +1184,7 @@ VIEW_CHOICES: dict[str, Callable[[object, bool], object]] = {
     "pipeline.crossings-dismissed": _dismissed,
     "posting.similar-folded": _flag,
     **{f"sidebar.{place}": _flag for place in SIDE_BAR_PLACES},
+    "sidebar.expanded": _flag,
     "insights.view": _insights_view,
     **{f"filters.{key}": _filters for key in FILTER_KEYS},
 }

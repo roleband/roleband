@@ -88,7 +88,7 @@ export function viewportThresholds(): Threshold[] {
 const FROZEN: Record<number, string> = {
   1360: "shell — RAIL_QUERY (ui/FilterRail.tsx), gated",
   1359: "shell — RAIL_QUERY - 1 (patterns/rail-shell.css), gated",
-  1240: "Profile walk's rail -> one column; top-stats third chip",
+  1240: "Profile walk's rail -> one column; top-stats reposted chip",
   1120: "shell — page gutter step (its only surviving content)",
   1100: "intelligence field/split stack — candidate: @container; job margin pill (MARGIN_QUERY, patterns/jobs/MarginBeacon.tsx), gated",
   1080: "schedule clock editor stack — candidate: @container (same decision as 1100)",

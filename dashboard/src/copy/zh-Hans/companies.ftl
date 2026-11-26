@@ -165,10 +165,7 @@ companies-company-register-rows-scan-joined = 正在进行的扫描接下来读�
 companies-company-register-rows-scanning = 正在扫描 { $display }…
 companies-company-register-rows-couldn-t-start-a-scan = 无法开始扫描 { $display }。请重试。
 companies-company-register-rows-followed = 已关注 { $followed }/{ $total }
-companies-company-register-rows-covered-count = { $coverage ->
-    [none] 均未覆盖
-   *[some] 已覆盖 { $covered } 家
-}
+companies-company-register-rows-none-covered = 均未覆盖
 companies-company-register-rows-planned-hidden = 已隐藏 { $hiddenPlanned } 家计划中的公司
 companies-company-register-rows-sector-follow-all = { $direction ->
     [unfollow] 取消关注全部 { $sector } 公司
@@ -199,7 +196,7 @@ companies-register-chrome-companies-failed-the-last-scan = { $count ->
    *[other] { $count } 家公司上次扫描失败
 }
 companies-register-chrome-rescan = 重新扫描 { $count } 家
-companies-register-chrome-toolbar-stats = 已关注 { $followed }/{ $total } { $sep } 在招 { $openRoles } { $sep } 运行中 { $live } { $sep } 就绪 { $ready }
+companies-register-chrome-toolbar-stats = 已关注 { $followed }/{ $total }
 companies-register-chrome-following-only = 仅已关注
 companies-register-chrome-show-planned = 显示计划中
 companies-register-chrome-follow-all = 全部关注
@@ -285,7 +282,6 @@ companies-index-match-count = { $count } 个匹配
 companies-index-followed-of = { $followed }/{ $total }
 
 ## features/companies/CompanyRegisterRows.tsx
-companies-company-register-rows-sector-open = { $openRoles } 个在招
 
 ## 公司的读取状态，以及暂停时的原因。
 companies-connector-live = 自动扫描

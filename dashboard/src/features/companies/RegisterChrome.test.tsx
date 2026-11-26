@@ -7,9 +7,6 @@ import { LedgerToolbar } from "./RegisterChrome";
 const counts = vi.hoisted(() => ({
   trackedTotal: 0,
   catalogTotal: 0,
-  trackedOpenRoles: 0 as number | null,
-  trackedLive: 0,
-  trackedReady: 0,
 }));
 
 vi.mock("./CompaniesData", () => ({
@@ -31,20 +28,13 @@ const stats = () => document.querySelector(".ledger-stats")!.textContent!;
 describe("LedgerToolbar counts", () => {
   afterEach(() => activate("en"));
 
-  it("writes every figure with the region's grouping, not only open roles", () => {
-    Object.assign(counts, {
-      trackedTotal: 4512,
-      catalogTotal: 12034,
-      trackedOpenRoles: 98765,
-      trackedLive: 4100,
-      trackedReady: 1002,
-    });
+  /* Only what this screen decides: how many are followed, of all. Open roles,
+     live and ready answered other questions and are gone, so the line is
+     pinned whole rather than by the figures it contains. */
+  it("says only how many are followed, of every company, with the region's grouping", () => {
+    Object.assign(counts, { trackedTotal: 4512, catalogTotal: 12034 });
     render(<LedgerToolbar toolbarRef={createRef()} />);
-    const text = stats();
-    for (const figure of ["4,512", "12,034", "98,765", "4,100", "1,002"]) {
-      expect(text).toContain(figure);
-    }
-    expect(text).not.toMatch(/\b(4512|12034|4100|1002)\b/);
+    expect(stats()).toBe("4,512 of 12,034 followed");
   });
 
   it("follows the region, so a Spanish reader in Spain sees dots", async () => {
@@ -52,14 +42,8 @@ describe("LedgerToolbar counts", () => {
     Object.assign(counts, {
       trackedTotal: 45120,
       catalogTotal: 120340,
-      trackedOpenRoles: null,
-      trackedLive: 41000,
-      trackedReady: 10020,
     });
     render(<LedgerToolbar toolbarRef={createRef()} />);
-    const text = stats();
-    for (const figure of ["45.120", "120.340", "41.000", "10.020"]) {
-      expect(text).toContain(figure);
-    }
+    expect(stats()).toBe("45.120/120.340 seguidas");
   });
 });

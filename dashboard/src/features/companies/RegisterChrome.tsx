@@ -122,9 +122,6 @@ export function LedgerToolbar({ toolbarRef }: { toolbarRef: RefObject<HTMLDivEle
     setShowPlanned,
     trackedTotal,
     catalogTotal,
-    trackedOpenRoles,
-    trackedLive,
-    trackedReady,
     listAction,
     requestListAction,
   } = useCompanies();
@@ -145,10 +142,6 @@ export function LedgerToolbar({ toolbarRef }: { toolbarRef: RefObject<HTMLDivEle
           elems={{
             followed: <b>{copyNumber(trackedTotal)}</b>,
             total: copyNumber(catalogTotal),
-            sep: <i>·</i>,
-            openRoles: <b>{trackedOpenRoles === null ? "—" : copyNumber(trackedOpenRoles)}</b>,
-            live: <b>{copyNumber(trackedLive)}</b>,
-            ready: <b>{copyNumber(trackedReady)}</b>,
           }}
         />
       </span>

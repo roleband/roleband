@@ -172,7 +172,7 @@ describe("Board modes", () => {
     expect(modeFromParam("banana")).toBe("open");
     expect(modeFromParam("")).toBe("open");
     // Open is the FALLBACK, so the default board keeps a clean address — the
-    // whole reason the top bar's plain `/` link can reach it.
+    // whole reason the side bar's plain `/` link can reach it.
     expect(MODE_PARAM.open).toBe("open");
   });
 

@@ -121,6 +121,17 @@ export function useViewChoices(): Choices {
   return useSyncExternalStore(onViewChoices, snapshot);
 }
 
+/** One yes-or-no choice, kept current, or `fallback` until the person makes
+ *  it. Draws again only when that choice changes, so the app shell can read
+ *  one without drawing again on every other screen's choice. */
+export function useViewChoiceFlag(name: string, fallback: boolean): boolean {
+  ensureRead();
+  return useSyncExternalStore(onViewChoices, () => {
+    const value = choices[name];
+    return typeof value === "boolean" ? value : fallback;
+  });
+}
+
 /** Whether the read has answered, so a screen whose first frame would show
  *  a default and then jump can wait for it. A failed read counts: the screen
  *  shows its defaults. */

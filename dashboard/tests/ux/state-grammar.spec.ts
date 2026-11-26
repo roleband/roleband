@@ -65,7 +65,7 @@ const CHOSEN: Case[] = [
   { family: "Schedule day chip", path: "/settings/schedule", control: (p) => p.locator('.ui-chip[aria-pressed="true"]').first(), name: null },
   { family: "Insights segment", path: "/statistics/overview", control: (p) => p.locator('.ui-seg-btn[aria-pressed="true"]').first(), name: null },
   { family: "Profile option card", path: "/profile/direction", control: (p) => p.locator(".walk-cards label.select-card:has(> input:checked)").first(), name: ".select-card-label" },
-  { family: "Topbar lens chip", path: "/", control: (p) => p.locator('.stat-chip[aria-current="page"]').first(), name: ".l" },
+  { family: "Topbar lens chip", path: "/?lens=new", control: (p) => p.locator('.stat-chip[aria-pressed="true"]').first(), name: ".l" },
 ];
 
 for (const theme of ["light", "dark"] as const) {

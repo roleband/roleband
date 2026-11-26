@@ -16,7 +16,7 @@ import {
   companiesCompanyRegisterRowsCareersPage,
   companiesCompanyRegisterRowsCoverageProblem,
   companiesCompanyRegisterRowsCouldnTStartAScan,
-  companiesCompanyRegisterRowsCoveredCount,
+  companiesCompanyRegisterRowsNoneCovered,
   companiesCompanyRegisterRowsSectorAction,
   companiesCompanyRegisterRowsSectorFollowAll,
   companiesCompanyRegisterRowsFollowed,
@@ -34,7 +34,6 @@ import {
   companiesCompanyRegisterRowsOfSRolesFitNo,
   companiesCompanyRegisterRowsOfSRolesNameA,
   companiesCompanyRegisterRowsOpenCount,
-  companiesCompanyRegisterRowsSectorOpen,
   companiesCompanyRegisterRowsOpenCareersPage,
   companiesCompanyRegisterRowsOpenRoleCountsAreUnavailable,
   companiesCompanyRegisterRowsOpenRolesLoading,
@@ -495,11 +494,9 @@ const CompanyRowView = memo(function CompanyRowView({
 
 function sectorStats(group: SectorGroup): string {
   const parts = [companiesCompanyRegisterRowsFollowed({ followed: group.trackedCount, total: group.members.length })];
-  // Withhold a total we do not have rather than printing a placeholder 0.
-  if (group.openRoles !== null && group.openRoles > 0) {
-    parts.push(companiesCompanyRegisterRowsSectorOpen({ openRoles: copyNumber(group.openRoles) }));
-  }
-  parts.push(companiesCompanyRegisterRowsCoveredCount({ coverage: group.dormant ? "none" : "some", covered: group.connectable.length }));
+  // Only what this screen decides: followed, of all. A sector nothing can
+  // scan says so, or its 0/3 would read as one the person has not picked yet.
+  if (group.dormant) parts.push(companiesCompanyRegisterRowsNoneCovered());
   if (group.hiddenPlanned > 0) parts.push(companiesCompanyRegisterRowsPlannedHidden({ hiddenPlanned: group.hiddenPlanned }));
   return parts.join(" · ");
 }

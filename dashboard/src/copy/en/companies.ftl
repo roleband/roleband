@@ -309,10 +309,7 @@ companies-company-register-rows-couldn-t-start-a-scan = Couldn't start a scan fo
 # kind=label wording=as-is
 companies-company-register-rows-followed = { $followed }/{ $total } followed
 # kind=toast wording=as-is
-companies-company-register-rows-covered-count = { $coverage ->
-    [none] none covered
-   *[some] { $covered } covered
-}
+companies-company-register-rows-none-covered = none covered
 # kind=toast wording=as-is
 companies-company-register-rows-planned-hidden = { $hiddenPlanned } planned hidden
 # kind=label wording=as-is
@@ -356,8 +353,8 @@ companies-register-chrome-companies-failed-the-last-scan = { $count ->
 }
 # kind=button wording=as-is
 companies-register-chrome-rescan = Rescan { $count }
-# kind=label wording=as-is note="The toolbar's counts: $followed, $openRoles, $live and $ready are the figures, $sep the dot between them"
-companies-register-chrome-toolbar-stats = { $followed } of { $total } followed { $sep } { $openRoles } open roles { $sep } { $live } live { $sep } { $ready } ready
+# kind=label wording=as-is note="The toolbar's count: the companies followed, of every company listed"
+companies-register-chrome-toolbar-stats = { $followed } of { $total } followed
 # kind=label wording=as-is
 companies-register-chrome-following-only = Following only
 # kind=label wording=as-is
@@ -562,10 +559,6 @@ companies-follow-copy-unfollow-company = Unfollow { $display }
 companies-index-match-count = { $count } match
 # kind=label wording=as-is note="A sector's count in the index: followed of all"
 companies-index-followed-of = { $followed }/{ $total }
-
-## features/companies/CompanyRegisterRows.tsx
-# kind=toast wording=as-is
-companies-company-register-rows-sector-open = { $openRoles } open
 
 ## A company's connector, said from its state and, when parked, why (states from
 ## backend/tracker/company_discovery.py). `ready`

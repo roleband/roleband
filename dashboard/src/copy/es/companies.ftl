@@ -185,10 +185,7 @@ companies-company-register-rows-scan-joined = { $display } es la siguiente en el
 companies-company-register-rows-scanning = Escaneando { $display }…
 companies-company-register-rows-couldn-t-start-a-scan = No se pudo iniciar un escaneo de { $display }. Inténtalo de nuevo.
 companies-company-register-rows-followed = { $followed }/{ $total } seguidas
-companies-company-register-rows-covered-count = { $coverage ->
-    [none] ninguna cubierta
-   *[some] { $covered } cubiertas
-}
+companies-company-register-rows-none-covered = ninguna cubierta
 companies-company-register-rows-planned-hidden = { $hiddenPlanned } previstas ocultas
 companies-company-register-rows-sector-follow-all = { $direction ->
     [unfollow] Dejar de seguir todas las de { $sector }
@@ -225,7 +222,7 @@ companies-register-chrome-companies-failed-the-last-scan = { $count ->
    *[other] { $count } empresas: último escaneo fallido
 }
 companies-register-chrome-rescan = Volver a escanear { $count }
-companies-register-chrome-toolbar-stats = { $followed }/{ $total } seguidas { $sep } { $openRoles } puestos abiertos { $sep } { $live } activas { $sep } { $ready } listas
+companies-register-chrome-toolbar-stats = { $followed }/{ $total } seguidas
 companies-register-chrome-following-only = Solo seguidas
 companies-register-chrome-show-planned = Mostrar previstas
 companies-register-chrome-follow-all = Seguir todas
@@ -333,7 +330,6 @@ companies-index-match-count = { $count } coincidencias
 companies-index-followed-of = { $followed }/{ $total }
 
 ## features/companies/CompanyRegisterRows.tsx
-companies-company-register-rows-sector-open = { $openRoles } abiertos
 
 ## Estado de lectura de una empresa y, si está detenida, el motivo.
 companies-connector-live = Se escanea automáticamente
