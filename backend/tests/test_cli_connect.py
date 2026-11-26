@@ -17,8 +17,13 @@ from pathlib import Path
 
 import pytest
 
+from tracker.platform import agent_hosts
+
 BACKEND = Path(__file__).resolve().parents[1]
-SHIPPED_SKILL = BACKEND / "tracker" / "cli" / "skills" / "roleband" / "SKILL.md"
+SKILLS_SOURCE = BACKEND / "tracker" / "cli" / "skills"
+SHIPPED_SKILL = SKILLS_SOURCE / "roleband" / "SKILL.md"
+TOP_PICKS = "roleband-top-picks"
+SKILL_VERSION = agent_hosts.ROLEBAND_SKILL.version
 
 pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="connect sets up Mac hosts")
 
@@ -35,24 +40,28 @@ class Home:
     def codex(self) -> Path:
         return self.root / ".codex" / "config.toml"
 
-    def skill(self, host: str) -> Path:
-        return self.root / (".claude" if host == "claude-code" else ".codex") / "skills" / "roleband" / "SKILL.md"
+    def skill(self, host: str, name: str = "roleband", file: str = "SKILL.md") -> Path:
+        return self.root / (".claude" if host == "claude-code" else ".codex") / "skills" / name / file
 
     def files(self) -> dict[str, bytes]:
         """Every file under the home, by relative path."""
         return {str(path.relative_to(self.root)): path.read_bytes()
                 for path in sorted(self.root.rglob("*")) if path.is_file()}
 
-    def connect(self, host: str, mode: str, *, path: str | None = None) -> tuple[int, dict]:
-        return self.run("connect", host, f"--{mode}", path=path)
+    def connect(self, host: str | None, mode: str, *, path: str | None = None,
+                env: dict[str, str] | None = None) -> tuple[int, dict]:
+        return self.run("connect", *([host] if host else []), f"--{mode}", path=path, env=env)
 
-    def run(self, *args: str, path: str | None = None) -> tuple[int, dict]:
+    def run(self, *args: str, path: str | None = None, env: dict[str, str] | None = None) -> tuple[int, dict]:
+        # Built from nothing, so the variable a host sets in the shell running
+        # these tests never reaches the command.
         env = {
             "PATH": path if path is not None else "/usr/bin:/bin",
             "HOME": str(self.root),
             "PYTHONPATH": str(BACKEND),
             "LANG": "en_US.UTF-8",
             "ROLEBAND_CLI_CONFIG": str(self.root / "no-contexts.json"),
+            **(env or {}),
         }
         process = subprocess.run(
             [sys.executable, "-m", "tracker.cli", *args, "--json"],
@@ -74,6 +83,16 @@ def _backups(path: Path) -> list[Path]:
     return sorted(path.parent.glob(f"{path.name}.roleband-backup-*"))
 
 
+def _skill_of(envelope: dict, name: str = "roleband") -> dict:
+    """The answer's entry for one skill."""
+    [entry] = [skill for skill in envelope["data"]["skills"] if skill["name"] == name]
+    return entry
+
+
+def _shipped(name: str, file: str) -> bytes:
+    return (SKILLS_SOURCE / name / file).read_bytes()
+
+
 # --------------------------------------------------------------------------- #
 # Claude Code
 # --------------------------------------------------------------------------- #
@@ -86,9 +105,15 @@ def test_claude_code_gets_the_excluded_command_the_rule_and_the_skill(home):
     assert settings["sandbox"]["excludedCommands"] == ["roleband *"]
     assert settings["permissions"]["allow"] == ["Bash(roleband *)"]
     assert home.skill("claude-code").read_bytes() == SHIPPED_SKILL.read_bytes()
+    for file in agent_hosts.TOP_PICKS_SKILL.files:
+        assert home.skill("claude-code", TOP_PICKS, file).read_bytes() == _shipped(TOP_PICKS, file)
     data = envelope["data"]
     assert data["files"][0]["action"] == "create" and data["files"][0]["backup"] is None
-    assert data["skill"]["action"] == "install"
+    assert [(skill["name"], skill["action"]) for skill in data["skills"]] == [
+        ("roleband", "install"), (TOP_PICKS, "install")]
+    assert data["host_detected"] is False
+    # The other host was not touched.
+    assert not (home.root / ".codex").exists()
     assert "outside Claude Code's sandbox" in data["cost"]
 
 
@@ -103,7 +128,7 @@ def test_a_second_apply_changes_nothing(home):
     assert envelope["data"]["changed"] is False
     assert envelope["data"]["files"][0]["action"] == "unchanged"
     assert envelope["data"]["files"][0]["diff"] == []
-    assert envelope["data"]["skill"]["action"] == "unchanged"
+    assert {skill["action"] for skill in envelope["data"]["skills"]} == {"unchanged"}
 
 
 def test_existing_settings_and_permission_rules_survive(home):
@@ -153,7 +178,7 @@ def test_print_shows_the_change_apply_makes_and_writes_nothing(home):
     diff = printed["data"]["files"][0]["diff"]
     assert '+      "Bash(roleband *)"' in diff and '+      "roleband *"' in diff
     assert printed["data"]["changed"] is True and printed["data"]["applied"] is False
-    assert printed["data"]["skill"]["action"] == "install"
+    assert {skill["action"] for skill in printed["data"]["skills"]} == {"install"}
     _, applied = home.connect("claude-code", "apply")
     assert applied["data"]["files"][0]["diff"] == diff
 
@@ -256,7 +281,7 @@ def test_an_edited_skill_is_not_overwritten(home):
     status, envelope = home.connect("claude-code", "apply")
     assert status == 0
     assert skill.read_text() == edited
-    assert envelope["data"]["skill"]["action"] == "kept_edited"
+    assert _skill_of(envelope)["action"] == "kept_edited"
 
 
 def test_a_skill_that_was_there_before_connect_is_the_persons(home):
@@ -266,7 +291,8 @@ def test_a_skill_that_was_there_before_connect_is_the_persons(home):
     status, envelope = home.connect("codex", "apply")
     assert status == 0
     assert skill.read_text() == "my own roleband notes\n"
-    assert envelope["data"]["skill"]["action"] == "kept_edited"
+    assert _skill_of(envelope)["action"] == "kept_edited"
+    assert _skill_of(envelope, TOP_PICKS)["action"] == "install"
 
 
 def test_an_unedited_older_skill_is_updated(home):
@@ -278,7 +304,7 @@ def test_an_unedited_older_skill_is_updated(home):
         json.dumps({"format": 1, "version": 0, "sha256": hashlib.sha256(older).hexdigest()}))
     status, envelope = home.connect("claude-code", "apply")
     assert status == 0
-    assert envelope["data"]["skill"]["action"] == "update"
+    assert _skill_of(envelope)["action"] == "update"
     assert skill.read_bytes() == SHIPPED_SKILL.read_bytes()
 
 
@@ -287,7 +313,7 @@ def test_a_skill_saved_after_connect_read_it_is_kept(tmp_path, monkeypatch):
     from tracker.cli import connect
 
     directory = tmp_path / "skills" / "roleband"
-    plan = connect._skill(directory)
+    plan = connect._skill(agent_hosts.ROLEBAND_SKILL, directory)
     assert plan.action == "install"
     directory.mkdir(parents=True)
     (directory / "SKILL.md").write_text("written by the person meanwhile\n")
@@ -298,6 +324,188 @@ def test_a_skill_saved_after_connect_read_it_is_kept(tmp_path, monkeypatch):
 
 
 # --------------------------------------------------------------------------- #
+# A skill folder, file by file
+# --------------------------------------------------------------------------- #
+
+OLDER_SETUP = b"# Setting up top picks\n\nAn older version of the setup conversation.\n"
+OLDER_JUDGING = b"# Judging a posting\n\nAn older version of the judging guide.\n"
+
+
+def _older_top_picks(home: Home, host: str, *, edited: set[str] = frozenset(), listed: tuple[str, ...] | None = None,
+                     missing: set[str] = frozenset()) -> Path:
+    """The top picks skill as an older client's connect left it: SKILL.md
+    current, setup.md and judging.md at an older version. A file in `edited`
+    was changed by the person since; `listed` limits the sidecar to the files
+    that version had; a file in `missing` is gone from the folder."""
+    folder = home.skill(host, TOP_PICKS).parent
+    folder.mkdir(parents=True, exist_ok=True)
+    written = {"SKILL.md": _shipped(TOP_PICKS, "SKILL.md"), "setup.md": OLDER_SETUP, "judging.md": OLDER_JUDGING}
+    for name, content in written.items():
+        if name not in missing:
+            (folder / name).write_bytes(content + (b"My own line.\n" if name in edited else b""))
+    names = listed if listed is not None else tuple(written)
+    (folder / ".roleband-skill.json").write_text(json.dumps(
+        {"format": 2, "version": agent_hosts.TOP_PICKS_SKILL.version - 1,
+         "files": {name: _sha(written[name]) for name in names}}))
+    return folder
+
+
+def _actions(skill: dict) -> dict[str, str]:
+    return {item["name"]: item["action"] for item in skill["files"]}
+
+
+def test_connect_updates_an_unedited_older_file_and_keeps_an_edited_one_in_the_same_folder(home):
+    folder = _older_top_picks(home, "claude-code", edited={"judging.md"})
+    edited = (folder / "judging.md").read_bytes()
+    status, envelope = home.connect("claude-code", "apply")
+    assert status == 0, envelope
+    assert (folder / "setup.md").read_bytes() == _shipped(TOP_PICKS, "setup.md")
+    assert (folder / "judging.md").read_bytes() == edited
+    assert (folder / "SKILL.md").read_bytes() == _shipped(TOP_PICKS, "SKILL.md")
+    skill = _skill_of(envelope, TOP_PICKS)
+    assert skill["action"] == "update"
+    assert _actions(skill) == {"SKILL.md": "unchanged", "setup.md": "update", "judging.md": "kept_edited"}
+    assert "judging.md is kept as you edited it" in skill["summary"]
+    # The sidecar names the new version and what connect wrote; the edited
+    # file keeps the hash connect last wrote, so it stays the person's.
+    assert _record(folder / "SKILL.md") == {"format": 2, "version": agent_hosts.TOP_PICKS_SKILL.version, "files": {
+        "SKILL.md": _sha(_shipped(TOP_PICKS, "SKILL.md")), "setup.md": _sha(_shipped(TOP_PICKS, "setup.md")),
+        "judging.md": _sha(OLDER_JUDGING)}}
+    # A second connect changes nothing, the edited file included.
+    before = home.files()
+    status, again = home.connect("claude-code", "apply")
+    assert status == 0 and home.files() == before
+    assert _actions(_skill_of(again, TOP_PICKS))["judging.md"] == "kept_edited"
+
+
+def test_print_names_each_file_of_a_folder_and_writes_nothing(home):
+    _older_top_picks(home, "codex", edited={"setup.md"})
+    before = home.files()
+    status, printed = home.connect("codex", "print")
+    assert status == 0 and home.files() == before
+    assert _actions(_skill_of(printed, TOP_PICKS)) == {
+        "SKILL.md": "unchanged", "setup.md": "kept_edited", "judging.md": "update"}
+    assert printed["data"]["changed"] is True
+
+
+@pytest.mark.parametrize("call", [("capabilities", "--offline"), ("picks", "status")])
+def test_the_skills_first_calls_update_an_unedited_older_file_and_keep_an_edited_one(home, call):
+    """`capabilities` is the roleband skill's first call and `picks status` the
+    top picks skill's, so either brings an installed folder up to date, even
+    with no engine to answer."""
+    folder = _older_top_picks(home, "claude-code", edited={"setup.md"})
+    edited = (folder / "setup.md").read_bytes()
+    _, envelope = home.run(*call)
+    assert (folder / "judging.md").read_bytes() == _shipped(TOP_PICKS, "judging.md")
+    assert (folder / "setup.md").read_bytes() == edited
+    assert _notices(envelope) == ["skill_updated"]
+    message = envelope["warnings"][0]["message"]
+    assert f"roleband-top-picks skill installed for claude-code is now version {agent_hosts.TOP_PICKS_SKILL.version}" \
+        in message
+    assert "You edited setup.md" in message
+    assert _record(folder / "SKILL.md")["version"] == agent_hosts.TOP_PICKS_SKILL.version
+    # Current now: the next call changes nothing and says nothing.
+    before = home.files()
+    _, envelope = home.run(*call)
+    assert envelope["warnings"] == [] and home.files() == before
+
+
+def test_a_refresh_adds_a_file_new_in_this_version_and_leaves_a_deleted_one_deleted(home):
+    """The older version had no judging.md; the person deleted setup.md."""
+    folder = _older_top_picks(home, "codex", listed=("SKILL.md", "setup.md"), missing={"judging.md", "setup.md"})
+    _, envelope = home.run("picks", "status")
+    assert (folder / "judging.md").read_bytes() == _shipped(TOP_PICKS, "judging.md")
+    assert not (folder / "setup.md").exists()
+    assert _notices(envelope) == ["skill_updated"]
+    # Connect is the person's own act: it installs the file they deleted.
+    status, envelope = home.connect("codex", "apply")
+    assert status == 0
+    assert (folder / "setup.md").read_bytes() == _shipped(TOP_PICKS, "setup.md")
+
+
+def test_a_refresh_with_every_differing_file_edited_changes_nothing_and_says_so(home):
+    folder = _older_top_picks(home, "claude-code", edited={"setup.md", "judging.md"})
+    before = home.files()
+    _, envelope = home.run("picks", "status")
+    assert home.files() == before
+    assert _notices(envelope) == ["skill_outdated"]
+    assert str(folder) in envelope["warnings"][0]["message"]
+
+
+def test_a_folder_file_saved_after_connect_read_it_is_kept(tmp_path, monkeypatch):
+    monkeypatch.syspath_prepend(str(BACKEND))
+    from tracker.cli import connect
+
+    directory = tmp_path / "skills" / TOP_PICKS
+    plan = connect._skill(agent_hosts.TOP_PICKS_SKILL, directory)
+    assert plan.action == "install"
+    directory.mkdir(parents=True)
+    (directory / "judging.md").write_text("written by the person meanwhile\n")
+    written: list[str] = []
+    connect._install_skill(plan, written)
+    assert (directory / "judging.md").read_text() == "written by the person meanwhile\n"
+    assert (directory / "setup.md").read_bytes() == _shipped(TOP_PICKS, "setup.md")
+    assert "judging.md" not in json.loads((directory / ".roleband-skill.json").read_text())["files"]
+    assert str(directory / "judging.md") not in written
+
+
+def test_an_empty_file_the_person_links_after_connect_read_it_is_kept(tmp_path, monkeypatch):
+    """An empty file connect wrote plans as an update; once the person puts a
+    link in its place, the link and what it points to are theirs."""
+    monkeypatch.syspath_prepend(str(BACKEND))
+    from tracker.cli import connect
+
+    directory = tmp_path / "skills" / TOP_PICKS
+    directory.mkdir(parents=True)
+    (directory / "setup.md").write_bytes(b"")
+    (directory / ".roleband-skill.json").write_text(json.dumps(
+        {"format": 2, "version": agent_hosts.TOP_PICKS_SKILL.version - 1, "files": {"setup.md": _sha(b"")}}))
+    plan = connect._skill(agent_hosts.TOP_PICKS_SKILL, directory)
+    assert _plan_actions(plan)["setup.md"] == "update"
+    target = tmp_path / "setup-of-my-own"
+    target.write_bytes(b"")
+    (directory / "setup.md").unlink()
+    (directory / "setup.md").symlink_to(target)
+    written: list[str] = []
+    connect._install_skill(plan, written)
+    assert (directory / "setup.md").is_symlink() and target.read_bytes() == b""
+    assert _plan_actions(plan)["setup.md"] == "kept_edited"
+    assert str(directory / "setup.md") not in written
+    assert (directory / "judging.md").read_bytes() == _shipped(TOP_PICKS, "judging.md")
+
+
+def test_a_refresh_records_files_already_at_this_version_when_their_sidecar_did_not_save(home):
+    """The files were updated but the sidecar kept the older hashes: the next
+    refresh records them, so the release after this one can update them. A
+    file the person edited keeps the hash connect last wrote."""
+    folder = _older_top_picks(home, "claude-code", edited={"judging.md"})
+    (folder / "setup.md").write_bytes(_shipped(TOP_PICKS, "setup.md"))
+    before = home.files()
+    _, envelope = home.run("picks", "status")
+    assert {path: data for path, data in home.files().items() if not path.endswith(".roleband-skill.json")} == {
+        path: data for path, data in before.items() if not path.endswith(".roleband-skill.json")}
+    assert _record(folder / "SKILL.md") == {"format": 2, "version": agent_hosts.TOP_PICKS_SKILL.version, "files": {
+        "SKILL.md": _sha(_shipped(TOP_PICKS, "SKILL.md")), "setup.md": _sha(_shipped(TOP_PICKS, "setup.md")),
+        "judging.md": _sha(OLDER_JUDGING)}}
+    assert _notices(envelope) == ["skill_updated"]
+    assert "You edited judging.md" in envelope["warnings"][0]["message"]
+
+
+def _plan_actions(plan) -> dict[str, str]:
+    return {item.name: item.action for item in plan.files}
+
+
+def test_every_shipped_skill_file_is_one_connect_installs():
+    """A file added to a skill folder without naming it in `SKILLS` would
+    never reach a host, and a named file that is gone would fail connect."""
+    assert sorted(path.name for path in SKILLS_SOURCE.iterdir() if path.is_dir()) == sorted(
+        skill.name for skill in agent_hosts.SKILLS)
+    for skill in agent_hosts.SKILLS:
+        shipped = sorted(path.name for path in skill.source.iterdir() if not path.name.startswith("."))
+        assert shipped == sorted(skill.files), skill.name
+
+
+# --------------------------------------------------------------------------- #
 # Keeping an installed skill current without a second connect
 # --------------------------------------------------------------------------- #
 
@@ -305,8 +513,9 @@ OLDER_SKILL = b"---\nname: roleband\n---\n<!-- roleband skill, version 4. -->\nA
 
 
 def _installed(home: Home, host: str, content: bytes, *, version: int, recorded: bytes | None = None) -> Path:
-    """A skill as `connect` of `version` left it; `recorded` is what it wrote,
-    when the file has changed since."""
+    """The roleband skill as `connect` of `version` left it, in the one-file
+    sidecar an older client writes; `recorded` is what it wrote, when the
+    file has changed since."""
     skill = home.skill(host)
     skill.parent.mkdir(parents=True, exist_ok=True)
     skill.write_bytes(content)
@@ -319,21 +528,25 @@ def _record(skill: Path) -> dict:
     return json.loads((skill.parent / ".roleband-skill.json").read_text())
 
 
+def _sha(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
 def _notices(envelope: dict) -> list[str]:
     return [notice["code"] for notice in envelope["warnings"]]
 
 
 def test_capabilities_updates_an_unedited_older_skill_for_each_host(home):
-    from tracker.cli.connect import SKILL_VERSION
-
     claude = _installed(home, "claude-code", OLDER_SKILL, version=SKILL_VERSION - 1)
     codex = _installed(home, "codex", OLDER_SKILL, version=SKILL_VERSION - 1)
     status, envelope = home.run("capabilities", "--offline")
     assert status == 0 and envelope["ok"] is True
     for skill in (claude, codex):
         assert skill.read_bytes() == SHIPPED_SKILL.read_bytes()
-        assert _record(skill) == {"format": 1, "version": SKILL_VERSION,
-                                  "sha256": hashlib.sha256(SHIPPED_SKILL.read_bytes()).hexdigest()}
+        assert _record(skill) == {"format": 2, "version": SKILL_VERSION,
+                                  "files": {"SKILL.md": _sha(SHIPPED_SKILL.read_bytes())}}
+        # A skill connect never installed here is left to connect.
+        assert not (skill.parent.parent / TOP_PICKS).exists()
     assert _notices(envelope) == ["skill_updated", "skill_updated"]
     assert f"now version {SKILL_VERSION}" in envelope["warnings"][0]["message"]
     # Current now: a second call changes nothing and says nothing.
@@ -343,8 +556,6 @@ def test_capabilities_updates_an_unedited_older_skill_for_each_host(home):
 
 
 def test_capabilities_keeps_an_edited_older_skill_and_says_so(home):
-    from tracker.cli.connect import SKILL_VERSION
-
     edited = OLDER_SKILL + b"Always answer in French.\n"
     skill = _installed(home, "claude-code", edited, version=SKILL_VERSION - 1, recorded=OLDER_SKILL)
     before = home.files()
@@ -360,8 +571,6 @@ def test_capabilities_leaves_alone_a_skill_it_does_not_own_at_an_older_version(h
     """A newer client's copy (two clients on one computer would trade the file
     back and forth), a copy connect never installed, one the person deleted,
     and any call but capabilities."""
-    from tracker.cli.connect import SKILL_VERSION
-
     skill = _installed(home, "codex", OLDER_SKILL, version=SKILL_VERSION + 1 if case == "newer" else SKILL_VERSION - 1)
     if case == "unrecorded":
         (skill.parent / ".roleband-skill.json").unlink()
@@ -387,26 +596,24 @@ def test_a_newer_client_installing_meanwhile_keeps_its_copy(tmp_path, monkeypatc
     directory.mkdir(parents=True)
     (directory / "SKILL.md").write_bytes(OLDER_SKILL)
     (directory / ".roleband-skill.json").write_text(json.dumps(
-        {"format": 1, "version": connect.SKILL_VERSION - 1, "sha256": hashlib.sha256(OLDER_SKILL).hexdigest()}))
+        {"format": 1, "version": SKILL_VERSION - 1, "sha256": hashlib.sha256(OLDER_SKILL).hexdigest()}))
     newer = b"---\nname: roleband\n---\nA newer version.\n"
     planned = connect._skill
 
-    def newer_client_installs_first(path: Path) -> connect.SkillPlan:
+    def newer_client_installs_first(skill: agent_hosts.Skill, path: Path) -> connect.SkillPlan:
         (path / "SKILL.md").write_bytes(newer)
         (path / ".roleband-skill.json").write_text(json.dumps(
-            {"format": 1, "version": connect.SKILL_VERSION + 1, "sha256": hashlib.sha256(newer).hexdigest()}))
-        return planned(path)
+            {"format": 2, "version": SKILL_VERSION + 1, "files": {"SKILL.md": hashlib.sha256(newer).hexdigest()}}))
+        return planned(skill, path)
 
     monkeypatch.setattr(connect, "_skill", newer_client_installs_first)
     assert connect.refresh_installed_skills() == []
     assert (directory / "SKILL.md").read_bytes() == newer
-    assert json.loads((directory / ".roleband-skill.json").read_text())["version"] == connect.SKILL_VERSION + 1
+    assert json.loads((directory / ".roleband-skill.json").read_text())["version"] == SKILL_VERSION + 1
 
 
 @pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0, reason="root writes through a read-only folder")
 def test_a_skill_that_cannot_be_written_leaves_capabilities_answering(home):
-    from tracker.cli.connect import SKILL_VERSION
-
     skill = _installed(home, "codex", OLDER_SKILL, version=SKILL_VERSION - 1)
     skill.parent.chmod(0o500)
     try:
@@ -420,8 +627,6 @@ def test_a_skill_that_cannot_be_written_leaves_capabilities_answering(home):
 
 
 def test_capabilities_refreshes_the_skill_when_no_engine_answers(home):
-    from tracker.cli.connect import SKILL_VERSION
-
     skill = _installed(home, "claude-code", OLDER_SKILL, version=SKILL_VERSION - 1)
     status, envelope = home.run("capabilities")
     assert status == 2 and envelope["error"]["code"] == "context_required"
@@ -438,8 +643,6 @@ def test_the_shipped_skill_starts_from_capabilities_and_describe():
     # A small model given a tool copies a backticked `roleband capabilities --json`
     # here into the tool's name; the opening steps name the command word alone.
     assert "`roleband " not in first + second
-    from tracker.cli.connect import SKILL_VERSION
-
     assert f"<!-- roleband skill, version {SKILL_VERSION}." in text
 
 
@@ -566,6 +769,49 @@ def test_an_untested_host_is_refused_and_nothing_is_written(home, host):
     assert envelope["error"]["code"] == "unsupported_host"
     assert envelope["error"]["details"]["supported"] == ["claude-code", "codex"]
     assert home.files() == {}
+
+
+@pytest.mark.parametrize(("variable", "value", "host"), [
+    ("CLAUDECODE", "1", "claude-code"), ("CODEX_THREAD_ID", "019a7c1e", "codex"), ("CODEX_SANDBOX", "seatbelt", "codex"),
+])
+def test_connect_with_no_host_connects_the_assistant_it_runs_in(home, variable, value, host):
+    status, envelope = home.connect(None, "apply", env={variable: value})
+    assert status == 0 and envelope["ok"], envelope
+    assert envelope["data"]["host"] == host and envelope["data"]["host_detected"] is True
+    assert home.skill(host, TOP_PICKS).read_bytes() == _shipped(TOP_PICKS, "SKILL.md")
+    other = home.root / (".codex" if host == "claude-code" else ".claude")
+    assert not other.exists()
+    if host == "claude-code":
+        assert json.loads(home.claude.read_text())["permissions"]["allow"] == ["Bash(roleband *)"]
+    else:
+        assert "network_access = true" in home.codex.read_text()
+
+
+@pytest.mark.parametrize("env", [{}, {"CLAUDECODE": "0"}, {"CODEX_THREAD_ID": ""}, {"TERM_PROGRAM": "Apple_Terminal"}])
+@pytest.mark.parametrize("mode", ["apply", "print"])
+def test_connect_with_no_host_outside_an_assistant_is_refused_and_writes_nothing(home, env, mode):
+    status, envelope = home.connect(None, mode, env=env)
+    assert status == 2 and envelope["error"]["code"] == "invalid_arguments", envelope
+    assert "roleband connect claude-code --apply" in envelope["error"]["message"]
+    assert envelope["error"]["details"]["supported"] == ["claude-code", "codex"]
+    assert home.files() == {}
+
+
+def test_a_named_host_wins_over_the_assistant_it_runs_in(home):
+    status, envelope = home.connect("codex", "apply", env={"CLAUDECODE": "1"})
+    assert status == 0
+    assert envelope["data"]["host"] == "codex" and envelope["data"]["host_detected"] is False
+    assert home.codex.exists() and not home.claude.exists()
+
+
+def test_human_output_says_which_assistant_connect_found(home):
+    env = {"PATH": "/usr/bin:/bin", "HOME": str(home.root), "PYTHONPATH": str(BACKEND), "LANG": "en_US.UTF-8",
+           "CLAUDECODE": "1"}
+    process = subprocess.run([sys.executable, "-m", "tracker.cli", "connect", "--print", "--format", "human"],
+                             cwd=home.root, env=env, capture_output=True, text=True, timeout=30)
+    assert process.returncode == 0, process.stderr
+    assert process.stdout.startswith("claude-code (the host this runs in): what --apply would change")
+    assert "the roleband-top-picks skill, version 1, installs" in process.stdout
 
 
 def test_connect_reports_whether_the_command_is_on_path(home):

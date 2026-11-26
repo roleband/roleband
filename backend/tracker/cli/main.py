@@ -19,7 +19,7 @@ import os
 import re
 import sys
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, NoReturn, TextIO, cast
 
@@ -365,11 +365,16 @@ def _live(args: argparse.Namespace, request_id: str) -> dict[str, Any]:
     return envelope
 
 
-_OFFLINE: dict[str, Callable[[argparse.Namespace], dict[str, Any]]] = {
-    "capabilities": _offline_capabilities,
-    "describe": _offline_describe,
+_OFFLINE: dict[str, Callable[[argparse.Namespace, Mapping[str, str]], dict[str, Any]]] = {
+    "capabilities": lambda args, _environ: _offline_capabilities(args),
+    "describe": lambda args, _environ: _offline_describe(args),
     "connect": connect.run,
 }
+
+#: The calls that keep the installed skills current: the first call each
+#: skill tells the assistant to make, so a host's next session reads the
+#: version this client ships.
+_REFRESHES_SKILLS = frozenset({"capabilities", "picks.status"})
 
 
 def run(argv: Sequence[str], *, stdout: TextIO, stderr: TextIO, environ: dict[str, str]) -> int:
@@ -400,16 +405,14 @@ def run(argv: Sequence[str], *, stdout: TextIO, stderr: TextIO, environ: dict[st
         fmt = args.format
         if fmt == "ndjson":
             raise ClientError("invalid_arguments", f"{operation} answers one object, not a stream; use --format json.")
-        # The skill's first call, so an installed skill older than this
-        # client's is brought up to date before a host's next session reads it.
-        refresh_skills = operation == "capabilities"
+        refresh_skills = operation in _REFRESHES_SKILLS
         if operation == tools.OPERATION:
             asking = argparse.Namespace(
                 **{**vars(args), "command": "capabilities", "generated": None, "view": "full"})
             envelope = tools.export(args, bundle=_bundle(), engine=lambda: _live(asking, request_id),
                                     request_id=request_id)
         elif getattr(args, "offline", False):
-            envelope = success_envelope(operation, _OFFLINE[operation](args), request_id=request_id)
+            envelope = success_envelope(operation, _OFFLINE[operation](args, environ), request_id=request_id)
         else:
             envelope = _live(args, request_id)
     except ClientError as error:
