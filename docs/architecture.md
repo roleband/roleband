@@ -1392,6 +1392,15 @@ could not delete and those it had not reached. Either way every row stays,
 and another Remove retries what is left; until then the same bytes given again
 write a missing file back under the id the readings name.
 
+**What rings.** A pick that stands and the checks falling behind each ring one
+notification and a desktop banner, from `notifications/top_picks.py`: the pick
+in the `picks.decide` write that saved it (`routers/agent.py`, so a replay
+rings nothing), the stall at each scan, when a run finishes and when the mode
+is switched or removed. Neither repeats a reason or a run's note, so Remove
+leaves the pick rows, which name only the posting; the stall row goes with the
+mode. While the mode is on the daily digest is not written. The kinds and their
+words are in [copy.md](copy.md).
+
 **What the app reads.** `GET /api/jobs?top_picks=true` is the Radar's own list
 with one condition more: the role is a pick that stands and no current hard
 rule rules it out. Every filter, the search, each sort and the paging work as
