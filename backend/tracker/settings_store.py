@@ -1094,6 +1094,7 @@ LIST_COLUMNS = ("role", "pay", "location", "level", "posting", "saved", "next", 
 FILTER_KEYS = (
     "board", "board:open", "companies", "companies:open", "notifications:open", "notifications:params",
     "pipeline-list:params", "pipeline-board:params", "pipeline-up-next:params",
+    "top-picks", "top-picks:open",
 )
 #: A dismissed crossing is named by role, kind and instant; the dashboard keeps
 #: the most recent ones.
