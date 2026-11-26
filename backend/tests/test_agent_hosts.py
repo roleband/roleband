@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 from pathlib import Path
 
 import pytest
@@ -118,7 +119,7 @@ def _make_older(directory: Path, *, edited: bool) -> None:
     """Rewrite the installed skill as an older version's unedited copy, or as the person's edit of it."""
     older = b"<!-- roleband skill, an older version -->\n"
     (directory / "SKILL.md").write_bytes(older + (b"my own notes\n" if edited else b""))
-    record = {"format": 1, "version": agent_hosts.SKILL_VERSION - 1, "sha256": hashlib.sha256(older).hexdigest()}
+    record = {"format": 1, "version": agent_hosts.ROLEBAND_SKILL.version - 1, "sha256": hashlib.sha256(older).hexdigest()}
     (directory / agent_hosts.SKILL_RECORD).write_text(json.dumps(record))
 
 
@@ -152,6 +153,59 @@ def test_a_linked_skill_reads_as_current_since_connect_keeps_it(home, host, tmp_
     _connect(host)
     assert (directory / "SKILL.md").is_symlink(), "connect keeps the link"
     assert connection(host) == "connected"
+
+
+def _older_top_picks_file(host: str, name: str, *, edited: bool) -> None:
+    """Rewrite one file of the installed top picks skill as an older
+    version's unedited copy, or as the person's edit of it."""
+    directory = agent_hosts.skill_dir(host, agent_hosts.TOP_PICKS_SKILL)
+    older = b"# An older version\n"
+    (directory / name).write_bytes(older + (b"my own notes\n" if edited else b""))
+    record = agent_hosts.read_record(directory)
+    assert record is not None
+    files = {**record.files, name: hashlib.sha256(older).hexdigest()}
+    (directory / agent_hosts.SKILL_RECORD).write_text(json.dumps(
+        {"format": 2, "version": agent_hosts.TOP_PICKS_SKILL.version - 1, "files": files}))
+
+
+@pytest.mark.parametrize("host", agent_hosts.HOSTS)
+def test_a_host_connected_before_the_top_picks_skill_shipped_reads_as_an_update(home, host):
+    """An older connect installed the roleband skill alone: the card offers the
+    update, and the connect it runs installs the second skill."""
+    _connect(host)
+    shutil.rmtree(agent_hosts.skill_dir(host, agent_hosts.TOP_PICKS_SKILL))
+    assert connection(host) == "outdated"
+    _connect(host)
+    assert connection(host) == "connected"
+
+
+@pytest.mark.parametrize("name", agent_hosts.TOP_PICKS_SKILL.files)
+def test_one_unedited_older_file_of_the_top_picks_skill_reads_as_an_update_and_an_edited_one_does_not(home, name):
+    _connect("claude-code")
+    _older_top_picks_file("claude-code", name, edited=False)
+    assert connection("claude-code") == "outdated"
+    _older_top_picks_file("claude-code", name, edited=True)
+    assert connection("claude-code") == "connected"
+    _older_top_picks_file("claude-code", name, edited=False)
+    _connect("claude-code")
+    assert connection("claude-code") == "connected"
+
+
+def test_a_top_picks_folder_connect_never_wrote_is_the_persons(home):
+    _connect("codex")
+    directory = agent_hosts.skill_dir("codex", agent_hosts.TOP_PICKS_SKILL)
+    (directory / agent_hosts.SKILL_RECORD).unlink()
+    (directory / "setup.md").write_text("my own setup notes\n")
+    assert connection("codex") == "connected"
+
+
+def test_a_top_picks_file_the_person_deleted_is_not_offered_back(home):
+    """The sidecar lists it, so connect wrote it and the person removed it;
+    a refresh never puts it back, so the card offers no update for it."""
+    _connect("codex")
+    _older_top_picks_file("codex", "setup.md", edited=True)
+    (agent_hosts.skill_dir("codex", agent_hosts.TOP_PICKS_SKILL) / "judging.md").unlink()
+    assert connection("codex") == "connected"
 
 
 def test_a_host_whose_skill_was_deleted_reads_as_never_connected_whatever_its_settings_say(home):
