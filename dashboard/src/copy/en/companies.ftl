@@ -21,8 +21,6 @@ companies-add-more-companies-cancel = Cancel
 companies-add-more-companies-a-specific-company = A specific company
 # kind=label
 companies-add-more-companies-added-by-its-careers-page = By careers page link
-# kind=sentence wording=as-is
-companies-add-more-companies-not-on-this-list-paste = Not on this list? Paste the link and you'll see whether it can be scanned.
 # kind=label wording=as-is
 companies-add-more-companies-the-wider-market = The wider market
 # kind=aria wording=as-is
@@ -30,9 +28,9 @@ companies-add-more-companies-stop-scanning-the-wider-market = Stop scanning the 
 # kind=heading wording=as-is
 companies-add-more-companies-the-wider-market-heading = The wider market
 # kind=status
-companies-add-more-companies-about-companies-on-the-same = About { $about } more companies that can be scanned
+companies-add-more-companies-about-companies-on-the-same = About { $about } more companies
 # kind=sentence
-companies-add-more-companies-each-one-is-checked-daily = Each one is scanned daily, and only the ones hiring for roles on your radar join your list.
+companies-add-more-companies-each-one-is-checked-daily = Scanned daily. Only those hiring for roles on your radar join your list.
 # kind=label wording=as-is note="$scan is paused while the computer runs on battery"
 companies-add-more-companies-first-scan-state = { $scan ->
     [paused] About { $about } companies, first scan paused on battery
@@ -41,7 +39,7 @@ companies-add-more-companies-first-scan-state = { $scan ->
 # kind=sentence
 companies-add-more-companies-first-scan-note = { $scan ->
     [paused] Resumes when you plug in. Companies found so far are under Other companies.
-   *[running] Companies hiring for you appear under Other companies. The scan continues if you leave this page.
+   *[running] Companies hiring for you appear under Other companies.
 }
 # kind=label wording=as-is
 companies-add-more-companies-scanned-of-about = scanned of about { $to_check }
@@ -51,11 +49,8 @@ companies-add-more-companies-hiring-for-you-so-far = hiring for you so far
 companies-add-more-companies-companies-scanned = Companies scanned
 # kind=status
 companies-add-more-companies-about-companies-checked-daily = About { $about } companies, scanned daily
-# kind=sentence
-companies-add-more-companies-daily-check-note = { $scan ->
-    [paused] Paused on battery. Daily scans resume when you plug in.
-   *[running] Quiet ones are scanned again tomorrow.
-}
+# kind=sentence note="Under the wider market's status while daily scans wait for power"
+companies-add-more-companies-daily-check-note = Paused until you plug in.
 # kind=label wording=as-is
 companies-add-more-companies-hiring-for-you = hiring for you
 # kind=label wording=as-is
@@ -214,8 +209,8 @@ companies-company-register-rows-aka = aka { $aliasHit }
 companies-company-register-rows-limits-collection = limits collection
 # kind=label wording=as-is
 companies-company-register-rows-also = also { $name }
-# kind=sentence wording=as-is
-companies-company-register-rows-showing-of-matches-keep-typing = Showing { $shown } of { $matchCount } matches. Keep typing to narrow the list.
+# kind=sentence
+companies-company-register-rows-showing-of-matches-keep-typing = Showing { $shown } of { $matchCount } matches.
 # kind=label wording=as-is
 companies-company-register-rows-planned = Planned
 # kind=label
@@ -240,15 +235,15 @@ companies-company-register-rows-scanned-ago = Scanned { $scanned } ago.
 # kind=label wording=as-is
 companies-company-register-rows-label-scanned-ago = { $label } · scanned { $scanned } ago
 # kind=sentence
-companies-company-register-rows-scanned-ago-roleband-scans-when = Scanned { $scanned } ago. { $display } is scanned when you choose Scan now.
+companies-company-register-rows-scanned-ago-roleband-scans-when = Scanned { $scanned } ago. Only with Scan now.
 # kind=status
 companies-company-register-rows-not-counted-last-read-ago = { $label } · not counted, last scanned { $lastRead } ago
 # kind=sentence
-companies-company-register-rows-roleband-last-read-s-roles = Roles at { $display } come from a scan { $lastRead } ago, too old to count. They count again after its next full scan.
+companies-company-register-rows-roleband-last-read-s-roles = Its roles count again after its next full scan.
 # kind=label wording=as-is
 companies-company-register-rows-partly-counted = { $label } · partly counted
 # kind=sentence
-companies-company-register-rows-s-scans-have-not-read = Some roles at { $display } aren't counted yet. They count after its next full scan.
+companies-company-register-rows-s-scans-have-not-read = The rest count after its next full scan.
 # kind=label wording=as-is
 companies-company-register-rows-not-counted-yet = { $label } · not counted yet
 # kind=sentence note="$reason is why the company's roles are not in the radar's count"
@@ -265,9 +260,9 @@ companies-company-register-rows-open-role-counts-are-unavailable = Open role cou
 # kind=label wording=as-is
 companies-company-register-rows-open-roles-loading = Open roles loading
 # kind=sentence
-companies-company-register-rows-of-s-roles-name-a = { $unplaced } of the roles at { $display } name a place that isn't recognized, so they don't show for any place you choose.
+companies-company-register-rows-of-s-roles-name-a = { $unplaced } of its roles name a place that isn't recognized, so they don't show for any place you choose.
 # kind=sentence
-companies-company-register-rows-of-s-roles-fit-no = { $unsorted } of the roles at { $display } fit no known discipline, so they don't show for any discipline you choose.
+companies-company-register-rows-of-s-roles-fit-no = { $unsorted } of its roles fit no known discipline, so they don't show for any discipline you choose.
 # kind=label
 companies-company-register-rows-open-careers-page = Open careers page: { $display }
 # kind=tooltip wording=as-is
@@ -462,10 +457,7 @@ companies-follow-copy-unfollow-outside-your = Unfollow { $count } { $count ->
        *[other] companies
     } outside your { $curatedList }?
 # kind=sentence
-companies-follow-copy-roleband-stops-scanning-them-your = { $count ->
-    [one] Scanning it stops. Your { $curatedList }, and any company you added yourself, stays followed.
-   *[other] Scanning them stops. Your { $curatedList }, and any company you added yourself, stays followed.
-}
+companies-follow-copy-roleband-stops-scanning-them-your = Your { $curatedList } and companies you added stay followed.
 # kind=label wording=as-is
 companies-follow-copy-keep-following = Keep following
 # kind=heading note="Title of the question for followed companies that wait for consent. $rest counts the ones not named"
@@ -506,8 +498,8 @@ companies-follow-copy-follow-all-in = Follow all { $count } { $count ->
         [one] company
        *[other] companies
     } in { $sector }?
-# kind=sentence wording=as-is
-companies-follow-copy-this-will-likely-add-to = This will likely add { $estimate } to your radar and make each scan longer. You can unfollow any company later.
+# kind=sentence
+companies-follow-copy-this-will-likely-add-to = Likely adds { $estimate } to your radar, and each scan takes longer.
 # kind=label wording=as-is
 companies-follow-copy-cancel = Cancel
 # kind=tooltip wording=as-is

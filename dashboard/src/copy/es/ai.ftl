@@ -2,7 +2,7 @@
 
 ## features/intelligence/AimLine.tsx
 ai-aim-line-your-aim-in-one-sentence = Tu objetivo, en una frase
-ai-aim-line-roles-closest-to-it-come = Los { -role(num: "other") } más cercanos aparecen primero cuando el Radar se ordena por Mejor encaje. Nunca oculta ningún { -role(num: "one") }. Déjalo vacío para ordenar según lo que guardas y marcas como No es para mí.
+ai-aim-line-roles-closest-to-it-come = Los { -role(num: "other") } más cercanos aparecen primero en Mejor encaje. Nunca oculta ningún { -role(num: "one") }.
 ai-aim-line-couldn-t-save-your-aim = No se pudo guardar tu objetivo. Inténtalo de nuevo.
 ai-aim-line-cancel = Cancelar
 ai-aim-line-save = Guardar
@@ -45,8 +45,8 @@ ai-assistants-card-any-app-that-can-run-commands = Cualquier app que pueda ejecu
 ai-assistants-card-assistant-apps-2 = Apps de asistente
 ai-assistants-card-allow-assistant-apps-to-connect-2 = Primero permite conectar apps de asistente
 ai-assistants-card-off-nothing-leaves-this-computer = { $choice ->
-    [yes] activado · solo se comparte con las apps que conectes
-   *[no] desactivado · nada sale de este ordenador
+    [yes] solo se comparte con las apps que conectes
+   *[no] nada sale de este ordenador
 }
 ai-assistants-card-clipboard-access-was-blocked-select = No se pudo copiar. Selecciona el texto y cópialo tú.
 ai-assistants-card-copy = { $choice ->
@@ -56,10 +56,6 @@ ai-assistants-card-copy = { $choice ->
 
 ## features/intelligence/CapabilitiesCard.tsx
 ai-capabilities-card-extended-capabilities = Funciones ampliadas
-ai-capabilities-card-of-on = { $choice ->
-    [yes] { $on } de { $capCount } activas · todo en este ordenador
-   *[no] { $on } de { $capCount } activas
-}
 ai-capabilities-card-your-own-model = Tu propio modelo
 ai-capabilities-card-finds-duplicate-job-posts-only = { $value } · encuentra ofertas duplicadas, solo cuando lo pides
 ai-capabilities-card-apple-intelligence = Apple Intelligence
@@ -90,8 +86,8 @@ ai-capabilities-card-server-stopped = servidor detenido
 ai-capabilities-card-extended-capabilities-2 = Funciones ampliadas
 ai-capabilities-card-use-your-own-model = Usar tu propio modelo
 ai-capabilities-card-save-a-connection-first-then = { $choice ->
-    [yes] Actívalo para iniciar tu servidor de IA local
-   *[no] Guarda primero una conexión y luego actívalo
+    [yes] Inicia tu servidor de IA local
+   *[no] Guarda primero una conexión
 }
 ai-capabilities-card-start = { $choice ->
     [v1] Procesando…
@@ -141,7 +137,7 @@ ai-capabilities-card-test-2 = Probar { $name }
 ai-capabilities-card-configure = Configurar { $name }
 
 ## features/intelligence/CloudDialog.tsx
-ai-cloud-dialog-a-direct-api-connection-billed = Usa tu propia clave de API, facturada aparte de cualquier plan de ChatGPT o Claude. Solo se usa mientras { $b } está activado.
+ai-cloud-dialog-a-direct-api-connection-billed = Usa tu propia clave de API, facturada aparte de cualquier plan de ChatGPT o Claude.
 ai-cloud-dialog-name = Nombre
 ai-cloud-dialog-provider = Proveedor
 ai-cloud-dialog-server-address-https = Dirección del servidor (HTTPS)
@@ -179,8 +175,7 @@ ai-fit-field-fit-of-open-roles-rising = Encaje de { $total } { -role(num: "other
 ai-fit-field-roles = { $label }: { $count } { -role(num: "other") }
 
 ## features/intelligence/IntelligenceSection.tsx
-ai-intelligence-section-the-board-keeps-working-meanwhile = el Radar sigue funcionando
-ai-intelligence-section-preparing-matching-mb = preparando la clasificación: { $b }/{ $total_bytes } MB
+ai-intelligence-section-preparing-matching-mb = preparando la clasificación
 ai-intelligence-section-new-roles-added-today = { $count ->
     [one] { $n } { -role(num: "one") } nuevo añadido hoy
     [many] { $n } de { -role(num: "other") } nuevos añadidos hoy
@@ -210,7 +205,7 @@ ai-intelligence-section-this-band = este grado
 
 ## features/intelligence/LocalModelDialog.tsx
 ai-local-model-dialog-your-own-model = Tu propio modelo
-ai-local-model-dialog-a-model-server-you-run = Un modelo en tu servidor de IA local. Solo se usa cuando comparas dos { -posting(num: "other") }. Nada sale de este ordenador.
+ai-local-model-dialog-a-model-server-you-run = Solo se usa para comparar dos { -posting(num: "other") }. Nada sale de este ordenador.
 ai-local-model-dialog-server-type = Tipo de servidor
 ai-local-model-dialog-server-address = Dirección del servidor
 ai-local-model-dialog-generation-and-reasoning-parameters = Ajustes del modelo
@@ -242,10 +237,8 @@ ai-local-model-dialog-test-connection = { $choice ->
 ## features/intelligence/MatchingModel.tsx
 ai-matching-model-local-ai-model = Modelo de clasificación
 ai-matching-model-downloading-of-mb = · descargando { $round }/{ $round2 } MB
-ai-matching-model-roles-are-listed-newest-first = Los { -role(num: "other") } se muestran del más nuevo al más antiguo hasta que termine.
 ai-matching-model-switching-to-the = Cambiando al { $nAME_LOWER }
 ai-matching-model-of-roles-updated = { $done } de { $total } { -role(num: "other") } actualizados
-ai-matching-model-you-can-keep-working-meanwhile = Puedes seguir trabajando mientras tanto.
 ai-matching-model-not-downloaded = · sin descargar
 ai-matching-model-the-could-not-be-downloaded = No se pudo descargar el { $value }.
 ai-matching-model-could-not-be-downloaded = No se pudo descargar el modelo de clasificación.
@@ -349,7 +342,6 @@ ai-assistants-card-other-used = Usada { $age }
 ai-assistants-card-connected = Conectada
 ai-assistants-card-app-activity = Actividad de { $app }
 ai-access-dialog-title = Personaliza lo que reciben las apps
-ai-access-dialog-apply-at-once = Los cambios se aplican al momento.
 ai-access-dialog-data = Datos que leen las apps
 ai-access-dialog-changes = Qué cambian las apps
 ai-access-dialog-any-model = Cualquier modelo
@@ -407,10 +399,10 @@ ai-intelligence-section-matches-load-failed = No se pudieron cargar los puestos 
 ai-intelligence-section-band-load-failed = No se pudieron cargar los puestos de este grado
 ai-egress-title = ¿Permitir proveedores de IA?
 ai-egress-destinations = Proveedores guardados
-ai-egress-empty = No has añadido ningún proveedor de IA. Nada sale de este ordenador hasta que añadas y actives uno.
+ai-egress-empty = No has añadido ningún proveedor de IA.
 ai-egress-allow = Permitir
 
-ai-capabilities-card-apple-off = desactivado
+ai-capabilities-card-apple-experimental = experimental
 
 ai-capabilities-card-apple-off-in-system-settings = desactivado en Ajustes del Sistema
 

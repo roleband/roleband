@@ -7,6 +7,7 @@ import { expect, test } from "./fixtures";
 import { installSettingsRoutes } from "./settingsHarness";
 import { retentionStateFixture } from "../../src/test/fixtures";
 import { mockApi } from "./fixtures";
+import { msg } from "../../src/test/msg";
 
 test.beforeEach(async ({ page }) => {
   await installSettingsRoutes(page);
@@ -21,7 +22,7 @@ test("the Data retention tab opens by its link, just before Privacy at the end o
 
   const region = page.getByRole("region", { name: "Data retention" });
   await expect(region.getByRole("combobox", { name: "Remove postings after" })).toHaveValue("60");
-  await expect(region.getByText("1,240 kept · 210 no longer listed · 330 from companies you stopped following"))
+  await expect(region.getByText("1,240 kept · 210 no longer listed · 330 from unfollowed companies"))
     .toBeVisible();
   await expect(region.getByTestId("retention-due")).toHaveText("94 postings");
 });
@@ -59,7 +60,8 @@ test("Never is saved as no window at all", async ({ page }) => {
 
   await expect(region.getByText("Saved.")).toBeVisible();
   await expect(region.getByTestId("retention-due")).toHaveText("0 postings");
-  await expect(region.getByText("Nothing is removed while this is set to Never.")).toBeVisible();
+  // The chosen Never says it; the due row adds no sentence repeating it.
+  await expect(region.getByText(/set to Never/)).toHaveCount(0);
   expect(sent).toEqual([{ days: null }]);
 });
 
@@ -73,11 +75,11 @@ test("what is due is a row of its own: a count in the data voice, its prose in t
   const due = region.getByTestId("retention-due");
   await expect(due).toHaveText("94 postings");
   await expect(due).toHaveCSS("font-family", /Mono/);
-  const detail = region.getByText("Due postings are removed during scans, never by saving.");
+  const detail = region.getByText(msg("settings-retention-section-due-detail"));
   await expect(detail).toBeVisible();
   await expect(detail).not.toHaveCSS("font-family", /Mono/);
   await expect(region.locator(".settings-row-facts").first())
-    .toHaveText("1,240 kept · 210 no longer listed · 330 from companies you stopped following");
+    .toHaveText("1,240 kept · 210 no longer listed · 330 from unfollowed companies");
   const borders = () => region.locator(".settings-row").evaluateAll((rows) =>
     rows.map((row) => getComputedStyle(row).borderTopWidth));
   expect(await borders()).toEqual(["0px", "1px", "1px"]);

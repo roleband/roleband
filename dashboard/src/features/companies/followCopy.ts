@@ -206,7 +206,7 @@ export function followCopy(pending: FollowConfirmation): FollowCopy {
       return {
         title: companiesFollowCopyUnfollowOutsideYour({ count: n, curatedList: CURATED_LIST() }),
         paragraphs: [
-          companiesFollowCopyRolebandStopsScanningThemYour({ count: n, curatedList: CURATED_LIST() }),
+          companiesFollowCopyRolebandStopsScanningThemYour({ curatedList: CURATED_LIST() }),
         ],
         safe: companiesFollowCopyKeepFollowing(),
         act: companiesFollowCopyUnfollow({ count: n }),

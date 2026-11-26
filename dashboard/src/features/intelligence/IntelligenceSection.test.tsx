@@ -577,7 +577,7 @@ describe("ranking card", () => {
     mount();
 
     expect(await screen.findByText(/downloading, 380 of 572 MB/)).toBeInTheDocument();
-    expect(screen.getByText(/Roles are listed newest first until this finishes/)).toBeInTheDocument();
+    expect(screen.queryByText(/newest first/)).toBeNull();
     expect(screen.queryByRole("button", { name: /Switch to/ })).toBeNull();
     await userEvent.click(
       screen.getByRole("button", { name: "Stop and go back to the big model" }),
@@ -1388,30 +1388,6 @@ describe("capabilities card", () => {
     expect(await within(card).findByText(/connection ready · 240 ms/)).toBeInTheDocument();
   });
 
-  it("does not count a service the permission blocks as one that is on", async () => {
-    mocked.cloudLLMProfiles.mockResolvedValue(oneService(true));
-    mocked.intelligence.mockResolvedValue(withEgress(false));
-    mount();
-
-    // The built-in model is on in the fixture; the local model is not; the
-    // cloud service is switched on but cannot run. Counting its preference
-    // alone would read "2 of 3 on · all on this computer", a tally and a claim
-    // that contradict.
-    const card = await screen.findByRole("region", { name: "Extended capabilities" });
-    await waitFor(() => expect(card).toHaveTextContent("1 of 3 on"));
-    expect(card).toHaveTextContent("all on this computer");
-  });
-
-  it("counts a service as on, and drops the local-only claim, once both switches agree", async () => {
-    mocked.cloudLLMProfiles.mockResolvedValue(oneService(true));
-    mocked.intelligence.mockResolvedValue(withEgress(true));
-    mount();
-
-    const card = await screen.findByRole("region", { name: "Extended capabilities" });
-    await waitFor(() => expect(card).toHaveTextContent("2 of 3 on"));
-    expect(card).not.toHaveTextContent("all on this computer");
-  });
-
   it("keeps setup reachable while every switch is off — it is the only way back on", async () => {
     mocked.cloudLLMProfiles.mockResolvedValue(oneService(false));
     mocked.intelligence.mockResolvedValue(withEgress(false));
@@ -1527,7 +1503,7 @@ describe("capabilities card", () => {
     expect(await within(dialog).findByText("Connection succeeded")).toBeInTheDocument();
   });
 
-  it("does not count an enabled preference with no local profile as a live capability", async () => {
+  it("does not show an enabled preference with no local profile as switched on", async () => {
     mocked.localLLMProfiles.mockResolvedValue({ enabled: true, active_profile_id: null, profiles: [] });
     mocked.localServerStatus.mockResolvedValue({
       ...localServerStatusFixture,
@@ -1537,7 +1513,6 @@ describe("capabilities card", () => {
     mount();
 
     const card = await screen.findByRole("region", { name: "Extended capabilities" });
-    expect(card).toHaveTextContent("1 of 2 on");
     expect(within(card).getByLabelText("Use your own model")).not.toBeChecked();
   });
 
@@ -1638,7 +1613,6 @@ describe("capabilities card", () => {
     };
 
     it.each([
-      ["disabled_by_flag", () => msg("ai-capabilities-card-apple-off"), () => msg("ai-availability-disabled-by-flag")],
       ["apple_intelligence_disabled", () => msg("ai-capabilities-card-apple-off-in-system-settings"), () => msg("ai-availability-apple-intelligence-disabled")],
       ["model_not_ready", () => msg("ai-capabilities-card-apple-downloading"), () => msg("ai-availability-model-not-ready")],
       ["sdk_absent", () => msg("ai-capabilities-card-apple-needs-macos"), () => msg("ai-availability-sdk-absent")],
@@ -1647,6 +1621,13 @@ describe("capabilities card", () => {
       const line = await appleLine(state);
       expect(line).toBe(msg("ai-capabilities-card-experimental-we-are-still-testing", { value: word() }));
       expect(line).not.toContain(sentence().replace(/\.$/, ""));
+    });
+
+    it("says only experimental while its own switch is off, which the switch already shows", async () => {
+      const line = await appleLine("disabled_by_flag");
+      expect(line).toBe(msg("ai-capabilities-card-apple-experimental"));
+      expect(line).not.toContain(msg("ai-capabilities-card-apple-off-in-system-settings"));
+      expect(line).not.toContain(msg("ai-availability-disabled-by-flag").replace(/\.$/, ""));
     });
 
     it("falls back to the availability sentence, without its last full stop, for a state with no short word", async () => {
@@ -1829,13 +1810,11 @@ describe("the AI screen in the reader's language", () => {
     expect(alert).not.toHaveTextContent(/\bmodel\b/);
   });
 
-  it("keeps the count of capabilities inside the sentence that counts them", async () => {
-    await activate("zh-Hans");
+  it("counts no capabilities in the card's head: each row's switch shows its own state", async () => {
     mount();
     const card = await capabilities();
-    // One of two on (the built-in model), and nothing that is on leaves this
-    // computer: the whole line is the one message, the count where it puts it.
-    const tally = msg("ai-capabilities-card-of-on", { choice: "yes", on: "1", capCount: 2 });
-    await waitFor(() => expect(card.querySelector(".intel-head .intel-aside")?.textContent).toBe(tally));
+    await within(card).findByLabelText(msg("ai-capabilities-card-enable-apple-intelligence"));
+    expect(card.querySelector(".intel-head .intel-aside")).toBeNull();
+    expect(card.querySelector(".intel-head")?.textContent).not.toMatch(/\d+ of \d+ on/);
   });
 });

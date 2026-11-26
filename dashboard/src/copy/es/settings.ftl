@@ -111,7 +111,7 @@ settings-recipes-section-the-recipe-has-problems = { $count ->
 }
 settings-recipes-section-this-careers-page-asks-not = Esta página de empleo pide no ser leída automáticamente, así que no se escaneará.
 settings-recipes-section-no-roles-found-on-the = No se encontraron puestos en las primeras páginas.
-settings-recipes-section-no-recipes-yet-write-one = Aún no hay recetas. Escribe una abajo y previsualízala.
+settings-recipes-section-no-recipes-yet-write-one = Aún no hay recetas.
 settings-recipes-section-open = Abrir
 settings-recipes-section-recipe-json = Receta (JSON)
 settings-recipes-section-save-draft = Guardar borrador
@@ -190,9 +190,8 @@ settings-retention-section-text = { $choice ->
 }
 settings-retention-section-removed = { $at } · { $removed } eliminadas{ $more }
 settings-retention-section-data-retention = Conservación de datos
-settings-retention-section-roleband-keeps-every-posting-its = Se conserva cada oferta que encuentra un escaneo, así que un cambio en lo que buscas puede poner puestos en tu radar al instante.
 settings-retention-section-remove-postings-after = Eliminar ofertas tras
-settings-retention-section-a-posting-stops-being-read = Las ofertas cerradas, y las de empresas que dejaste de seguir, se eliminan tras este tiempo sin verse. Los puestos de tu radar y los guardados se conservan siempre, con su historial.
+settings-retention-section-a-posting-stops-being-read = Las ofertas cerradas, y las de empresas que dejaste de seguir, tras este tiempo sin verse. Los puestos de tu radar y los guardados se conservan siempre, con su historial.
 settings-retention-section-no-longer-listed = · { $no_longer_listed } ya no publicadas
 settings-retention-section-from-companies-you-stopped-following = · { $stopped_following } de empresas que dejaste de seguir
 settings-retention-section-remove-postings-after-2 = Eliminar ofertas tras
@@ -203,10 +202,7 @@ settings-retention-section-due-count = { $count ->
     [many] { $due } de { -posting(num: "other") }
    *[other] { $due } { -posting(num: "other") }
 }
-settings-retention-section-due-detail = { $state ->
-    [never] No se elimina nada mientras esto esté en Nunca.
-   *[set] Las ofertas pendientes se eliminan durante los escaneos, nunca al guardar.
-}
+settings-retention-section-due-detail = Se eliminan durante los escaneos, no cuando cambias esto.
 settings-retention-section-saved = Guardado.
 
 ## features/settings/ScheduleChronograph.tsx
@@ -254,10 +250,10 @@ settings-schedule-section-how-scanning-works = Cómo funciona el escaneo
 settings-schedule-section-reads-every-company-s-whole = Lee la página de empleo completa de cada empresa y puede cerrar los puestos que ya no existen. Se ejecuta una vez al día, y cuando tu equipo se despierta tras dos horas o más.
 settings-schedule-section-looks-for-new-and-changed = Busca puestos nuevos y modificados en cada empresa que sigues, cada { $repeat_hours } horas mientras tu equipo está activo. Nunca cierra un puesto.
 settings-schedule-section-when-the-computer-is-off = Cuando tu equipo está en reposo o apagado
-settings-schedule-section-nothing-runs-and-missed-scans = No se ejecuta nada y los escaneos perdidos no se repiten. El siguiente se ejecuta cuando tu equipo se despierta. La programación sigue las horas en que sueles usar tu equipo, así que no hay nada que configurar.
+settings-schedule-section-nothing-runs-and-missed-scans = Los escaneos perdidos no se repiten. El siguiente se ejecuta cuando tu equipo se despierta.
 settings-schedule-section-times-you-set = Horas fijadas por ti
 settings-schedule-section-a-company-with-a-time = Una empresa con hora propia la conserva. Arrastra su escaneo o haz clic en él para escribir una hora.
-settings-schedule-section-outer-orbit-is-the-full = Anillo exterior: escaneo completo. Anillo interior: escaneo rápido. Horas sombreadas: tu equipo suele estar en reposo o apagado.
+settings-schedule-section-outer-orbit-is-the-full = Horas sombreadas: tu equipo suele estar en reposo o apagado.
 settings-schedule-section-discovery = Escaneo rápido
 settings-schedule-section-probes-a-company-s-board = Busca puestos nuevos y modificados y nunca cierra ninguno.
 settings-schedule-section-reconciliation = Escaneo completo
@@ -270,7 +266,6 @@ settings-schedule-section-outer-orbit-is-reconciliation-inner = Anillo exterior:
 settings-schedule-section-first-scan-of-the-day = Primer escaneo del día
 settings-schedule-section-full-scan-done-by = Escaneo completo, terminado a las
 settings-schedule-section-then-while-it-is-on = Después, mientras está encendido
-settings-schedule-section-a-quick-scan-every-hours = un escaneo rápido cada { $repeat_hours } horas
 settings-schedule-section-days = Días
 settings-schedule-section-power = Alimentación
 settings-schedule-section-only-when-plugged-in = Solo conectado a la corriente
@@ -357,47 +352,16 @@ settings-schedule-section-until-tomorrow = Hasta mañana
 settings-schedule-section-couldn-t-save-that-change = No se pudo guardar ese cambio. Inténtalo de nuevo.
 settings-schedule-section-plan-settings = Ajustes del plan
 settings-schedule-section-starts-about = { $source ->
-    [usual] Tu inicio habitual, aprendido: hacia las { $time } · { $companies ->
-            [one] { $companies } empresa
-            [many] { $companies } de empresas
-           *[other] { $companies } empresas
-        }
-   *[set] Empieza hacia las { $time } · { $companies ->
-            [one] { $companies } empresa
-            [many] { $companies } de empresas
-           *[other] { $companies } empresas
-        }
+    [usual] Tu inicio habitual, aprendido: hacia las { $time }
+   *[set] Empieza hacia las { $time }
 }
-settings-schedule-section-starts-about-duration = { $source ->
-    [usual] Tu inicio habitual, aprendido: hacia las { $time } · { $companies ->
-            [one] { $companies } empresa
-            [many] { $companies } de empresas
-           *[other] { $companies } empresas
-        } · { $duration }
-   *[set] Empieza hacia las { $time } · { $companies ->
-            [one] { $companies } empresa
-            [many] { $companies } de empresas
-           *[other] { $companies } empresas
-        } · { $duration }
-}
-settings-schedule-section-no-time-set = Sin hora fijada: se ejecuta una vez al día y cuando tu equipo se reactiva · Empresas: { $companies }
-settings-schedule-section-no-time-set-duration = Sin hora fijada: se ejecuta una vez al día y cuando tu equipo se reactiva · Empresas: { $companies } · { $duration }
+settings-schedule-section-no-time-set = Una vez al día, y cuando tu equipo se reactiva
 settings-schedule-section-clear-ready-by = { $fallback ->
     [usual] Usar mi hora de inicio habitual
    *[none] Borrar
 }
 settings-schedule-section-scan-days = Días de escaneo
-settings-schedule-section-days-a-week = { $count ->
-    [7] Todos los días
-    [one] { $count } día por semana
-    [many] { $count } días por semana
-   *[other] { $count } días por semana
-}
-settings-schedule-section-power-note = { $power ->
-    [waiting] Ahora con batería: el próximo escaneo espera a que tu equipo esté conectado a la corriente.
-    [mains] Los escaneos esperan mientras tu equipo funciona con batería.
-   *[any] Los escaneos también se ejecutan con batería.
-}
+settings-schedule-section-power-note = Con batería: el próximo escaneo espera a que conectes el cargador.
 settings-schedule-section-pause-scans = Pausar escaneos
 settings-schedule-section-when-roleband-scans = Cuándo se escanea
 settings-schedule-section-next-scans-2 = Próximos escaneos
@@ -575,16 +539,15 @@ settings-schedule-hours = { $hours } h
 settings-schedule-days = { $days } d
 
 settings-plugins-section-coming-soon = Próximamente
-settings-plugins-section-coming-soon-note = Activar y gestionar plugins aquí llegará en una versión posterior.
 settings-plugins-section-title = Plugins
 settings-plugins-section-intro = Complementos opcionales que aportan más datos y funciones.
 settings-plugins-section-search = Buscar plugins
 settings-plugins-section-on-count = { $on } de { $total } activados
 settings-plugins-section-none = Aún no hay plugins instalados.
 settings-price-feed-title = Precios de la acción
-settings-price-feed-intro = Precios de cierre diarios de las empresas cotizadas, mostrados en sus perfiles y actualizados una vez al día.
+settings-price-feed-intro = Precios de cierre diarios de las empresas cotizadas, mostrados en sus perfiles.
 settings-price-feed-source = Tiingo
-settings-price-feed-source-terms = Gratis para uso personal con tu propia clave.
+settings-price-feed-source-terms = Gratis para uso personal.
 settings-price-feed-key-state =
     { $origin ->
         [settings] Clave guardada
@@ -602,7 +565,7 @@ settings-price-feed-add = Añadir clave
 settings-price-feed-replace = Cambiar clave
 settings-price-feed-remove = Quitar clave
 settings-price-feed-dialog-title = Clave de Tiingo
-settings-price-feed-dialog-note = Pega la clave de tu cuenta de Tiingo. Se queda en este ordenador y solo se envía a Tiingo.
+settings-price-feed-dialog-note = Se queda en este ordenador y solo se envía a Tiingo.
 settings-price-feed-dialog-field = Clave
 settings-price-feed-dialog-save = { $choice ->
     [yes] Guardando…
@@ -663,7 +626,7 @@ settings-plugins-section-resume = Reanudar
 settings-plugins-section-turn-on-first = Actívalo primero
 settings-plugins-section-approve-first = Apruébalo primero
 settings-plugins-section-more = Más plugins
-settings-plugins-section-more-note = Pronto podrás buscar y añadir plugins aquí. Por ahora, instala uno desde la línea de comandos, en la carpeta RoleBand:
+settings-plugins-section-more-note = Instala uno desde la línea de comandos, en la carpeta RoleBand:
 settings-plugins-section-waiting-wake = Actualización en cola. Empieza la próxima vez que uses tu equipo.
 settings-plugins-section-moved =
     { $moved ->

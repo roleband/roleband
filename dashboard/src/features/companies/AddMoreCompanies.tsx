@@ -32,7 +32,6 @@ import {
   companiesAddMoreCompaniesHiringForYou,
   companiesAddMoreCompaniesHiringForYouSoFar,
   companiesAddMoreCompaniesFirstScanNote,
-  companiesAddMoreCompaniesNotOnThisListPaste,
   companiesAddMoreCompaniesDailyCheckNote,
   companiesAddMoreCompaniesQuietToday,
   companiesAddMoreCompaniesScannedOfAbout,
@@ -82,7 +81,6 @@ export function AddMoreCompanies({ onAdd }: { onAdd: () => void }) {
           icon="plus"
           title={companiesAddMoreCompaniesASpecificCompany()}
           fact={companiesAddMoreCompaniesAddedByItsCareersPage()}
-          note={companiesAddMoreCompaniesNotOnThisListPaste()}
           action={
             <Button className="ui-btn-strong" onClick={onAdd}>
               {companiesAddMoreCompaniesAddByLink()}
@@ -111,7 +109,7 @@ function AddCard({
   icon: "plus" | "globe";
   title: string;
   fact: string;
-  note: string;
+  note?: string;
   label?: string;
   children?: ReactNode;
   action: ReactNode;
@@ -128,7 +126,7 @@ function AddCard({
         </div>
       </div>
       {children}
-      <p className="ledger-add-card-note">{note}</p>
+      {note && <p className="ledger-add-card-note">{note}</p>}
       <div className="ledger-add-card-actions">{action}</div>
     </div>
   );
@@ -213,9 +211,7 @@ function SetCard({
       label={label}
       title={companiesAddMoreCompaniesTheWiderMarketHeading()}
       fact={companiesAddMoreCompaniesAboutCompaniesCheckedDaily({ about: String(about) })}
-      note={
-        companiesAddMoreCompaniesDailyCheckNote({ scan: onBattery ? "paused" : "running" })
-      }
+      note={onBattery ? companiesAddMoreCompaniesDailyCheckNote() : undefined}
       action={stop}
     >
       <SetFigures

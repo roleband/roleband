@@ -46,7 +46,6 @@ import {
   aiIntelligenceSectionOpenTheBoard,
   aiIntelligenceSectionPreparingMatchingMb,
   aiIntelligenceSectionPreview,
-  aiIntelligenceSectionTheBoardKeepsWorkingMeanwhile,
   aiIntelligenceSectionTheStrongestOfRoles,
   aiIntelligenceSectionThisBand,
   aiIntelligenceSectionYourBestMatches,
@@ -125,8 +124,6 @@ export function IntelligenceTab() {
  *  line below the fold. */
 const TOP_MATCHES = 3;
 
-const mb = (bytes: number) => Math.round(bytes / (1024 * 1024));
-
 function shortLocation(job: Job): string | null {
   const first = job.locations?.[0];
   if (!first) return null;
@@ -196,12 +193,8 @@ function RankingCard({
   const ranked = fit?.ranked ?? false;
   const rankedToday = fit?.embedded_today ?? 0;
 
-  const aside = matching?.reembedding ? (
-    <span className="intel-aside">{aiIntelligenceSectionTheBoardKeepsWorkingMeanwhile()}</span>
-  ) : matching?.status === "downloading" ? (
-    <span className="intel-aside">
-      <Msg of={aiIntelligenceSectionPreparingMatchingMb} elems={{ b: <b>{mb(matching.downloaded_bytes)}</b>, total_bytes: mb(matching.total_bytes) }} />
-    </span>
+  const aside = matching?.status === "downloading" ? (
+    <span className="intel-aside">{aiIntelligenceSectionPreparingMatchingMb()}</span>
   ) : fit && rankedToday > 0 ? (
     <span className="intel-aside">
       <span className="intel-dot is-live" aria-hidden="true" />

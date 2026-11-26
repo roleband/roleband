@@ -41,6 +41,8 @@ it("the card is named by its tab, and the consent question's title heads the swi
   // What is never sent is standing copy in the intro, not a boxed note between rows.
   expect(screen.getByText(new RegExp(msg("privacy-never")))).toBeVisible();
   expect(screen.queryByRole("note")).toBeNull();
+  // The switches show they are off; the intro does not say so again.
+  expect(screen.queryByText(/off until you turn it on|stops it at once/)).toBeNull();
 });
 
 it("while it loads, the row it becomes stands in, not the card's own title again", async () => {
@@ -136,7 +138,7 @@ it("resets the install ID and shows the next batch on request", async () => {
   expect(await screen.findByText("0b5c1f7e-2d4a-4c8e-9f10-6a7b8c9d0e1f")).toBeVisible();
   // The count is the fact (data voice); when it leaves is the description (body voice).
   expect(screen.getByTestId("privacy-next-count")).toHaveTextContent(/^2 events$/);
-  expect(screen.getByText("Waits for the daily send.")).toHaveClass("settings-row-desc");
+  expect(screen.getByText(msg("privacy-next-send-detail"))).toHaveClass("settings-row-desc");
   await userEvent.click(screen.getByRole("button", { name: "Show what's sent" }));
   expect(await screen.findByLabelText("Next send")).toHaveTextContent('"action": "save_job"');
 });

@@ -23,7 +23,6 @@ import {
   privacySentLoadFailed,
   privacySentLoading,
   privacySettingsBlocked,
-  privacySettingsIntro,
   privacySettingsLoadFailed,
   privacySettingsRefreshFailed,
   privacySettingsStale,
@@ -127,7 +126,7 @@ export function PrivacySection() {
   };
 
   return (
-    <Card title={privacySettingsTitle()} intro={<>{privacySettingsIntro()} {neverSentence(never)}</>}>
+    <Card title={privacySettingsTitle()} intro={neverSentence(never)}>
       <AsyncBoundary
         resource={usage}
         failed={privacySettingsLoadFailed()}

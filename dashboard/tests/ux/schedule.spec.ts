@@ -81,7 +81,8 @@ test("pausing and choosing days are saved, and the dial says it is paused", asyn
   await panel.getByRole("group", { name: "Scan days" }).getByRole("button", { name: "Sun" }).click();
   await expect.poll(() => writes.length).toBe(1);
   expect(writes[0]).toEqual({ days: [0, 1, 2, 3, 4, 5] });
-  await expect(panel.getByText("6 days a week")).toBeVisible();
+  // The chips show the days; no line repeats their count.
+  await expect(panel.getByText(/days a week/)).toHaveCount(0);
 
   await panel.getByRole("group", { name: "Pause scans" }).getByRole("button", { name: "Until tomorrow" }).click();
   await expect.poll(() => writes.length).toBe(2);
@@ -211,7 +212,8 @@ test("choosing how often it repeats is saved and the clock redraws from the answ
   expect(writes[0].body).toEqual({ repeat_hours: 3 });
   expect(writes[0].url).toMatch(/\/api\/schedule\/plan\?tz=/);
   await expect(region.locator('[data-testid="plan-run"]')).toHaveCount(3);
-  await expect(region.getByText("a quick scan every 3 hours")).toBeVisible();
+  // The chosen interval is the pressed chip; no line restates it.
+  await expect(region.getByText(/a quick scan every/)).toHaveCount(0);
 });
 
 test("Orbit Clock direct controls persist a company schedule time", async ({ page }, testInfo) => {

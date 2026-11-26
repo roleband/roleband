@@ -46,8 +46,6 @@ privacy-save-error = Couldn't save your choice. Try again.
 # kind=heading note="The Settings card's own title, naming its tab; the consent question's title heads its switches"
 privacy-settings-title = Privacy
 # kind=sentence
-privacy-settings-intro = Each kind of sharing is off until you turn it on. Turning one off stops it at once.
-# kind=sentence
 privacy-settings-blocked = Sharing is off on this computer: { $switch } is set.
 # kind=sentence
 privacy-settings-stale = What this kind covers has grown since you chose. Turn it on again to keep sharing.
@@ -71,7 +69,7 @@ privacy-next-send-count = { $count ->
    *[other] { $count } events
 }
 # kind=sentence note="Under Next send: when the waiting events leave"
-privacy-next-send-detail = Waits for the daily send.
+privacy-next-send-detail = Once a day.
 # kind=label
 privacy-last-sent = Last sent
 # kind=label
@@ -81,7 +79,7 @@ privacy-show-next = Show what's sent
 # kind=label
 privacy-sent-recently = Sent recently
 # kind=sentence note="Under Sent recently: what the list holds"
-privacy-sent-recently-detail = What left this computer in the last 30 days, and what this window sent since it opened.
+privacy-sent-recently-detail = The last 30 days.
 # kind=button
 privacy-show-sent = Show the list
 # kind=button

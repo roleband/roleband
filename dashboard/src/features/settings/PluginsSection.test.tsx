@@ -634,7 +634,8 @@ it("with plugins not available yet a Coming soon sign stands for the list, and M
   renderSection();
   const soon = await screen.findByTestId("plugins-coming-soon");
   expect(within(soon).getByText(msg("settings-plugins-section-coming-soon"))).toBeVisible();
-  expect(within(soon).getByText(msg("settings-plugins-section-coming-soon-note"))).toBeVisible();
+  // The badge says it alone: no sentence after it about a later release.
+  expect(soon).toHaveTextContent(new RegExp(`^${msg("settings-plugins-section-coming-soon")}$`));
   // No plugin, its approval state, its controls, the search or the count.
   expect(screen.queryByTestId(/^plugin-row-/)).toBeNull();
   expect(screen.queryByText(msg("settings-plugins-section-state", { state: "needs_approval" }))).toBeNull();

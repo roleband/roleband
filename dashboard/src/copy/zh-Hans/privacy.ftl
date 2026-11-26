@@ -1,7 +1,7 @@
 
 ## 最近发送的内容。
 privacy-sent-recently = 最近发送
-privacy-sent-recently-detail = 过去 30 天离开这台电脑的内容，以及此窗口打开以来发送的内容。
+privacy-sent-recently-detail = 过去 30 天。
 privacy-show-sent = 显示列表
 privacy-hide-sent = 隐藏列表
 privacy-sent-none = 过去 30 天没有发送任何内容。
@@ -17,7 +17,6 @@ privacy-happy-to-help = 乐意帮忙
 privacy-your-answer = 你的选择
 privacy-save-error = 无法保存你的选择。请重试。
 privacy-settings-title = 隐私
-privacy-settings-intro = 每种共享在你开启之前都是关闭的。关闭某一种会立即停止它。
 privacy-settings-blocked = 这台电脑上的共享已关闭：已设置 { $switch }。
 privacy-settings-stale = 自你选择以来，这一类涵盖的内容有所增加。请重新开启以继续共享。
 privacy-settings-load-failed = 无法加载你的隐私选择
@@ -31,7 +30,7 @@ privacy-next-send-count =
     { $count ->
        *[other] { $count } 个事件
     }
-privacy-next-send-detail = 等待每日发送。
+privacy-next-send-detail = 每天一次。
 privacy-last-sent = 上次发送
 privacy-last-sent-never = 从未
 privacy-show-next = 查看发送内容

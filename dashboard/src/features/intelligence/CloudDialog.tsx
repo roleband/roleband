@@ -11,7 +11,6 @@ import { Button, Dialog, Select, Switch } from "../../ui";
 import { type DialogError, failed } from "./dialog-error";
 import {
   aiAimLineCancel,
-  aiCapabilitiesCardSendPostingsToOnlineServices,
   aiCloudDialogADirectApiConnectionBilled,
   aiCloudDialogAddAnOnlineModelService,
   aiCloudDialogAnthropicApi,
@@ -30,7 +29,6 @@ import {
   aiCloudDialogSave,
   aiCloudDialogServerAddressHttps,
 } from "../../copy/gen/ai";
-import { Msg } from "../../ui/Msg";
 
 const NEW_CLOUD: CloudLLMProfileInput = {
   get name() { return aiCloudDialogOpenaiApi(); },
@@ -114,7 +112,7 @@ export function CloudDialog({
       <form className="ledger-form" onSubmit={submit}>
         <h3>{aiCloudDialogAddAnOnlineModelService({ choice: (profile) ? "yes" : "no", name: (profile) ? String(profile.name) : "" })}</h3>
         <p className="intel-dialog-note">
-          <Msg of={aiCloudDialogADirectApiConnectionBilled} elems={{ b: <b>{aiCapabilitiesCardSendPostingsToOnlineServices()}</b> }} />
+          {aiCloudDialogADirectApiConnectionBilled()}
         </p>
         <div className="intel-dialog-grid">
           <div>
