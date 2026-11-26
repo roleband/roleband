@@ -675,8 +675,6 @@ ai-top-picks-card-brief = What you are looking for
 ai-top-picks-card-brief-none = Your assistant hasn't written it down yet.
 # kind=label note="A sentence the person copies and says to their assistant to change what it looks for; lower case, as typed in a chat"
 ai-top-picks-card-sentence = update my top picks
-# kind=aria note="The name of the button that copies the sentence; $sentence is the sentence shown on it"
-ai-top-picks-card-copy-sentence = Copy “{ $sentence }” to say to your assistant
 # kind=heading
 ai-top-picks-card-limit = Roles read a day, at most
 # kind=sentence note="Under the daily limit: reading uses the person's plan with their AI provider"

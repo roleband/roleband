@@ -104,7 +104,7 @@ describe("TopPicksCard: shown only once Top picks is set up", () => {
     expect(limitField(region)).toHaveValue("1000");
     expect(within(region).getByRole("button", { name: msg("ai-top-picks-card-remove") })).toBeInTheDocument();
     expect(within(region).getByRole("button", {
-      name: msg("ai-top-picks-card-copy-sentence", { sentence: msg("ai-top-picks-card-sentence") }),
+      name: msg("shared-copy-text", { text: msg("ai-top-picks-card-sentence") }),
     })).toBeInTheDocument();
   });
 
@@ -480,7 +480,7 @@ describe("TopPicksCard: the sentence to say", () => {
   });
 
   const copyButton = (region: HTMLElement) => within(region).getByRole("button", {
-    name: msg("ai-top-picks-card-copy-sentence", { sentence: msg("ai-top-picks-card-sentence") }),
+    name: msg("shared-copy-text", { text: msg("ai-top-picks-card-sentence") }),
   });
 
   it("copies the sentence and says it was copied", async () => {
@@ -491,7 +491,7 @@ describe("TopPicksCard: the sentence to say", () => {
     await user.click(copyButton(region));
 
     expect(writeText).toHaveBeenCalledExactlyOnceWith(msg("ai-top-picks-card-sentence"));
-    expect(await within(region).findByRole("status")).toHaveTextContent(msg("ai-assistants-card-copy", { choice: "yes" }));
+    expect(await within(region).findByRole("status")).toHaveTextContent(msg("shared-copied"));
   });
 
   it("says how to copy it by hand when the clipboard is blocked, with the sentence selected", async () => {
@@ -501,7 +501,7 @@ describe("TopPicksCard: the sentence to say", () => {
 
     await user.click(copyButton(region));
 
-    expect(await within(region).findByRole("alert")).toHaveTextContent(msg("ai-assistants-card-clipboard-access-was-blocked-select"));
+    expect(await within(region).findByRole("alert")).toHaveTextContent(msg("shared-copy-failed"));
     // Selected for the person, and selectable inside the button.
     expect(window.getSelection()?.toString()).toBe(msg("ai-top-picks-card-sentence"));
     expect(within(copyButton(region)).getByText(msg("ai-top-picks-card-sentence"))).toHaveAttribute("data-selection", "content");

@@ -13,13 +13,10 @@ import { errorText } from "../../api/errorText";
 import { numberInput, parseNumber, relative } from "../../copy/format";
 import {
   aiAimLineCancel,
-  aiAssistantsCardClipboardAccessWasBlockedSelect,
-  aiAssistantsCardCopy,
   aiTopPicksCardBrief,
   aiTopPicksCardBriefNone,
   aiTopPicksCardCheck,
   aiTopPicksCardCheckNote,
-  aiTopPicksCardCopySentence,
   aiTopPicksCardLimit,
   aiTopPicksCardLimitFailed,
   aiTopPicksCardLimitNote,
@@ -37,7 +34,7 @@ import {
 } from "../../copy/gen/ai";
 import { picksHost, picksResumeFailed } from "../../copy/gen/picks";
 import { shellNavTopPicks } from "../../copy/gen/shell";
-import { Button, Content, Dialog, Icon, Switch, useToast } from "../../ui";
+import { Button, Content, CopyField, Dialog, Switch, useToast } from "../../ui";
 import { OriginBadge } from "./OriginBadge";
 
 /** The status line's case. */
@@ -169,7 +166,7 @@ export function TopPicksCard() {
             <span className="intel-picks-row-note">{aiTopPicksCardBriefNone()}</span>
           )}
         </div>
-        <CopySentence />
+        <CopyField text={aiTopPicksCardSentence()} className="intel-picks-copy" />
       </div>
 
       <DailyLimit value={state.daily_limit} max={state.daily_limit_max} saving={saving} onSave={saveLimit} />
@@ -206,39 +203,6 @@ function StatusLine({ state }: { state: PicksState }) {
         {schedule && <>{" · "}<Content text={schedule} /></>}
       </span>
     </span>
-  );
-}
-
-/** The sentence the person says to their assistant to change what it looks
- *  for, as one control that copies it. */
-function CopySentence() {
-  const [copied, setCopied] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const sentence = aiTopPicksCardSentence();
-  const name = aiTopPicksCardCopySentence({ sentence });
-  const text = useRef<HTMLElement>(null);
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(sentence);
-      setCopied(true);
-      setFailed(false);
-    } catch {
-      setCopied(false);
-      setFailed(true);
-      // The line asks the person to copy it themselves: it is selected for
-      // them, since a drag inside a button does not select in every browser.
-      if (text.current) window.getSelection()?.selectAllChildren(text.current);
-    }
-  };
-  return (
-    <div className="intel-picks-copy">
-      <Button className="ui-btn-strong intel-picks-sentence" aria-label={name} title={name} onClick={() => void copy()}>
-        <code ref={text} data-selection="content">{sentence}</code>
-        <Icon name={copied ? "check" : "copy"} size={15} />
-      </Button>
-      <span className="sr-only" role="status">{copied ? aiAssistantsCardCopy({ choice: "yes" }) : ""}</span>
-      {failed && <span className="intel-picks-field-note" role="alert">{aiAssistantsCardClipboardAccessWasBlockedSelect()}</span>}
-    </div>
   );
 }
 

@@ -1181,18 +1181,10 @@
    breaks where it must instead of widening the card. */
 .intel-picks-brief { overflow-wrap: anywhere; }
 
+/* The sentence the person says to their assistant, copied with the shared
+   field: it takes what the row's text leaves, down to its own width. */
 .intel-picks-copy {
-  flex: none;
-  display: grid;
-  justify-items: end;
-  gap: var(--app-space-1);
-}
-
-/* The sentence is what the person types to their assistant, so it is set as
-   code, as a command is in the setup dialog. */
-.intel-picks-sentence code {
-  font-family: var(--app-font-mono);
-  font-size: var(--app-type-meta);
+  flex: 0 1 280px;
 }
 
 /* The daily limit: the register's field, sized to its largest value and set
@@ -1213,7 +1205,7 @@
   text-align: right;
 }
 
-/* Why a field or a copy did not take, under its row's text. */
+/* Why the daily limit did not take, under its row's text. */
 .intel-picks-field-note {
   color: var(--app-danger);
   font-size: var(--app-type-meta);

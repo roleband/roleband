@@ -396,7 +396,6 @@ ai-top-picks-card-pause-failed = 无法暂停检查。请重试。
 ai-top-picks-card-brief = 你要找的
 ai-top-picks-card-brief-none = 你的助手还没有写下来。
 ai-top-picks-card-sentence = 更新我的首选
-ai-top-picks-card-copy-sentence = 复制“{ $sentence }”，说给你的助手
 ai-top-picks-card-limit = 每天最多读取的{ -role }数
 ai-top-picks-card-limit-note = 限制一天的阅读最多能用掉你多少套餐额度。你的助手也可以更改它。
 ai-top-picks-card-limit-range = 请输入 1 到 { $max } 之间的整数。
