@@ -1,6 +1,6 @@
 import { commonTryAgain } from "../copy/gen/common";
 import { sharedEmpty, sharedRefreshFailed } from "../copy/gen/shared";
-import { ReactNode } from "react";
+import { Fragment, ReactNode } from "react";
 import type { AsyncResource } from "../hooks/useAsyncResource";
 import { Button } from "./Button";
 import { EmptyState } from "./EmptyState";
@@ -14,11 +14,13 @@ import { ResourceLoadState } from "./ResourceLoadState";
 export interface AsyncBoundaryProps<T> {
   /** Result of useAsyncResource (mutate not required).
    *
-   *  `refreshError` is optional so a hand-built resource still type-checks, but
-   *  passing the whole hook result is the point: it is the only thing that
-   *  renders a failed background refresh. */
+   *  `refreshError` and `refresh` are optional so a hand-built resource still
+   *  type-checks, but passing the whole hook result is the point: it is the
+   *  only thing that renders a failed background refresh, and `refresh` is
+   *  what lets its Try again keep the rows on screen. */
   resource: Pick<AsyncResource<T>, "data" | "error" | "loading" | "retry"> & {
     refreshError?: Error | null;
+    refresh?: AsyncResource<T>["refresh"];
   };
   /** "Loading your saved roles…": the whole loading line, from the catalog,
    *  as are the messages below: a sentence assembled from a noun cannot be
@@ -53,9 +55,9 @@ export function AsyncBoundary<T>({
   emptyTitle,
   refreshFailed,
 }: AsyncBoundaryProps<T>) {
-  const { data, error, loading, retry, refreshError } = resource;
+  const { data, error, loading, retry, refreshError, refresh } = resource;
   if (loading) {
-    return <>{skeleton ?? <ResourceLoadState error={null} loading={loadingLine} onRetry={retry} />}</>;
+    return body(skeleton ?? <ResourceLoadState error={null} loading={loadingLine} onRetry={retry} />);
   }
   if (error) {
     return <ResourceLoadState error={error} failed={failed} onRetry={retry} />;
@@ -66,28 +68,36 @@ export function AsyncBoundary<T>({
   if (data == null || isEmpty?.(data)) {
     return <>{empty ?? <EmptyState title={emptyTitle ?? sharedEmpty()} />}</>;
   }
-  /* No refresh error: return the children EXACTLY as before, a single child and
-     not a one-element array. Wrapping them alongside a null sibling changes the
-     shape React reconciles, which remounts the subtree on the
-     loading -> ready transition — enough to detach a node a test had already
-     matched, and enough to lose DOM state (focus, scroll, a playing media
-     element) in a real screen. */
-  if (!refreshError) return <>{children(data)}</>;
+  if (!refreshError) return body(children(data));
 
+  /* A failed REFRESH keeps its data on screen by design (that is why
+     `useAsyncResource` routes it to `refreshError` instead of `error`), and
+     this is where it renders: unrendered, a failing poll leaves a frozen list
+     looking freshly loaded. Stale is survivable; stale and confident is not.
+     Its Try again is a refresh too, so the rows stay through the attempt and
+     through another failure; `retry` would blank them. */
+  const again = refresh ? () => void refresh({ preserveData: true }) : retry;
+  return body(
+    children(data),
+    <div key="refresh-failed" className="empty-hint" role="status">
+      {refreshFailed ?? sharedRefreshFailed()}{" "}
+      <Button variant="ghost" size="sm" onClick={again}>
+        {commonTryAgain()}
+      </Button>
+    </div>,
+  );
+}
+
+/* The content sits under one key in every state, so React matches it by key
+   when the refresh notice comes or goes, or the loading slot gives way to the
+   ready content: the subtree stays mounted, with its focus, scroll and any
+   playing media. By position alone, the notice arriving in front of it would
+   remount it. */
+function body(content: ReactNode, notice?: ReactNode) {
   return (
     <>
-      {/* A failed REFRESH keeps its data on screen by design (that is why
-          `useAsyncResource` routes it to `refreshError` instead of `error`),
-          and this is where it renders: unrendered, a failing poll leaves a
-          frozen list looking freshly loaded. Stale is survivable; stale and
-          confident is not. */}
-      <div className="empty-hint" role="status">
-        {refreshFailed ?? sharedRefreshFailed()}{" "}
-        <Button variant="ghost" size="sm" onClick={retry}>
-          {commonTryAgain()}
-        </Button>
-      </div>
-      {children(data)}
+      {notice}
+      <Fragment key="content">{content}</Fragment>
     </>
   );
 }

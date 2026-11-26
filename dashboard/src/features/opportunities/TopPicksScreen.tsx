@@ -103,7 +103,7 @@ function TopPicksList({ picks, rootRef, onPicksChange }: {
   const [search, setSearch] = useState("");
   const surface: BoardSurface = { topPicks: true, search };
   const {
-    filters, facets, facetsError, retryFacets, list, listError, listRefreshError, retryList, baseline,
+    filters, facets, facetsError, retryFacets, list, listError, listRefreshError, retryList, refreshList, baseline,
     total, isDirect, relatedTotal, expanded, pageableTotal,
     update, updateFilters, onSort, toggleFav, dismiss, dismissal, undoDismiss, fresh, showFresh,
   } = useBoardController({ companyParam, onCompanyParamChange, mode: "open", onModeChange: ignoreMode }, surface);
@@ -194,7 +194,7 @@ function TopPicksList({ picks, rootRef, onPicksChange }: {
       <AsyncBoundary
         resource={{
           data: list, error: list ? null : listError, loading: !list && !listError,
-          retry: retryList, refreshError: listRefreshError,
+          retry: retryList, refresh: refreshList, refreshError: listRefreshError,
         }}
         loading={radarLoading()}
         failed={radarLoadFailed()}

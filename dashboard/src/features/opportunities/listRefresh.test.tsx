@@ -83,15 +83,22 @@ describe.each(screens)("a background refresh of the list on %s", (_name, screenU
     expect(screen.getByText("Staff Platform Engineer")).toBeVisible();
   });
 
-  it("reads the list again on Try again, and the line goes once it answers", async () => {
+  it("keeps the rows when Try again fails too, and takes the new list once it answers", async () => {
     const user = userEvent.setup();
     const { rerender } = mount();
     await screen.findByText("Staff Platform Engineer");
     await failARefresh(rerender);
     await screen.findByText(failed);
 
+    let before = listCalls();
+    await user.click(screen.getByRole("button", { name: msg("common-try-again") }));
+    await waitFor(() => expect(listCalls()).toBeGreaterThan(before));
+    expect(await screen.findByText(failed)).toBeVisible();
+    expect(screen.getByText("Staff Platform Engineer")).toBeVisible();
+    expect(screen.queryByText(msg("radar-load-failed"))).toBeNull();
+
     vi.mocked(api.jobs).mockResolvedValue({ ...listed, items: [{ ...jobFixture, title: "Principal Engineer" }] });
-    const before = listCalls();
+    before = listCalls();
     await user.click(screen.getByRole("button", { name: msg("common-try-again") }));
 
     expect(await screen.findByText("Principal Engineer")).toBeVisible();

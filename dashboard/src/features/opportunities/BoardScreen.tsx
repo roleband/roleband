@@ -50,7 +50,7 @@ export function BoardScreen(props: CompanyLens) {
   const { viewedIds, compareIds, compareFull, compareCap } = useJobWorkspace();
   const { openJob, toggleCompare } = useJobActions();
   const {
-    filters, facets, facetsError, retryFacets, list, listError, listRefreshError, retryList, baseline, bestFitUnranked,
+    filters, facets, facetsError, retryFacets, list, listError, listRefreshError, retryList, refreshList, baseline, bestFitUnranked,
     mode, onModeChange,
     total, isDirect, relatedTotal, expanded, pageableTotal,
     update, updateFilters, onSort, toggleFav, dismiss,
@@ -151,7 +151,7 @@ export function BoardScreen(props: CompanyLens) {
       <AsyncBoundary
         resource={{
           data: list, error: list ? null : listError, loading: !list && !listError,
-          retry: retryList, refreshError: listRefreshError,
+          retry: retryList, refresh: refreshList, refreshError: listRefreshError,
         }}
         loading={radarLoading()}
         failed={radarLoadFailed()}

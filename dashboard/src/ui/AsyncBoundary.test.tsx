@@ -188,6 +188,79 @@ describe("AsyncBoundary", () => {
     expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument();
   });
 
+  it("keeps the content mounted, focus and all, while the refresh notice comes and goes", async () => {
+    let answer: (rows: string[]) => Promise<string[]> = (rows) => Promise.resolve(rows);
+    const request = vi.fn(() => answer(["Google"]));
+    let refresh!: (options?: { preserveData?: boolean }) => Promise<void>;
+    function Screen() {
+      const resource = useAsyncResource(request, []);
+      refresh = resource.refresh;
+      return (
+        <AsyncBoundary resource={resource} {...JOBS}>
+          {(rows) => <button type="button">{rows.join(", ")}</button>}
+        </AsyncBoundary>
+      );
+    }
+    render(<Screen />);
+    const row = await screen.findByRole("button", { name: "Google" });
+    row.focus();
+
+    answer = () => Promise.reject(new Error("offline"));
+    await act(() => refresh({ preserveData: true }));
+    expect(screen.getByRole("status")).toHaveTextContent(JOBS.refreshFailed);
+    expect(screen.getByRole("button", { name: "Google" })).toBe(row);
+    expect(row).toHaveFocus();
+
+    answer = (rows) => Promise.resolve(rows);
+    await act(() => refresh({ preserveData: true }));
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Google" })).toBe(row);
+    expect(row).toHaveFocus();
+  });
+
+  it("tries again in place: the rows stay through the attempt and through another failure", async () => {
+    let answer: () => Promise<string[]> = () => Promise.resolve(["Google"]);
+    const request = vi.fn(() => answer());
+    let refresh!: (options?: { preserveData?: boolean }) => Promise<void>;
+    function Screen() {
+      const resource = useAsyncResource(request, []);
+      refresh = resource.refresh;
+      return (
+        <AsyncBoundary resource={resource} {...JOBS}>
+          {(rows) => <p>rows: {rows.join(", ")}</p>}
+        </AsyncBoundary>
+      );
+    }
+    render(<Screen />);
+    await screen.findByText("rows: Google");
+    answer = () => Promise.reject(new Error("offline"));
+    await act(() => refresh({ preserveData: true }));
+
+    let fail!: (error: Error) => void;
+    answer = () => new Promise<string[]>((_resolve, reject) => { fail = reject; });
+    await userEvent.click(screen.getByRole("button", { name: /try again/i }));
+    expect(request).toHaveBeenCalledTimes(3);
+    // While it runs, the rows hold and no loading state replaces them.
+    expect(screen.getByText("rows: Google")).toBeInTheDocument();
+    expect(screen.queryByText(JOBS.loading)).not.toBeInTheDocument();
+
+    await act(async () => fail(new Error("still offline")));
+    expect(screen.getByText("rows: Google")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(JOBS.refreshFailed);
+  });
+
+  it("falls back to retry for a hand-built resource with no refresh", async () => {
+    const retry = vi.fn();
+    render(
+      <AsyncBoundary resource={{ ...makeResource({ data: ["a"], retry }), refreshError: new Error("offline") }} {...JOBS}>
+        {(rows) => <p>rows: {rows.length}</p>}
+      </AsyncBoundary>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: /try again/i }));
+    expect(retry).toHaveBeenCalledOnce();
+  });
+
   it("stays quiet when the refresh succeeded", () => {
     render(
       <AsyncBoundary resource={makeResource<{ n: number }>({ data: { n: 1 } })} {...JOBS}>
