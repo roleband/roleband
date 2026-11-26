@@ -52,9 +52,11 @@ the run with a note; the app tells them.
    before any pick.
 5. Send the batch's verdicts in one call:
    `echo '{"run": "RUN", "brief_version": N, "verdicts": [...]}' | roleband picks decide --input - --idempotency-key KEY --json`.
-   Read each item's outcome. While `data.next_cursor` is set, read the next
-   batch with `roleband picks next --run RUN --cursor CURSOR --json` and
-   repeat from step 4.
+   Read each item's outcome. Then look at `data.next_cursor` in the answer
+   that handed you this batch (`picks begin` or `picks next`; `picks decide`
+   has none). While it is set, read the next batch with
+   `roleband picks next --run RUN --cursor CURSOR --json`, that number as
+   `CURSOR`, and repeat from step 4.
 6. Close the run:
    `roleband picks finish --run RUN --outcome finished --idempotency-key KEY --json`.
    If you had to stop early (a limit, an error you could not get past), use

@@ -377,6 +377,24 @@ def test_the_skill_names_its_folder_and_its_version():
         assert phrase in description
 
 
+def test_the_routine_reads_the_next_cursor_from_the_answer_that_handed_the_batch():
+    """Only the answers that hand a batch carry `next_cursor`; a routine that
+    looks for it in `picks decide`'s answer finds none and closes the run
+    after the first batch."""
+    carrying = set()
+    for operation in ("picks.begin", "picks.next", "picks.decide"):
+        paths: dict[str, bool] = {}
+        schema = _index()[operation]["output_schema"]
+        _walk(schema, schema.get("$defs", {}), "data", paths, set())
+        if "data.next_cursor" in paths:
+            carrying.add(operation)
+    assert carrying == {"picks.begin", "picks.next"}
+    routine = _section(FILES["SKILL.md"], "## The routine")
+    step = " ".join(next(step for step in re.split(r"^\d\. ", routine, flags=re.MULTILINE)
+                         if "`data.next_cursor`" in step).split())
+    assert "(`picks begin` or `picks next`; `picks decide` has none)" in step
+
+
 def test_the_routine_applies_the_reactions_before_it_can_stop_for_an_empty_batch():
     """`picks begin` hands the reactions that came after the last finished
     run started, so a run that finishes without applying them loses them."""
