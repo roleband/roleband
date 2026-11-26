@@ -449,6 +449,52 @@ def test_a_folder_file_saved_after_connect_read_it_is_kept(tmp_path, monkeypatch
     assert str(directory / "judging.md") not in written
 
 
+def test_an_empty_file_the_person_links_after_connect_read_it_is_kept(tmp_path, monkeypatch):
+    """An empty file connect wrote plans as an update; once the person puts a
+    link in its place, the link and what it points to are theirs."""
+    monkeypatch.syspath_prepend(str(BACKEND))
+    from tracker.cli import connect
+
+    directory = tmp_path / "skills" / TOP_PICKS
+    directory.mkdir(parents=True)
+    (directory / "setup.md").write_bytes(b"")
+    (directory / ".roleband-skill.json").write_text(json.dumps(
+        {"format": 2, "version": agent_hosts.TOP_PICKS_SKILL.version - 1, "files": {"setup.md": _sha(b"")}}))
+    plan = connect._skill(agent_hosts.TOP_PICKS_SKILL, directory)
+    assert _plan_actions(plan)["setup.md"] == "update"
+    target = tmp_path / "setup-of-my-own"
+    target.write_bytes(b"")
+    (directory / "setup.md").unlink()
+    (directory / "setup.md").symlink_to(target)
+    written: list[str] = []
+    connect._install_skill(plan, written)
+    assert (directory / "setup.md").is_symlink() and target.read_bytes() == b""
+    assert _plan_actions(plan)["setup.md"] == "kept_edited"
+    assert str(directory / "setup.md") not in written
+    assert (directory / "judging.md").read_bytes() == _shipped(TOP_PICKS, "judging.md")
+
+
+def test_a_refresh_records_files_already_at_this_version_when_their_sidecar_did_not_save(home):
+    """The files were updated but the sidecar kept the older hashes: the next
+    refresh records them, so the release after this one can update them. A
+    file the person edited keeps the hash connect last wrote."""
+    folder = _older_top_picks(home, "claude-code", edited={"judging.md"})
+    (folder / "setup.md").write_bytes(_shipped(TOP_PICKS, "setup.md"))
+    before = home.files()
+    _, envelope = home.run("picks", "status")
+    assert {path: data for path, data in home.files().items() if not path.endswith(".roleband-skill.json")} == {
+        path: data for path, data in before.items() if not path.endswith(".roleband-skill.json")}
+    assert _record(folder / "SKILL.md") == {"format": 2, "version": agent_hosts.TOP_PICKS_SKILL.version, "files": {
+        "SKILL.md": _sha(_shipped(TOP_PICKS, "SKILL.md")), "setup.md": _sha(_shipped(TOP_PICKS, "setup.md")),
+        "judging.md": _sha(OLDER_JUDGING)}}
+    assert _notices(envelope) == ["skill_updated"]
+    assert "You edited judging.md" in envelope["warnings"][0]["message"]
+
+
+def _plan_actions(plan) -> dict[str, str]:
+    return {item.name: item.action for item in plan.files}
+
+
 def test_every_shipped_skill_file_is_one_connect_installs():
     """A file added to a skill folder without naming it in `SKILLS` would
     never reach a host, and a named file that is gone would fail connect."""

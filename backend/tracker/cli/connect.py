@@ -281,34 +281,28 @@ def _skill(skill: Skill, directory: Path) -> SkillPlan:
 def _install_skill(plan: SkillPlan, applied: list[str], *, refresh: bool = False) -> None:
     """Install or update the skill's files as planned, adding each file it
     changes to `applied`, then record what it wrote. A `refresh` leaves out a
-    missing file the sidecar lists, which the person deleted, and records
-    nothing when it wrote no file: only `connect`, the person's own act,
-    records a folder whose differing files are all theirs."""
+    missing file the sidecar lists, which the person deleted, and records the
+    folder only when a file's recorded hash changes: only `connect`, the
+    person's own act, records a folder whose differing files are all theirs,
+    while a file already at this version's bytes under an older hash is
+    recorded, so a sidecar that failed to save is repaired by the next call."""
     listed = plan.record.files if plan.record is not None else {}
     hashes = dict(listed)
-    ours = wrote = False
+    ours = False
     for item in plan.files:
         if item.action == "install" and refresh and item.name in listed:
             continue
         if item.action in ("install", "update"):
-            # The person may have saved the file since the plan read it: that copy is theirs.
-            try:
-                now = item.path.read_bytes() if not item.path.is_symlink() else b""
-            except FileNotFoundError:
-                now = None
-            except OSError:
-                now = b""
-            if now != item.present:
+            if not _as_planned(item):
                 item.action = "kept_edited"
                 continue
             plan.directory.mkdir(mode=0o700, parents=True, exist_ok=True)
             _replace(item.path, item.content, mode=0o644)
             applied.append(str(item.path))
-            wrote = True
         if item.action != "kept_edited":
             hashes[item.name] = sha256(item.content)
             ours = True
-    if not ours or (refresh and not wrote):
+    if not ours or (refresh and hashes == listed):
         # Nothing here is connect's at this version: the sidecar stays as it was.
         return
     record = Record(plan.skill.version, {name: hashes[name] for name in plan.skill.files if name in hashes})
@@ -320,6 +314,20 @@ def _install_skill(plan: SkillPlan, applied: list[str], *, refresh: bool = False
     if current != record.as_json():
         _replace(path, record.as_json().encode(), mode=0o644)
         applied.append(str(path))
+
+
+def _as_planned(item: FilePlan) -> bool:
+    """Whether the file is still as the plan read it. The person may have
+    saved, linked or locked it since; a link or a file that cannot be read
+    is theirs, whatever the plan saw."""
+    if item.path.is_symlink():
+        return False
+    try:
+        return item.path.read_bytes() == item.present
+    except FileNotFoundError:
+        return item.present is None
+    except OSError:
+        return False
 
 
 def refresh_installed_skills() -> list[dict[str, str]]:

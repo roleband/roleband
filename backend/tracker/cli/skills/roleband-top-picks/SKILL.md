@@ -1,6 +1,6 @@
 ---
 name: roleband-top-picks
-description: Set up, run and change RoleBand top picks, the few open roles worth the person's attention, chosen against what they want. Use when the person says "set up my top picks" or "update my top picks", asks why a role was or was not picked, or when a scheduled task says to run the RoleBand top picks check.
+description: Set up, run and change RoleBand top picks, the few open roles worth the person's attention, chosen against what they want. Use when the person says "set up my top picks" or "update my top picks" in any language (such as "configura mis destacados" or "设置我的首选"), asks why a role was or was not picked, or when a scheduled task says to run the RoleBand top picks check.
 ---
 <!-- roleband-top-picks skill, version 1. `roleband connect` installed these files and `roleband picks status` keeps unedited ones current; once you edit a file, neither changes it. -->
 
@@ -43,9 +43,11 @@ the run with a note; the app tells them.
    best fit first. If it exits 3, RoleBand is not running yet: stop. There is
    nothing to close, and the next check tries again. If it exits 4 with
    `mode_off`, top picks is off: stop.
-2. If `data.batch` is empty, go to step 6.
-3. Apply the reactions to the brief as `judging.md` says, with
-   `roleband brief patch --run RUN ...`. Never change a hard rule in a run.
+2. Apply the reactions in `data.reactions` to the brief as `judging.md`
+   says, with `roleband brief patch --run RUN ...`. Never change a hard rule
+   in a run. Do this even when the batch is empty: the next run is handed
+   only the reactions that come after this one.
+3. If `data.batch` is empty, go to step 6.
 4. Judge every posting in the batch as `judging.md` says. Do the second look
    before any pick.
 5. Send the batch's verdicts in one call:

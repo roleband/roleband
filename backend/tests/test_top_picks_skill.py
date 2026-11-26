@@ -369,9 +369,24 @@ def test_the_skill_names_its_folder_and_its_version():
     assert text.startswith(f"---\nname: {TOP_PICKS_SKILL.name}\ndescription: ")
     assert f"<!-- {TOP_PICKS_SKILL.name} skill, version {TOP_PICKS_SKILL.version}." in text
     description = text.split("description: ", 1)[1].split("\n", 1)[0]
-    # The phrases the person says, and the scheduled task's own words.
-    for phrase in ("set up my top picks", "update my top picks", "run the RoleBand top picks check"):
+    # The phrases the person says, and the scheduled task's own words. The
+    # app's onboarding hands the person "set up my top picks" in each language
+    # it ships, so the other two are named for a host that matches on words.
+    for phrase in ("set up my top picks", "update my top picks", "run the RoleBand top picks check",
+                   "in any language", "configura mis destacados", "设置我的首选"):
         assert phrase in description
+
+
+def test_the_routine_applies_the_reactions_before_it_can_stop_for_an_empty_batch():
+    """`picks begin` hands the reactions that came after the last finished
+    run started, so a run that finishes without applying them loses them."""
+    routine = _section(FILES["SKILL.md"], "## The routine")
+    steps = re.split(r"^\d\. ", routine, flags=re.MULTILINE)[1:]
+    reactions = next(number for number, step in enumerate(steps, 1) if "`data.reactions`" in step)
+    empty = next(number for number, step in enumerate(steps, 1) if "`data.batch` is empty" in step)
+    assert reactions < empty
+    finish = next(number for number, step in enumerate(steps, 1) if "roleband picks finish" in step)
+    assert f"go to step {finish}" in steps[empty - 1]
 
 
 def test_the_scheduled_task_asks_for_the_writes_by_name():
