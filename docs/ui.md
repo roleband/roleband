@@ -416,6 +416,7 @@ The ramp is whole pixels, declared once in `tokens.css`. Never write a literal
 | `read` | 17 | Long-form reading: a posting's own text |
 | `read-head` | 20 | A section heading inside a long read |
 | `read-title` | 24 | A long read's own title: a posting's `h1` |
+| `intro` | 34 | An onboarding screen's headline and its picture's figure ([Onboarding](#onboarding)). Never on a working screen |
 | `name` | 15 | A row's primary string (a company name) |
 | `body` | 14 | Descriptions, controls, tab bar, prose |
 | `meta` | 13 | Secondary facts. The floor for anything that states a fact |
@@ -496,6 +497,7 @@ writing a screen-local version.
 | Fetch states | `AsyncBoundary`, `ResourceLoadState` (shows only after 200 ms, so a short load never flashes), `Spinner`, `ProgressBar` (with no value, a running line for a wait nothing can measure) |
 | Empty result | `EmptyState` (`narrowedBy` explains which filters emptied it) |
 | On/off setting | `Switch` |
+| Text the person copies to use elsewhere: a sentence for their assistant, a command | `CopyField` |
 | Pick one of a few modes | `Segmented` |
 | Pick from a list | `Select` (native) or `FilterSelect` (searchable facet picker) |
 | Time of day | `TimeField`: typed, or picked from a list of half hours, each with an optional note |
@@ -1055,6 +1057,36 @@ factor and it still fits the window; at 540 px and narrower it is drawn plain.
 It holds no pop-up placed from a position. Text rewrapping under an engine
 that hints letters is accepted there: a form is not compared against a design.
 
+### Onboarding
+
+What a feature shows before it is set up (`patterns/onboarding`). It is a
+pattern of its own, used only for that moment: once the feature is set up, the
+screen is its working self. One centred column, at most 920px: a headline at
+`intro` (an `h2` under the screen's off-screen `h1`), one line under it at
+`read`, one picture of the result, the steps on one line with the current one
+marked, the step's action, and one quiet footnote. It may leave the working
+screens' type rules; the tokens, the weights, the focus ring and both themes
+stay the app's.
+
+- An action the person takes elsewhere, a sentence to say to their assistant
+  or a command for Terminal, is a `ui/CopyField`: the whole text in mono, one
+  button named by it. A press copies exactly that text and says Copied for two
+  seconds. When the browser refuses the clipboard, the text is selected and a
+  line says to copy it by hand; it never says Copied. It rings inside its edge,
+  as a field does.
+- The screen asks nothing of its own. It mirrors what was saved elsewhere, read
+  again while it is on screen, and never promises when something will arrive.
+
+Top picks' onboarding (`features/opportunities/TopPicksOnboarding.tsx`) has two
+steps. Step 1 is one sentence that connects the person's assistant and starts
+the setup conversation in it; Terminal is the quiet fallback, the engine's
+command for the chosen assistant and then the sentence's second half. An
+assistant already connected is given only the second half. While assistant
+apps may not connect, Settings › AI's own switch comes first. Once the
+conversation has saved anything (`setup.started` in `GET /api/picks/state`),
+the screen lists the stages saved, the one being asked, the next, and any that
+wait for roles. The list takes over once the checks are set up.
+
 ### Dense register
 
 Settings > Companies is the pattern for a large set that must be read and
@@ -1421,6 +1453,7 @@ Unit gates (`npm run test:unit`) are under `dashboard/src/`; UX specs
 | A posting steps by its box's width alone: frame, columns and type together, the text across its column, the bar, menus and pop-ups at their size, nothing zoomed | `job-detail-steps.spec.ts` |
 | A posting that opened with no text reads it once and says so under a running line, offers the posting when the site is slow and Try again when the read failed, and asks nothing when nothing can read it | `job-detail.spec.ts`, `features/job-detail/postingText.test.tsx` |
 | First-run setup | `routing/setupMode.test.tsx`, `features/scope/walk/Walk.test.tsx`, `features/companies/SetupCompanies.test.tsx`, `welcome.spec.ts` |
+| Onboarding: the copy control; Top picks' onboarding follows the setup conversation and gives way to the list | `ui/CopyField.test.tsx`, `features/opportunities/TopPicksOnboarding.test.tsx`, `top-picks-onboarding.spec.ts` |
 | First-run setup magnification: the factor, window units, placed pop-ups, the planet's pointer | `features/scope/setupZoom.test.ts`, `features/scope/welcome/globeDrag.test.ts`, `setup-magnification.spec.ts`, `setup-magnification-webkit.spec.ts`, `setup-magnification-unhinted.spec.ts` |
 | The board during and after the first scan | `board-first-scan.spec.ts` |
 

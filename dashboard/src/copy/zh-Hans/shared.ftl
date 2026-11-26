@@ -100,3 +100,11 @@ shared-refresh-failed = 无法更新。显示的是上一次的结果。
 ## ui/TimeField.tsx
 shared-time-field-choose = 选择时间
 shared-time-field-times = 时间
+
+## 引导模式 (patterns/onboarding/)
+shared-onboard-steps = 步骤
+
+## ui/CopyField.tsx
+shared-copy-text = 复制“{ $text }”
+shared-copied = 已复制
+shared-copy-failed = 无法复制。请自行复制已选中的文字。

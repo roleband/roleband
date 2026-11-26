@@ -8,6 +8,9 @@ and any assistant can resume where another stopped.
 
 `calibration` and `trial` need postings. While the Board has none open they
 are deferred: setup goes on past them and they stay named in `deferred`.
+
+`stored` reads the facts for `progress`; `picks.status` and the dashboard's
+`GET /api/picks/state` both read setup through it, so the two cannot disagree.
 """
 
 from __future__ import annotations
@@ -15,6 +18,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from tracker.db.models import CandidateDocument, Job
+from tracker.db.queries.jobs import apply_job_filters
+from tracker.picks import background, queue, runs
+from tracker.picks import brief as briefs
 from tracker.picks.brief import BriefBody
 
 Step = Literal[
@@ -67,6 +77,35 @@ class Progress:
     #: The parts of the brief that are saved, in the brief's own order.
     saved_parts: tuple[str, ...]
     deferred: tuple[Step, ...]
+
+
+@dataclass(frozen=True)
+class Stored:
+    """What setup has stored, read once."""
+
+    facts: Facts
+    #: The conversation saved something: a document, a reading of the
+    #: background or a brief. False until then, and again after Remove.
+    started: bool
+
+
+async def stored(session: AsyncSession, *, mode_on: bool) -> Stored:
+    """Read the facts setup is derived from. `mode_on`: the mode's state is on."""
+    active, draft = await briefs.active(session), await briefs.draft(session)
+    reading = await background.newest(session)
+    open_role = await session.scalar(apply_job_filters(select(Job.id), await queue.board_filters(session)).limit(1))
+    finished = await runs.last_finished(session)
+    document = await session.scalar(select(CandidateDocument.id).where(CandidateDocument.removed_at.is_(None)).limit(1))
+    facts = Facts(
+        background_confirmed=reading is not None and reading.confirmed_at is not None,
+        body=briefs.body_of(draft or active),
+        has_active_brief=active is not None,
+        trial_finished=await runs.last_finished(session, trial=True) is not None,
+        routine_ran=mode_on and finished is not None,
+        has_postings=open_role is not None,
+    )
+    started = document is not None or reading is not None or draft is not None or active is not None
+    return Stored(facts=facts, started=started)
 
 
 def saved_parts(body: BriefBody) -> tuple[str, ...]:

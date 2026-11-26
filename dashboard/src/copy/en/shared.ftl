@@ -175,3 +175,15 @@ shared-price-feed-get-key = Get a free key
 shared-empty = Nothing here yet
 # kind=sentence note="Above the data a failed background refresh left on screen"
 shared-refresh-failed = Couldn't update this. Showing the last result.
+
+## The Onboarding pattern (patterns/onboarding/)
+# kind=aria note="The steps of an onboarding screen"
+shared-onboard-steps = Steps
+
+## ui/CopyField.tsx
+# kind=aria note="A field whose text is copied when pressed; $text is the text"
+shared-copy-text = Copy “{ $text }”
+# kind=status note="For two seconds after the text was copied"
+shared-copied = Copied
+# kind=error next=none note="The browser refused the clipboard; the text is selected for the person instead. The message is itself the instruction"
+shared-copy-failed = Couldn't copy. Copy the selected text yourself.

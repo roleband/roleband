@@ -13235,8 +13235,37 @@ export interface components {
             verdicts: number;
         };
         /**
+         * PicksSetup
+         * @description Where the setup conversation in the person's assistant stands, read
+         *     from what it has saved, as `picks.status` tells the assistant.
+         */
+        PicksSetup: {
+            /** Deferred */
+            deferred: ("connect" | "background" | "situation" | "bar" | "rules" | "tradeoffs" | "targets" | "calibration" | "budget" | "confirm" | "trial" | "routine" | "done")[];
+            /**
+             * Next Step
+             * @enum {string}
+             */
+            next_step: "connect" | "background" | "situation" | "bar" | "rules" | "tradeoffs" | "targets" | "calibration" | "budget" | "confirm" | "trial" | "routine" | "done";
+            /** Started */
+            started: boolean;
+            /** Steps */
+            steps: components["schemas"]["PicksSetupStep"][];
+        };
+        /** PicksSetupStep */
+        PicksSetupStep: {
+            /** Done */
+            done: boolean;
+            /**
+             * Id
+             * @enum {string}
+             */
+            id: "connect" | "background" | "situation" | "bar" | "rules" | "tradeoffs" | "targets" | "calibration" | "budget" | "confirm" | "trial" | "routine" | "done";
+        };
+        /**
          * PicksStateResponse
-         * @description `GET /api/picks/state`: what the rail and the Settings card read.
+         * @description `GET /api/picks/state`: what the rail, the Settings card and Top picks
+         *     read, its onboarding included.
          */
         PicksStateResponse: {
             /** Brief Summary */
@@ -13261,6 +13290,7 @@ export interface components {
             routine_host_connection: ("connected" | "outdated" | "rule_missing" | "read_only") | null;
             /** Schedule */
             schedule: string | null;
+            setup: components["schemas"]["PicksSetup"];
             /**
              * State
              * @enum {string}

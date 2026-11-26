@@ -285,6 +285,9 @@
      text, its section headings, its title. */
   --app-type-read-head: 20px;  /* a section heading in a long read */
   --app-type-read-title: 24px; /* a long read's title: a posting's h1 */
+  /* The Onboarding pattern's own size, used nowhere else: the headline of the
+     screen a feature shows before it is set up, and that screen's one figure. */
+  --app-type-intro: 34px;
   --app-type-name: 15px;    /* primary row content — the company name */
   --app-type-body: 14px;    /* descriptions, controls, tab bar */
   --app-type-meta: 13px;    /* secondary facts — the fact floor */

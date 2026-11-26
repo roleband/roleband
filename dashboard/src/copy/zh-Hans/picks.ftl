@@ -3,7 +3,6 @@
 ## 页面
 picks-loading = 正在加载你的首选…
 picks-load-failed = 无法加载你的首选
-picks-not-set-up = 首选尚未设置
 picks-host = { $host ->
     [claude-code] Claude Code
     [codex] Codex
@@ -90,3 +89,53 @@ picks-pass-not-real = 并非在招职位
 picks-pass-other = 其他
 picks-passed-empty-title = 本周没有略过的{ -role }
 picks-passed-empty = 助手阅读后未选中的{ -role }会列在这里，并附上原因。
+
+## 引导：设置之前的首选
+picks-onboard-headline = 你的 AI 助手
+picks-onboard-line = 前沿 AI 模型了解你想要什么，阅读每一个新{ -role }，只留下少数值得你行动的。
+picks-onboard-count = { $count ->
+   *[other] 个新{ -role }，每一个都会阅读
+}
+picks-onboard-reason-work-lead = 你想要的工作
+picks-onboard-reason-work = { $lead }，符合你设定的级别。
+picks-onboard-reason-more-lead = 比你现在拥有的更多
+picks-onboard-reason-more = { $lead }，无论是薪酬还是职责范围。
+picks-onboard-step-say = 对你的助手说一句话
+picks-onboard-step-arrive = 首选会出现在这里
+picks-onboard-say = 在你的助手中说这句话
+picks-onboard-works-with = 适用于 Claude Code 和 Codex
+picks-onboard-sentence = 运行 `roleband connect --apply`，然后设置我的首选。
+picks-onboard-sentence-connected = 设置我的首选
+picks-onboard-waiting = 正在等待你的助手
+picks-onboard-connected = { $host } 已连接。它保存的内容会显示在这里。
+picks-onboard-terminal = 或在终端中运行命令
+picks-onboard-footnote = 大约十分钟，使用你现有的套餐。它让你的助手无需询问即可运行 roleband。你的简历和它阅读的{ -role }会发送给你助手所用的模型。
+picks-onboard-in-terminal = 在终端中，针对
+picks-onboard-terminal-host = 助手
+picks-onboard-in-host = 在 { $host } 中
+picks-onboard-back = 返回一句话
+picks-onboard-access = 让你的助手读取你的{ -role }并保存首选。
+picks-onboard-under-way = 设置正在进行
+picks-onboard-under-way-line = { $host } 会提问。它保存的内容会显示在这里。
+picks-onboard-row = { $step ->
+    [connect] { $host } 已连接
+    [background] 你的背景
+    [situation] 你目前的处境
+    [bar] 什么会让你行动
+    [rules] 硬性规则
+    [tradeoffs] 你愿意如何取舍
+    [targets] 想去和想避开的公司
+    [calibration] 先看看真实的{ -role }
+    [budget] 你希望多久收到一次消息
+    [confirm] 复述你在寻找什么
+    [trial] 在今天开放的{ -role }上先试一次
+   *[routine] 设定每天运行的检查
+}
+picks-onboard-row-now = { $step ->
+    [trial] 正在试运行
+    [routine] 正在设置
+   *[other] 正在询问
+}
+picks-onboard-row-waits = 等待首次扫描
+picks-onboard-row-saved = 已保存
+picks-onboard-resume = 关闭了对话？任何对话都可以继续：

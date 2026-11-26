@@ -1,0 +1,348 @@
+/* Top picks onboarding (TopPicksOnboarding.tsx), in the Onboarding pattern
+   (patterns/onboarding/onboarding.css): its picture, the action of step 1 and
+   the stages the setup conversation has saved. */
+
+/* The picture: a field of dots, an arrow, and a pick drawn as its row. The
+   three columns hold their proportion as the column narrows. */
+.picks-picture {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 343px) 72px minmax(0, 430px);
+  justify-content: center;
+  align-items: center;
+  gap: var(--app-space-4);
+  text-align: left;
+}
+
+.picks-picture-count {
+  margin: 0 0 var(--app-space-3);
+  display: grid;
+  gap: var(--app-space-1);
+  font-size: var(--app-type-body);
+  color: var(--app-text-muted);
+}
+
+.picks-picture-figure {
+  font-family: var(--app-font-mono);
+  font-size: var(--app-type-intro);
+  font-weight: var(--app-weight-ui);
+  line-height: 1;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+  color: var(--app-text);
+}
+
+/* Twenty columns of dots that fade toward their foot; the lit ones are picks. */
+.picks-picture-dots {
+  display: grid;
+  grid-template-columns: repeat(20, 6px);
+  justify-content: space-between;
+  row-gap: 9px;
+  -webkit-mask-image: linear-gradient(var(--app-canvas) 65%, transparent);
+  mask-image: linear-gradient(var(--app-canvas) 65%, transparent);
+}
+
+.picks-picture-dots > i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--app-decor);
+  opacity: 0.55;
+}
+
+.picks-picture-dots > i.is-lit,
+.picks-picture-glow {
+  background: var(--app-action);
+  box-shadow: 0 0 8px var(--app-action-glow);
+  opacity: 1;
+}
+
+.picks-picture-arrow {
+  width: 72px;
+  height: 24px;
+  fill: none;
+  stroke: var(--app-action);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.picks-picture-card {
+  box-sizing: border-box;
+  display: grid;
+  padding: var(--app-space-3) var(--app-space-4) var(--app-space-2);
+  border: 1px solid var(--app-action-line);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface);
+}
+
+.picks-picture-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+}
+
+.picks-picture-glow {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.picks-picture-label {
+  font-size: var(--app-type-whisper);
+  font-weight: var(--app-type-whisper-weight);
+  letter-spacing: var(--app-type-whisper-track);
+  text-transform: uppercase;
+  color: var(--app-action-text);
+}
+
+/* Blank bars in place of a role's title and facts. */
+.picks-picture-bar {
+  display: block;
+  height: 8px;
+  border-radius: 3px;
+  background: var(--app-border);
+}
+
+.picks-picture-bar.is-tag { width: 52px; margin-left: auto; }
+.picks-picture-bar.is-title { width: 44%; height: 12px; background: var(--app-border-strong); }
+.picks-picture-bar.is-fact { width: 84px; }
+.picks-picture-bar.is-fact-short { width: 60px; }
+.picks-picture-bar.is-fact-long { width: 120px; }
+.picks-picture-bar.is-more { width: 38%; height: 10px; }
+.picks-picture-bar.is-more-long { width: 52%; height: 10px; }
+
+.picks-picture-row {
+  display: grid;
+  gap: var(--app-space-2);
+  padding-top: var(--app-space-3);
+}
+
+.picks-picture-row > span {
+  display: flex;
+  gap: var(--app-space-2);
+}
+
+/* The reasons read as a pick's do: the first fact in ink, the rest muted. */
+.picks-picture-reasons {
+  margin: 0;
+  padding: var(--app-space-2) 0 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  font-size: var(--app-type-body);
+  line-height: 1.5;
+  color: var(--app-text-muted);
+}
+
+.picks-picture-reasons b {
+  font-weight: var(--app-weight-body);
+  color: var(--app-text);
+}
+
+.picks-picture-more {
+  display: grid;
+  margin-top: var(--app-space-2);
+}
+
+.picks-picture-more > span {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  padding: var(--app-space-2) 0;
+  border-top: 1px solid var(--app-border);
+}
+
+.picks-picture-more > span:last-child {
+  padding-bottom: 0;
+}
+
+.picks-picture-more .picks-picture-bar {
+  flex: none;
+}
+
+/* Step 1's action. */
+.picks-onboard-say {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--app-space-3);
+}
+
+.picks-onboard-label {
+  font-size: var(--app-type-whisper);
+  font-weight: var(--app-type-whisper-weight);
+  letter-spacing: var(--app-type-whisper-track);
+  text-transform: uppercase;
+  color: var(--app-text-faint);
+}
+
+.picks-onboard-marks {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--app-space-2);
+}
+
+.picks-onboard-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--app-space-3);
+}
+
+.picks-onboard-live {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  margin: 0;
+  font-size: var(--app-type-meta);
+  color: var(--app-text-muted);
+}
+
+.picks-onboard-live > i {
+  flex: none;
+  box-sizing: border-box;
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--app-action);
+  border-radius: 50%;
+}
+
+.picks-onboard-live.is-connected > i {
+  background: var(--app-action);
+}
+
+/* Assistant apps may not connect yet: its switch comes first. */
+.picks-onboard-access {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--app-space-4);
+  padding-bottom: var(--app-space-3);
+  border-bottom: 1px solid var(--app-border);
+}
+
+.picks-onboard-access b {
+  font-weight: var(--app-weight-ui);
+}
+
+.picks-onboard-access p {
+  margin: 0;
+  font-size: var(--app-type-meta);
+  color: var(--app-text-muted);
+}
+
+/* The Terminal fallback: two numbered lines in place of the sentence. */
+.picks-onboard-terminal {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--app-space-2);
+  counter-reset: picks-terminal;
+}
+
+.picks-onboard-terminal > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--app-space-2);
+  counter-increment: picks-terminal;
+}
+
+.picks-onboard-terminal-label {
+  flex: 0 0 150px;
+  color: var(--app-text-muted);
+}
+
+.picks-onboard-terminal-label::before {
+  content: counter(picks-terminal) ". ";
+}
+
+.picks-onboard-command {
+  flex: 1 1 320px;
+}
+
+.picks-onboard-back {
+  margin: 0;
+}
+
+/* The stages the conversation has saved, one hairline a stage. */
+.picks-setup-rows {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.picks-setup-row {
+  box-sizing: border-box;
+  min-height: 52px;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 300px) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--app-space-3);
+  padding: var(--app-space-2) 0;
+  border-top: 1px solid var(--app-border);
+}
+
+.picks-setup-row:first-child {
+  border-top: 0;
+}
+
+.picks-setup-row > b {
+  font-weight: var(--app-weight-ui);
+}
+
+.picks-setup-row > span:last-child {
+  color: var(--app-text-muted);
+}
+
+.picks-setup-mark {
+  box-sizing: border-box;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--app-border-strong);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--app-text);
+}
+
+.picks-setup-row.is-now .picks-setup-mark {
+  border-color: var(--app-action);
+}
+
+.picks-setup-row.is-now .picks-setup-mark::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--app-action);
+}
+
+.picks-setup-row.is-now > span:last-child {
+  color: var(--app-action-text);
+}
+
+.picks-setup-row.is-next > b,
+.picks-setup-row.is-waits > b {
+  font-weight: var(--app-weight-body);
+  color: var(--app-text-faint);
+}
+
+.picks-onboard-resume {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--app-space-2) var(--app-space-3);
+  padding-top: var(--app-space-3);
+  border-top: 1px solid var(--app-border);
+  color: var(--app-text-muted);
+}
+
+.picks-onboard-resume-field {
+  flex: 0 1 280px;
+}

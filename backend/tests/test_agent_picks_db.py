@@ -804,15 +804,23 @@ async def test_status_follows_the_setup_conversation_as_it_saves_each_part(api_c
     await db_session.commit()
 
     async def setup() -> dict:
-        return _data(*await _read(api_client, "/picks/status"))["setup"]
+        told = _data(*await _read(api_client, "/picks/status"))["setup"]
+        # The app's onboarding mirrors the conversation: it reads setup as the assistant is told it.
+        shown = (await _state(api_client))["setup"]
+        assert {key: shown[key] for key in ("next_step", "steps", "deferred")} == {
+            key: told[key] for key in ("next_step", "steps", "deferred")
+        }
+        return told | {"started": shown["started"]}
 
     start = await setup()
-    assert (start["next_step"], start["saved_parts"]) == ("background", [])
+    assert (start["next_step"], start["saved_parts"], start["started"]) == ("background", [], False)
     assert [step["id"] for step in start["steps"] if step["done"]] == ["connect"]
 
     reading = {"current": {"title": "Senior Product Manager"}, "years": 9}
     _data(*await _write(api_client, "PUT", "/background", {"reading": reading, "source": "spoken"}))
-    assert (await setup())["next_step"] == "background", "a reading the person has not confirmed is not theirs yet"
+    begun = await setup()
+    assert begun["next_step"] == "background", "a reading the person has not confirmed is not theirs yet"
+    assert begun["started"] is True, "the conversation has saved something"
     _data(*await _write(api_client, "PUT", "/background", {"reading": reading, "source": "spoken", "confirmed": True}))
     assert (await setup())["next_step"] == "situation"
 
@@ -853,6 +861,33 @@ async def test_status_follows_the_setup_conversation_as_it_saves_each_part(api_c
     done = _data(*await _read(api_client, "/picks/status"))
     assert done["setup"]["next_step"] == "done" and all(step["done"] for step in done["setup"]["steps"])
     assert (done["state"], done["routine"]["health"], done["routine"]["host"]) == ("on", "healthy", "claude-code")
+
+
+async def test_the_app_reads_a_stored_cv_as_setup_begun_and_the_stages_that_need_roles_as_waiting(
+    api_client, db_session, scratch_scope, tmp_path, monkeypatch,
+):
+    monkeypatch.setattr(background_store, "documents_dir", lambda: tmp_path)
+    await set_agent_access(db_session, AgentAccessConfig(enabled=True, allow_writes=True))
+    await ensure_workspace_id(db_session)
+    await db_session.commit()
+
+    fresh = (await _state(api_client))["setup"]
+    assert (fresh["started"], fresh["next_step"], fresh["deferred"]) == (False, "background", ["calibration", "trial"])
+    assert [step["id"] for step in fresh["steps"]] == [
+        "connect", "background", "situation", "bar", "rules", "tradeoffs", "targets", "calibration", "budget",
+        "confirm", "trial", "routine", "done",
+    ]
+
+    _data(*await _write(api_client, "POST", "/background/documents", {
+        "filename": "CV.pdf", "content_base64": base64.b64encode(b"%PDF-1.7 CV").decode(),
+    }))
+    stored = (await _state(api_client))["setup"]
+    assert (stored["started"], stored["next_step"]) == (True, "background"), "a CV is saved before it is read"
+
+    db_session.add(make_company("google", "Google"))
+    db_session.add(make_job("open", first_seen=datetime.now(UTC), last_seen=datetime.now(UTC)))
+    await db_session.commit()
+    assert (await _state(api_client))["setup"]["deferred"] == [], "an open role lets calibration and the trial run"
 
 
 async def test_status_says_what_the_app_already_knows_and_what_waits(api_client, db_session, workspace):
@@ -1387,11 +1422,14 @@ async def test_the_app_cannot_switch_on_a_mode_that_was_never_set_up(api_client,
 
     assert refused.status_code == 409 and refused.json()["detail"]["code"] == "invalid-input"
     assert (await get_top_picks_settings(db_session)).state == "never_set_up"
-    assert await _state(api_client) == {
+    state = await _state(api_client)
+    setup = state.pop("setup")
+    assert state == {
         "state": "never_set_up", "routine_host": None, "schedule": None, "last_check": None, "brief_summary": None,
         "unseen_pick": False, "health": "off", "waiting": 0, "read_this_week": 0, "passed_this_week": 0,
         "routine_host_connection": None, "daily_limit": 1000, "daily_limit_max": 5000,
     }
+    assert (setup["started"], setup["next_step"]) == (False, "background")
 
 
 async def test_remove_deletes_the_cv_the_reading_and_the_brief_and_nothing_else(
@@ -1476,6 +1514,7 @@ async def test_remove_deletes_the_cv_the_reading_and_the_brief_and_nothing_else(
 
     state = await _state(api_client)
     assert (state["state"], state["brief_summary"], state["routine_host"]) == ("never_set_up", None, None)
+    assert (state["setup"]["started"], state["setup"]["next_step"]) == (False, "background"), "onboarding starts over"
     status = _data(*await _read(api_client, "/picks/status"))
     assert (status["setup"]["next_step"], status["setup"]["saved_parts"]) == ("background", [])
     _refused(*await _write(api_client, "POST", "/picks/runs", {}), "brief_required")
