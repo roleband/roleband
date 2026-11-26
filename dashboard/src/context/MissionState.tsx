@@ -39,14 +39,14 @@ export interface MissionActions {
    *  A stable ref object: writing `.current` re-renders nothing, which is the
    *  point — focus plumbing must not churn every consumer. */
   screenSearchRef: MutableRefObject<HTMLInputElement | null>;
-  /** The top bar's counts are ONE choice (open roles / new / reposted /
-   *  saved): each `show*` lands on the board wearing exactly that lens, and a
-   *  second click on the chosen one keeps it rather than flipping back. */
+  /** The top bar's lenses are ONE choice (new / reposted): each `show*`
+   *  lands on the board wearing exactly that lens; its `clear*` is the same
+   *  chip pressed again on the board. */
   showNewSignals: () => void;
   clearNewSignals: () => void;
   showReposts: () => void;
   clearReposts: () => void;
-  /** Open roles: both lenses off. The chip is a link to `/`, which does the
+  /** Both lenses off: the side bar's Radar entry. Its link does the
    *  navigating; this is the half a link cannot do while already on `/`. */
   clearLenses: () => void;
 }

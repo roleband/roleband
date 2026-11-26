@@ -747,7 +747,14 @@ unlisted. Notifications is not listed: the top bar's bell holds the same list
 and count, its View all opens the page, and on that page the bell is the
 chosen place (`aria-current`). A place the side bar does not list still opens
 from the palette and from every link to it. The only mark on the side bar is
-Top picks' dot; a count lit most days says nothing.
+Top picks' dot; a count lit most days says nothing. The side bar opens
+expanded or collapsed as the person last left it, a view choice too
+(`sidebar.expanded`).
+
+The top bar carries news only: new, and reposted on the days there are any.
+Each is a lens on the Radar that a second press on the same chip takes off,
+and the side bar's Radar entry takes either off as well. The Radar's total is
+its toolbar's count, not the top bar's.
 
 A list screen scrolls as one page: the title and tabs scroll away and the
 toolbar docks at the top (`.app-toolbar`, `design/surfaces.css`). The

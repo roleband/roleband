@@ -5,7 +5,6 @@ import {
 import { sharedNotForMe } from "../../copy/gen/shared";
 import { DEFAULT_FILTERS, type Filters } from "../../api";
 import { amount, flag, oneOf, slugs, type Decoder, type MemoryShape } from "../../hooks/filterMemory";
-import { MODE_PARAM, type BoardMode } from "./boardMode";
 
 /** A band slug a stored filter may still hold (`junior`), read as the band
  *  that covers it. The server folds `?level_band=junior` the same way. Kept
@@ -19,10 +18,26 @@ const levelSlugs: Decoder<string[]> = (raw) => {
   return values === undefined ? undefined : [...new Set(values.map((slug) => LEGACY_BAND[slug] ?? slug))];
 };
 
-// The mode's vocabulary lives alone so the shell can read it without this table.
-export { BOARD_MODES, MODE_PARAM, modeFromParam, type BoardMode } from "./boardMode";
-/* Here, not in boardMode.ts: only the Board route reads the list, and the
-   shell loads boardMode.ts, so a list defined there ships in the startup chunk. */
+export const BOARD_MODES = ["open", "closed", "dismissed"] as const;
+export type BoardMode = (typeof BOARD_MODES)[number];
+
+/* The mode's name in the query string. It is URL-backed for one
+ * concrete reason: the side bar's Radar entry is a LINK to `/`, and a link
+ * can only put the board back in its default view if the departure from that
+ * view is in the URL to begin with. `open` is the fallback, so the default
+ * board keeps a clean address. A role you send away is "Not for me" on the
+ * button, in the beacon and here (docs/copy.md); the API's own name for it is
+ * `dismissed_only`. */
+export const MODE_PARAM: Record<BoardMode, string> = {
+  open: "open",
+  closed: "closed",
+  dismissed: "not-for-me",
+};
+
+export function modeFromParam(param: string): BoardMode {
+  return (BOARD_MODES.find((mode) => MODE_PARAM[mode] === param) ?? "open");
+}
+
 export const MODE_PARAMS = Object.values(MODE_PARAM) as readonly string[];
 
 type FilterKind = "queryContext" | "railFilter" | "externalLens" | "pagination" | "transport";
@@ -44,8 +59,8 @@ type Field = {
    *  fourth `kind`.
    *
    *  The three modes live in `More filters`, where they ARE filters: open
-   *  roles is the board's default view, reachable from the top bar's own
-   *  count, and the other two are somewhere you go on purpose and come back
+   *  roles is the board's default view, reachable from the side bar's Radar
+   *  entry, and the other two are somewhere you go on purpose and come back
    *  from. */
   mode?: true;
 };
@@ -187,9 +202,9 @@ export const TOP_PICKS_MEMORY_SCOPE = "top-picks";
  *  What that rule deliberately keeps OUT, each for its own reason:
  *
  *   - **the MODE** (`status`, `dismissed_only`). Open roles is the board's
- *     default view and the top bar's own count is the link back to it;
- *     a board that reopened on the Closed pile would leave that
- *     link reading inactive on every fresh load. The mode already survives a
+ *     default view and the side bar's Radar entry is the link back to it;
+ *     a board that reopened on the Closed pile would greet every fresh
+ *     load with a list nobody chose today. The mode already survives a
  *     reload on its own: it is in `?show=`.
  *   - **the query** (`q`). It is the context a count is measured in, not a
  *     narrowing of it, and it lives in MissionState rather than here:
@@ -236,8 +251,8 @@ export function baselineKey(filters: Filters): string {
 
 /* ---- the mode: which population, not how it is narrowed --------
  *
- * Open is the board's DEFAULT view and the top bar's own "N open roles" count
- * is the way back to it. Closed and Not-for-me are somewhere a
+ * Open is the board's DEFAULT view and the side bar's Radar entry is the way
+ * back to it. Closed and Not-for-me are somewhere a
  * reader goes on purpose, rarely, so they live at the foot of
  * `More filters` rather than in a strip above every list.
  *

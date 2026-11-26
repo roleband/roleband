@@ -44,20 +44,13 @@ shell-palette-open-aria = Abrir la paleta de comandos, ⌘ K
 shell-palette-open-title = Paleta de comandos (⌘K)
 shell-stats-aria = Resumen del radar
 shell-stat-unknown = Desconocido
-shell-stat-open = abiertos
-shell-stat-open-aria = { $count ->
-    [one] { $count } puesto abierto
-    [many] { $count } de puestos abiertos
-   *[other] { $count } puestos abiertos
-}
-shell-stat-open-aria-unknown = Puestos abiertos, aún sin contar
-shell-stat-open-title = Mostrar todos los puestos abiertos
 shell-stat-new = nuevos
 shell-stat-new-aria = { $count } nuevos en los últimos 2 días
 shell-stat-new-title = Mostrar los puestos publicados en los últimos 2 días
 shell-stat-reposted = republicados
 shell-stat-reposted-aria = { $count } republicados hoy
 shell-stat-reposted-title = Mostrar los puestos republicados hoy
+shell-stat-lens-clear-title = Mostrar todos los puestos
 shell-loading-page = Cargando esta página…
 shell-load-page-failed = No se pudo cargar esta página
 shell-loading-role = Cargando este puesto…

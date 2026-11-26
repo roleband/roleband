@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 
 /* The top bar's count chip: a number and the noun it counts, in one of three
  * shapes — a fact, a lens toggle, or a link to the list it counts. One recipe
@@ -11,34 +11,22 @@ type Base = {
   good?: boolean;
   ariaLabel: string;
   title?: string;
+  /** A hook for the compact bar's rules, which hide a chip by what it counts. */
+  className?: string;
 };
 
 type Shape =
   | { kind?: "fact" }
   | { kind: "lens"; onClick: () => void; pressed: boolean }
-  | {
-      kind: "link";
-      to: string;
-      state?: unknown;
-      /** Match the path exactly. `to="/"` is a PREFIX of every route, so
-       *  without this the Radar chip paints "active" on every screen in the
-       *  app. */
-      end?: boolean;
-      /** Whether this chip is the view on screen, when the path alone cannot
-       *  say. A router match ignores everything but the path, so `/` wearing
-       *  the new-today lens would still match "open roles" and both chips
-       *  would light. */
-      active?: boolean;
-      onClick?: () => void;
-    };
+  | { kind: "link"; to: string; state?: unknown };
 
 export function StatChip(props: Base & Shape) {
-  const base = props.good ? "stat-chip good" : "stat-chip";
+  const base = ["stat-chip", props.good && "good", props.className].filter(Boolean).join(" ");
   const body = (
     <>
       {/* The space is for the accessible name, not the layout (flex drops it):
-          without it the visible text reads "1open", which the name "1 open
-          role" does not contain. */}
+          without it the visible text reads "4compare", which the name
+          "4 roles in compare" does not contain. */}
       <span className="n">{props.n}</span>{" "}
       <span className="l">{props.label}</span>
     </>
@@ -57,26 +45,14 @@ export function StatChip(props: Base & Shape) {
     );
   }
   if (props.kind === "link") {
-    const lit = /* not copy: class names */ `${base} clickable`;
-    const shared = {
-      to: props.to,
-      state: props.state,
-      onClick: props.onClick,
-      "aria-label": props.ariaLabel,
-      title: props.title,
-    };
-    // A plain Link when the caller knows better than the path: NavLink writes
-    // `aria-current` from its own match, so a chip painted dark would still
-    // announce itself as the current page.
-    if (props.active !== undefined) {
-      return (
-        <Link {...shared} className={lit} aria-current={props.active ? "page" : undefined}>
-          {body}
-        </Link>
-      );
-    }
     return (
-      <NavLink {...shared} end={props.end} className={lit}>
+      <NavLink
+        to={props.to}
+        state={props.state}
+        className={`${base} clickable`}
+        aria-label={props.ariaLabel}
+        title={props.title}
+      >
         {body}
       </NavLink>
     );

@@ -176,11 +176,6 @@
   font-weight: var(--app-weight-name);
 }
 
-.ledger-stats i {
-  color: var(--app-text-faint);
-  font-style: normal;
-}
-
 .ledger-toolbar-end {
   display: flex;
   align-items: center;

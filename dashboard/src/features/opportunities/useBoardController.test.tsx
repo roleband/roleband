@@ -106,7 +106,7 @@ describe("Board controller behavior", () => {
     }), expect.any(AbortSignal)));
   });
 
-  /* The top bar's "open roles" is a link to `/`, and the board stays MOUNTED
+  /* The side bar's Radar entry is a link to `/`, and the board stays MOUNTED
      while the address drops `?company=`. A filters -> URL mirror would still
      hold the company and write it straight back,
      so the link would reach the list it was clicked from. */
@@ -305,8 +305,8 @@ describe("Board controller behavior", () => {
       initialProps: lens,
     });
     await waitFor(() => expect(result.current.filters.company).toEqual(["openai"]));
-    // The register shows it AND the address says it: the top bar's "N open
-    // roles" link to `/` is the way back to the unfiltered board,
+    // The register shows it AND the address says it: the side bar's Radar
+    // entry, a link to `/`, is the way back to the unfiltered board,
     // and it can only work if the company it is clearing is actually there.
     expect(lens.onCompanyParamChange).toHaveBeenCalledTimes(1);
     expect(lens.onCompanyParamChange).toHaveBeenLastCalledWith(["openai"]);
@@ -342,7 +342,7 @@ describe("Board controller behavior", () => {
 
   it("never lets memory choose which population the board shows", async () => {
     // The mode is the one thing in `More filters` that is not remembered: open
-    // roles is the board, and the top bar's count is the link back to it.
+    // roles is the board, and the side bar's Radar entry is the link back to it.
     writeEntry(BOARD_MEMORY_SCOPE, { status: "closed", dismissed_only: true, viewed: "unread" });
     const { result } = renderHook(() => useBoardController(lens));
     await waitFor(() => expect(result.current.filters.viewed).toBe("unread"));

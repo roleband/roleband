@@ -137,7 +137,7 @@ export function BoardToolbar({
   const inLens = filters.dismissed_only;
   /* Clears every FILTER and lens. It deliberately leaves the mode alone: the
      mode is which list you are looking at, not how it is narrowed, and the way
-     back to the open board is the top bar's own count of open roles. Clearing
+     back to the open board is the side bar's Radar entry. Clearing
      both here would also race: `setSearchParams` does not queue its
      functional form, so the company deletion would recompute from params that
      still carried `?show=`, and put it back. */

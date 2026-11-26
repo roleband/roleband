@@ -398,7 +398,7 @@ export function BoardFilters({
         )}
 
         {/* Which POPULATION, last and lowest. Open roles is the board: its
-            count is the top bar's own, and that count is the link back.
+            count is the toolbar's, and the side bar's Radar entry leads back.
             Closed and Not-for-me are somewhere a reader goes on purpose,
             rarely, so a strip above every list would be three permanent
             controls for a decision almost nobody is making.

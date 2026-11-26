@@ -49,6 +49,22 @@ describe("NavRail", () => {
     expect(onToggleExpanded).toHaveBeenCalledTimes(1);
   });
 
+  it("takes the Radar's lens off from the Radar entry, and from no other place", async () => {
+    const user = userEvent.setup();
+    const onRadar = vi.fn();
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <NavRail expanded={false} onToggleExpanded={vi.fn()} theme="dark" onToggleTheme={vi.fn()} onRadar={onRadar} />
+      </MemoryRouter>
+    );
+
+    await user.click(screen.getByRole("link", { name: "Settings" }));
+    await user.click(screen.getByRole("link", { name: "Insights" }));
+    expect(onRadar).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("link", { name: "Radar" }));
+    expect(onRadar).toHaveBeenCalledTimes(1);
+  });
+
   it("marks the rail with the product mark, hidden from readers, not a letter", () => {
     const { container } = rail();
     const tile = container.querySelector(".brand-mark");

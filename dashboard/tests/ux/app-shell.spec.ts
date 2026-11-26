@@ -422,6 +422,29 @@ test("the side bar lists Duplicates only once the person turns it on, and no pla
   expect(await names(".rail-top")).toContain(msg("shell-nav-duplicates"));
 });
 
+/* The side bar opens as the person last left it, on every load and in any
+ * browser: a choice saved with the account, read before the first paint. */
+test("the side bar opens expanded or collapsed as the person last left it", async ({ page, isMobile }) => {
+  test.skip(isMobile, "the dock has no labels to show");
+  const held = await viewChoices(page);
+  await page.goto("/");
+  const rail = page.getByRole("navigation", { name: msg("shell-rail-aria") });
+  await expect(rail).toHaveClass(/collapsed/);
+
+  await page.getByRole("button", { name: msg("shell-rail-expand-aria") }).click();
+  await expect(rail).toHaveClass(/expanded/);
+  await expect.poll(() => held["sidebar.expanded"]).toBe(true);
+
+  await page.reload();
+  await expect(rail).toHaveClass(/expanded/);
+  await expect(page.getByRole("button", { name: msg("shell-rail-collapse-aria") })).toBeVisible();
+
+  await page.getByRole("button", { name: msg("shell-rail-collapse-aria") }).click();
+  await expect.poll(() => held["sidebar.expanded"]).toBe(false);
+  await page.reload();
+  await expect(rail).toHaveClass(/collapsed/);
+});
+
 /* A group's name is announced on entering it, so it says what the numbers
  * inside are; each count inside keeps its own name. */
 test("a screen reader hears the top bar's counts as the radar summary", async ({ page }) => {
@@ -452,13 +475,13 @@ test("the bell caps its count", async ({ page, isMobile }) => {
   expect(Math.round(box!.width)).toBeLessThanOrEqual(15);
 });
 
-/* The top bar's counts are readable in every shape and state. Two of
- * the three chips are <button>s, and a button's user-agent colour is black: a
+/* The top bar's counts are readable in every shape and state. The lens
+ * chips are <button>s, and a button's user-agent colour is black: a
  * chip that does not inherit its ink paints its count black on the dark glass.
  * Pinned in the browser, because a stylesheet gate cannot see what a
  * UA default paints over. */
 test("every count in the top bar wears the bar's ink, chosen or not, and its unit is not below the whisper floor", async ({ page, isMobile }) => {
-  test.skip(isMobile, "The compact bar hides the reposted and open-roles chips.");
+  test.skip(isMobile, "The compact bar hides the reposted chip.");
   await mockGet(page, "/api/stats", (route) =>
     route.fulfill({ json: { ...statsFixture, open_total: 2004, new_today: 873, reposted_today: 49, saved_total: 4 } }));
   await page.setViewportSize({ width: 1440, height: 800 });
@@ -477,7 +500,6 @@ test("every count in the top bar wears the bar's ink, chosen or not, and its uni
     );
   const at_rest = await read();
   expect(at_rest.map((c) => c.label)).toEqual([
-    msg("shell-stat-open-aria", { count: 2004 }),
     msg("shell-stat-new-aria", { count: 873 }),
     msg("shell-stat-reposted-aria", { count: 49 }),
   ]);
@@ -493,11 +515,36 @@ test("every count in the top bar wears the bar's ink, chosen or not, and its uni
   await page.getByRole("button", { name: "49 reposted today" }).click();
   await expect(page.getByRole("button", { name: "49 reposted today" })).toHaveAttribute("aria-pressed", "true");
   const chosen = await read();
-  expect(chosen[2].n).not.toBe(at_rest[2].n);
-  expect(chosen[2].n).not.toBe("rgb(0, 0, 0)");
-  await page.getByRole("link", { name: msg("shell-stat-open-aria", { count: 2004 }) }).click();
-  await expect(page.getByRole("link", { name: msg("shell-stat-open-aria", { count: 2004 }) })).toHaveAttribute("aria-current", "page");
-  expect((await read())[0].n).toBe(chosen[2].n);
+  expect(chosen[1].n).not.toBe(at_rest[1].n);
+  expect(chosen[1].n).not.toBe("rgb(0, 0, 0)");
+  // New, chosen, wears that same accent instead of its market hue.
+  await page.getByRole("button", { name: msg("shell-stat-new-aria", { count: 873 }) }).click();
+  await expect(page.getByRole("button", { name: msg("shell-stat-new-aria", { count: 873 }) })).toHaveAttribute("aria-pressed", "true");
+  const swapped = await read();
+  expect(swapped[0].n).toBe(chosen[1].n);
+  expect(swapped[1].n).toBe(at_rest[1].n);
+});
+
+/* A narrower window gives the scan status its room by dropping reposted,
+ * never new, and the bar carries no total at any width: the Radar's toolbar
+ * holds it. */
+test("a narrow top bar keeps new and drops reposted", async ({ page, isMobile }) => {
+  test.skip(isMobile, "The compact bar hides the top bar's chips.");
+  await mockGet(page, "/api/stats", (route) =>
+    route.fulfill({ json: { ...statsFixture, open_total: 2004, new_today: 873, reposted_today: 49 } }));
+  const bar = page.getByRole("banner", { name: msg("shell-topbar-aria") });
+  const news = bar.getByRole("button", { name: msg("shell-stat-new-aria", { count: 873 }) });
+  const reposts = bar.getByRole("button", { name: msg("shell-stat-reposted-aria", { count: 49 }) });
+
+  await page.setViewportSize({ width: 1440, height: 800 });
+  await page.goto("/");
+  await expect(news).toBeVisible();
+  await expect(reposts).toBeVisible();
+  await expect(bar).not.toContainText("2004");
+
+  await page.setViewportSize({ width: 1200, height: 800 });
+  await expect(news).toBeVisible();
+  await expect(reposts).toBeHidden();
 });
 
 /* The new-roles count takes the market hue only when it counts something: a

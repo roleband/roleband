@@ -29,9 +29,12 @@ interface Props {
   onToggleExpanded: () => void;
   theme: string;
   onToggleTheme: () => void;
+  /** Pressed on the Radar entry: the open board, whatever lens the Radar wears.
+   *  A lens lives in memory, not the address, so a link to `/` alone keeps it. */
+  onRadar?: () => void;
 }
 
-export function NavRail({ expanded, onToggleExpanded, theme, onToggleTheme }: Props) {
+export function NavRail({ expanded, onToggleExpanded, theme, onToggleTheme, onRadar }: Props) {
   const unseenPick = usePicksDot();
   const isListed = useListed();
   const shown = NAV_TABS.filter((t) => t.rail !== null && isListed(t.optional));
@@ -56,6 +59,7 @@ export function NavRail({ expanded, onToggleExpanded, theme, onToggleTheme }: Pr
     const name = marked ? shellRailItemCount({ label: t.label, badge: shellRailPicksUnseen() }) : t.label;
     const entry = {
       to: t.path, className: "rail-item", "aria-label": name, "data-tip": name, title: name,
+      onClick: t.path === "/" ? onRadar : undefined,
       children: (
         <>
           <Icon name={t.icon} size={18} />

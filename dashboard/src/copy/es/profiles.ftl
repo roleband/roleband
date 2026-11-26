@@ -98,11 +98,6 @@ profiles-company-profiles-view-that-need-review = { $count ->
     [many] que requieren revisión
    *[other] que requieren revisión
 }
-profiles-company-profiles-view-need-review = { $count ->
-    [one] requiere revisión
-    [many] requieren revisión
-   *[other] requieren revisión
-}
 profiles-company-profiles-view-back-to-every-company-profile = Volver a todos los perfiles de empresa
 
 ## features/company-profiles/FieldReview.tsx

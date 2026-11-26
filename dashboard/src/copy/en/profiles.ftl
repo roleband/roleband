@@ -165,11 +165,6 @@ profiles-company-profiles-view-that-need-review = { $count ->
     [one] that needs review
    *[other] that need review
 }
-# kind=label wording=as-is
-profiles-company-profiles-view-need-review = { $count ->
-    [one] needs review
-   *[other] need review
-}
 # kind=heading wording=as-is
 profiles-company-profiles-view-back-to-every-company-profile = Back to every company profile
 

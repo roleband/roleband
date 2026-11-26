@@ -88,9 +88,6 @@ profiles-company-profiles-view-find-a-company-or-ticker = 查找公司或股票�
 profiles-company-profiles-view-that-need-review = { $count ->
    *[other] 需要审核
 }
-profiles-company-profiles-view-need-review = { $count ->
-   *[other] 需要审核
-}
 profiles-company-profiles-view-back-to-every-company-profile = 返回所有公司资料
 
 ## features/company-profiles/FieldReview.tsx

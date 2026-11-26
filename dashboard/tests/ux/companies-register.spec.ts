@@ -172,8 +172,9 @@ test("the Companies tab shows the whole catalog, marking what cannot be read", a
   // not picked — the section states it rather than showing "0/1".
   await expect(page.getByRole("region", { name: "Robotics, autonomy & defense", exact: true }))
     .toContainText("none covered");
-  await expect(page.getByRole("region", { name: "FAANG", exact: true }))
-    .toContainText("2 covered");
+  // A sector that can be scanned says only how many are followed.
+  await expect(page.getByRole("region", { name: "FAANG", exact: true }).locator(".ledger-sector-stats"))
+    .toHaveText(/^\d+\/\d+ followed$/);
   // ...and its select-all says why it cannot act, in the name it is read by.
   const robotics = page.getByRole("region", { name: "Robotics, autonomy & defense", exact: true });
   await expect(robotics.getByRole("button", { name: "Nothing to follow", exact: true })).toBeDisabled();

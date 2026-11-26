@@ -599,18 +599,14 @@ describe("CompaniesSection — the ledger", () => {
     expect(screen.queryByTitle(/Couldn't scan Meta/)).not.toBeInTheDocument();
   });
 
-  it("counts live and ready connectors over the companies you track, not the catalog", async () => {
+  it("says only how many companies are followed, of every company listed", async () => {
     renderSection();
 
-    // Tracked: Google (live) + Meta (live). Apple and OpenAI are ready but
-    // untracked, so they belong to neither figure — the toolbar's subject is
-    // your radar, not the catalog.
+    // Open roles, live and ready answered questions this screen does not
+    // decide; the rows and the banner already name what needs action.
     const search = await screen.findByRole("searchbox", { name: "Search companies" });
-    const toolbar = search.closest(".ledger-toolbar") as HTMLElement;
-    await waitFor(() => expect(toolbar).toHaveTextContent("2 of 7 followed"));
-    expect(toolbar).toHaveTextContent("52 open roles");
-    expect(toolbar).toHaveTextContent("2 live");
-    expect(toolbar).toHaveTextContent("0 ready");
+    const stats = search.closest(".ledger-toolbar")!.querySelector(".ledger-stats") as HTMLElement;
+    await waitFor(() => expect(stats.textContent).toBe("2 of 7 followed"));
   });
 
   it("says nothing about open roles for a company it has never collected", async () => {
@@ -648,8 +644,12 @@ describe("CompaniesSection — the ledger", () => {
     // roster accepts, and tracking one records intent (it stays paused until a
     // connector exists) exactly as clicking that row on its own does.
     await screen.findByRole("button", { name: "Follow all Consulting companies" });
-    expect(sectorPanel("Consulting")).toHaveTextContent("none covered");
-    expect(sectorPanel("FAANG")).toHaveTextContent("3 covered");
+    const head = (sector: string) => sectorPanel(sector).querySelector(".ledger-sector-stats")!.textContent;
+    expect(head("Consulting")).toMatch(/^\d+\/\d+ followed · none covered$/);
+    // A sector that can be scanned says only how many are followed: no open
+    // roles sum and no covered count, which each row already states.
+    await waitFor(() => expect(within(sectorPanel("FAANG")).getByText("40 open")).toBeInTheDocument());
+    expect(head("FAANG")).toBe("2/3 followed");
   });
 
   it("select-all takes every row the sector shows, and says which will stay paused", async () => {
