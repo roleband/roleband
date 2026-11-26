@@ -212,6 +212,7 @@ TABLE_OWNERS: dict[str, TableOwnership] = {
             "tracker/notifications/coverage.py",
             "tracker/notifications/pursuit_due.py",
             "tracker/notifications/store.py",
+            "tracker/notifications/top_picks.py",
         ),
         readers=("tracker/notifications/store.py",),
     ),

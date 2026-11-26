@@ -231,6 +231,8 @@ notifications-category-reposted = 已重新发布
 notifications-category-long-open = 长期开放
 notifications-category-changed = 已变更
 notifications-category-closed = 已关闭
+notifications-category-top-picks = 首选
+notifications-category-picks-checks = 首选检查
 
 ## features/notifications/sync-progress/SyncProgressPanel.tsx
 notifications-sync-progress-panel-of = 共 { $companiesTotal }
@@ -346,3 +348,11 @@ notif-gone-quiet = { $company } 已 { $days } 天没有消息
 notif-gone-quiet-body = { $title }（{ $stage }）：该跟进了，或设置下一步
 notif-coverage-waiting-title = 等待扫描 { $company }
 notif-coverage-waiting-outage = 等待扫描 { $count } 家公司
+notif-top-pick = { $company } 有新的首选
+notif-picks-late = 首选检查延误了
+notif-picks-last-check = 上一次检查于 { $day } 完成。
+notif-picks-never-ran = 首选检查还没有运行过
+notif-picks-stopped = 上一次首选检查提前停止了
+notif-picks-waiting = { $count ->
+   *[other] 有 { $count } 个职位在等待阅读。
+}

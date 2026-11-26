@@ -360,6 +360,87 @@
   "title": "3 new roles on your radar today"
  },
  {
+  "body": "Head of Product",
+  "case": "top-pick",
+  "say": {
+   "body": [
+    "Head of Product"
+   ],
+   "title": {
+    "k": "notif-top-pick",
+    "p": {
+     "company": "Stripe"
+    }
+   }
+  },
+  "title": "New top pick at Stripe"
+ },
+ {
+  "body": "The last check finished on 26 Sep. 12 roles are waiting to be read.",
+  "case": "picks-late",
+  "say": {
+   "body": [
+    {
+     "k": "notif-picks-last-check",
+     "p": {
+      "day": {
+       "date": "2026-09-26"
+      }
+     }
+    },
+    {
+     "k": "notif-picks-waiting",
+     "p": {
+      "count": 12
+     }
+    }
+   ],
+   "title": {
+    "k": "notif-picks-late",
+    "p": {}
+   }
+  },
+  "title": "Top picks checks are late"
+ },
+ {
+  "body": "1 role is waiting to be read.",
+  "case": "picks-stopped-one-waiting",
+  "say": {
+   "body": [
+    {
+     "k": "notif-picks-waiting",
+     "p": {
+      "count": 1
+     }
+    }
+   ],
+   "title": {
+    "k": "notif-picks-stopped",
+    "p": {}
+   }
+  },
+  "title": "The last top picks check stopped early"
+ },
+ {
+  "body": "40 roles are waiting to be read.",
+  "case": "picks-never-ran",
+  "say": {
+   "body": [
+    {
+     "k": "notif-picks-waiting",
+     "p": {
+      "count": 40
+     }
+    }
+   ],
+   "title": {
+    "k": "notif-picks-never-ran",
+    "p": {}
+   }
+  },
+  "title": "No top picks check has run yet"
+ },
+ {
   "body": "No next step set: Head of Product (applied)",
   "case": "follow-up-due-today",
   "say": {

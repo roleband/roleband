@@ -150,6 +150,15 @@
  "notif-pay-raised": [
   "company"
  ],
+ "notif-picks-last-check": [
+  "day"
+ ],
+ "notif-picks-late": [],
+ "notif-picks-never-ran": [],
+ "notif-picks-stopped": [],
+ "notif-picks-waiting": [
+  "count"
+ ],
  "notif-post-pass-unfinished": [],
  "notif-problems-at": [
   "affected"
@@ -200,6 +209,9 @@
   "companies"
  ],
  "notif-stopped-before-any": [],
+ "notif-top-pick": [
+  "company"
+ ],
  "notif-unfinished-c": [
   "cut"
  ],

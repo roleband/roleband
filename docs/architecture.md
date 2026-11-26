@@ -201,8 +201,9 @@ seconds, and the person can sign out without waiting; then the engine stops as
 Windows ends it, and PostgreSQL recovers on the next start, as after a power cut.
 
 The engine's desktop alerts (`tracker/osnotify.py`: a failed scan, a health
-condition that starts firing, a finished re-ranking) reach the screen through the
-app. On macOS the engine posts them itself. On Windows the app names a folder in
+condition that starts firing, a finished re-ranking, a top pick, Top picks checks
+that fell behind) reach the screen through the app. On macOS the engine posts
+them itself. On Windows the app names a folder in
 the engine's environment (`ROLEBAND_ALERTS_DIR`, `alerts` in the state folder);
 each engine process writes one JSON file there per alert, whole and in order, and
 the app takes them on its own one-second clock, deletes them and shows each as a
@@ -1390,6 +1391,15 @@ files that are gone; one that fails while deleting them leaves the file it
 could not delete and those it had not reached. Either way every row stays,
 and another Remove retries what is left; until then the same bytes given again
 write a missing file back under the id the readings name.
+
+**What rings.** A pick that stands and the checks falling behind each ring one
+notification and a desktop banner, from `notifications/top_picks.py`: the pick
+in the `picks.decide` write that saved it (`routers/agent.py`, so a replay
+rings nothing), the stall at each scan, when a run finishes and when the mode
+is switched or removed. Neither repeats a reason or a run's note, so Remove
+leaves the pick rows, which name only the posting; the stall row goes with the
+mode. While the mode is on the daily digest is not written. The kinds and their
+words are in [copy.md](copy.md).
 
 **What the app reads.** `GET /api/jobs?top_picks=true` is the Radar's own list
 with one condition more: the role is a pick that stands and no current hard

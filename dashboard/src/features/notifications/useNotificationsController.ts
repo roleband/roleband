@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Notification, NotificationList, api } from "../../api";
 import { useJobActions } from "../../context/JobWorkspace";
 import { useMissionActions } from "../../context/MissionState";
@@ -22,6 +22,7 @@ import {
   STATUS_OPTIONS,
   countActiveNotificationFilters,
 } from "./filters";
+import { notifOpens } from "./notifIcons";
 import {
   notificationsUseNotificationsControllerCouldNot,
   notificationsUseNotificationsControllerDismissThatNotification,
@@ -56,6 +57,7 @@ const SEARCH_DEBOUNCE_MS = 250;
  */
 export function useNotificationsController() {
   const { openJob } = useJobActions();
+  const navigate = useNavigate();
   const { refreshStats } = useMissionActions();
   const { notificationVersion } = useSyncEpoch();
   const { toast } = useToast();
@@ -170,12 +172,19 @@ export function useNotificationsController() {
     void markReadOnce(n);
   };
 
-  // A job notification navigates; a run/health notification has nowhere to go, so
-  // its row click reveals the diagnostics instead of doing nothing. The role
-  // opens FIRST: marking read is incidental, so it runs after, in
-  // the background, and a write or re-read that never answers can neither
+  // A job notification navigates, to its screen when its category names one
+  // (`notifOpens`), else to its role; a run/health notification has nowhere
+  // to go, so its row click reveals the diagnostics instead of doing nothing.
+  // The destination opens FIRST: marking read is incidental, so it runs after,
+  // in the background, and a write or re-read that never answers can neither
   // hold the click nor navigate late, after the reader has moved on.
   const openNotification = async (n: Notification, hasDetails: boolean) => {
+    const opens = notifOpens(n.category);
+    if (opens) {
+      navigate(opens);
+      void markReadOnce(n);
+      return;
+    }
     if (n.job_id) {
       openJob(n.job_id, n.company);
       void markReadOnce(n);
