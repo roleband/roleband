@@ -1394,7 +1394,7 @@ Every other command is generated from that index (`backend/tracker/cli/commands.
 with no code per operation: an operation's dotted id is its words
 (`opportunities.search` is `roleband opportunities search`), a field its route
 takes in the path is a positional argument, every other scalar or list field is
-a flag, and `--input @FILE|-` gives the input as one JSON object (a nested
+a flag (except a sent file's fields, below), and `--input @FILE|-` gives the input as one JSON object (a nested
 field, an explicit null). Arguments and flags add the fields that object leaves
 out; a field given both ways is refused, never resolved by precedence. A call
 without `--input` whose standard input already holds data is refused too, since
@@ -1404,7 +1404,13 @@ closed or unwritten standard input runs as given. An operation whose answer is a
 document (`context.export`, the `file_write` client effect) takes `--output FILE`:
 the client reads every part, checks the whole against the manifest's hash and
 writes it at once, readable by its owner only, never over a file already there
-unless `--overwrite` says so (`backend/tracker/cli/output.py`). The index carries each operation's route, and the
+unless `--overwrite` says so (`backend/tracker/cli/output.py`). An operation that
+sends a file (`background.add_document`, the `file_read` client effect) takes
+`--file PATH` in place of flags for `filename` and `content_base64`: the client
+reads one regular, non-empty file of at most 10 MiB, opening it without waiting
+so a named pipe is refused at once, and refuses a second `--file` or a `--file`
+whose fields `--input` also gives; `--input` may carry both fields itself.
+The index carries each operation's route, and the
 export refuses an operation without one. Help builds from the index alone,
 without the engine's models or an HTTP library.
 `opportunities.search` (`backend/tracker/agents/operations/search.py`) runs the

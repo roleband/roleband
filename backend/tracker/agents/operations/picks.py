@@ -1004,8 +1004,10 @@ async def next_batch(
 async def decide(session: AsyncSession, params: DecideInput, *, now: datetime | None = None) -> DecideResult:
     """Record each verdict the engine accepts. Commits nothing: the caller's
     write commits the verdicts, the receipt and the Activity entry together."""
-    now = now or datetime.now(UTC)
+    # The clock is read once the lock is held: a run that passed the bound
+    # while this waited is closed, and takes no verdict.
     await lock_picks(session)
+    now = now or datetime.now(UTC)
     try:
         run = await runs.open_run(session, params.run, now)
     except RunError as error:
@@ -1046,12 +1048,14 @@ async def decide(session: AsyncSession, params: DecideInput, *, now: datetime | 
 
 
 async def finish(session: AsyncSession, params: FinishInput, *, now: datetime | None = None) -> RunSummary:
-    now = now or datetime.now(UTC)
     note = " ".join(params.note.split()) if params.note else None
     if params.outcome == "stopped" and not note:
         raise OperationError(
             "invalid_input", "A stopped run says why, in note.", details={"field": "note"},
         )
+    # As in `decide`: the clock is read once the lock is held.
+    await lock_picks(session)
+    now = now or datetime.now(UTC)
     try:
         run = await runs.finish(session, params.run, outcome=params.outcome, note=note, tokens=params.tokens, now=now)
     except RunError as error:
