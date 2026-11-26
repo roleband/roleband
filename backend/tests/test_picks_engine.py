@@ -17,6 +17,7 @@ from pydantic import ValidationError
 from sqlalchemy import not_, select
 
 from tests.factories import make_company, make_job
+from tracker.config import get_settings
 from tracker.db.models import (
     CandidateBackground,
     Favorite,
@@ -27,12 +28,13 @@ from tracker.db.models import (
     PickRun,
     PickVerdict,
 )
-from tracker.picks import background, queue, runs, setup
+from tracker.picks import background, mode, queue, runs, setup
 from tracker.picks import brief as briefs
 from tracker.picks.background import DocumentError, Reading
 from tracker.picks.brief import BriefBody, BriefError, Patch, RevisionMoved
 from tracker.picks.health import RunFact, health
 from tracker.picks.rules import ruled_out
+from tracker.settings_store import get_top_picks_settings, update_top_picks_settings
 
 pytestmark = pytest.mark.asyncio
 
@@ -151,6 +153,22 @@ async def test_a_base_floor_reads_only_a_yearly_band_in_its_own_currency(db_sess
     assert "senior" not in await _kept(db_session, _body({"form": "min_base", "amount": 250_000, "currency": "EUR"}))
 
 
+async def test_a_band_with_no_stated_period_reads_yearly_by_its_size_in_dollars(db_session, board):
+    # JPY 400,000 to 500,000 is about USD 3,000: no yearly pay is that small, so
+    # the band is not read as a year's base whatever its raw figure.
+    board["senior"].disclosed_currency, board["senior"].disclosed_pay_period = "JPY", None
+    board["senior"].disclosed_base_min, board["senior"].disclosed_base_max = 400_000, 500_000
+    # JPY 5,000,000 to 6,000,000 is about USD 40,000: a year's base, under the floor.
+    board["staff"].disclosed_currency, board["staff"].disclosed_pay_period = "JPY", None
+    board["staff"].disclosed_base_min, board["staff"].disclosed_base_max = 5_000_000, 6_000_000
+    await db_session.commit()
+
+    kept = await _kept(db_session, _body({"form": "min_base", "amount": 8_000_000, "currency": "JPY"}))
+
+    assert "senior" in kept, "a band too small for a year is not a yearly base below the floor"
+    assert "staff" not in kept
+
+
 async def test_a_total_floor_reads_the_total_band_and_leaves_base_bands_alone(db_session, board):
     kept = await _kept(db_session, _body({"form": "min_total", "amount": 250_000}))
 
@@ -174,6 +192,15 @@ async def test_a_places_rule_keeps_remote_only_where_remote_is_accepted_and_a_po
     assert "nopay" not in strict and "nopay" not in with_remote, "New York is not in the list"
     assert "principal" not in strict and "principal" in with_remote
     assert "total" in strict, "a posting that names no place is not ruled out by place"
+
+
+async def test_with_remote_accepted_a_posting_elsewhere_that_states_no_work_mode_is_kept(db_session, board):
+    board["nopay"].workplace_type = "unknown"
+    await db_session.commit()
+    here = {"form": "places", "places": ["silicon_valley"]}
+
+    assert "nopay" not in await _kept(db_session, _body(here)), "remote not accepted: New York is out"
+    assert "nopay" in await _kept(db_session, _body({**here, "remote_ok": True})), "it may be remote: the judge reads it"
 
 
 async def test_a_work_mode_rule_keeps_a_posting_that_states_no_mode(db_session, board):
@@ -220,6 +247,31 @@ async def test_the_queue_is_every_open_role_on_the_board_those_open_before_the_m
     assert set(waiting) == {"staff", "principal", "senior", "nopay", "total", "unplaced", "before_on"}
     # Each absent for its own reason: not followed, closed, out of scope, Not for me.
     assert not {"unfollowed", "closed", "out_of_scope", "dismissed"} & set(waiting)
+
+
+@pytest.mark.parametrize(("closest", "furthest"), [("principal", "staff"), ("staff", "principal")])
+async def test_the_queue_reads_the_closest_fit_first_and_a_role_with_no_embedding_last(
+    db_session, board, monkeypatch, closest, furthest,
+):
+    dim = get_settings().embedding_dim
+    intent = [1.0] + [0.0] * (dim - 1)
+
+    async def stored(_session):
+        return {"vector": intent}
+
+    async def composed(_session, statement):
+        return statement
+
+    monkeypatch.setattr(queue, "get_intent_embedding", stored)
+    monkeypatch.setattr(queue, "build_intent_vector", composed)
+    board[closest].embedding = intent
+    board[furthest].embedding = [0.0, 1.0] + [0.0] * (dim - 2)
+    await db_session.commit()
+
+    waiting = await _queue(db_session)
+    # Both orders are asked for, so the recency tie-break cannot pass for fit.
+    assert waiting[:2] == [closest, furthest]
+    assert len(waiting) == 7
 
 
 async def test_a_trial_takes_every_open_role_judged_or_not_and_still_none_the_board_hides(db_session, board):
@@ -288,6 +340,22 @@ async def test_one_verdict_covers_a_duplicate_stack_and_only_its_newest_posting_
     assert not {"staff", "senior"} & set(await _queue(db_session))
     # Control: a posting outside the stack is still waiting.
     assert "principal" in await _queue(db_session)
+
+
+async def test_a_newer_posting_the_board_does_not_show_never_stands_in_for_its_stack(db_session, board):
+    lineage = JobLineage(company="google", root_job_id=board["staff"].id, size=2, open_members=2,
+                         first_seen=NOW - timedelta(days=1), last_seen=NOW)
+    db_session.add(lineage)
+    await db_session.flush()
+    board["staff"].lineage_id, board["staff"].lineage_seq, board["staff"].lineage_role = lineage.id, 1, "original"
+    board["senior"].lineage_id, board["senior"].lineage_seq, board["senior"].lineage_role = lineage.id, 2, "repost"
+    db_session.add(JobFeedback(job_id=board["senior"].id, verdict="dismissed", reason="wrong_level"))
+    await db_session.commit()
+
+    waiting = await _queue(db_session)
+
+    assert "senior" not in waiting, "marked Not for me: off the Board"
+    assert "staff" in waiting, "the stack's newest posting the Board shows is judged"
 
 
 async def test_a_newer_brief_takes_a_second_look_only_where_it_could_change_the_answer(db_session, board):
@@ -369,6 +437,35 @@ async def test_items_get_ids_that_are_kept_and_never_given_to_another_item(db_se
     assert refused.value.code == "unknown_item"
 
 
+async def test_a_new_draft_beside_the_active_brief_counts_its_ids_on_from_it(db_session, scratch_scope):
+    await _patch(db_session, {"pulls": [{"text": "Owns a whole product"}, {"text": "A team that ships"}]},
+                 if_revision=0, activate=True)
+
+    draft = await _patch(db_session, {"pulls": [{"text": "AI as the product"}]}, if_revision=0, target="draft")
+
+    # p1 already names an item of the active brief, which a verdict may cite.
+    assert [pull["id"] for pull in draft.body["pulls"]] == ["p3"]
+
+
+async def test_a_brief_written_after_remove_takes_no_revision_one_read_before_it_held(
+    db_session, scratch_scope, tmp_path,
+):
+    await _patch(db_session, {"urgency": "open"}, if_revision=0, activate=True)
+    await mode.remove(db_session, NOW, directory=tmp_path)
+    await db_session.commit()
+
+    fresh = await _patch(db_session, {"urgency": "active"}, if_revision=0, activate=True)
+
+    assert fresh.revision == 2
+    with pytest.raises(RevisionMoved):
+        await briefs.patch(db_session, Patch(parts={"budget": 4}, reason="Read before Remove.", if_revision=1))
+    await db_session.rollback()
+    # A second Remove keeps the floor it found.
+    await mode.remove(db_session, NOW, directory=tmp_path)
+    await db_session.commit()
+    assert (await _patch(db_session, {"urgency": "open"}, if_revision=0)).revision == 3
+
+
 async def test_a_part_given_replaces_that_part_and_a_part_left_out_stays(db_session, scratch_scope):
     await _patch(db_session, {"urgency": "open", "budget": 5}, if_revision=0)
 
@@ -421,6 +518,12 @@ async def test_a_routine_write_cannot_change_a_hard_rule_and_the_same_write_by_t
     await db_session.rollback()
     assert refused.value.code == "needs_the_person" and refused.value.details == {"parts": ["rules"]}
     assert len((await briefs.active(db_session)).body["rules"]) == 1
+    # The summary is the person's own account of the brief, as the rules are.
+    with pytest.raises(BriefError) as summary:
+        await briefs.patch(db_session, Patch(parts={"pulls": [{"text": "Remote first"}]}, reason="Learned.",
+                                             if_revision=1, routine=True, summary="Wants remote above all."))
+    await db_session.rollback()
+    assert summary.value.code == "needs_the_person" and summary.value.details == {"parts": ["summary"]}
 
     learned = await _patch(
         db_session,
@@ -491,6 +594,49 @@ async def test_a_document_whose_write_rolls_back_leaves_no_file_and_a_committed_
     await db_session.commit()
     await db_session.rollback()
     assert stored is True and [item.name for item in tmp_path.iterdir()] == [row.stored_name]
+
+
+async def test_a_remove_that_rolled_back_leaves_rows_whose_file_the_same_bytes_put_back(
+    db_session, scratch_scope, tmp_path,
+):
+    content = b"%PDF-1.7 Dana Reyes"
+    row, _ = await background.store_document(db_session, filename="cv.pdf", content=content, now=NOW, directory=tmp_path)
+    await db_session.commit()
+    await background.remove_all(db_session, directory=tmp_path)
+    await db_session.rollback()
+    assert list(tmp_path.iterdir()) == [], "Remove deleted the file before its transaction failed"
+
+    again, stored = await background.store_document(db_session, filename="cv.pdf", content=content, now=NOW,
+                                                    directory=tmp_path)
+    await db_session.commit()
+
+    assert (again.id, stored) == (row.id, True)
+    assert (tmp_path / row.stored_name).read_bytes() == content
+
+
+async def test_a_document_whose_write_fails_leaves_no_part_of_it(db_session, scratch_scope, tmp_path, monkeypatch):
+    real = os.fdopen
+
+    class Full:
+        def __init__(self, descriptor, mode):
+            self.handle = real(descriptor, mode)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            self.handle.close()
+
+        def write(self, data):
+            self.handle.write(data[:4])
+            raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(background.os, "fdopen", Full)
+    with pytest.raises(OSError):
+        await background.store_document(db_session, filename="cv.pdf", content=b"%PDF-1.7 Dana Reyes", now=NOW,
+                                        directory=tmp_path)
+
+    assert list(tmp_path.iterdir()) == []
 
 
 async def test_remove_deletes_every_file_in_the_documents_folder_and_nothing_a_link_points_to(
@@ -576,6 +722,38 @@ async def test_a_run_left_open_past_the_bound_reads_as_abandoned_before_anything
 
     assert runs.as_fact(fresh, NOW).outcome is None
     assert runs.as_fact(stale, NOW).outcome == "abandoned"
+
+
+async def test_health_reads_the_run_that_ended_last_whichever_started_last(db_session, scratch_scope):
+    await update_top_picks_settings(db_session, state="on", enabled_at=NOW - timedelta(days=1))
+    db_session.add_all([
+        PickRun(id="run_early", brief_version=1, started_at=NOW - timedelta(minutes=50),
+                finished_at=NOW - timedelta(minutes=5), outcome="finished"),
+        PickRun(id="run_late", brief_version=1, started_at=NOW - timedelta(minutes=40),
+                finished_at=NOW - timedelta(minutes=20), outcome="stopped"),
+    ])
+    await db_session.commit()
+
+    standing = await mode.standing(db_session, await get_top_picks_settings(db_session), None, NOW)
+
+    assert standing.health == "healthy"
+    assert standing.newest.id == "run_late", "the newest run started is still the one shown"
+
+
+async def test_an_opening_that_reaches_the_lock_late_moves_nothing_back(db_session, scratch_scope):
+    await mode.mark_opened(db_session, NOW)
+    await mode.mark_opened(db_session, NOW - timedelta(minutes=2))
+
+    assert (await get_top_picks_settings(db_session)).last_opened_at == NOW
+    # Remove still clears it.
+    await update_top_picks_settings(db_session, last_opened_at=None)
+    assert (await get_top_picks_settings(db_session)).last_opened_at is None
+
+
+@pytest.mark.parametrize("cap", [2.5, True, 0, 5001])
+async def test_the_daily_limit_is_a_whole_number_in_range(db_session, scratch_scope, cap):
+    with pytest.raises(ValueError):
+        await update_top_picks_settings(db_session, daily_cap=cap)
 
 
 def _facts(**over) -> setup.Facts:

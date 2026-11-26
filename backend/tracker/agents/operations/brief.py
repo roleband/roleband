@@ -15,7 +15,7 @@ this holds the routine to its contract and is no security boundary.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, ValidationError
@@ -36,6 +36,7 @@ from tracker.db.models import PickBrief
 from tracker.picks import brief as store
 from tracker.picks import runs
 from tracker.picks.brief import ID_PREFIX, PARTS, BriefBody, BriefError, Patch, RevisionMoved
+from tracker.picks.lock import lock_picks
 from tracker.picks.runs import RunError
 
 _CODE: JsonDict = {"x-text": "code"}
@@ -248,9 +249,11 @@ def refusal(error: BriefError) -> OperationError:
 
 
 async def patch(session: AsyncSession, params: BriefPatchInput, *, host: str | None) -> BriefView:
+    # The picks lock before the run's row, in the order `picks.decide` takes them.
+    await lock_picks(session)
     if params.run is not None:
         try:
-            await runs.open_run(session, params.run)
+            await runs.open_run(session, params.run, datetime.now(UTC))
         except RunError as error:
             raise OperationError(
                 "invalid_input", error.message, details={"field": "run", "reason": error.code},
@@ -292,6 +295,7 @@ class BriefActivity:
     async def before(self, session: AsyncSession) -> str | None:
         """The status of the row the change writes, before it does: the draft
         when it names the draft or the engine would choose it, else the active brief."""
+        await lock_picks(session)
         draft, active = await store.draft(session), await store.active(session)
         target = self.target or ("draft" if draft is not None or active is None else "active")
         row = draft if target == "draft" else active

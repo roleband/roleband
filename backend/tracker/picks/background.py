@@ -155,16 +155,18 @@ async def store_document(
     held = await session.scalar(
         select(CandidateDocument).where(CandidateDocument.sha256 == digest, CandidateDocument.removed_at.is_(None))
     )
-    if held is not None:
-        return held, False
     folder = directory or documents_dir()
-    folder.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if held is not None:
+        # Remove deletes the files before its rows, so a Remove that rolled back
+        # leaves a row whose file is gone: the same bytes put it back under the
+        # id the readings name.
+        if (folder / held.stored_name).is_file():
+            return held, False
+        _write_new(folder / held.stored_name, content)
+        return held, True
     stored_name = f"{digest[:16]}-{secrets.token_hex(4)}{Path(name).suffix.lower()}"
     path = folder / stored_name
-    # Created for this account only, and never over a file already there.
-    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(descriptor, "wb") as handle:
-        handle.write(content)
+    _write_new(path, content)
     _unlink_unless_committed(session, path)
     row = CandidateDocument(
         filename=name[:255], media_type=media_type, size_bytes=len(content), sha256=digest,
@@ -177,6 +179,19 @@ async def store_document(
         path.unlink(missing_ok=True)
         raise
     return row, True
+
+
+def _write_new(path: Path, content: bytes) -> None:
+    """Write `content` to a file created for this account only, never over a
+    file already there; a write that fails leaves no part of it behind."""
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(content)
+    except BaseException:
+        path.unlink(missing_ok=True)
+        raise
 
 
 def _unlink_unless_committed(session: AsyncSession, path: Path) -> None:

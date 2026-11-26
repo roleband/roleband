@@ -177,8 +177,17 @@ class Routine(Shape):
 
 
 class Budget(Shape):
+    """How many picks a month a run keeps to, and how many this month holds."""
+
+    #: The active brief's: the number every run keeps to now.
     per_month: int
     picks_this_month: int
+
+
+class StatusBudget(Budget):
+    #: The draft's, while one is open: the number runs keep to once it is made
+    #: active. Null when there is no draft.
+    draft_per_month: int | None = None
 
 
 class RuleShareView(Shape):
@@ -203,7 +212,7 @@ class PicksStatus(Shape):
     known: Known
     brief: BriefState
     routine: Routine
-    budget: Budget
+    budget: StatusBudget
     #: A pick was made since the person last opened Top picks. Left out while
     #: they do not share their pursuits, since a removed pick does not count.
     unseen_pick: bool | None = None
@@ -785,7 +794,10 @@ async def status(session: AsyncSession, *, pursuits: bool, now: datetime | None 
             last_run=_last_run(newest, now) if newest is not None else None,
             waiting=stands.waiting, oldest_waiting_since=stands.oldest_waiting_since,
         ),
-        budget=Budget(per_month=writing.budget or DEFAULT_BUDGET, picks_this_month=len(month)),
+        budget=StatusBudget(
+            per_month=briefs.body_of(active).budget or DEFAULT_BUDGET, picks_this_month=len(month),
+            draft_per_month=(briefs.body_of(draft).budget or DEFAULT_BUDGET) if draft is not None else None,
+        ),
         unseen_pick=unseen,
         volume=VolumeView(
             expected_per_day=volume.expected_per_day, busiest_day=volume.busiest_day,
@@ -995,7 +1007,7 @@ async def decide(session: AsyncSession, params: DecideInput, *, now: datetime | 
     now = now or datetime.now(UTC)
     await lock_picks(session)
     try:
-        run = await runs.open_run(session, params.run)
+        run = await runs.open_run(session, params.run, now)
     except RunError as error:
         raise _run_refusal(error) from None
     if params.brief_version != run.brief_version:
@@ -1145,6 +1157,9 @@ class SwitchActivity:
     and after, or the settings changed when the mode stayed as it was."""
 
     async def before(self, session: AsyncSession) -> str:
+        # Under the lock `mode.change` takes, so the state read here is the one
+        # the write sees, not one a concurrent switch replaces in between.
+        await lock_picks(session)
         return (await get_top_picks_settings(session)).state
 
     def entry(self, before: object, result: BaseModel) -> Changed:

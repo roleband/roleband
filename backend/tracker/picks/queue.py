@@ -96,13 +96,15 @@ def closed_cases(active_version: int, now: datetime) -> Select[Any]:
     )
 
 
-def _newer_in_stack() -> ColumnElement[bool]:
-    """Another open, in-scope posting of this one's duplicate stack is newer."""
+def _newer_in_stack(filters: dict[str, Any]) -> ColumnElement[bool]:
+    """Another posting of this one's duplicate stack that the Board shows is
+    newer. A newer posting the Board does not show (marked Not for me, closed)
+    never stands in for one it does."""
+    on_board = apply_job_filters(select(Job.id), filters).correlate(None)
     return exists().where(
         Job.lineage_id.isnot(None),
         _PEER.lineage_id == Job.lineage_id,
-        _PEER.status == "open",
-        _PEER.in_scope.is_(True),
+        _PEER.id.in_(on_board),
         tuple_(func.coalesce(_PEER.lineage_seq, 0), _PEER.id) > tuple_(func.coalesce(Job.lineage_seq, 0), Job.id),
     )
 
@@ -121,7 +123,7 @@ def candidates(
 ) -> Select[Any]:
     """The postings an assistant would be asked about before any hard rule:
     steps 1 and 2 of the module's list."""
-    stmt = apply_job_filters(select(Job), filters).where(not_(_newer_in_stack()))
+    stmt = apply_job_filters(select(Job), filters).where(not_(_newer_in_stack(filters)))
     if trial:
         return stmt
     return stmt.where(not_(_case_closed(active_version, now)))

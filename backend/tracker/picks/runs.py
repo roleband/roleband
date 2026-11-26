@@ -101,13 +101,15 @@ async def begin(
     return run
 
 
-async def open_run(session: AsyncSession, run_id: str) -> PickRun:
-    """The run, locked, for a write that needs it open."""
+async def open_run(session: AsyncSession, run_id: str, now: datetime) -> PickRun:
+    """The run, locked, for a write that needs it open. A run open past
+    `ABANDONED_AFTER` reads as abandoned, so no write lands on it."""
     run = await session.scalar(select(PickRun).where(PickRun.id == run_id).with_for_update())
     if run is None:
         raise RunError("unknown_run", "There is no run by that id. Begin a run to get one.")
-    if run.outcome is not None:
-        raise RunError("run_closed", f"This run is closed ({run.outcome}). Begin a new run.")
+    outcome = as_fact(run, now).outcome
+    if outcome is not None:
+        raise RunError("run_closed", f"This run is closed ({outcome}). Begin a new run.")
     return run
 
 
@@ -119,7 +121,7 @@ async def finish(
     session: AsyncSession, run_id: str, *, outcome: str, note: str | None, tokens: int | None, now: datetime,
 ) -> PickRun:
     await lock_picks(session)
-    run = await open_run(session, run_id)
+    run = await open_run(session, run_id, now)
     run.outcome, run.finished_at, run.note, run.tokens = outcome, now, note, tokens
     await session.flush()
     return run

@@ -18,6 +18,7 @@ from sqlalchemy import ColumnElement, and_, case, false, func, not_, or_
 
 from tracker.db.models import Job
 from tracker.db.queries.scope import unplaced_level_expr
+from tracker.pay_numbers import USD_PER_UNIT
 from tracker.pay_period import SIZE_CLASSES
 from tracker.picks.brief import (
     AvoidCompanies,
@@ -41,6 +42,8 @@ def _stated_top(entity: Any, basis: str, currency: str) -> ColumnElement[Any]:
     states none in `currency`. A band with no top ("from $150,000", or a
     figure stored only as its minimum) rules nothing out: the judge reads it."""
     top = entity.disclosed_base_max
+    # The floor is in US dollars; the band is in `currency`, sized as `size_classes` sizes it.
+    yearly_floor = _YEARLY_FLOOR / USD_PER_UNIT.get(currency, 1.0)
     return case(
         (
             and_(
@@ -49,7 +52,7 @@ def _stated_top(entity: Any, basis: str, currency: str) -> ColumnElement[Any]:
                 or_(
                     entity.disclosed_pay_period == "year",
                     # A band with no stored period reads yearly when only a year can hold it.
-                    and_(entity.disclosed_pay_period.is_(None), top >= _YEARLY_FLOOR),
+                    and_(entity.disclosed_pay_period.is_(None), top >= yearly_floor),
                 ),
             ),
             top,
@@ -68,7 +71,9 @@ def _excludes(check: Any, entity: Any) -> ColumnElement[Any]:
             func.cardinality(entity.location_groups) > 0,
             not_(entity.location_groups.op("&&")(list(check.places))),
         )
-        return and_(elsewhere, entity.workplace_type != "remote") if check.remote_ok else elsewhere
+        # With remote allowed, only a posting that states it is not remote is out.
+        stated_not_remote = entity.workplace_type.notin_(["remote", "unknown"])
+        return and_(elsewhere, stated_not_remote) if check.remote_ok else elsewhere
     if isinstance(check, WorkModes):
         return and_(entity.workplace_type != "unknown", entity.workplace_type.notin_(list(check.modes)))
     if isinstance(check, MinLevel):

@@ -15,7 +15,7 @@ import threading
 
 import pytest
 
-from tracker.agents.operations.background import BACKGROUND_ADD_DOCUMENT
+from tracker.agents.operations.background import BACKGROUND_ADD_DOCUMENT, MAX_DOCUMENT_BODY_BYTES
 from tracker.agents.operations.outcomes import EXIT_INVALID, outcome
 from tracker.cli import commands
 from tracker.cli.errors import ClientError
@@ -66,6 +66,22 @@ def test_the_client_reads_no_more_than_the_engine_stores(tmp_path, monkeypatch):
 
     assert base64.b64decode(_payload("--file", str(fits))["content_base64"]) == CV
     assert "larger than" in _refused("--file", str(over)).message
+
+
+def test_a_file_given_in_input_has_the_room_the_engine_gives_that_command(tmp_path, monkeypatch):
+    assert commands.MAX_FILE_INPUT_BYTES == MAX_DOCUMENT_BODY_BYTES
+    # A file well within what the engine stores, larger than any other command's input once in base64.
+    cv = CV + b"\x00" * (900 * 1024)
+    document = {"filename": "cv.pdf", "content_base64": base64.b64encode(cv).decode()}
+    path = tmp_path / "input.json"
+    path.write_text(json.dumps(document))
+    assert path.stat().st_size > commands.MAX_INPUT_BYTES
+
+    assert _payload("--input", f"@{path}") == document
+    with pytest.raises(ClientError, match="larger than"):
+        commands.read_input(f"@{path}")  # another command's bound
+    monkeypatch.setattr(commands, "MAX_FILE_INPUT_BYTES", path.stat().st_size - 1)
+    assert "larger than" in _refused("--input", f"@{path}").message
 
 
 def test_a_file_that_is_missing_or_empty_is_refused_before_anything_is_sent(tmp_path):

@@ -206,9 +206,14 @@ class BackgroundActivity:
 
     def entry(self, before: object, result: BaseModel) -> Changed:
         if isinstance(result, DocumentAdded):
-            return Changed(Said(
-                "background.document_added", "Stored a document about you", {"filename": result.document.filename},
-            ))
+            # A file's name can carry the person's own, and Activity is append-only,
+            # so Remove could not take it back: the entry names the document by id.
+            if not result.stored:
+                return Changed(Said(
+                    "background.document_known", "Found that document about you already stored",
+                    {"document": result.document.id},
+                ))
+            return Changed(Said("background.document_added", "Stored a document about you", {"document": result.document.id}))
         if not isinstance(result, BackgroundView):
             raise TypeError(f"a background write answers BackgroundView, not {type(result).__name__}")
         english = "Saved your background, confirmed by you" if result.confirmed else "Saved a reading of your background"

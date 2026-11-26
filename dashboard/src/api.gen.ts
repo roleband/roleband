@@ -5345,13 +5345,6 @@ export interface components {
             /** Url */
             url: string;
         };
-        /** Budget */
-        Budget: {
-            /** Per Month */
-            per_month: number;
-            /** Picks This Month */
-            picks_this_month: number;
-        };
         /** CalendarInterview */
         CalendarInterview: {
             /** All Day */
@@ -13218,7 +13211,7 @@ export interface components {
         /** PicksStatus */
         PicksStatus: {
             brief: components["schemas"]["BriefState"];
-            budget: components["schemas"]["Budget"];
+            budget: components["schemas"]["StatusBudget"];
             known: components["schemas"]["Known"];
             routine: components["schemas"]["Routine"];
             setup: components["schemas"]["SetupProgress"];
@@ -16793,6 +16786,15 @@ export interface components {
             review_pending: number;
             /** Saved Total */
             saved_total: number;
+        };
+        /** StatusBudget */
+        StatusBudget: {
+            /** Draft Per Month */
+            draft_per_month?: number | null;
+            /** Per Month */
+            per_month: number;
+            /** Picks This Month */
+            picks_this_month: number;
         };
         /** StatusResult */
         StatusResult: {

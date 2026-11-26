@@ -48,6 +48,9 @@ MAX_INPUT_BYTES = 1024 * 1024
 _BODY_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 #: The largest file `--file` sends, as the engine stores.
 MAX_FILE_BYTES = 10 * 1024 * 1024
+#: The most `--input` may hold for a command that carries a file: the file in
+#: base64 and room for the rest, as the engine accepts for that operation.
+MAX_FILE_INPUT_BYTES = MAX_FILE_BYTES * 4 // 3 + 64 * 1024
 #: The input fields `--file` fills: the file's name and its bytes in base64.
 FILE_FIELDS = ("filename", "content_base64")
 
@@ -330,7 +333,8 @@ def payload(command: Command, args: argparse.Namespace, *, stdin: Any = None) ->
     }
     data: dict[str, Any] = {}
     if args.input_source is not None:
-        data = read_input(args.input_source, stdin=stdin)
+        limit = MAX_FILE_INPUT_BYTES if command.reads_file else MAX_INPUT_BYTES
+        data = read_input(args.input_source, stdin=stdin, limit=limit)
         if overlap := [(option, name) for option, (name, _) in given.items() if name in data]:
             names = ", ".join(name for _, name in overlap)
             raise ClientError(
@@ -480,22 +484,23 @@ else:
         return _STDIN_PEEK_BYTES if select.select([descriptor], [], [], 0)[0] else 0
 
 
-def read_input(source: str, *, stdin: Any = None) -> dict[str, Any]:
+def read_input(source: str, *, stdin: Any = None, limit: int = MAX_INPUT_BYTES) -> dict[str, Any]:
     if source == "-":
         stream = stdin if stdin is not None else sys.stdin
-        raw = stream.buffer.read(MAX_INPUT_BYTES + 1) if hasattr(stream, "buffer") else stream.read().encode("utf-8")
+        raw = stream.buffer.read(limit + 1) if hasattr(stream, "buffer") else stream.read().encode("utf-8")
     elif source.startswith("@") and len(source) > 1:
         try:
             with open(source[1:], "rb") as handle:
-                raw = handle.read(MAX_INPUT_BYTES + 1)
+                raw = handle.read(limit + 1)
         except OSError as error:
             raise ClientError(
                 "invalid_arguments", f"--input cannot read {source[1:]!r}.", details={"reason": type(error).__name__}
             ) from None
     else:
         raise ClientError("invalid_arguments", "--input takes @FILE, or - for standard input.")
-    if len(raw) > MAX_INPUT_BYTES:
-        raise ClientError("invalid_arguments", "--input is larger than the engine accepts (1 MiB).")
+    if len(raw) > limit:
+        mib = f"{limit / (1024 * 1024):.1f}".removesuffix(".0")
+        raise ClientError("invalid_arguments", f"--input is larger than the engine accepts here ({mib} MiB).")
     try:
         document = json.loads(raw.decode("utf-8"), object_pairs_hook=_unique)
     except (UnicodeDecodeError, ValueError):

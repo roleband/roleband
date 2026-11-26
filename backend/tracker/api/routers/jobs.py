@@ -75,6 +75,7 @@ from tracker.db.queries.jobs import (
     list_rows,
     open_in_scope_count_stmt,
     place_facet_count_stmt,
+    roles_within_count_stmt,
     row_context,
     unclassified_domain_count_stmt,
 )
@@ -707,7 +708,6 @@ async def facets(session: SessionDep, hidden: OffBoardDep, top_picks: bool = Fal
     off_board = set(hidden)
     by_company = await grouped(Job.company)
     by_family, by_track = await grouped(Job.family), await grouped(Job.track)
-    narrowed = [Job.id.in_(within)] if within is not None else []
     return {
         "companies": {
             slug: option
@@ -755,7 +755,9 @@ async def facets(session: SessionDep, hidden: OffBoardDep, top_picks: bool = Fal
         # counts use. A facet VALUE whose count equals this narrows nothing
         # (a broad region can match the entire board), and an option that cannot narrow is noise in a column whose whole job
         # is narrowing.
-        "total": await session.scalar(open_in_scope_count_stmt(hidden, *narrowed)) or 0,
+        "total": await session.scalar(
+            open_in_scope_count_stmt(hidden) if within is None else roles_within_count_stmt(hidden, within)
+        ) or 0,
         "counts": {
             "company": by_company,
             # A posting that names no level counts under `unstated`, never

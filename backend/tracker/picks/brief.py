@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tracker.db.models import PickBrief, PickRun
 from tracker.picks.lock import lock_picks
 from tracker.schema import LEVEL_BAND_ORDER, WorkplaceType
+from tracker.settings_store import get_top_picks_settings
 
 Urgency = Literal["not_looking", "open", "active", "between_roles"]
 MadeBy = Literal["person", "routine"]
@@ -347,8 +348,14 @@ async def _next_revision(session: AsyncSession) -> int:
     """A revision no row of the brief has held. A replacement or a new draft
     takes one too, so the revision a caller read never names another row:
     a change stated against a version that has since been replaced is
-    refused, not applied to its replacement."""
-    return int(await session.scalar(select(func.coalesce(func.max(PickBrief.revision), 0))) or 0) + 1
+    refused, not applied to its replacement. Remove deletes the rows and
+    keeps the highest revision they held as a floor, so this holds across it."""
+    return max(await highest_revision(session), (await get_top_picks_settings(session)).brief_revision_floor) + 1
+
+
+async def highest_revision(session: AsyncSession) -> int:
+    """The highest revision any row of the brief holds, 0 with none."""
+    return int(await session.scalar(select(func.coalesce(func.max(PickBrief.revision), 0))) or 0)
 
 
 def _stored(row: PickBrief | None) -> dict[str, Any]:
@@ -373,6 +380,9 @@ async def patch(session: AsyncSession, change: Patch) -> PickBrief:
             "proposed_rules, or ask the person in a chat.",
             parts=kept,
         )
+    if change.routine and change.summary is not None:
+        raise BriefError("needs_the_person", "A routine run cannot change the summary: only the person does.",
+                         parts=["summary"])
     if change.routine and change.activate:
         raise BriefError("needs_the_person", "Only the person makes a draft the active brief.", parts=["activate"])
     if not change.parts and change.summary is None and not change.activate:
@@ -403,8 +413,10 @@ async def patch(session: AsyncSession, change: Patch) -> PickBrief:
         return row
     if held_draft is None:
         _same_revision(0, change.if_revision)
+        # Counted on from the active brief's ids, so no id names two items.
+        counters = {"ids": dict(_stored(held_active).get("ids") or {})}
         held_draft = PickBrief(
-            version=await _next_version(session), status="draft", body=_applied({}, change.parts),
+            version=await _next_version(session), status="draft", body=_applied(counters, change.parts),
             summary=change.summary or "", reason=change.reason, made_by=made_by, host=change.host,
             revision=await _next_revision(session),
         )

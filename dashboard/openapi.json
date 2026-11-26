@@ -2687,25 +2687,6 @@
     "title": "BrowserTicket",
     "type": "object"
    },
-   "Budget": {
-    "additionalProperties": false,
-    "properties": {
-     "per_month": {
-      "title": "Per Month",
-      "type": "integer"
-     },
-     "picks_this_month": {
-      "title": "Picks This Month",
-      "type": "integer"
-     }
-    },
-    "required": [
-     "per_month",
-     "picks_this_month"
-    ],
-    "title": "Budget",
-    "type": "object"
-   },
    "CalendarInterview": {
     "additionalProperties": false,
     "properties": {
@@ -28577,7 +28558,7 @@
       "$ref": "#/components/schemas/BriefState"
      },
      "budget": {
-      "$ref": "#/components/schemas/Budget"
+      "$ref": "#/components/schemas/StatusBudget"
      },
      "known": {
       "$ref": "#/components/schemas/Known"
@@ -39672,6 +39653,36 @@
      "by_company"
     ],
     "title": "StatsResponse",
+    "type": "object"
+   },
+   "StatusBudget": {
+    "additionalProperties": false,
+    "properties": {
+     "draft_per_month": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Draft Per Month"
+     },
+     "per_month": {
+      "title": "Per Month",
+      "type": "integer"
+     },
+     "picks_this_month": {
+      "title": "Picks This Month",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "per_month",
+     "picks_this_month"
+    ],
+    "title": "StatusBudget",
     "type": "object"
    },
    "StatusResult": {

@@ -996,6 +996,9 @@ class TopPicksSettings:
     daily_cap: int = DAILY_CAP_DEFAULT
     #: When the person last opened Top picks: a pick made after it is unseen.
     last_opened_at: datetime | None = None
+    #: The highest revision a removed brief held. A brief written after Remove
+    #: takes revisions past it, so a change read before Remove names no row.
+    brief_revision_floor: int = 0
 
 
 def _top_picks_from(value: object) -> TopPicksSettings:
@@ -1006,6 +1009,7 @@ def _top_picks_from(value: object) -> TopPicksSettings:
     state = value.get("state")
     routine = value.get("routine") if isinstance(value.get("routine"), dict) else {}
     cap = value.get("daily_cap")
+    floor = value.get("brief_revision_floor")
     host, schedule = routine.get("host"), routine.get("schedule")
     return TopPicksSettings(
         state=state if state in TOP_PICKS_STATES else "never_set_up",
@@ -1015,6 +1019,7 @@ def _top_picks_from(value: object) -> TopPicksSettings:
         daily_cap=cap if isinstance(cap, int) and not isinstance(cap, bool) and 1 <= cap <= DAILY_CAP_MAX
         else DAILY_CAP_DEFAULT,
         last_opened_at=_when(value.get("last_opened_at")),
+        brief_revision_floor=floor if isinstance(floor, int) and not isinstance(floor, bool) and floor > 0 else 0,
     )
 
 
@@ -1028,10 +1033,16 @@ async def update_top_picks_settings(session: AsyncSession, **changes: Any) -> To
     Raises ValueError for a state or a cap the row cannot hold."""
     await advisory_xact_lock(session, TOP_PICKS_LOCK_KEY)
     row = await session.get(AppSetting, TOP_PICKS_KEY, populate_existing=True)
-    settings = replace(_top_picks_from(row.value if row is not None else None), **changes)
+    stored = _top_picks_from(row.value if row is not None else None)
+    opened = changes.get("last_opened_at")
+    if opened is not None and stored.last_opened_at is not None and opened < stored.last_opened_at:
+        # Openings reach the lock in any order: an earlier one arriving late moves nothing back.
+        changes = {**changes, "last_opened_at": stored.last_opened_at}
+    settings = replace(stored, **changes)
     if settings.state not in TOP_PICKS_STATES:
         raise ValueError(f"unknown top picks state: {settings.state!r}")
-    if isinstance(settings.daily_cap, bool) or not 1 <= settings.daily_cap <= DAILY_CAP_MAX:
+    cap = settings.daily_cap
+    if not isinstance(cap, int) or isinstance(cap, bool) or not 1 <= cap <= DAILY_CAP_MAX:
         raise ValueError(f"the daily cap is 1 to {DAILY_CAP_MAX}")
     await set_setting_dict(session, TOP_PICKS_KEY, {
         "state": settings.state,
@@ -1039,6 +1050,7 @@ async def update_top_picks_settings(session: AsyncSession, **changes: Any) -> To
         "routine": {"host": settings.routine_host, "schedule": settings.schedule},
         "daily_cap": settings.daily_cap,
         "last_opened_at": settings.last_opened_at.isoformat() if settings.last_opened_at else None,
+        "brief_revision_floor": settings.brief_revision_floor,
     })
     return settings
 

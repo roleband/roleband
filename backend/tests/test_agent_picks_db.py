@@ -31,6 +31,8 @@ from tracker.db.models import (
     Favorite,
     Job,
     JobFeedback,
+    JobPlaceSet,
+    JobPlaceSetMember,
     PickBrief,
     PickRun,
     PickVerdict,
@@ -41,6 +43,7 @@ from tracker.picks import background as background_store
 from tracker.picks import brief as briefs
 from tracker.picks.background import Reading
 from tracker.picks.brief import Patch
+from tracker.picks.health import ABANDONED_AFTER
 from tracker.picks.verdicts import REASON_MAX
 from tracker.platform import agent_hosts
 from tracker.settings_store import get_top_picks_settings, update_top_picks_settings
@@ -178,6 +181,8 @@ async def _verdicts(db_session) -> list[PickVerdict]:
 async def _outcomes(api_client, run: dict, verdicts: list[dict]) -> dict[int, str | None]:
     """Each posting's refusal code, or None when its verdict was saved."""
     data = _data(*await _decide(api_client, run, verdicts))
+    # One result for each posting sent, none twice and none left out.
+    assert sorted(item["job"] for item in data["results"]) == sorted(verdict["job"] for verdict in verdicts)
     for item in data["results"]:
         assert (item["outcome"], item["refusal"] is None) in {("saved", True), ("refused", False)}, item
     return {item["job"]: item["refusal"] for item in data["results"]}
@@ -481,6 +486,26 @@ async def test_a_closed_or_unknown_run_takes_no_verdict(api_client, db_session, 
     status = _data(*await _read(api_client, "/picks/status"))
     assert status["routine"]["health"] == "stopped_early"
     assert status["routine"]["last_run"]["note"] == "The plan's limit was reached."
+
+
+async def test_a_run_open_past_the_bound_reads_as_abandoned_and_takes_no_write(api_client, db_session, workspace):
+    jobs = workspace["jobs"]
+    run = await _begin(api_client)
+    await db_session.execute(update(PickRun).where(PickRun.id == run["run"]).values(
+        started_at=datetime.now(UTC) - ABANDONED_AFTER - timedelta(minutes=1),
+    ))
+    await db_session.commit()
+
+    for answer in (
+        await _write(api_client, "POST", "/picks/runs/finish", {"run": run["run"], "outcome": "finished"}),
+        await _decide(api_client, run, [_pick(jobs["staff"])]),
+        await _write(api_client, "PATCH", "/brief", {
+            "if_revision": 1, "reason": "A pull.", "run": run["run"], "pulls": [{"text": "Payments"}],
+        }),
+    ):
+        assert _refused(*answer, "invalid_input")["details"]["reason"] == "run_closed"
+    assert await _verdicts(db_session) == []
+    assert _data(*await _read(api_client, "/picks/status"))["routine"]["health"] == "stopped_early"
     # A run begun since and still open says nothing yet of how it will end.
     await _begin(api_client)
     assert _data(*await _read(api_client, "/picks/status"))["routine"]["health"] == "stopped_early"
@@ -541,6 +566,18 @@ async def test_a_change_to_the_active_brief_beside_a_draft_is_listed_as_a_change
             select(AgentActivity).where(AgentActivity.operation == "brief.patch").order_by(AgentActivity.id.desc())
         )
     assert activated.summary.startswith("Made your top picks brief active")
+
+
+async def test_the_status_budget_is_the_one_runs_keep_to_with_a_drafts_beside_it(api_client, workspace):
+    _data(*await _write(api_client, "PATCH", "/brief", {
+        "if_revision": 0, "target": "draft", "reason": "A wider net.", "budget": 8,
+    }))
+
+    status = _data(*await _read(api_client, "/picks/status"))
+    run = await _begin(api_client)
+
+    assert status["budget"]["per_month"] == run["budget"]["per_month"] == 3, "the active brief governs the run"
+    assert status["budget"]["draft_per_month"] == 8
 
 
 async def test_the_suggested_check_times_are_the_half_hours_just_after_scans_most_often_end(db_session, monkeypatch):
@@ -728,7 +765,7 @@ async def test_status_says_what_the_app_already_knows_and_what_waits(api_client,
     status = _data(*await _read(api_client, "/picks/status"))
 
     assert status["routine"]["waiting"] == 3 and status["routine"]["health"] == "never_ran"
-    assert status["budget"] == {"per_month": 3, "picks_this_month": 0}
+    assert status["budget"] == {"per_month": 3, "picks_this_month": 0, "draft_per_month": None}
     assert status["known"]["has_background"] is True and status["known"]["background_confirmed"] is True
     assert (status["known"]["saved"], status["known"]["not_for_me"]) == (1, 0)
     # Four roles arrived on one day; the floor rules out the one under it.
@@ -882,13 +919,22 @@ async def test_a_revision_read_from_a_replaced_brief_never_applies_to_its_replac
         "if_revision": draft["revision"], "reason": "The person confirmed it.", "activate": True,
     }))
     assert made["status"] == "active" and made["revision"] not in (1, first["revision"])
-    _refused(*await _write(api_client, "PATCH", "/brief", {
+    # With a draft beside it, the retry reads the brief the change named, not the draft.
+    _data(*await _write(api_client, "PATCH", "/brief", {
+        "if_revision": 0, "target": "draft", "reason": "Another draft.", "budget": 1,
+    }))
+    conflict = _refused(*await _write(api_client, "PATCH", "/brief", {
         "if_revision": first["revision"], "target": "active", "reason": "Budget.", "budget": 9,
     }), "revision_conflict")
+    assert conflict["next_actions"] == [{"operation": "brief.get", "arguments": {"which": "active"}}]
+    assert conflict["details"]["current_revision"] == made["revision"]
+    stale = _refused(*await _write(api_client, "PATCH", "/brief", {"if_revision": 1, "reason": "Budget.", "budget": 9}),
+                     "revision_conflict")
+    assert stale["next_actions"] == [{"operation": "brief.get", "arguments": {}}]
 
     # Stated against what it read, a change lands.
     assert _data(*await _write(api_client, "PATCH", "/brief", {
-        "if_revision": made["revision"], "reason": "Budget.", "budget": 4,
+        "if_revision": made["revision"], "target": "active", "reason": "Budget.", "budget": 4,
     }))["body"]["budget"] == 4
 
 
@@ -931,6 +977,14 @@ async def test_a_document_larger_than_the_usual_body_is_stored_and_no_other_oper
     async with _fresh(db_session) as session:
         row = await session.scalar(select(CandidateDocument))
     assert (tmp_path / row.stored_name).read_bytes() == content
+    # The same file again, under a new key, is that document; Activity says nothing new was stored.
+    again = _data(*await _write(api_client, "POST", "/background/documents", body))
+    assert (again["stored"], again["document"]["id"]) == (False, added["document"]["id"])
+    async with _fresh(db_session) as session:
+        logged = (await session.scalars(
+            select(AgentActivity).where(AgentActivity.operation == "background.add_document").order_by(AgentActivity.id)
+        )).all()
+    assert [row.subject["topic"] for row in logged] == ["background.document_added", "background.document_known"]
     # The larger bound is this operation's alone: another is refused for its size, before its shape is read.
     oversized = _refused(*await _write(api_client, "PUT", "/background", {
         "reading": {"scope": "x"}, "source": "spoken", "padding": "x" * MAX_BODY_BYTES,
@@ -1268,6 +1322,13 @@ async def test_remove_deletes_the_cv_the_reading_and_the_brief_and_nothing_else(
     assert {row.operation for row in receipts} == {"picks.decide"}, "other receipts stay"
     assert finished.note is None and finished.outcome == "finished"
     assert not any(word in str([row.result for row in receipts]) for word in ("210", "Senior Product Manager", "Dana"))
+    # Activity is kept, and never held the file's name, which can be the person's own.
+    async with _fresh(db_session) as session:
+        logged = (await session.scalars(
+            select(AgentActivity).where(AgentActivity.operation == "background.add_document")
+        )).all()
+    assert [row.subject for row in logged] == [{"topic": "background.document_added", "document": added["document"]["id"]}]
+    assert "Dana" not in str([(row.subject, row.changes) for row in logged])
     assert _data(*await _read(api_client, "/picks"))["picks"] == [], "a pick with nothing left to say is no pick"
     assert (await api_client.get("/api/picks/removed")).json() == {"picks": []}
     assert (left_open.outcome, left_open.note) == ("abandoned", "Top picks was removed.")
@@ -1359,13 +1420,13 @@ async def test_the_first_run_after_setup_reads_the_roles_already_open_and_a_resu
     ])
     _data(*await _write(api_client, "POST", "/picks/runs/finish", {"run": first["run"], "outcome": "finished"}))
 
-    await api_client.put("/api/picks/mode", json={"state": "off"})
+    assert (await api_client.put("/api/picks/mode", json={"state": "off"})).json()["state"] == "off"
     arrived = make_job("arrived", company="stripe", title="Principal Product Manager, Identity",
                        level_band="principal", first_seen=datetime.now(UTC), last_seen=datetime.now(UTC),
                        content_hash="h-arrived")
     db_session.add(arrived)
     await db_session.commit()
-    await api_client.put("/api/picks/mode", json={"state": "on"})
+    assert (await api_client.put("/api/picks/mode", json={"state": "on"})).json()["state"] == "on"
 
     resumed = await _begin(api_client)
     assert [posting["job"] for posting in resumed["batch"]] == [arrived.id], "seen during the pause, read after it"
@@ -1554,6 +1615,36 @@ async def test_the_filter_options_of_the_picks_offer_only_what_the_picks_contain
     await api_client.put(f"/api/jobs/{workspace['jobs']['staff']}/feedback", json={"verdict": "dismissed"})
     removed = (await api_client.get("/api/facets", params={"top_picks": True})).json()
     assert (removed["total"], removed["counts"]["company"], set(removed["companies"])) == (1, {"stripe": 1}, {"stripe"})
+
+
+async def test_the_picks_total_counts_a_place_set_through_its_picked_member(api_client, db_session, workspace):
+    jobs = workspace["jobs"]
+    await _judged(api_client, workspace)
+    # The staff pick turns out to be one place of a role listed at two, and the
+    # other place was seen first: it would stand for the role on the Radar.
+    async with _fresh(db_session) as session:
+        elsewhere = make_job(
+            "staff-nyc", title="Staff Product Manager, Pricing", first_seen=workspace["now"] - timedelta(days=1),
+            last_seen=workspace["now"], content_hash="h-staff-nyc", locations=["New York, NY, USA"],
+            location_groups=["nyc"],
+        )
+        session.add(elsewhere)
+        place_set = JobPlaceSet(company="google", title="staff product manager pricing", text_hash="0" * 32, size=2,
+                                places=["New York, NY, USA", "Mountain View, CA, USA"], rule_version="t1")
+        session.add(place_set)
+        await session.flush()
+        session.add_all([JobPlaceSetMember(job_id=job_id, set_id=place_set.id, status="auto")
+                         for job_id in (elsewhere.id, jobs["staff"])])
+        await session.commit()
+
+    picks = await _radar(api_client, top_picks=True)
+    facets = (await api_client.get("/api/facets", params={"top_picks": True})).json()
+
+    assert {row["id"] for row in picks["items"]} == {jobs["staff"], jobs["principal"]}
+    assert facets["total"] == picks["total"] == 2
+    assert facets["counts"]["company"] == {"google": 1, "stripe": 1}
+    # Control: the Radar's own total counts the role once too.
+    assert (await api_client.get("/api/facets")).json()["total"] == 4
 
 
 async def test_the_state_says_how_the_checks_stand_and_what_the_week_held(api_client, db_session, workspace, monkeypatch):

@@ -242,6 +242,14 @@ def _roles_per_value(value, hidden: list[str], within: Select | None = None) -> 
     return select(sub.c.value, func.count(func.distinct(sub.c.role))).group_by(sub.c.value)
 
 
+def roles_within_count_stmt(hidden: list[str], within: Select) -> Select:
+    """Open roles among the postings `within`, a place set once, counted by
+    the members that are in it: the total the facet counts of a part of the
+    Board are read against, so it matches the rows the list shows."""
+    sub = _open_members([], hidden, within).subquery()
+    return select(func.count(func.distinct(sub.c.role)))
+
+
 def facet_count_stmt(column, hidden: list[str], within: Select | None = None) -> Select:
     """Open roles per value of `column`: the count beside a filter option is
     the rows that option lists, so a place set counts once, under

@@ -140,6 +140,9 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     bind = op.get_bind()
+    # Writers wait until the migration commits, so a row written after its count
+    # cannot be dropped unseen.
+    bind.execute(sa.text(f"LOCK TABLE {', '.join(_TABLES)}, job_feedback IN SHARE MODE"))
     held = {table: bind.execute(sa.text(f"SELECT count(*) FROM {table}")).scalar_one() for table in _TABLES}
     words = bind.execute(sa.text("SELECT count(*) FROM job_feedback WHERE reason_text IS NOT NULL")).scalar_one()
     if kept := {table: count for table, count in held.items() if count}:

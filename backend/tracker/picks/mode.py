@@ -77,13 +77,14 @@ async def remove(session: AsyncSession, now: datetime, *, directory: Path | None
     await runs.forget_notes(session)
     await runs.close_open(session, now, note="Top picks was removed.")
     readings, documents = await background.remove_all(session, directory=directory)
+    floor = max((await get_top_picks_settings(session)).brief_revision_floor, await briefs.highest_revision(session))
     removed = Removed(
         briefs=await briefs.remove_all(session), readings=readings, documents=documents,
         verdicts=await verdicts.forget_reasons(session, now),
     )
     await update_top_picks_settings(
         session, state="never_set_up", enabled_at=None, routine_host=None, schedule=None,
-        daily_cap=DAILY_CAP_DEFAULT, last_opened_at=None,
+        daily_cap=DAILY_CAP_DEFAULT, last_opened_at=None, brief_revision_floor=floor,
     )
     return removed
 
@@ -116,10 +117,11 @@ async def standing(
         )
     newest = await runs.newest_routine_run(session)
     finished = await runs.last_finished(session)
-    # Health reads the newest closed run. A run still open says nothing of how
-    # the last one ended, unless it is overdue and so reads as abandoned.
+    # Health reads the run that ended last, whichever started last. A run still
+    # open says nothing of how the last one ended, unless it is overdue and so
+    # reads as abandoned.
     fact = runs.as_fact(newest, now) if newest is not None else None
-    if fact is not None and fact.outcome is None:
+    if fact is not None and not (newest is not None and newest.outcome is None and fact.outcome is not None):
         closed = await runs.newest_closed_routine_run(session)
         fact = runs.as_fact(closed, now) if closed is not None else None
     return Standing(

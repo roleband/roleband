@@ -1009,7 +1009,9 @@ async def brief_patch(
     params = op.input_as(brief.BriefPatchInput)
     return await op.write(
         lambda: brief.patch(op.session, params, host=op.host),
-        on_revision_conflict=[NextAction(operation=brief.BRIEF_GET.id, arguments={})],
+        on_revision_conflict=[NextAction(
+            operation=brief.BRIEF_GET.id, arguments={"which": params.target} if params.target else {},
+        )],
         described=brief.BriefActivity(tuple(sorted(params.model_fields_set & set(brief.PARTS))), params.target),
     )
 

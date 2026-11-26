@@ -19863,25 +19863,6 @@
       "title": "BriefState",
       "type": "object"
      },
-     "Budget": {
-      "additionalProperties": false,
-      "properties": {
-       "per_month": {
-        "title": "Per Month",
-        "type": "integer"
-       },
-       "picks_this_month": {
-        "title": "Picks This Month",
-        "type": "integer"
-       }
-      },
-      "required": [
-       "per_month",
-       "picks_this_month"
-      ],
-      "title": "Budget",
-      "type": "object"
-     },
      "Known": {
       "additionalProperties": false,
       "description": "What the app already holds about the person, so setup never asks for it.",
@@ -20257,6 +20238,37 @@
       "title": "SetupStep",
       "type": "object"
      },
+     "StatusBudget": {
+      "additionalProperties": false,
+      "properties": {
+       "draft_per_month": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Draft Per Month"
+       },
+       "per_month": {
+        "title": "Per Month",
+        "type": "integer"
+       },
+       "picks_this_month": {
+        "title": "Picks This Month",
+        "type": "integer"
+       }
+      },
+      "required": [
+       "per_month",
+       "picks_this_month"
+      ],
+      "title": "StatusBudget",
+      "type": "object"
+     },
      "VolumeView": {
       "additionalProperties": false,
       "description": "How many roles a day the hard rules leave for the judge, from recent\narrivals, the draft's rules included during setup.",
@@ -20297,7 +20309,7 @@
       "$ref": "#/$defs/BriefState"
      },
      "budget": {
-      "$ref": "#/$defs/Budget"
+      "$ref": "#/$defs/StatusBudget"
      },
      "known": {
       "$ref": "#/$defs/Known"
