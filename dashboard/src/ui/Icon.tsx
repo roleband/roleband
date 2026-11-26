@@ -44,6 +44,7 @@ import {
   Columns2,
   Compass,
   Copy,
+  Crosshair,
   GitCompareArrows,
   Laptop,
   ExternalLink,
@@ -113,6 +114,8 @@ const ICONS = {
   chevronRight: ChevronRight,
   chevronUp: ChevronUp,
   clock: Clock,
+  // The few roles worth a move: Top picks.
+  crosshair: Crosshair,
   close: X,
   columns: Columns2,
   // Roles side by side. Not `columns`, which is a table's column picker.

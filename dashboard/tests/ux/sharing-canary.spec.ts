@@ -3,7 +3,7 @@ import { expect, test, viewChoices } from "./fixtures";
 import type { Page } from "./fixtures";
 import type { Request } from "@playwright/test";
 import {
-  facetsFixture, jobFixture, notificationsFixture, statsFixture, statusFixture, usageStateFixture,
+  facetsFixture, jobFixture, notificationsFixture, picksStateFixture, statsFixture, statusFixture, usageStateFixture,
 } from "../../src/test/fixtures";
 import type { JobList } from "../../src/api";
 
@@ -90,6 +90,8 @@ test.beforeEach(async ({ page }) => {
     throw new Error(`Unmocked sharing-canary API request: ${route.request().method()} ${route.request().url()}`);
   });
   await viewChoices(page);
+  // The rail's Top picks item reads its state on every page.
+  await page.route("/api/picks/state", (route) => route.request().method() === "GET" ? route.fulfill({ json: picksStateFixture() }) : route.fallback());
   await page.route("/api/companies/names", (route) => route.fulfill({ json: { names: { [COMPANY]: "Zyxwv Robotics" } } }));
   await page.route("/api/compare-selection**", (route) => route.fulfill({ json: { job_ids: [] } }));
   await page.route("/api/settings/locale", (route) => route.fulfill({ json: { language: "en", region: null } }));
@@ -134,8 +136,9 @@ test("with everything shared, nothing the user sees or types leaves", async ({ p
   const search = page.getByRole("searchbox").first();
   if (await search.count()) await search.fill("ada-private-search for Zyxwv");
   await page.getByText("Director, Zyxwv Robotics Payments").hover();
-  // A click autocapture records, on something that opens nothing.
-  await page.getByRole("heading").first().click();
+  // A click autocapture records, on something that opens nothing: the list's
+  // count. The page's title is off screen and takes no click.
+  await page.locator(".board-toolbar .results-count").click();
   await page.evaluate(() => {
     setTimeout(() => {
       throw new Error("Could not open https://boards.example.com/zyxwv-robotics for 'Zyxwv Robotics'");

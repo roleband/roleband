@@ -98,6 +98,8 @@ export function JobCard({
   onToggleFav,
   onDismiss,
   foot,
+  under,
+  newMark = true,
   compareOn,
   onToggleCompare,
   compareDisabled,
@@ -114,6 +116,13 @@ export function JobCard({
    *  (the Not-for-me lens's exclusion offer). Clicks inside must stop
    *  propagation themselves; the row opens on click. */
   foot?: ReactNode;
+  /** Lines under the whole row, across the role and its place: what a list
+   *  that chose this role says about why (Top picks' reasons). They take the
+   *  row's ink, so a read row quietens them with its title. */
+  under?: ReactNode;
+  /** The new-role bar and the lit age. A list whose rows are all news to the
+   *  person (Top picks) leaves them off. */
+  newMark?: boolean;
   compareOn: boolean;
   onToggleCompare: () => void;
   compareDisabled?: boolean;
@@ -131,7 +140,7 @@ export function JobCard({
   // header's New count and the New view read: a fresh age alone is not
   // enough, since a company's first read finds roles that were already up.
   const ageDays = job.listed_days;
-  const isNew = job.new_listing;
+  const isNew = newMark && job.new_listing;
   const stackCount = job.lineage_size ?? 0;
   const isStacked = stackCount > 1;
   const base = baseShown(job, usePayCoverage());
@@ -358,6 +367,7 @@ export function JobCard({
         {compareFull && <span id={fullReasonId} className="sr-only">{fullTitle(compareCap)}</span>}
         <StarButton on={job.is_favorite} onToggle={onToggleFav} size={16} shortcut="s" />
       </div>
+      {under && <div className="job-under">{under}</div>}
     </article>
   );
 }

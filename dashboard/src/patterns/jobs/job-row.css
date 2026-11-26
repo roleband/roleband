@@ -291,6 +291,17 @@
   line-height: 1.4;
 }
 
+/* Lines under the whole row (JobCard `under`), across the role and its place
+   and no further: a reading measure, not the table's. They wrap where the
+   row's own cells truncate, so a long word breaks rather than widening the
+   table. */
+.job-under {
+  grid-column: 1 / 3;
+  min-width: 0;
+  max-width: 640px;
+  overflow-wrap: anywhere;
+}
+
 .job-fact {
   flex: 0 1 auto;
   min-width: 0;
@@ -577,6 +588,10 @@
 
   .jr-actions {
     align-self: auto;
+  }
+
+  .job-under {
+    grid-column: 1;
   }
 
   .job-title {

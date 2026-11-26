@@ -2,6 +2,7 @@
    page flow, row focus and read state, the nav rail, and list-level failure.
    Nothing here filters, sorts or searches — those own their own files. */
 
+import { msg } from "../../src/test/msg";
 import { expect, test } from "./fixtures";
 import type { Page } from "@playwright/test";
 import { jobFixture, jobListFixture, statusFixture } from "../../src/test/fixtures";
@@ -43,7 +44,6 @@ async function pageGeometry(page: Page, to: number) {
     return {
       scrolled: Math.round(main.scrollTop),
       headRendered,
-      hero: box(".page-hero")!,
       bar,
       head,
       rail: box(".rail-shell-rail"),
@@ -59,12 +59,13 @@ async function pageGeometry(page: Page, to: number) {
   }, to);
 }
 
-test("one page scroll: the hero leaves, and the page rests against the search bar", async ({
+test("one page scroll: no title is drawn, and the page rests against the search bar", async ({
   page,
 }) => {
   // The settings behavior, verbatim: scroll anywhere, the whole page moves;
-  // the h1 slides away like content; the search toolbar docks at the top and
-  // the column head and register pin under it. Nothing scrolls independently.
+  // the search toolbar docks at the top and the column head and register pin
+  // under it. Nothing scrolls independently. The Radar's name is the top
+  // bar's and the rail's: its heading is for assistive technology only.
   await page.setViewportSize({ width: 1600, height: 800 });
   await page.route("/api/jobs?**", (route) =>
     route.fulfill({
@@ -75,11 +76,11 @@ test("one page scroll: the hero leaves, and the page rests against the search ba
   );
   await page.goto("/");
   await expect(page.locator(".job-row").first()).toBeVisible();
+  await expect(page.locator(".page-hero")).toHaveCount(0);
+  await expect(page.getByRole("heading", { level: 1, name: msg("shell-nav-radar") })).toHaveClass(/\bsr-only\b/);
 
   const g = await pageGeometry(page, 600);
   expect(g.scrolled).toBeGreaterThan(0);
-  // Gone: the hero is entirely above the scrollport, like any page content.
-  expect(g.hero.bottom).toBeLessThanOrEqual(0);
   // Docked: the toolbar rests on the scrollport's own edge, and the head and
   // the register pin flush beneath it — both bands opaque, zero seam.
   expect(g.bar.top).toBe(0);
@@ -96,7 +97,7 @@ test("one page scroll: the hero leaves, and the page rests against the search ba
   // Docked means USABLE from where you are: narrow the board from the pinned
   // register with the page deep-scrolled, no scrolling back. A FACET: Open/
   // Closed are the list's own tabs, not the register's, and those
-  // deliberately scroll away with the hero rather than freezing a second
+  // deliberately scroll away with the page rather than freezing a second
   // band over the column head.
   const rail = page.getByRole("complementary", { name: "Filters" });
   // Two clicks from the pinned rail — open the group, choose the value — and

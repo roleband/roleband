@@ -28,6 +28,16 @@ shared-results-of-role = { $total ->
     [many] { $n } de { $t } de { -role(num: "other") }
    *[other] { $n } de { $t } { -role(num: "other") }
 }
+shared-results-pick = { $count ->
+    [one] { $n } destacado
+    [many] { $n } de destacados
+   *[other] { $n } destacados
+}
+shared-results-of-pick = { $total ->
+    [one] { $n } de { $t } destacado
+    [many] { $n } de { $t } de destacados
+   *[other] { $n } de { $t } destacados
+}
 shared-results-company = { $count ->
     [one] { $n } { -company(num: "one") }
     [many] { $n } de { -company(num: "other") }

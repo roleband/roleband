@@ -23,9 +23,11 @@ import { msg } from "../../src/test/msg";
 import { expect, mockGet, test, type Page } from "./fixtures";
 import { installEveryRoute } from "./routesHarness";
 import { installSettingsRoutes } from "./settingsHarness";
+import { healthyState, installTopPicksRoutes } from "./topPicksHarness";
 
 const SCREENS = [
   "/",
+  "/top-picks",
   "/favorites",
   "/statistics/overview",
   "/profile/direction",
@@ -193,6 +195,8 @@ for (const theme of ["light", "dark"] as const) {
       test.skip(isMobile, "Tab order is a desktop keyboard contract; WebKit's Tab skips links by default");
       test.setTimeout(60_000);
       if (isRolePage(path)) await routeRoleOnBoard(page);
+      // Picks with a note above them, so its link is a stop too.
+      if (path === "/top-picks") await installTopPicksRoutes(page, { state: healthyState({ routine_host_connection: "rule_missing" }) });
       await page.addInitScript((t) => localStorage.setItem("theme", t), theme);
       await page.setViewportSize({ width: 1440, height: 900 });
       await page.goto(path);

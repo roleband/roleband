@@ -18,6 +18,12 @@ shared-results-role = { $count ->
 shared-results-of-role = { $total ->
    *[other] { $n } / { $t } 个{ -role(num: "other") }
 }
+shared-results-pick = { $count ->
+   *[other] { $n } 个首选{ -role(num: "other") }
+}
+shared-results-of-pick = { $total ->
+   *[other] { $n } / { $t } 个首选{ -role(num: "other") }
+}
 shared-results-company = { $count ->
    *[other] { $n } 家{ -company(num: "other") }
 }

@@ -1,3 +1,4 @@
+import { msg } from "../../src/test/msg";
 import { expect, test } from "./fixtures";
 import { installEveryRoute } from "./routesHarness";
 
@@ -5,20 +6,22 @@ import { installEveryRoute } from "./routesHarness";
    same height and the same left edge, so switching tabs moves nothing but the
    content. Measured through the rail, the way a jump is seen.
 
-   The Pipeline is the one exception: it leads with a row of its own, its
-   views and their tools, and leaves its name to the top bar and the rail. Its
-   h1 is still the page's one heading, by the same name, and is not drawn. */
-const OFF_SCREEN = new Set(["Pipeline"]);
+   Three tabs lead with a row of their own and leave their name to the top bar
+   and the rail: the Radar and Top picks with their toolbar, the Pipeline with
+   its views and their tools. Their h1 is still the page's one heading, by the
+   same name, and is not drawn. */
+const OFF_SCREEN = new Set([msg("shell-nav-radar"), msg("shell-nav-top-picks"), msg("shell-nav-pipeline")]);
 
 const TABS = [
-  { rail: "Radar", path: "/" },
-  { rail: "Pipeline", path: "/pipeline" },
-  { rail: "Profile", path: "/profile" },
-  { rail: "Insights", path: "/statistics" },
-  { rail: "Companies", path: "/company" },
-  { rail: "Duplicates", path: "/review" },
-  { rail: "Notifications", path: "/notifications" },
-  { rail: "Settings", path: "/settings" },
+  { rail: msg("shell-nav-radar"), path: "/" },
+  { rail: msg("shell-nav-top-picks"), path: "/top-picks" },
+  { rail: msg("shell-nav-pipeline"), path: "/pipeline" },
+  { rail: msg("shell-nav-profile"), path: "/profile" },
+  { rail: msg("shell-nav-insights"), path: "/statistics" },
+  { rail: msg("shell-nav-companies"), path: "/company" },
+  { rail: msg("shell-nav-duplicates"), path: "/review" },
+  { rail: msg("shell-nav-notifications"), path: "/notifications" },
+  { rail: msg("shell-nav-settings"), path: "/settings" },
 ];
 
 test.beforeEach(async ({ page }) => {
@@ -61,10 +64,10 @@ test("every tab's title is its rail label, in one place, at one size", async ({ 
    lines. Duplicates wears a band only while its row is pinned, which a
    second test scrolls to. */
 const TABBED = [
-  { rail: "Profile", path: "/profile" },
-  { rail: "Insights", path: "/statistics" },
-  { rail: "Duplicates", path: "/review" },
-  { rail: "Settings", path: "/settings" },
+  { rail: msg("shell-nav-profile"), path: "/profile" },
+  { rail: msg("shell-nav-insights"), path: "/statistics" },
+  { rail: msg("shell-nav-duplicates"), path: "/review" },
+  { rail: msg("shell-nav-settings"), path: "/settings" },
 ];
 
 test("every tab row sits in one place, with the content 20px below and no line between", async ({ page, isMobile }) => {

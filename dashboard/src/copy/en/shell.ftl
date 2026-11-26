@@ -4,6 +4,8 @@
 ## Navigation (src/navigation.ts NAV_TABS)
 # kind=label
 shell-nav-radar = Radar
+# kind=label note="The rail place for the few roles the person's AI assistant judged worth a move, each with its reasons"
+shell-nav-top-picks = Top picks
 # kind=label note="The rail place for every role the person starred or is pursuing, from first interest to the end"
 shell-nav-pipeline = Pipeline
 # kind=label
@@ -367,6 +369,8 @@ shell-compare-cleared = { $count ->
 }
 # kind=status note="A rail badge's count, spoken: Duplicates, 342 pending"
 shell-rail-pending = { $count } pending
+# kind=status note="Said with the Top picks rail item while its dot is lit, a pick having arrived since the person last opened it: Top picks, new picks"
+shell-rail-picks-unseen = new picks
 # kind=aria note="A rail item named with its badge: Notifications, 7 unread"
 shell-rail-item-count = { $label }, { $badge }
 

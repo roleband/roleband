@@ -76,6 +76,13 @@
         "onSetupProbeForgotten"
       ],
       "why": "first-run setup's one answer, read once and shared: the shell mutes the app from it, Welcome and Profile enter and leave setup through it, and the board and Profile drop their way back into setup when a save forgets it, so they never disagree."
+    },
+    {
+      "module": "src/hooks/picksDot.ts",
+      "exports": [
+        "picksOpened"
+      ],
+      "why": "the rail's dot is one store the shell reads; the Top picks screen puts it out through that store, so the dot goes out the moment the screen opens and no later read relights it."
     }
   ],
   "debt": [

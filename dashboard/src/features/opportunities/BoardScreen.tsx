@@ -237,7 +237,7 @@ export function BoardScreen(props: CompanyLens) {
 
   return (
     <main className="main board-main job-margin-page" data-design-system="app" ref={rootRef}>
-      <PageHeader title={shellNavRadar()} />
+      <PageHeader title={shellNavRadar()} offScreen />
 
       <BoardToolbar
         toolbarRef={toolbarRef}

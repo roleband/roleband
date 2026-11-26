@@ -87,6 +87,8 @@ export function BoardToolbar({
   repostsOnly,
   clearReposts,
   bestFitUnranked = false,
+  query,
+  noun = "role",
 }: {
   toolbarRef?: RefObject<HTMLDivElement | null>;
   /** The filter register, built once by the screen and rendered in BOTH of its
@@ -111,9 +113,17 @@ export function BoardToolbar({
   clearReposts: () => void;
   /** Best fit fell back to newest first: nothing to rank by yet. */
   bestFitUnranked?: boolean;
+  /** A list with a search of its own (Top picks); the Radar's is the shared
+   *  header query. */
+  query?: { search: string; setSearch: (q: string) => void };
+  /** What the count counts. */
+  noun?: "role" | "pick";
 }) {
-  const { search } = useBoardQuery();
-  const { setSearch, screenSearchRef } = useMissionActions();
+  const shared = useBoardQuery();
+  const actions = useMissionActions();
+  const { screenSearchRef } = actions;
+  const search = query?.search ?? shared.search;
+  const setSearch = query?.setSearch ?? actions.setSearch;
 
   const lenses = { newSignalsOnly, repostsOnly };
   const activeCount = countActiveFilters(filters, lenses);
@@ -165,7 +175,7 @@ export function BoardToolbar({
       <ResultsSummary
         count={total}
         total={narrowed && !inLens ? baseTotal : null}
-        noun="role"
+        noun={noun}
         meta={inLens ? (
           <>{" "}<span>{radarCountNotForMe()}</span></>
         ) : baselineError && (

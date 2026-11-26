@@ -1,5 +1,6 @@
 import {
   shellNavRadar,
+  shellNavTopPicks,
   shellNavPipeline,
   shellNavProfile,
   shellNavInsights,
@@ -53,6 +54,7 @@ export interface NavTabDef {
 // listed: a Compare entry would advertise an empty room (docs/ui.md "Cover").
 export const NAV_TABS: NavTabDef[] = [
   { path: "/", get label() { return shellNavRadar(); }, icon: "grid", end: true },
+  { path: "/top-picks", get label() { return shellNavTopPicks(); }, icon: "crosshair" },
   { path: "/pipeline", get label() { return shellNavPipeline(); }, icon: "star", tabs: PIPELINE_TABS, indexRedirect: "list" },
   { path: "/profile", get label() { return shellNavProfile(); }, icon: "person", tabs: PROFILE_TABS, indexRedirect: "direction" },
   {

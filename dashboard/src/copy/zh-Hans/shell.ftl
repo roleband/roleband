@@ -3,6 +3,7 @@
 
 ## 导航
 shell-nav-radar = 雷达
+shell-nav-top-picks = 首选
 shell-nav-pipeline = 求职进展
 shell-nav-profile = 个人资料
 shell-nav-insights = 洞察
@@ -182,6 +183,7 @@ shell-compare-chip-title = 打开对比
 shell-compare-save-failed = 无法保留你的对比选择。重新加载后可能会丢失。
 shell-compare-cleared = 已从对比中移除 { $count } 个职位
 shell-rail-pending = { $count } 个待处理
+shell-rail-picks-unseen = 有新内容
 shell-rail-item-count = { $label }，{ $badge }
 
 ## 命令面板：键盘提示

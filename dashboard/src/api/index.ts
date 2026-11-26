@@ -29,6 +29,7 @@ import { profileApi } from "./profile";
 import { recipesApi } from "./recipes";
 import { usageApi } from "./usage";
 import { pluginsApi } from "./plugins";
+import { picksApi } from "./picks";
 import { startupApi } from "./startup";
 
 export const api = {
@@ -48,9 +49,11 @@ export const api = {
   ...usageApi,
   ...pluginsApi,
   ...agentActivityApi,
+  ...picksApi,
 };
 
 export { ApiError, isNotFound } from "./transport";
+export type { PicksState } from "./picks";
 export { DEFAULT_FILTERS } from "./jobs";
 export { PRICE_FEED_KEY_URL } from "./companies";
 export type {

@@ -1,4 +1,4 @@
-import { usageStateFixture } from "../../src/test/fixtures";
+import { picksStateFixture, usageStateFixture } from "../../src/test/fixtures";
 import { test as base, expect } from "@playwright/test";
 import type { BrowserContext, Page, Request } from "@playwright/test";
 
@@ -112,6 +112,17 @@ export const test = base.extend<{ apiGuard: void }>({
       route.request().method() === "GET"
         ? route.fulfill({ json: usageStateFixture("declined") })
         : route.fallback());
+    /* Top picks as most installs have it: never set up, so the rail's dot is
+       out; opening the screen answers the same. A spec about the dot or the
+       screen routes its own. */
+    await context.route("/api/picks/state", (route) =>
+      route.request().method() === "GET"
+        ? route.fulfill({ json: picksStateFixture() })
+        : route.fallback());
+    await context.route("/api/picks/opened", (route) =>
+      route.request().method() === "POST"
+        ? route.fulfill({ json: picksStateFixture() })
+        : route.fallback());
     await use();
   }, { auto: true }],
 });
@@ -176,3 +187,4 @@ export function watchReads(page: Page, method: string, path: string) {
   page.on("requestfinished", (request) => { if (mine(request)) counts.answered += 1; });
   return counts;
 }
+

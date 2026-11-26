@@ -11,11 +11,13 @@ const noLenses = { newSignalsOnly: false, repostsOnly: false };
 
 describe("Board filter ownership", () => {
   it("classifies every default and optional transport field, without duplicate ownership", () => {
-    expect(Object.keys(FILTER_FIELDS).sort()).toEqual([...Object.keys(DEFAULT_FILTERS), "ids"].sort());
+    expect(Object.keys(FILTER_FIELDS).sort()).toEqual([...Object.keys(DEFAULT_FILTERS), "ids", "top_picks"].sort());
     // The mapped `satisfies` in filters.ts also rejects an unclassified optional
     // Filters key, which a runtime DEFAULT_FILTERS comparison cannot see.
     expect(FILTER_FIELDS.ids.kind).toBe("transport");
     expect(FILTER_FIELDS.favorites_only.kind).toBe("transport");
+    // Which list is being read, as the mode is: never a filter the person set.
+    expect(FILTER_FIELDS.top_picks.kind).toBe("queryContext");
   });
 
   it.each([
@@ -30,7 +32,7 @@ describe("Board filter ownership", () => {
     ["dismissed_only", true, 1], ["status", "closed", 1],
     ["q", "staff", 0], ["sort", "company", 0],
     ["order", "asc", 0], ["offset", 40, 0], ["include_related", true, 0],
-    ["limit", 100, 0], ["ids", [101, 202], 0], ["favorites_only", true, 0],
+    ["limit", 100, 0], ["ids", [101, 202], 0], ["favorites_only", true, 0], ["top_picks", true, 0],
   ] as [keyof Filters, Filters[keyof Filters], number][])("counts %s by its ownership", (key, value, expected) => {
     expect(countActiveFilters({ ...DEFAULT_FILTERS, [key]: value }, noLenses)).toBe(expected);
   });

@@ -1,7 +1,7 @@
 /* The endpoints the app shell calls at startup and on every route: system
    status and the scan, header stats, the compare selection and viewed marks,
    the bell, the profile, usage consent, company names, the locale and the
-   person's view choices.
+   person's view choices, and whether a Top pick is unseen.
 
    Their own module because every module the shell loads ships whole in the
    startup chunk, and a domain object is never tree-shaken by method: a shell
@@ -13,6 +13,7 @@
 import type { CompareScope, CompareSelection, JobViewResult } from "./jobs";
 import type { CompanyNames } from "./companies";
 import type { Notification, NotificationList, NotificationParams } from "./notifications";
+import type { PicksState } from "./picks";
 import type { SyncCancelResult, SyncResult, SystemStatus } from "./ops";
 import type { LocaleSettings, ProfileState, ViewChoices } from "./scope";
 import type { Stats } from "./statistics";
@@ -45,4 +46,8 @@ export const startupApi = {
   companyNames: () => getJSON<CompanyNames>("/api/companies/names"),
   locale: () => getJSON<LocaleSettings>("/api/settings/locale"),
   viewChoices: () => getJSON<ViewChoices>("/api/settings/view-choices"),
+  /** The rail's Top picks dot reads `unseen_pick`. */
+  picksState: () => getJSON<PicksState>("/api/picks/state"),
+  /** Top picks is on screen: every pick made before now is seen. */
+  picksOpened: () => postJSON<PicksState>("/api/picks/opened"),
 };

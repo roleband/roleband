@@ -716,10 +716,12 @@ The nav rail is `--app-nav-width` (72px), or `--app-nav-width-expanded`
 (204px) when expanded. Below 860px it becomes a bottom dock that scrolls
 horizontally. Each rail tab renders `patterns/PageHeader` with its rail label
 as the `h1` (`patterns/page-header.test.ts`, `tests/ux/page-header.spec.ts`).
-The Pipeline is the one tab that does not draw that title: one row leads it,
-its views and the tools of the view on screen, and the top bar and the rail
-name the place. Its `PageHeader` is `offScreen`, so the page keeps its one
-heading for assistive technology.
+Three tabs do not draw that title, and the top bar and the rail name the place:
+the Radar and Top picks, which lead with their toolbar row (search, the count,
+Sort) under a hairline, and the Pipeline, which leads with one row of its views
+and the tools of the view on screen. Their `PageHeader` is `offScreen`, so each
+page keeps its one heading for assistive technology. The Radar and Top picks
+stay identical in this: neither draws a title the other does not.
 The Pipeline's views (Considering, Board, Up next) are both its tab row and
 rail entries under its star. The star is the Pipeline's rail entry: it opens
 Considering, and in the Pipeline it and the view on screen are both chosen,
@@ -1404,7 +1406,7 @@ Unit gates (`npm run test:unit`) are under `dashboard/src/`; UX specs
 | Every class selector is rendered somewhere | `design/dead-rules.test.ts` |
 | A selector lives in one sheet; keyframes defined once and reachable | `design/one-definition.test.ts` |
 | Filter register type grammar | `design/filter-grammar.test.ts` |
-| Every tab wears `PageHeader`; the Pipeline's alone is off screen | `patterns/page-header.test.ts`, `page-header.spec.ts` |
+| Every tab wears `PageHeader`; the Radar's, Top picks' and the Pipeline's are off screen | `patterns/page-header.test.ts`, `page-header.spec.ts` |
 | The Pipeline's star opens Considering and is chosen with the view on screen; elsewhere its views drop out of it on a resting pointer and push the rail down | `shell/NavRail.test.tsx`, `pipeline-rail.spec.ts` |
 | Rail boundary named once | `patterns/rail-shell.test.ts` |
 | Sticky offsets derived, container queries kept | `features/companies/register.test.ts`, `features/opportunities/board-shell.test.ts` |

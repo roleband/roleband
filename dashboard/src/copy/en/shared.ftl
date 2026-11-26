@@ -30,6 +30,16 @@ shared-results-of-role = { $total ->
     [one] { $n } of { $t } { -role(num: "one") }
    *[other] { $n } of { $t } { -role(num: "other") }
 }
+# kind=status note="The Top picks count; $n is the styled number, $count selects the plural: 4 top picks"
+shared-results-pick = { $count ->
+    [one] { $n } top pick
+   *[other] { $n } top picks
+}
+# kind=status note="A narrowed Top picks count: $n of $t; $total selects the plural"
+shared-results-of-pick = { $total ->
+    [one] { $n } of { $t } top pick
+   *[other] { $n } of { $t } top picks
+}
 # kind=status same-as=shared-count-company
 shared-results-company = { $count ->
     [one] { $n } { -company(num: "one") }

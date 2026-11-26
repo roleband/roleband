@@ -1,7 +1,7 @@
 import { expect, test, viewChoices } from "./fixtures";
 import {
   emptyScopeCellsFixture, facetsFixture, jobListFixture, notificationsFixture, profileSuggestionFixture, settingsSaveFixture,
-  statsFixture, statusFixture, usageStateFixture,
+  picksStateFixture, statsFixture, statusFixture, usageStateFixture,
 } from "../../src/test/fixtures";
 import { companyList, scopeCatalog, scopePreview } from "./scopeFixtures";
 import { companyDiscovery, companyOpenCounts } from "./settingsHarness";
@@ -20,6 +20,8 @@ test.beforeEach(async ({ page }) => {
   // The page-level guard outranks context fixtures; repeat the two shared
   // bootstrap reads so both stay mocked before Profile mounts.
   await viewChoices(page);
+  // The rail's Top picks item reads its state on every page.
+  await page.route("/api/picks/state", (route) => route.request().method() === "GET" ? route.fulfill({ json: picksStateFixture() }) : route.fallback());
   await page.route("/api/companies/names", (route) => route.request().method() === "GET" ? route.fulfill({ json: { names: {} } }) : route.fallback());
   await page.route("/api/compare-selection**", (route) => route.request().method() === "GET" ? route.fulfill({ json: { job_ids: [] } }) : route.fallback());
   await page.route("/api/settings/locale", (route) => route.request().method() === "GET" ? route.fulfill({ json: { language: "en", region: null } }) : route.fallback());

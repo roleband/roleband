@@ -476,3 +476,31 @@ describe("Board reads", () => {
     expect(result.current.fresh).toBeNull();
   });
 });
+
+describe("Top picks and the Radar's lenses", () => {
+  const TOP_PICKS = { topPicks: true };
+  const sent = () => vi.mocked(api.jobs).mock.calls.map(([params]) => params);
+
+  it.each([
+    ["new today", { newSignalsOnly: true }, "new_today_only"],
+    ["reposts", { repostsOnly: true }, "repost_today_only"],
+  ] as const)("a %s lens still lit as Top picks opens narrows none of its reads", async (_, lit, param) => {
+    Object.assign(app, lit);
+    const { result, rerender } = renderHook((props) => useBoardController(props, TOP_PICKS), { initialProps: lens });
+    await waitFor(() => expect(result.current.list).toEqual(direct));
+    epoch.runVersion = 1;
+    rerender({ ...lens });
+    await waitFor(() => expect(vi.mocked(api.facets).mock.calls.length).toBeGreaterThan(1));
+    await waitFor(() => expect(sent().filter((params) => params.limit !== 1).length).toBeGreaterThan(1));
+
+    expect(lastList()).toMatchObject({ top_picks: true });
+    expect(sent().filter((params) => params[param])).toEqual([]);
+  });
+
+  it("still narrows the Radar, which owns them", async () => {
+    app.newSignalsOnly = true;
+    const { result } = renderHook((props) => useBoardController(props), { initialProps: lens });
+    await waitFor(() => expect(result.current.list).toEqual(direct));
+    expect(lastList()).toMatchObject({ new_today_only: true });
+  });
+});
