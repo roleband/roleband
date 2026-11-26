@@ -11,6 +11,7 @@ import base64
 import copy
 import json
 import os
+import sys
 import threading
 
 import pytest
@@ -112,7 +113,7 @@ def test_a_second_file_is_refused_rather_than_sent_in_place_of_the_first(tmp_pat
     assert "more than once" in _refused("--file", str(first), "--file", str(second)).message
 
 
-@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="named pipes are POSIX")
+@pytest.mark.skipif(sys.platform == "win32", reason="named pipes are POSIX")
 def test_a_named_pipe_is_refused_at_once_rather_than_waited_on(tmp_path):
     pipe = tmp_path / "cv.pdf"
     os.mkfifo(pipe)

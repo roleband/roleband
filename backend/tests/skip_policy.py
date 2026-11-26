@@ -132,6 +132,11 @@ WINDOWS_SKIPS: tuple[tuple[re.Pattern[str], str], ...] = (
         "Windows starts its database natively and keeps no holder record; its runner stops the clusters it starts",
     ),
     (
+        re.compile(r"named pipes are POSIX"),
+        "`--file` refusing a named pipe at once; Windows has no `os.mkfifo`, and the Linux lane runs it "
+        "(tests/test_cli_file_input.py)",
+    ),
+    (
         re.compile(r"no zoneinfo file for [A-Za-z_/+-]+ on this machine"),
         "Windows has no system zoneinfo files; the tzdata package answers instead",
     ),
