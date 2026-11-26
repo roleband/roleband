@@ -3,6 +3,7 @@
 ## La pantalla
 picks-loading = Cargando tus destacados…
 picks-load-failed = No se pudieron cargar tus destacados
+picks-refresh-failed = No se pudieron actualizar tus destacados. Se muestra el último resultado.
 picks-host = { $host ->
     [claude-code] Claude Code
     [codex] Codex

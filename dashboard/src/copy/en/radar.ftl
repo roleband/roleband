@@ -98,6 +98,8 @@ radar-exclude-failed = Couldn't save that for “{ $value }”. Try again.
 radar-loading = Loading your radar…
 # kind=heading
 radar-load-failed = Couldn't load your radar
+# kind=sentence
+radar-refresh-failed = Couldn't update your radar. Showing the last result.
 # kind=heading
 radar-filters-load-failed = Couldn't load the filters
 # kind=status note="A scan ended while the Board was open; the list waits for the reader"

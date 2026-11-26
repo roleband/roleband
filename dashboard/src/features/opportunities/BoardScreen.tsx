@@ -13,6 +13,7 @@ import {
   radarLoadFailed,
   radarLoading,
   radarOtherHead,
+  radarRefreshFailed,
   radarShowAll,
   radarShowOther,
   radarTruncated,
@@ -49,7 +50,7 @@ export function BoardScreen(props: CompanyLens) {
   const { viewedIds, compareIds, compareFull, compareCap } = useJobWorkspace();
   const { openJob, toggleCompare } = useJobActions();
   const {
-    filters, facets, facetsError, retryFacets, list, listError, retryList, baseline, bestFitUnranked,
+    filters, facets, facetsError, retryFacets, list, listError, listRefreshError, retryList, refreshList, baseline, bestFitUnranked,
     mode, onModeChange,
     total, isDirect, relatedTotal, expanded, pageableTotal,
     update, updateFilters, onSort, toggleFav, dismiss,
@@ -144,12 +145,17 @@ export function BoardScreen(props: CompanyLens) {
      either home so the two layouts can never drift apart on list features. */
   const content = (
     <div className="board-content job-margin-host" ref={hostRef}>
-      {/* A list in hand stays on screen through a later failure; only a
-          first read that failed is said in its place. */}
+      {/* A list in hand stays on screen through a later failure, which is
+          said above it with Try again; only a first read that failed is said
+          in its place. */}
       <AsyncBoundary
-        resource={{ data: list, error: list ? null : listError, loading: !list && !listError, retry: retryList }}
+        resource={{
+          data: list, error: list ? null : listError, loading: !list && !listError,
+          retry: retryList, refresh: refreshList, refreshError: listRefreshError,
+        }}
         loading={radarLoading()}
         failed={radarLoadFailed()}
+        refreshFailed={radarRefreshFailed()}
         skeleton={<JobList><RowSkeleton rows={9} /></JobList>}
       >
       {() => total === 0 && relatedTotal === 0 ? (
