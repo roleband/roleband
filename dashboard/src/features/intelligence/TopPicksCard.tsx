@@ -207,6 +207,7 @@ function CopySentence() {
   const [failed, setFailed] = useState(false);
   const sentence = aiTopPicksCardSentence();
   const name = aiTopPicksCardCopySentence({ sentence });
+  const text = useRef<HTMLElement>(null);
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(sentence);
@@ -215,12 +216,15 @@ function CopySentence() {
     } catch {
       setCopied(false);
       setFailed(true);
+      // The line asks the person to copy it themselves: it is selected for
+      // them, since a drag inside a button does not select in every browser.
+      if (text.current) window.getSelection()?.selectAllChildren(text.current);
     }
   };
   return (
     <div className="intel-picks-copy">
       <Button className="ui-btn-strong intel-picks-sentence" aria-label={name} title={name} onClick={() => void copy()}>
-        <code>{sentence}</code>
+        <code ref={text} data-selection="content">{sentence}</code>
         <Icon name={copied ? "check" : "copy"} size={15} />
       </Button>
       <span className="sr-only" role="status">{copied ? aiAssistantsCardCopy({ choice: "yes" }) : ""}</span>

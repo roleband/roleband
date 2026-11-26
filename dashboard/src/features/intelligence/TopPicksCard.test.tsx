@@ -451,7 +451,7 @@ describe("TopPicksCard: the sentence to say", () => {
     expect(await within(region).findByRole("status")).toHaveTextContent(msg("ai-assistants-card-copy", { choice: "yes" }));
   });
 
-  it("says how to copy it by hand when the clipboard is blocked", async () => {
+  it("says how to copy it by hand when the clipboard is blocked, with the sentence selected", async () => {
     writeText.mockRejectedValue(new Error("denied"));
     const user = setupUser();
     const region = await card();
@@ -459,5 +459,8 @@ describe("TopPicksCard: the sentence to say", () => {
     await user.click(copyButton(region));
 
     expect(await within(region).findByRole("alert")).toHaveTextContent(msg("ai-assistants-card-clipboard-access-was-blocked-select"));
+    // Selected for the person, and selectable inside the button.
+    expect(window.getSelection()?.toString()).toBe(msg("ai-top-picks-card-sentence"));
+    expect(within(copyButton(region)).getByText(msg("ai-top-picks-card-sentence"))).toHaveAttribute("data-selection", "content");
   });
 });

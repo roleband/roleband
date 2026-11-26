@@ -75,9 +75,12 @@ test("once set up the card sits after Assistant apps, with its five parts", asyn
   await expect(card.getByText(`${status} · daily 09:30 and 17:30`)).toBeVisible();
   await expect(card.getByRole("checkbox", { name: msg("ai-top-picks-card-check") })).toBeChecked();
   await expect(card.getByText(BRIEF)).toBeVisible();
-  await expect(card.getByRole("button", {
+  const copy = card.getByRole("button", {
     name: msg("ai-top-picks-card-copy-sentence", { sentence: msg("ai-top-picks-card-sentence") }),
-  })).toBeVisible();
+  });
+  await expect(copy).toBeVisible();
+  // The sentence can be selected inside its button, for a refused clipboard.
+  expect(await copy.getByText(msg("ai-top-picks-card-sentence")).evaluate((el) => getComputedStyle(el).userSelect)).toBe("text");
   await expect(card.getByLabel(msg("ai-top-picks-card-limit"))).toHaveValue("1000");
   await expect(card.getByRole("button", { name: msg("ai-top-picks-card-remove") })).toBeVisible();
 });
