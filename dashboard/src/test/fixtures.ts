@@ -50,6 +50,7 @@ import {
   PluginRunView,
   PluginRobots,
   PluginView,
+  PicksState,
   PluginsResponse,
   ReferenceView,
   TwinProposal,
@@ -1398,3 +1399,24 @@ export const levelGuideFixture: LevelGuide = {
     business_customer: ["intern", "entry", "mid", "senior", "staff", "principal"],
   },
 };
+
+/** `GET /api/picks/state` as the engine answers it: never set up, the rail's
+ *  dot out, unless `overrides` say otherwise. */
+export function picksStateFixture(overrides: Partial<PicksState> = {}): PicksState {
+  return {
+    state: "never_set_up",
+    routine_host: null,
+    schedule: null,
+    last_check: null,
+    brief_summary: null,
+    unseen_pick: false,
+    health: "off",
+    waiting: 0,
+    read_this_week: 0,
+    passed_this_week: 0,
+    routine_host_connection: null,
+    daily_limit: 1000,
+    daily_limit_max: 5000,
+    ...overrides,
+  };
+}

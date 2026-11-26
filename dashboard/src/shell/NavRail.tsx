@@ -9,6 +9,7 @@ import {
   shellRailExpandAria,
   shellRailItemCount,
   shellRailPending,
+  shellRailPicksUnseen,
   shellThemeAria,
   shellThemeDark,
   shellThemeLight,
@@ -24,6 +25,7 @@ import { BrandMark } from "../ui/BrandMark";
 import { BEHIND_COVER, BESIDE_COVER } from "../ui/Overlay";
 import { CountBadge } from "../ui/CountBadge";
 import { PipelineRailGroup } from "./PipelineRailGroup";
+import { usePicksDot } from "../hooks/picksDot";
 
 interface Props {
   expanded: boolean;
@@ -34,6 +36,7 @@ interface Props {
 
 export function NavRail({ expanded, onToggleExpanded, theme, onToggleTheme }: Props) {
   const stats = useMissionStats();
+  const unseenPick = usePicksDot();
   const primary = NAV_TABS.filter((t) => t.path !== "/settings");
   const settings = NAV_TABS.find((t) => t.path === "/settings");
   // A role open beside the rail belongs to the Pipeline view under it, though
@@ -47,6 +50,8 @@ export function NavRail({ expanded, onToggleExpanded, theme, onToggleTheme }: Pr
       return countBadge(stats!.notif_unread, shellBellUnread);
     if (path === "/review" && (stats?.review_pending ?? 0) > 0)
       return countBadge(stats!.review_pending, shellRailPending);
+    // A dot, never a number: a pick arrived since Top picks was last opened.
+    if (path === "/top-picks" && unseenPick) return { text: null, dot: true, label: shellRailPicksUnseen() };
     return null;
   };
 

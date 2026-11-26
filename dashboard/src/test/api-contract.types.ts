@@ -453,6 +453,12 @@ declare const hoverCard: CompanyCard;
 // @ts-expect-error — a card always says whether the company has a profile.
 export const cardWithoutProfileFlag: CompanyCard = { ...hoverCard, has_profile: undefined };
 
+export type PicksRouteContract = [
+  Expect<Equals<Returns<typeof api.picksState>, Ok<"picks_state_api_picks_state_get">>>,
+  Expect<Equals<Returns<typeof api.picksOpened>, Ok<"picks_opened_api_picks_opened_post">>>,
+  Expect<Equals<Returns<typeof api.setPicksMode>, Ok<"set_picks_mode_api_picks_mode_put">>>,
+];
+
 export type StatisticsRouteContract = [
   Expect<Equals<Returns<typeof api.stats>, Ok<"stats_api_stats_get">>>,
   Expect<Equals<Returns<typeof api.statisticsOverview>, Ok<"statistics_overview_api_statistics_overview_get">>>,

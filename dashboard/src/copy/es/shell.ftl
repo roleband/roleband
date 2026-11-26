@@ -3,6 +3,7 @@
 
 ## Navegación
 shell-nav-radar = Radar
+shell-nav-top-picks = Destacados
 shell-nav-pipeline = Seguimiento
 shell-nav-profile = Perfil
 shell-nav-insights = Análisis
@@ -202,6 +203,7 @@ shell-compare-cleared = { $count ->
    *[other] Se quitaron { $count } puestos de la comparación
 }
 shell-rail-pending = { $count } pendientes
+shell-rail-picks-unseen = con novedades
 shell-rail-item-count = { $label }, { $badge }
 
 ## La paleta de comandos: pistas de teclado

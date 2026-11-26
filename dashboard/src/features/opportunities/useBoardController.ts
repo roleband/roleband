@@ -20,6 +20,7 @@ import {
   BOARD_MEMORY_SCOPE,
   BOARD_MEMORY_SHAPE,
   MODE_FILTERS,
+  TOP_PICKS_MEMORY_SCOPE,
   boardMode,
   boardRequestFilters,
   type BoardMode,
@@ -63,10 +64,24 @@ export interface CompanyLens {
   onModeChange: (mode: BoardMode) => void;
 }
 
+/** Which list the controller reads. The Radar's by default; Top picks is the
+ *  same list narrowed to the picks, with filters of its own, its own search
+ *  (`search`) and Newest as its order, newest pick first. */
+export interface BoardSurface {
+  topPicks: boolean;
+  search?: string;
+}
+
+const RADAR: BoardSurface = { topPicks: false };
+const TOP_PICKS_DEFAULTS: Partial<Filters> = { top_picks: true, sort: "first_seen" };
+
 export function useBoardController({
   companyParam, onCompanyParamChange, mode, onModeChange,
-}: CompanyLens) {
-  const { search } = useBoardQuery();
+}: CompanyLens, surface: BoardSurface = RADAR) {
+  const shared = useBoardQuery();
+  const search = surface.search ?? shared.search;
+  const topPicks = surface.topPicks;
+  const defaultSort = topPicks ? TOP_PICKS_DEFAULTS.sort! : DEFAULT_FILTERS.sort;
   const { newSignalsOnly, repostsOnly } = useMissionState();
   const { refreshStats } = useMissionActions();
   const { favVersion } = useJobWorkspace();
@@ -88,8 +103,8 @@ export function useBoardController({
      first. The query is MissionState's, never remembered. */
   const mountQuery = search.trim() ? { q: search, sort: "relevance" as const } : {};
   const [filters, setFilters, { restored }] = useRememberedState<Filters>({
-    scope: BOARD_MEMORY_SCOPE,
-    defaults: { ...DEFAULT_FILTERS, ...MODE_FILTERS[mode] },
+    scope: topPicks ? TOP_PICKS_MEMORY_SCOPE : BOARD_MEMORY_SCOPE,
+    defaults: { ...DEFAULT_FILTERS, ...MODE_FILTERS[mode], ...(topPicks ? TOP_PICKS_DEFAULTS : {}) },
     shape: BOARD_MEMORY_SHAPE,
     override: companyParam.length > 0 || search.trim()
       ? { ...(companyParam.length > 0 ? { company: companyParam } : {}), ...mountQuery }
@@ -99,7 +114,9 @@ export function useBoardController({
   // The register's vocabulary, on the shared resource so a failed fetch is a
   // value the register can show and retry. BoardFilters renders nothing without
   // `facets`, so a failure left as null would hide the whole register for good.
-  const facetsResource = useAsyncResource<Facets>((signal) => api.facets(signal), [], { keep: "facets" });
+  const facetsResource = useAsyncResource<Facets>(
+    (signal) => api.facets(signal, topPicks), [topPicks], { keep: topPicks ? "facets:top-picks" : "facets" },
+  );
   const facets = facetsResource.data;
   const refreshFacets = facetsResource.refresh;
 
@@ -198,7 +215,7 @@ export function useBoardController({
       () =>
         setFilters((f) => {
           const q = search.trim();
-          const sort = q ? "relevance" : f.sort === "relevance" ? DEFAULT_FILTERS.sort : f.sort;
+          const sort = q ? "relevance" : f.sort === "relevance" ? defaultSort : f.sort;
           // An unchanged query is no edit: no duplicate initial request, no
           // reload when the shell writes the same value back, and no reset of
           // a page turned while the box was settling.
@@ -211,7 +228,7 @@ export function useBoardController({
       250
     );
     return () => clearTimeout(t);
-  }, [search, setFilters]);
+  }, [search, setFilters, defaultSort]);
 
   const {
     data: list,

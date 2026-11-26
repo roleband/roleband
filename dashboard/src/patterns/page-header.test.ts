@@ -11,9 +11,10 @@ import { ROUTE_COMPONENTS } from "../routeRegistry";
  * in the browser (`tests/ux/page-header.spec.ts`). A new tab lands here
  * unlisted and fails by name.
  *
- * One tab leads with a row of its own, its views and their tools, and leaves
- * its name to the top bar and the rail: it still renders the shared header,
- * titled the same, and says so with `offScreen`. No other tab may.
+ * Three tabs lead with a row of their own and leave their name to the top bar
+ * and the rail: the Radar and Top picks with their toolbar, the Pipeline with
+ * its views and their tools. Each still renders the shared header, titled the
+ * same, and says so with `offScreen`. No other tab may.
  */
 
 const src = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -22,6 +23,7 @@ const read = (path: string) => readFileSync(join(src, path), "utf8");
 /** The file that renders each tab's page header. */
 const PAGE_HEADER: Record<string, string> = {
   "/": "features/opportunities/BoardScreen.tsx",
+  "/top-picks": "features/opportunities/TopPicksScreen.tsx",
   "/pipeline": "features/applications/ApplicationsScreen.tsx",
   "/profile": "features/scope/ProfileView.tsx",
   "/statistics": "features/statistics/StatisticsView.tsx",
@@ -32,7 +34,7 @@ const PAGE_HEADER: Record<string, string> = {
 };
 
 /** The tabs whose title is the page's heading and is not drawn. */
-const OFF_SCREEN = new Set(["/pipeline"]);
+const OFF_SCREEN = new Set(["/", "/top-picks", "/pipeline"]);
 
 describe("PageHeader adoption", () => {
   it("accounts for every tab in the route table, and only those", () => {

@@ -111,6 +111,7 @@ export function BoardFilters({
   update,
   mode,
   onModeChange,
+  memoryScope = BOARD_MEMORY_SCOPE,
 }: {
   facets: Facets | null;
   /** Why the register has no vocabulary. Without it a failed facets fetch is
@@ -123,7 +124,10 @@ export function BoardFilters({
   /** The mode is URL state, so the register ASKS for it rather than patching
    *  `filters`: one writer, no loop. */
   mode: BoardMode;
-  onModeChange: (mode: BoardMode) => void;
+  /** Absent on a list that is one population only (Top picks): no Showing group. */
+  onModeChange?: (mode: BoardMode) => void;
+  /** Where the register remembers which groups were left open. */
+  memoryScope?: string;
 }) {
   if (facetsError) {
     return (
@@ -224,7 +228,7 @@ export function BoardFilters({
   }));
 
   return (
-    <FilterRegister scope={BOARD_MEMORY_SCOPE} className="board-filters">
+    <FilterRegister scope={memoryScope} className="board-filters">
       {/* No headline and no head row: the column explains itself, and the
           undo lives beside the count in the toolbar. */}
       {/* The reader's OWN mark leads the register: the first thing someone
@@ -401,14 +405,16 @@ export function BoardFilters({
             Exclusive by construction: one segmented control, three positions,
             and the modes are a partition rather than three flags that can
             disagree. */}
-        <FilterGroup title={radarFilterShowing()}>
-          <Segmented
-            label={radarFilterShowing()}
-            value={mode}
-            onChange={(next) => onModeChange(next as BoardMode)}
-            options={BOARD_MODES.map((m) => ({ value: m, label: MODE_LABEL[m] }))}
-          />
-        </FilterGroup>
+        {onModeChange && (
+          <FilterGroup title={radarFilterShowing()}>
+            <Segmented
+              label={radarFilterShowing()}
+              value={mode}
+              onChange={(next) => onModeChange(next as BoardMode)}
+              options={BOARD_MODES.map((m) => ({ value: m, label: MODE_LABEL[m] }))}
+            />
+          </FilterGroup>
+        )}
       </FilterDrawer>
     </FilterRegister>
   );

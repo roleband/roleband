@@ -5,13 +5,15 @@ import { installEveryRoute } from "./routesHarness";
    same height and the same left edge, so switching tabs moves nothing but the
    content. Measured through the rail, the way a jump is seen.
 
-   The Pipeline is the one exception: it leads with a row of its own, its
-   views and their tools, and leaves its name to the top bar and the rail. Its
-   h1 is still the page's one heading, by the same name, and is not drawn. */
-const OFF_SCREEN = new Set(["Pipeline"]);
+   Three tabs lead with a row of their own and leave their name to the top bar
+   and the rail: the Radar and Top picks with their toolbar, the Pipeline with
+   its views and their tools. Their h1 is still the page's one heading, by the
+   same name, and is not drawn. */
+const OFF_SCREEN = new Set(["Radar", "Top picks", "Pipeline"]);
 
 const TABS = [
   { rail: "Radar", path: "/" },
+  { rail: "Top picks", path: "/top-picks" },
   { rail: "Pipeline", path: "/pipeline" },
   { rail: "Profile", path: "/profile" },
   { rail: "Insights", path: "/statistics" },

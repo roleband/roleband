@@ -127,6 +127,9 @@ export interface Filters {
   // leave the list while they hunt for the one they have not.
   viewed: "" | "unread" | "read";
   ids?: number[];
+  /** Top picks: the list narrowed to the roles an assistant picked, each row
+   *  with its reasons. Every other filter, the search and each sort still apply. */
+  top_picks?: boolean;
   sort: JobSort;
   order: SortOrder;
   /** Expand the related section of an exact-title Best-match response.
@@ -202,7 +205,9 @@ export const jobsApi = {
   readPostingText: (id: number, retry = false) =>
     postJSON<PostingTextResult>(`/api/jobs/${id}/description${retry ? "?retry=true" : ""}`),
   jobHistory: (id: number, signal?: AbortSignal) => getJSON<ListingHistory>(`/api/jobs/${id}/history`, signal),
-  facets: (signal?: AbortSignal) => getJSON<Facets>("/api/facets", signal),
+  /** With `topPicks`, only what the picks themselves contain. */
+  facets: (signal?: AbortSignal, topPicks = false) =>
+    getJSON<Facets>(topPicks ? "/api/facets?top_picks=true" : "/api/facets", signal),
   similar: (id: number, scope: "within" | "cross" | "all" = "cross", limit = 8, signal?: AbortSignal) =>
     getJSON<SimilarJobs>(`/api/jobs/${id}/similar?scope=${scope}&limit=${limit}`, signal),
   setFavorite: (id: number, on: boolean) =>

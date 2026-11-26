@@ -70,6 +70,9 @@ export const FILTER_FIELDS = {
   discloses_pay: { kind: "railFilter" },
   viewed: { kind: "railFilter" },
   ids: { kind: "transport" },
+  /* Which list, like the mode for the baseline: "3 of 4 top picks" counts
+     picks, never the whole Radar. */
+  top_picks: { kind: "queryContext" },
   sort: { kind: "queryContext" },
   order: { kind: "queryContext" },
   include_related: { kind: "pagination", reset: true },
@@ -170,6 +173,9 @@ export const RESET_FILTERS: Partial<Filters> = {
 /** The storage key for the board's chosen filters. Its disclosures (which
  *  groups the reader opened) are a separate concern under `${SCOPE}:open`. */
 export const BOARD_MEMORY_SCOPE = "board";
+
+/** Top picks keeps its own: the Radar's filters never narrow it, nor it theirs. */
+export const TOP_PICKS_MEMORY_SCOPE = "top-picks";
 
 /** Exactly the `railFilter` keys, one decoder each, and that is a RULE rather
  *  than a list somebody curated: memory holds what the register narrows by and

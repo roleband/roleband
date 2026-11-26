@@ -77,6 +77,9 @@ afterEach(() => {
 beforeEach(async () => {
   const { forgetViewChoices } = await import("../hooks/viewChoices");
   forgetViewChoices({});
+  // The rail's Top picks dot is module state too: each test starts with it out.
+  const { forgetPicksDot } = await import("../hooks/picksDot");
+  forgetPicksDot();
 });
 
 // The write queue's promise tails are module state on purpose — they outlive a

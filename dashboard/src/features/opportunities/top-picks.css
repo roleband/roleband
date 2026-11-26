@@ -1,0 +1,34 @@
+/* Top picks: a pick's reasons under its row (JobCard `under`). Body size and
+   weight throughout: the opening fact stands out by ink alone, so the reasons
+   never outweigh the title above them. Both inks are the row's, so a read row
+   quietens its reasons with its title. */
+.pick-reasons {
+  /* Closer than the row's 16px gap between its cells: the reasons read as
+     the row's last lines, not as a block of their own. */
+  margin: -6px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 2px;
+  font-size: var(--app-type-body);
+  font-weight: var(--app-weight-body);
+  line-height: 1.5;
+  color: var(--row-ink-2, var(--app-text-muted));
+}
+
+.pick-reason-opening {
+  color: var(--row-ink, var(--app-text));
+}
+
+/* The notes above the list, one under another, in the Radar's note pattern.
+   They end where the rows end, short of the ledger margin, as the toolbar
+   does: padding, since a page child is the page's full measure
+   (`.main > *`). */
+.picks-notes {
+  box-sizing: border-box;
+  display: grid;
+  gap: 6px;
+  margin-top: var(--app-space-2);
+  margin-bottom: var(--app-space-3);
+  padding-right: var(--job-margin, 0px);
+}

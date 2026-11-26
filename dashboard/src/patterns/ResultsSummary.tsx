@@ -1,5 +1,12 @@
 import type { ReactNode } from "react";
-import { sharedResultsCompany, sharedResultsOfCompany, sharedResultsOfRole, sharedResultsRole } from "../copy/gen/shared";
+import {
+  sharedResultsCompany,
+  sharedResultsOfCompany,
+  sharedResultsOfPick,
+  sharedResultsOfRole,
+  sharedResultsPick,
+  sharedResultsRole,
+} from "../copy/gen/shared";
 import { number } from "../copy/format";
 import { Msg } from "../ui/Msg";
 
@@ -9,6 +16,7 @@ import { Msg } from "../ui/Msg";
 const SAY = {
   role: { count: sharedResultsRole, of: sharedResultsOfRole },
   company: { count: sharedResultsCompany, of: sharedResultsOfCompany },
+  pick: { count: sharedResultsPick, of: sharedResultsOfPick },
 } as const;
 
 /** A measured count, not a query controller. Callers own reset semantics. */

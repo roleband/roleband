@@ -39,6 +39,14 @@
   --board-toolbar-h: calc(var(--app-space-2) + var(--app-control-md) + var(--app-space-4));
 }
 
+/* With the page's title off screen the bar is its first box, so it rests where
+   it docks: the shared recipe's pull-up is for a bar under a title, and here it
+   would leave the register, the list and each state that replaces it starting
+   under the bar's lower edge. */
+.board-main > .sr-only + .board-toolbar {
+  margin-top: 0;
+}
+
 /* ---- toolbar: search leads the screen it filters (the settings idiom) ----- */
 
 /* Search, the result count as a fact, the mission-lens chips, and ordering on
@@ -184,6 +192,11 @@
   color: var(--app-text-muted);
   font-size: var(--app-type-label);
   line-height: 1.5;
+}
+
+/* Notes stacked in a column of their own take its spacing. */
+.search-truncation-note.is-stacked {
+  margin: 0;
 }
 
 .search-interp .si-label {
