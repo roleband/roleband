@@ -56,6 +56,7 @@ radar-exclude-failed = No se pudo guardar eso para “{ $value }”. Inténtalo 
 ## La lista
 radar-loading = Cargando tu radar…
 radar-load-failed = No se pudo cargar tu radar
+radar-refresh-failed = No se pudo actualizar tu radar. Se muestra el último resultado.
 radar-filters-load-failed = No se pudieron cargar los filtros
 radar-board-fresh-more = { $count ->
     [one] { $count } { -role(num: "one") } más coincide desde que se cargó esta lista.

@@ -5,6 +5,8 @@
 picks-loading = Loading your top picks…
 # kind=heading
 picks-load-failed = Couldn't load your top picks
+# kind=sentence
+picks-refresh-failed = Couldn't update your top picks. Showing the last result.
 # kind=label note="The assistant that runs the checks, by its code: claude-code or codex"
 picks-host = { $host ->
     [claude-code] Claude Code
