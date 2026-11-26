@@ -644,6 +644,39 @@ async def test_a_routine_change_waits_for_the_picks_lock_before_it_holds_its_run
     assert _data(*await task)["made_by"] == "routine"
 
 
+@pytest.mark.parametrize("operation", ["decide", "finish"])
+async def test_a_run_that_passes_the_bound_while_a_write_waits_for_the_lock_takes_no_write(
+    api_client, db_session, workspace, monkeypatch, operation,
+):
+    """The run is open when the write is sent and past the bound when the
+    picks lock comes free: the write reads the clock under the lock, so the
+    run is closed and nothing lands on it."""
+    run = await _begin(api_client)
+    started = await db_session.scalar(select(PickRun.started_at).where(PickRun.id == run["run"]))
+    clock = {"now": started + ABANDONED_AFTER - timedelta(minutes=1)}
+
+    class _Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return clock["now"] if tz is None else clock["now"].astimezone(tz)
+
+    monkeypatch.setattr(picks_operations, "datetime", _Clock)
+    async with _fresh(db_session) as holder:
+        await lock_picks(holder)
+        task = asyncio.create_task(
+            _decide(api_client, run, [_pick(workspace["jobs"]["staff"])]) if operation == "decide"
+            else _write(api_client, "POST", "/picks/runs/finish", {"run": run["run"], "outcome": "finished"})
+        )
+        await until_waiting(db_session.bind, task)
+        assert not task.done(), "the write waits for the picks lock"
+        clock["now"] = started + ABANDONED_AFTER + timedelta(minutes=1)
+        await holder.commit()
+    assert _refused(*await task, "invalid_input")["details"]["reason"] == "run_closed"
+    assert await _verdicts(db_session) == []
+    async with _fresh(db_session) as session:
+        assert await session.scalar(select(PickRun.outcome).where(PickRun.id == run["run"])) is None
+
+
 async def test_the_suggested_check_times_are_the_half_hours_just_after_scans_most_often_end(db_session, monkeypatch):
     zone = ZoneInfo("America/New_York")
     monkeypatch.setattr(picks_operations, "local_zone", lambda: zone)
