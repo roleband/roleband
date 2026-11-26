@@ -1,7 +1,8 @@
 /* The endpoints the app shell calls at startup and on every route: system
    status and the scan, header stats, the compare selection and viewed marks,
-   the bell, the profile, usage consent, company names, the locale and the
-   person's view choices, and whether a Top pick is unseen.
+   the bell, the profile, usage consent, company names, the locale, the
+   person's view choices (read, and saved from the side bar's switches), and
+   whether a Top pick is unseen.
 
    Their own module because every module the shell loads ships whole in the
    startup chunk, and a domain object is never tree-shaken by method: a shell
@@ -16,6 +17,7 @@ import type { Notification, NotificationList, NotificationParams } from "./notif
 import type { PicksState } from "./picks";
 import type { SyncCancelResult, SyncResult, SystemStatus } from "./ops";
 import type { LocaleSettings, ProfileState, ViewChoices } from "./scope";
+import type { Schemas } from "./schemas";
 import type { Stats } from "./statistics";
 import type { UsageState } from "./usage";
 import { getJSON, postJSON, postMarkJSON, putJSON, qs } from "./transport";
@@ -46,6 +48,8 @@ export const startupApi = {
   companyNames: () => getJSON<CompanyNames>("/api/companies/names"),
   locale: () => getJSON<LocaleSettings>("/api/settings/locale"),
   viewChoices: () => getJSON<ViewChoices>("/api/settings/view-choices"),
+  saveViewChoice: (name: string, value: unknown) =>
+    putJSON<Schemas["ViewChoice"]>(`/api/settings/view-choices/${encodeURIComponent(name)}`, { value }),
   /** The rail's Top picks dot reads `unseen_pick`. */
   picksState: () => getJSON<PicksState>("/api/picks/state"),
   /** Top picks is on screen: every pick made before now is seen. */

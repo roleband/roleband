@@ -1,4 +1,4 @@
-"""`roleband connect HOST --print|--apply`: let an agent host run `roleband` without a prompt per call.
+"""`roleband connect [HOST] --print|--apply`: let an agent host run `roleband` without a prompt per call.
 
 What each host needs was measured against the host itself:
 
@@ -15,10 +15,15 @@ removes nothing, keeps a dated backup beside it before the first change, and cha
 on a second run. A value the person set the other way, or a layout this command cannot edit
 safely, is theirs to change: the command stops with `approval_required` and touches nothing.
 
-Each host also gets the versioned skill in `skills/roleband/SKILL.md`. A sidecar beside the
-installed copy records its hash and version, so a copy the person edited is never replaced.
-`capabilities` brings an unedited copy of an older version up to this client's
-(`refresh_installed_skills`), so a new skill reaches a host without a second connect.
+HOST may be left out when the command runs inside a host: each host names itself in a variable
+it sets in every command it runs (`running_host`), so the person can ask the assistant to connect
+itself. In a plain terminal no host is named that way, and HOST is required.
+
+Each host also gets the versioned skills in `skills/` (`SKILLS`), each a folder. A sidecar in
+each installed folder records its version and the hash of every file connect wrote, so a file
+the person edited is never replaced, file by file. `capabilities` and `picks status` bring the
+unedited files of an older installed version up to this client's (`refresh_installed_skills`),
+so a new version reaches a host without a second connect.
 """
 
 from __future__ import annotations
@@ -28,7 +33,7 @@ import copy
 import json
 import os
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -43,16 +48,21 @@ from tracker.platform.agent_hosts import (
     CODEX_TABLE,
     HOSTS,
     SKILL_RECORD,
-    SKILL_VERSION,
+    SKILLS,
+    FilePlan,
+    Record,
+    Skill,
     claude_conflict,
     claude_dir,
     codex_dir,
+    plan_skill,
+    read_record,
+    running_host,
+    sha256,
 )
 
 #: Hosts people may name that were not measured. Each is refused rather than guessed at.
 UNTESTED = ("gemini", "gemini-cli")
-
-SKILL_SOURCE = Path(__file__).with_name("skills") / "roleband" / "SKILL.md"
 
 COSTS = {
     "claude-code": (
@@ -73,7 +83,8 @@ _TOML_HEADER = re.compile(rf"^[ \t]*\[[ \t]*{_TOML_TABLE}[ \t]*\][ \t]*(#[^\n]*)
 def register(command: Callable[[str, str], argparse.ArgumentParser]) -> None:
     """Add `connect` through the client's own subcommand factory."""
     sub = command("connect", "Set up an agent host to run roleband without asking each time.")
-    sub.add_argument("host", metavar="HOST", help="claude-code or codex")
+    sub.add_argument("host", metavar="HOST", nargs="?", default=None,
+                     help="claude-code or codex; left out inside a host, the host it runs in")
     mode = sub.add_mutually_exclusive_group(required=True)
     mode.add_argument("--print", dest="connect_mode", action="store_const", const="print",
                       help="show what would change; change nothing")
@@ -233,134 +244,145 @@ def _codex_config(path: Path) -> FileChange:
 
 
 # --------------------------------------------------------------------------- #
-# The skill
+# The skills
 # --------------------------------------------------------------------------- #
-
-
-def _sha256(data: bytes) -> str:
-    import hashlib
-
-    return hashlib.sha256(data).hexdigest()
 
 
 @dataclass
 class SkillPlan:
-    path: Path
-    action: str
-    content: bytes
-    #: What was there when the plan was made; None when nothing was.
-    present: bytes | None = None
+    skill: Skill
+    directory: Path
+    files: list[FilePlan]
+    #: The sidecar as the plan read it.
+    record: Record | None
+
+    @property
+    def action(self) -> str:
+        """The folder's action: `install` when every file is new, `update`
+        when any file is new or updated, `kept_edited` when the only files
+        that differ are the person's, else `unchanged`."""
+        actions = {plan.action for plan in self.files}
+        if actions == {"install"}:
+            return "install"
+        if actions & {"install", "update"}:
+            return "update"
+        return "kept_edited" if "kept_edited" in actions else "unchanged"
+
+    def kept(self) -> list[str]:
+        return [plan.name for plan in self.files if plan.action == "kept_edited"]
 
 
-def _skill(directory: Path) -> SkillPlan:
-    """What to do with the skill in `directory`: install, update, unchanged or kept (edited)."""
-    shipped = SKILL_SOURCE.read_bytes()
-    target = directory / "SKILL.md"
+def _skill(skill: Skill, directory: Path) -> SkillPlan:
+    """What to do with `skill` in `directory`, file by file."""
+    record = read_record(directory)
+    return SkillPlan(skill, directory, plan_skill(skill, directory, record), record)
+
+
+def _install_skill(plan: SkillPlan, applied: list[str], *, refresh: bool = False) -> None:
+    """Install or update the skill's files as planned, adding each file it
+    changes to `applied`, then record what it wrote. A `refresh` leaves out a
+    missing file the sidecar lists, which the person deleted, and records the
+    folder only when a file's recorded hash changes: only `connect`, the
+    person's own act, records a folder whose differing files are all theirs,
+    while a file already at this version's bytes under an older hash is
+    recorded, so a sidecar that failed to save is repaired by the next call."""
+    listed = plan.record.files if plan.record is not None else {}
+    hashes = dict(listed)
+    ours = False
+    for item in plan.files:
+        if item.action == "install" and refresh and item.name in listed:
+            continue
+        if item.action in ("install", "update"):
+            if not _as_planned(item):
+                item.action = "kept_edited"
+                continue
+            plan.directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+            _replace(item.path, item.content, mode=0o644)
+            applied.append(str(item.path))
+        if item.action != "kept_edited":
+            hashes[item.name] = sha256(item.content)
+            ours = True
+    if not ours or (refresh and hashes == listed):
+        # Nothing here is connect's at this version: the sidecar stays as it was.
+        return
+    record = Record(plan.skill.version, {name: hashes[name] for name in plan.skill.files if name in hashes})
+    path = plan.directory / SKILL_RECORD
     try:
-        present = target.read_bytes() if not target.is_symlink() else None
+        current = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        current = None
+    if current != record.as_json():
+        _replace(path, record.as_json().encode(), mode=0o644)
+        applied.append(str(path))
+
+
+def _as_planned(item: FilePlan) -> bool:
+    """Whether the file is still as the plan read it. The person may have
+    saved, linked or locked it since; a link or a file that cannot be read
+    is theirs, whatever the plan saw."""
+    if item.path.is_symlink():
+        return False
+    try:
+        return item.path.read_bytes() == item.present
     except FileNotFoundError:
-        return SkillPlan(target, "install", shipped)
+        return item.present is None
     except OSError:
-        present = None
-    if present is None:
-        return SkillPlan(target, "kept_edited", shipped)
-    if present == shipped:
-        return SkillPlan(target, "unchanged", shipped)
-    recorded = None
-    try:
-        record = json.loads((directory / SKILL_RECORD).read_text(encoding="utf-8"))
-        recorded = record.get("sha256") if isinstance(record, dict) else None
-    except (OSError, ValueError):
-        pass
-    if recorded == _sha256(present):
-        return SkillPlan(target, "update", shipped, present)
-    return SkillPlan(target, "kept_edited", shipped)
-
-
-def _install_skill(plan: SkillPlan, applied: list[str]) -> None:
-    """Install or update the skill as planned, adding each file it changes to `applied`."""
-    record = plan.path.with_name(SKILL_RECORD)
-    stored = {"format": 1, "version": SKILL_VERSION, "sha256": _sha256(plan.content)}
-    if plan.action in ("install", "update"):
-        # The person may have saved the skill since the plan read it: that copy is theirs.
-        try:
-            now = plan.path.read_bytes() if not plan.path.is_symlink() else b""
-        except FileNotFoundError:
-            now = None
-        except OSError:
-            now = b""
-        if now != plan.present:
-            plan.action = "kept_edited"
-            return
-        plan.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        _replace(plan.path, plan.content, mode=0o644)
-        applied.append(str(plan.path))
-    if plan.action != "kept_edited":
-        text = json.dumps(stored) + "\n"
-        try:
-            current = record.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            current = None
-        if current != text:
-            _replace(record, text.encode(), mode=0o644)
-            applied.append(str(record))
-
-
-def _recorded(directory: Path) -> object:
-    """The sidecar connect wrote beside the skill in `directory`; None when there is none to read."""
-    try:
-        return json.loads((directory / SKILL_RECORD).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
+        return False
 
 
 def refresh_installed_skills() -> list[dict[str, str]]:
     """Bring each skill `connect` installed up to this client's version, and
     return a notice for each one it updated or could not.
 
-    Only a copy whose sidecar records an older version is touched, so two
-    clients of different versions on one computer never trade the file back
-    and forth. A copy the person edited stays as it is, as `connect` keeps it,
-    and so does one they deleted. Nothing here fails the call it runs in."""
+    Only a folder whose sidecar records an older version is touched, so two
+    clients of different versions on one computer never trade the files back
+    and forth. A file the person edited stays as it is, as `connect` keeps
+    it, and so does one they deleted; a file new in this version is added.
+    A skill `connect` never installed is left to `connect`. Nothing here
+    fails the call it runs in."""
     notices: list[dict[str, str]] = []
     for host, base in (("claude-code", claude_dir), ("codex", codex_dir)):
-        try:
-            directory = base() / "skills" / "roleband"
-        except (OSError, RuntimeError):
-            # No home folder to find (`Path.home()` raises where the
-            # environment names none): no installed skill to keep current.
-            continue
-        record = _recorded(directory)
-        installed = record.get("version") if isinstance(record, dict) else None
-        if not isinstance(installed, int) or isinstance(installed, bool) or installed >= SKILL_VERSION:
-            continue
-        try:
-            plan = _skill(directory)
-            # Another client may have installed its own version since the
-            # record was read; that copy is not this client's to replace.
-            if _recorded(directory) != record:
+        for skill in SKILLS:
+            try:
+                directory = base() / "skills" / skill.name
+            except (OSError, RuntimeError):
+                # No home folder to find (`Path.home()` raises where the
+                # environment names none): no installed skill to keep current.
                 continue
-            if plan.action in ("update", "unchanged"):
-                _install_skill(plan, [])
-        except OSError as error:
-            notices.append({
-                "code": "skill_outdated",
-                "message": f"The roleband skill installed for {host} is version {installed} and could not be "
-                f"updated to {SKILL_VERSION} ({error.strerror or error}); run roleband connect {host} --apply.",
-            })
-            continue
-        if plan.action == "update":
-            notices.append({
-                "code": "skill_updated",
-                "message": f"The roleband skill installed for {host} is now version {SKILL_VERSION}, "
-                f"was {installed}; the host reads it from its next session.",
-            })
-        elif plan.action == "kept_edited":
-            notices.append({
-                "code": "skill_outdated",
-                "message": f"The roleband skill installed for {host} at {plan.path} was edited, so it stays "
-                f"at version {installed}; this client ships version {SKILL_VERSION}.",
-            })
+            record = read_record(directory)
+            installed = record.version if record is not None else None
+            if installed is None or installed >= skill.version:
+                continue
+            try:
+                plan = _skill(skill, directory)
+                # Another client may have installed its own version since the
+                # record was read; that copy is not this client's to replace.
+                if read_record(directory) != record:
+                    continue
+                written: list[str] = []
+                _install_skill(plan, written, refresh=True)
+            except OSError as error:
+                notices.append({
+                    "code": "skill_outdated",
+                    "message": f"The {skill.name} skill installed for {host} is version {installed} and could not "
+                    f"be updated to {skill.version} ({error.strerror or error}); run roleband connect {host} --apply.",
+                })
+                continue
+            kept = plan.kept()
+            if written:
+                notices.append({
+                    "code": "skill_updated",
+                    "message": f"The {skill.name} skill installed for {host} is now version {skill.version}, "
+                    f"was {installed}; the host reads it from its next session."
+                    + (f" You edited {', '.join(kept)}, so it stays as you wrote it." if kept else ""),
+                })
+            elif kept:
+                paths = ", ".join(str(directory / name) for name in kept)
+                notices.append({
+                    "code": "skill_outdated",
+                    "message": f"The {skill.name} skill installed for {host} was edited at {paths}, so it stays "
+                    f"at version {installed}; this client ships version {skill.version}.",
+                })
     return notices
 
 
@@ -448,8 +470,24 @@ def _shim() -> dict[str, Any]:
     return {"path": str(path), "present": present, "on_path": on_path, "notes": notes}
 
 
-def run(args: argparse.Namespace) -> dict[str, Any]:
-    host = args.host
+def _host(named: str | None, environ: Mapping[str, str]) -> tuple[str, bool]:
+    """The host to connect, and whether it was found from the environment
+    rather than named."""
+    if named is not None:
+        return named, False
+    found = running_host(environ)
+    if found is None:
+        raise ClientError(
+            "invalid_arguments",
+            "Name the host to connect, such as roleband connect claude-code --apply or roleband connect codex "
+            "--apply. Run inside Claude Code or Codex, connect finds the host by itself.",
+            details={"supported": list(HOSTS)},
+        )
+    return found, True
+
+
+def run(args: argparse.Namespace, environ: Mapping[str, str] | None = None) -> dict[str, Any]:
+    host, detected = _host(args.host, os.environ if environ is None else environ)
     if host not in HOSTS:
         untested = host in UNTESTED
         raise ClientError(
@@ -464,7 +502,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     else:
         base = codex_dir()
         changes = [_codex_config(base / "config.toml")]
-    skill = _skill(base / "skills" / "roleband")
+    try:
+        skills = [_skill(skill, base / "skills" / skill.name) for skill in SKILLS]
+    except OSError as error:
+        raise ClientError("internal_error", f"This client's skill files cannot be read ({error.strerror or error}).",
+                          details={"path": error.filename}) from None
     apply = args.connect_mode == "apply"
     backups: dict[str, str | None] = {}
     applied: list[str] = []
@@ -474,7 +516,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 backups[str(change.path)] = _write(change)
                 if change.action != "unchanged":
                     applied.append(str(change.path))
-            _install_skill(skill, applied)
+            for skill in skills:
+                _install_skill(skill, applied)
         except OSError as error:
             path = error.filename or "a file"
             done = f" Already changed: {', '.join(applied)}." if applied else " Nothing was changed."
@@ -484,13 +527,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 details={"path": error.filename, "applied": applied,
                          "backups": [backup for backup in backups.values() if backup]},
             ) from None
-    skill_note = {
-        "install": "installs", "update": "updates", "unchanged": "is already current",
-        "kept_edited": "is kept as you edited it; the new version is not installed",
-    }[skill.action]
-    changed = any(change.action != "unchanged" for change in changes) or skill.action in ("install", "update")
+    changed = (any(change.action != "unchanged" for change in changes)
+               or any(skill.action in ("install", "update") for skill in skills))
     return {
         "host": host,
+        # Whether the host was found from the variable it sets rather than named.
+        "host_detected": detected,
         "mode": args.connect_mode,
         "applied": apply,
         # With --print: whether --apply would change anything.
@@ -506,9 +548,26 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             }
             for change in changes
         ],
-        "skill": {"path": str(skill.path), "action": skill.action, "version": SKILL_VERSION,
-                  "summary": f"the roleband skill, version {SKILL_VERSION}, {skill_note}"},
+        "skills": [_skill_view(skill) for skill in skills],
         "command": _shim(),
+    }
+
+
+def _skill_view(plan: SkillPlan) -> dict[str, Any]:
+    note = {
+        "install": "installs", "update": "updates", "unchanged": "is already current",
+        "kept_edited": "is kept as you edited it; the new version is not installed",
+    }[plan.action]
+    kept = plan.kept()
+    if kept and plan.action == "update":
+        note += f"; {', '.join(kept)} is kept as you edited it"
+    return {
+        "name": plan.skill.name,
+        "path": str(plan.directory),
+        "action": plan.action,
+        "version": plan.skill.version,
+        "files": [{"name": item.name, "path": str(item.path), "action": item.action} for item in plan.files],
+        "summary": f"the {plan.skill.name} skill, version {plan.skill.version}, {note}",
     }
 
 
@@ -517,7 +576,8 @@ def human_lines(data: dict[str, Any], escape: Callable[[object], str]) -> list[s
         headline = "already connected, nothing to change"
     else:
         headline = "changed" if data["applied"] else "what --apply would change"
-    lines = [f"{escape(data['host'])}: {headline}"]
+    found = " (the host this runs in)" if data["host_detected"] else ""
+    lines = [f"{escape(data['host'])}{found}: {headline}"]
     for change in data["files"]:
         verb = {"create": "create", "update": "update", "unchanged": "already set, no change"}[change["action"]]
         lines.append(f"  {escape(change['path'])}: {verb}")
@@ -525,7 +585,7 @@ def human_lines(data: dict[str, Any], escape: Callable[[object], str]) -> list[s
         if change["backup"]:
             lines.append(f"    backup: {escape(change['backup'])}")
         lines.extend(f"    note: {escape(note)}" for note in change["notes"])
-    lines.append(f"  {escape(data['skill']['path'])}: {escape(data['skill']['summary'])}")
+    lines.extend(f"  {escape(skill['path'])}: {escape(skill['summary'])}" for skill in data["skills"])
     command = data["command"]
     state = "present" if command["present"] else "missing"
     lines.append(f"  {escape(command['path'])}: {state}, {'on' if command['on_path'] else 'not on'} PATH")

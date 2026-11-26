@@ -93,6 +93,9 @@ describe("what an event carries", () => {
     expect(screenPath(`/company/${CANARY}`)).toBe("/company/:id");
     expect(screenPath("/settings/privacy")).toBe("/settings/privacy");
     expect(screenPath("/statistics/compensation")).toBe("/statistics/compensation");
+    expect(screenPath("/pipeline/up-next")).toBe("/pipeline/up-next");
+    expect(screenPath("/top-picks")).toBe("/top-picks");
+    expect(screenPath("/settings/preferences")).toBe("/settings/preferences");
     expect(screenPath(`/${CANARY}`)).toBe("/:screen");
   });
 

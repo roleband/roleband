@@ -737,6 +737,18 @@ on a line when it is expanded. The dock lists the views in its row
 (`shell/PipelineRailGroup.tsx`). Either way a view opens at a bare address and
 finds its own filters again (`routing/useRememberedParams`).
 
+The side bar has two groups, both in `NAV_TABS` order (`navigation.ts`,
+`rail`): the work at the top (Radar, Top picks, the Pipeline, Insights,
+Companies, Duplicates) and, at the foot, what is about the person and the app
+(Profile, Settings, the light and dark switch). Insights, Companies and
+Duplicates are optional (`optional`): Settings › Preferences lists or unlists
+each one, saved as a view choice (`hooks/sideBar.ts`), and Duplicates starts
+unlisted. Notifications is not listed: the top bar's bell holds the same list
+and count, its View all opens the page, and on that page the bell is the
+chosen place (`aria-current`). A place the side bar does not list still opens
+from the palette and from every link to it. The only mark on the side bar is
+Top picks' dot; a count lit most days says nothing.
+
 A list screen scrolls as one page: the title and tabs scroll away and the
 toolbar docks at the top (`.app-toolbar`, `design/surfaces.css`). The
 Pipeline has nothing above its row, so the row is at the page's top from the
@@ -1275,8 +1287,9 @@ the other, and a cover works on the selection of the screen under it
 
 ### Duplicate review
 
-Duplicates (`features/review/`) is a rail tab because it is a queue with a
-backlog. A sticky toolbar switches between Queue, Paired automatically and
+Duplicates (`features/review/`) is a place of its own because it is a queue
+with a backlog. The backlog is there most days, so the side bar lists it only
+for the person who turns it on, with no count. A sticky toolbar switches between Queue, Paired automatically and
 Decided, which lists every verdict newest first. Each case shows
 a field ledger where identical fields collapse (`ComparisonLedger.tsx`), two
 description columns with unique passages marked (`DescriptionComparison.tsx`),

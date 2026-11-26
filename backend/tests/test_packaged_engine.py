@@ -378,7 +378,9 @@ def test_the_roleband_command_runs_the_bundles_client_and_writes_nothing_inside_
         assert connected.returncode == 0, connected.stdout + connected.stderr
         answer = json.loads(connected.stdout)["data"]
         assert answer["command"]["present"] is True
-        assert answer["skill"]["action"] == "install" and Path(answer["skill"]["path"]).is_file()
+        # Every skill folder ships inside the app, each file of it.
+        assert [skill["action"] for skill in answer["skills"]] == ["install", "install"]
+        assert all(Path(item["path"]).is_file() for skill in answer["skills"] for item in skill["files"])
         no_engine = roleband("status", "--json")
         assert no_engine.returncode == 2 and json.loads(no_engine.stdout)["error"]["code"] == "context_required"
         assert _tree(app) == before

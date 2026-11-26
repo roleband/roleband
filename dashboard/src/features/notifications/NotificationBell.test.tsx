@@ -67,6 +67,20 @@ describe("NotificationBell", () => {
   });
   afterEach(() => { process.off("unhandledRejection", onRejection); });
 
+  it("is the chosen place on the Notifications page, which the side bar does not list", () => {
+    for (const [path, current] of [["/notifications", "page"], ["/", null], ["/notifications/extra", null]] as const) {
+      const view = render(
+        <ToastProvider>
+          <MemoryRouter initialEntries={[path]}><NotificationBell /></MemoryRouter>
+        </ToastProvider>,
+      );
+      const bell = screen.getByRole("button", { name: /^Notifications/ });
+      if (current) expect(bell, path).toHaveAttribute("aria-current", current);
+      else expect(bell, path).not.toHaveAttribute("aria-current");
+      view.unmount();
+    }
+  });
+
   it("turns red from the header counts, and reads no rows until it opens", async () => {
     // The counts follow every read and dismissal on any screen; a red state
     // kept from the bell's own last read would outlive "Mark all read".

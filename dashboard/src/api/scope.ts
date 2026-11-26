@@ -120,6 +120,4 @@ export const scopeApi = {
   retention: () => getJSON<RetentionState>("/api/settings/retention"),
   saveRetention: (update: RetentionUpdate) => putJSON<RetentionState>("/api/settings/retention", update),
   saveLocale: (choice: LocaleSettings) => putJSON<LocaleSettings>("/api/settings/locale", choice),
-  saveViewChoice: (name: string, value: unknown) =>
-    putJSON<Schemas["ViewChoice"]>(`/api/settings/view-choices/${encodeURIComponent(name)}`, { value }),
 };

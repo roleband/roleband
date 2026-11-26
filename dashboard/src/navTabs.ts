@@ -21,7 +21,7 @@ import {
   shellTabSettingsRetention,
   shellTabSettingsPlugins,
   shellTabSettingsPrivacy,
-  shellTabSettingsLanguage,
+  shellTabSettingsPreferences,
   shellTabProfileLookingFor,
   shellTabProfileExperience,
   shellTabPipelineBoard,
@@ -54,14 +54,15 @@ export const STATISTICS_TABS: SubTabDef[] = [
 // Order is how often a person comes back to a tab: what RoleBand reads and
 // how (companies, matching, when it scans, plugins that add data, then
 // recipes for a board no built-in reader covers), then the set-once
-// preferences, ending on the two about the person's own data.
+// preferences (the side bar's places, language and region), ending on the
+// two about the person's own data.
 export const SETTINGS_TABS: SubTabDef[] = [
   { slug: "companies", get label() { return shellTabSettingsCompanies(); } },
   { slug: "intelligence", get label() { return shellTabSettingsAi(); } },
   { slug: "schedule", get label() { return shellTabSettingsSchedule(); } },
   { slug: "plugins", get label() { return shellTabSettingsPlugins(); } },
   { slug: "recipes", get label() { return shellTabSettingsRecipes(); } },
-  { slug: "language", get label() { return shellTabSettingsLanguage(); } },
+  { slug: "preferences", get label() { return shellTabSettingsPreferences(); } },
   { slug: "retention", get label() { return shellTabSettingsRetention(); } },
   { slug: "privacy", get label() { return shellTabSettingsPrivacy(); } },
 ];

@@ -110,6 +110,8 @@ const RoutedScreens = memo(function RoutedScreens({ location }: { location: Loca
           segments outrank /settings/:tab in route rank. */}
       <Route path="/settings/scope" element={<Navigate to="/profile/direction" replace />} />
       <Route path="/settings/roles" element={<Navigate to="/profile/direction" replace />} />
+      {/* Language and region are a card of Settings > Preferences. */}
+      <Route path="/settings/language" element={<Navigate to="/settings/preferences" replace />} />
       {/* /settings/integrations lands on Settings > Plugins, where pay sources are set. */}
       <Route path="/settings/integrations" element={<Navigate to="/settings/plugins" replace />} />
       {/* Saved's old address: every starred role is a card on the pipeline's

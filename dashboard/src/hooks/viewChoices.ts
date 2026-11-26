@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore } from "react";
-import { api } from "../api";
+import { shellApi } from "../api/shell";
 import { browserChoices, forgetBrowserKeys } from "./viewChoicesInBrowser";
 import { forgetViewChoicesRead, heldViewChoices, readViewChoices } from "./viewChoicesRead";
 
@@ -80,7 +80,7 @@ async function send(name: string): Promise<void> {
   for (let next = queued.get(name); next; next = queued.get(name)) {
     queued.delete(name);
     const { value } = next;
-    const saved = await Promise.resolve().then(() => api.saveViewChoice(name, value)).then(() => true, () => false);
+    const saved = await Promise.resolve().then(() => shellApi.saveViewChoice(name, value)).then(() => true, () => false);
     next.settled.forEach((settle) => settle(saved));
     // After a reset the saves queued are the new page's, sent by its own loop.
     if (mine !== generation) return;

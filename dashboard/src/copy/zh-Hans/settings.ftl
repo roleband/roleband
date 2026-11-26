@@ -1,15 +1,20 @@
 ## 设置 > 语言和地区 (docs/copy.md)
 
 settings-language-title = 语言和地区
-settings-language-intro = 选择应用使用的语言，以及数字和日期的写法。更改立即生效，已打开的内容不会重新加载。
 settings-language-label = 语言
-settings-language-description = 公司名称、职位名称和招聘信息保持雇主的原文。
+settings-language-description = 招聘信息保持原文语言。
 settings-language-partial = { $name }，部分翻译
 settings-language-check = { $name }，用于检查文案
 settings-region-label = 数字和日期
-settings-region-description = 数字和日期的写法：{ $number }，{ $date }。
-settings-region-automatic = 跟随系统
+settings-region-description = { $number } · { $date }
+settings-region-automatic = 系统
 settings-region-option = { $country }：{ $number }，{ $date }
+settings-side-bar-title = 侧边栏
+settings-side-bar-intro = 隐藏的位置仍可用 { $platform ->
+    [mac] ⌘K
+   *[other] Ctrl K
+} 打开。
+settings-side-bar-duplicates = 可能是同一职位的招聘信息。
 settings-save-failed = 无法保存。请重试。
 
 ## features/settings/ChronographDial.tsx

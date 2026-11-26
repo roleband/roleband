@@ -12,7 +12,7 @@ How the operations and the command are built is in
 | Piece | Where |
 |---|---|
 | The command | `backend/tracker/cli/` |
-| Host setup (`roleband connect`) and its skill | `backend/tracker/cli/connect.py`, `backend/tracker/cli/skills/` |
+| Host setup (`roleband connect`) and its skills | `backend/tracker/cli/connect.py`, `backend/tracker/cli/skills/` |
 | Operations, their catalog and outcomes | `backend/tracker/agents/operations/` |
 | The two switches, the data categories and the action groups | `backend/tracker/agents/config.py` |
 | Pursuit writes | `backend/tracker/agents/pursuits.py` |
@@ -40,9 +40,14 @@ How the operations and the command are built is in
    ```
 
    or `roleband connect codex --apply`. `--print` shows the change, and these
-   costs, without making it. Both hosts get the RoleBand skill, which tells the
-   agent how to use the command. Any other host is refused as
-   `unsupported_host`.
+   costs, without making it. Any other host is refused as `unsupported_host`.
+   The person can also ask the assistant itself to run `roleband connect
+   --apply`: with no host named, the command connects the host it runs in,
+   read from the variable that host sets in every command
+   (`agent_hosts.running_host`). In a plain terminal no host sets one, so the
+   host must be named there and a command without it is refused as
+   `invalid_arguments`. The answer's `host_detected` says which way the host
+   was found.
 3. Restart the host and ask the agent to run `roleband capabilities`. It asks
    the engine, so it needs a context: the Mac app writes one, and anywhere else
    create the context file below first.
@@ -69,15 +74,44 @@ so when it is not, with the line to add to the shell profile
 `backend/` runs the same client. The engine must be running: a command that
 cannot reach it fails with exit status 3, never with a stale answer.
 
+**The skills.** `connect` installs each folder under
+`backend/tracker/cli/skills/` into the host's own skills folder
+(`~/.claude/skills/`, `~/.codex/skills/`), as `SKILLS` in
+`backend/tracker/platform/agent_hosts.py` lists them:
+
+| Skill | Loaded when | Files |
+|---|---|---|
+| `roleband` | The person asks about their job search | `SKILL.md`: how to use the command |
+| `roleband-top-picks` | The person asks to set up or change their top picks, or a scheduled task runs the check | `SKILL.md`: which job and the routine; `setup.md`: the setup conversation; `judging.md`: how to judge a posting |
+
+Each folder has one version and a sidecar, `.roleband-skill.json`, with that
+version and the hash of every file `connect` wrote. The rule holds file by
+file: a missing file is installed, a file still as `connect` wrote it is
+updated to this client's copy, and a file the person edited, linked or wrote
+themself is kept and reported as `kept_edited`. `capabilities` and `picks
+status`, the first calls the two skills make, bring a folder installed at an
+older version up to this client's the same way (`refresh_installed_skills`),
+so a new version reaches the host without a second `connect`; they also add a
+file new in this version, leave out one the person deleted, and never install
+a skill `connect` has not installed there. Each answers a `skill_updated` or
+`skill_outdated` warning when it does. Neither touches a folder whose sidecar
+names this client's version or a newer one, so two clients on one computer
+never trade the files back and forth.
+`backend/tests/test_top_picks_skill.py` resolves every command, flag, field,
+step and code the top picks skill names against the bundled index and the
+engine's types.
+
 Any agent that can run a command can use `roleband` without `connect`.
 Someone who builds their own agent gets the operations as tool definitions
 from `roleband tools export`.
 
 **What the card shows for each app.** The engine reads each host's own files
 (`backend/tracker/platform/agent_hosts.py`, shared with `connect` so the two
-agree): connected when the skill and what `connect` writes are both there, an
-update when the installed skill is an unedited copy of an older version,
-"asks before each command" when the skill is there but the rule is gone or a
+agree): connected when the skills and what `connect` writes are all there, an
+update when `connect` would install or update a skill file (a skill it has not
+installed there yet, such as the top picks skill on a host connected before
+that skill shipped, or an unedited file of an older version), "asks before
+each command" when the `roleband` skill is there but the rule is gone or a
 deny or ask rule covers `roleband`, and blocked when Codex's `sandbox_mode` is
 `read-only`, which `connect` leaves to the person. An
 engine that cannot see the person's home folder shows every host as not
@@ -186,6 +220,6 @@ holds the rules it is built to. After a change, regenerate the client's index
 
 ```bash
 .venv/bin/python -m pytest tests/test_agent_operations.py tests/test_agent_categories.py \
-  tests/test_agents.py tests/test_cli.py tests/test_cli_connect.py \
+  tests/test_agents.py tests/test_cli.py tests/test_cli_connect.py tests/test_top_picks_skill.py \
   tests/test_api_intelligence_contract.py
 ```
