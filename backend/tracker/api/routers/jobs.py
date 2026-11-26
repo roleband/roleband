@@ -240,7 +240,8 @@ async def _listed(
         params["pick_ids"] = pick_verdicts.standing_pick_ids(
             pick_briefs.body_of(await pick_briefs.active(session)), keep_removed=True,
         )
-        if sort == DEFAULT_SORT:
+        # The Not-for-me lens keeps its own order, below.
+        if sort == DEFAULT_SORT and not dismissed_only:
             picked = pick_verdicts.picked_at()
             ordering = [picked.asc() if order == "asc" else picked.desc(), Job.id.desc()]
 

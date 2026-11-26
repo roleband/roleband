@@ -11,6 +11,7 @@ from __future__ import annotations
 import base64
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
 import pytest_asyncio
@@ -19,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from tests.factories import make_company, make_job
 from tracker.agents.config import AgentAccessConfig, set_agent_access
+from tracker.agents.operations import picks as picks_operations
 from tracker.agents.operations.outcomes import outcome
 from tracker.agents.operations.workspace import ensure_workspace_id
 from tracker.api.agent_operations import IDEMPOTENCY_KEY_HEADER, MAX_BODY_BYTES, PREFIX
@@ -32,6 +34,7 @@ from tracker.db.models import (
     PickBrief,
     PickRun,
     PickVerdict,
+    ScrapeRun,
     TrackedCompany,
 )
 from tracker.picks import background as background_store
@@ -173,7 +176,10 @@ async def _verdicts(db_session) -> list[PickVerdict]:
 
 
 async def _outcomes(api_client, run: dict, verdicts: list[dict]) -> dict[int, str | None]:
+    """Each posting's refusal code, or None when its verdict was saved."""
     data = _data(*await _decide(api_client, run, verdicts))
+    for item in data["results"]:
+        assert (item["outcome"], item["refusal"] is None) in {("saved", True), ("refused", False)}, item
     return {item["job"]: item["refusal"] for item in data["results"]}
 
 
@@ -475,6 +481,81 @@ async def test_a_closed_or_unknown_run_takes_no_verdict(api_client, db_session, 
     status = _data(*await _read(api_client, "/picks/status"))
     assert status["routine"]["health"] == "stopped_early"
     assert status["routine"]["last_run"]["note"] == "The plan's limit was reached."
+    # A run begun since and still open says nothing yet of how it will end.
+    await _begin(api_client)
+    assert _data(*await _read(api_client, "/picks/status"))["routine"]["health"] == "stopped_early"
+
+
+async def test_a_further_batch_leaves_out_a_posting_whose_text_changed_since_the_run_began(
+    api_client, db_session, workspace,
+):
+    run = await _begin(api_client, limit=1)
+    async with _fresh(db_session) as session:
+        queued = [int(job) for job, _ in (await session.get(PickRun, run["run"])).queue]
+        await session.execute(update(Job).where(Job.id == queued[1]).values(content_hash="h-rewritten"))
+        await session.commit()
+
+    rest = _data(*await _read(api_client, "/picks/runs/next", run=run["run"], cursor=1))
+
+    # Its verdict would be refused as posting_changed; the next run hands out the new text.
+    assert [(posting["job"], posting["fit_rank"]) for posting in rest["batch"]] == [(queued[2], 3)]
+    assert rest["next_cursor"] is None
+
+
+async def test_a_replayed_run_start_answers_no_postings_once_postings_are_not_shared(api_client, db_session, workspace):
+    key = _key()
+    first = _data(*await _write(api_client, "POST", "/picks/runs", {}, key=key))
+    assert first["batch"]
+
+    await _choose(db_session, public_posting="not_shared")
+    replay = await _write(api_client, "POST", "/picks/runs", {}, key=key)
+
+    error = _refused(*replay, "category_disabled")
+    assert error["details"]["category"] == "public_posting"
+    assert "Staff Product Manager" not in str(replay[1])
+
+
+async def test_a_change_to_the_active_brief_beside_a_draft_is_listed_as_a_change_not_an_activation(
+    api_client, db_session, workspace,
+):
+    drafted = _data(*await _write(api_client, "PATCH", "/brief", {
+        "if_revision": 0, "target": "draft", "reason": "Starting over.", "urgency": "active",
+    }))
+    changed = _data(*await _write(api_client, "PATCH", "/brief", {
+        "if_revision": 1, "target": "active", "reason": "Budget.", "budget": 5,
+    }))
+    assert changed["status"] == "active"
+
+    async with _fresh(db_session) as session:
+        listed = await session.scalar(
+            select(AgentActivity).where(AgentActivity.operation == "brief.patch").order_by(AgentActivity.id.desc())
+        )
+    assert listed.summary == f"Changed your top picks brief (version {changed['version']})"
+    assert listed.changes == []
+    # Control: making the draft active is an activation.
+    _data(*await _write(api_client, "PATCH", "/brief", {
+        "if_revision": drafted["revision"], "target": "draft", "reason": "Ready.", "activate": True,
+    }))
+    async with _fresh(db_session) as session:
+        activated = await session.scalar(
+            select(AgentActivity).where(AgentActivity.operation == "brief.patch").order_by(AgentActivity.id.desc())
+        )
+    assert activated.summary.startswith("Made your top picks brief active")
+
+
+async def test_the_suggested_check_times_are_the_half_hours_just_after_scans_most_often_end(db_session, monkeypatch):
+    zone = ZoneInfo("America/New_York")
+    monkeypatch.setattr(picks_operations, "local_zone", lambda: zone)
+    day = datetime(2026, 11, 24, tzinfo=zone)
+    for hour, minute, second in ((9, 0, 30), (9, 1, 0), (13, 10, 0), (13, 29, 59), (23, 45, 0)):
+        at = day.replace(hour=hour, minute=minute, second=second)
+        db_session.add(ScrapeRun(started_at=at - timedelta(minutes=20), finished_at=at, status="ok"))
+    await db_session.commit()
+
+    times = await picks_operations._suggested_check_times(db_session, datetime(2026, 11, 25, 12, tzinfo=UTC))
+
+    # A scan that ends at 09:00:30 is not done by 09:00.
+    assert times == ["09:30", "13:30"]
 
 
 async def test_beginning_a_run_closes_the_same_assistants_open_run_as_abandoned(api_client, db_session, workspace):
@@ -488,9 +569,18 @@ async def test_beginning_a_run_closes_the_same_assistants_open_run_as_abandoned(
     assert {posting["job"] for posting in second["batch"]} == {posting["job"] for posting in first["batch"]}
 
 
-async def test_a_days_runs_together_hand_out_at_most_the_daily_cap(api_client, db_session, workspace):
+async def test_a_days_runs_together_hand_out_at_most_the_daily_cap(api_client, db_session, workspace, monkeypatch):
     await update_top_picks_settings(db_session, daily_cap=2)
     await db_session.commit()
+    # Every run of the test begins at the same instant, so all of them fall on one local day.
+    at = datetime.now(UTC)
+
+    class _Frozen(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return at if tz is None else at.astimezone(tz)
+
+    monkeypatch.setattr(picks_operations, "datetime", _Frozen)
 
     first = await _begin(api_client)
     assert first["counts"] == {"waiting": 3, "ruled_out_by_rules": 1, "handed": 2, "held_back": 1}
@@ -768,9 +858,38 @@ async def test_a_routine_write_names_its_run_and_cannot_change_what_only_the_per
     assert len(learned["body"]["rules"]) == 2
 
     # The same change without a run is the person's, and succeeds.
-    by_person = _data(*await _write(api_client, "PATCH", "/brief", {**stricter, "run": None}))
+    by_person = _data(*await _write(api_client, "PATCH", "/brief", {
+        **stricter, "run": None, "if_revision": learned["revision"],
+    }))
     assert (by_person["version"], by_person["made_by"], by_person["ids"]["rules"]) == (3, "person", ["r1", "r3"])
     _refused(*await _write(api_client, "PATCH", "/brief", {**stricter, "run": "run_000000000000"}), "invalid_input")
+
+
+async def test_a_revision_read_from_a_replaced_brief_never_applies_to_its_replacement(api_client, workspace):
+    # Two callers read the active brief at revision 1; the first change replaces it.
+    first = _data(*await _write(api_client, "PATCH", "/brief", {"if_revision": 1, "reason": "Budget.", "budget": 5}))
+    assert first["version"] == 2 and first["revision"] != 1
+    stale = _refused(*await _write(api_client, "PATCH", "/brief", {"if_revision": 1, "reason": "Budget.", "budget": 4}),
+                     "revision_conflict")
+    assert stale["details"] == {"expected_revision": 1, "current_revision": first["revision"]}
+    assert _data(*await _read(api_client, "/brief"))["body"]["budget"] == 5, "the stale change did not land"
+
+    # A draft made active takes no revision the brief has held either.
+    draft = _data(*await _write(api_client, "PATCH", "/brief", {
+        "if_revision": 0, "target": "draft", "reason": "A new draft.", "budget": 2,
+    }))
+    made = _data(*await _write(api_client, "PATCH", "/brief", {
+        "if_revision": draft["revision"], "reason": "The person confirmed it.", "activate": True,
+    }))
+    assert made["status"] == "active" and made["revision"] not in (1, first["revision"])
+    _refused(*await _write(api_client, "PATCH", "/brief", {
+        "if_revision": first["revision"], "target": "active", "reason": "Budget.", "budget": 9,
+    }), "revision_conflict")
+
+    # Stated against what it read, a change lands.
+    assert _data(*await _write(api_client, "PATCH", "/brief", {
+        "if_revision": made["revision"], "reason": "Budget.", "budget": 4,
+    }))["body"]["budget"] == 4
 
 
 async def test_a_brief_patch_is_checked_against_the_briefs_schema_and_the_revision_it_read(api_client, workspace):
@@ -1096,7 +1215,12 @@ async def test_remove_deletes_the_cv_the_reading_and_the_brief_and_nothing_else(
         "document_id": added["document"]["id"], "confirmed": True,
     }))
     _data(*await _write(api_client, "PATCH", "/brief", {"if_revision": 1, "reason": "Budget.", "budget": 5}))
-    await _picked(api_client, workspace)
+    run = await _begin(api_client)
+    await _outcomes(api_client, run, [_pick(jobs["staff"]), _pick(jobs["principal"])])
+    # A finish note may repeat the person's facts too.
+    _data(*await _write(api_client, "POST", "/picks/runs/finish", {
+        "run": run["run"], "outcome": "finished", "note": "Two above the 210,000 floor.",
+    }))
     await api_client.put(f"/api/jobs/{jobs['lead']}/feedback", json={"verdict": "dismissed", "reason": "wrong_role"})
     db_session.add(Favorite(job_id=jobs["staff"]))
     await db_session.commit()
@@ -1105,7 +1229,9 @@ async def test_remove_deletes_the_cv_the_reading_and_the_brief_and_nothing_else(
     async with _fresh(db_session) as session:
         held = (await session.scalars(select(CommandReceipt))).all()
     # Before Remove the receipts do hold the person's facts, so their absence after it means something.
-    assert {"background.set", "background.add_document", "brief.patch", "picks.begin"} <= {row.operation for row in held}
+    assert {"background.set", "background.add_document", "brief.patch", "picks.begin", "picks.finish"} <= {
+        row.operation for row in held
+    }
     assert "210000" in str([row.result for row in held]) and "Senior Product Manager" in str([row.result for row in held])
 
     removed = await api_client.delete("/api/picks/setup")
@@ -1134,10 +1260,13 @@ async def test_remove_deletes_the_cv_the_reading_and_the_brief_and_nothing_else(
         for model in (PickVerdict, PickRun):
             rows = (await session.scalars(select(model))).all()
             assert "210,000" not in str([vars(row) for row in rows])
-    # The receipts of the writes that saved the reading and the brief repeated them: gone with them.
+    # The receipts of the writes that saved the reading, the brief and the finish note repeated them:
+    # gone with them.
     async with _fresh(db_session) as session:
         receipts = (await session.scalars(select(CommandReceipt))).all()
-    assert {row.operation for row in receipts} == {"picks.decide", "picks.finish"}, "other receipts stay"
+        finished = await session.get(PickRun, run["run"])
+    assert {row.operation for row in receipts} == {"picks.decide"}, "other receipts stay"
+    assert finished.note is None and finished.outcome == "finished"
     assert not any(word in str([row.result for row in receipts]) for word in ("210", "Senior Product Manager", "Dana"))
     assert _data(*await _read(api_client, "/picks"))["picks"] == [], "a pick with nothing left to say is no pick"
     assert (await api_client.get("/api/picks/removed")).json() == {"picks": []}
@@ -1182,6 +1311,11 @@ async def test_the_daily_limit_starts_at_a_thousand_and_the_person_changes_it_in
     changed = _data(*await _write(api_client, "PUT", "/picks/mode", {"daily_cap": 2}))
     assert (changed["daily_cap"], changed["state"]) == (2, "on")
     assert datetime.fromisoformat(changed["enabled_at"]) == before.enabled_at
+    async with _fresh(db_session) as session:
+        listed = await session.scalar(
+            select(AgentActivity).where(AgentActivity.operation == "picks.switch").order_by(AgentActivity.id.desc())
+        )
+    assert (listed.summary, listed.changes) == ("Changed the top picks settings", [])
     first = await _begin(api_client)
     assert first["counts"] == {"waiting": 3, "ruled_out_by_rules": 1, "handed": 2, "held_back": 1}
 
@@ -1326,6 +1460,25 @@ async def test_newest_among_picks_is_the_newest_pick_not_the_newest_posting(api_
     ]
     # Control: on the Radar itself Newest is still the newest posting.
     assert (await _radar(api_client))["items"][0]["id"] == jobs["staff"]
+
+
+async def test_removed_picks_read_newest_removal_first_not_newest_pick_first(api_client, db_session, workspace):
+    jobs = workspace["jobs"]
+    await _judged(api_client, workspace)
+    assert [row["id"] for row in (await _radar(api_client, top_picks=True))["items"]] == [
+        jobs["principal"], jobs["staff"],
+    ]
+    for job in (jobs["principal"], jobs["staff"]):
+        await api_client.put(f"/api/jobs/{job}/feedback", json={"verdict": "dismissed", "reason": "company"})
+    async with _fresh(db_session) as session:
+        await session.execute(update(JobFeedback).where(JobFeedback.job_id == jobs["staff"]).values(
+            created_at=datetime.now(UTC) + timedelta(minutes=5),
+        ))
+        await session.commit()
+
+    removed = await _radar(api_client, top_picks=True, dismissed_only=True)
+
+    assert [row["id"] for row in removed["items"]] == [jobs["staff"], jobs["principal"]]
 
 
 async def test_a_role_the_radar_would_not_show_is_never_listed_as_a_pick(api_client, db_session, workspace):

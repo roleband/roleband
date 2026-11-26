@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, event, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.db.models import CandidateBackground, CandidateDocument
@@ -160,28 +160,55 @@ async def store_document(
     folder = directory or documents_dir()
     folder.mkdir(parents=True, exist_ok=True, mode=0o700)
     stored_name = f"{digest[:16]}-{secrets.token_hex(4)}{Path(name).suffix.lower()}"
+    path = folder / stored_name
     # Created for this account only, and never over a file already there.
-    descriptor = os.open(folder / stored_name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(descriptor, "wb") as handle:
         handle.write(content)
+    _unlink_unless_committed(session, path)
     row = CandidateDocument(
         filename=name[:255], media_type=media_type, size_bytes=len(content), sha256=digest,
         stored_name=stored_name, added_at=now,
     )
     session.add(row)
-    await session.flush()
+    try:
+        await session.flush()
+    except BaseException:
+        path.unlink(missing_ok=True)
+        raise
     return row, True
+
+
+def _unlink_unless_committed(session: AsyncSession, path: Path) -> None:
+    """Delete the file at `path` if the transaction that names it rolls back,
+    so no document stays on disk without the row Remove reads."""
+    committed = False
+
+    def keep(_session: object) -> None:
+        nonlocal committed
+        committed = True
+
+    def drop(_session: object) -> None:
+        if not committed:
+            path.unlink(missing_ok=True)
+
+    event.listen(session.sync_session, "after_commit", keep, once=True)
+    event.listen(session.sync_session, "after_rollback", drop, once=True)
 
 
 async def remove_all(session: AsyncSession, *, directory: Path | None = None) -> tuple[int, int]:
     """Delete every reading and every stored document, files first, and say
-    how many of each went. Only the person's own Remove calls this."""
+    how many of each went. Only the person's own Remove calls this.
+
+    Every file in the documents folder goes, not only those a row names: the
+    folder is the engine's own, and a write that failed after its file was
+    made leaves no row to find it by."""
     await lock_picks(session)
     folder = directory or documents_dir()
-    stored = (await session.scalars(select(CandidateDocument.stored_name))).all()
-    for name in stored:
-        # A stored name is the engine's own, never a path: it stays in the folder.
-        (folder / Path(name).name).unlink(missing_ok=True)
+    if folder.is_dir():
+        for entry in folder.iterdir():
+            if entry.is_file() and not entry.is_symlink():
+                entry.unlink(missing_ok=True)
     readings = await session.execute(delete(CandidateBackground))
     documents = await session.execute(delete(CandidateDocument))
     return readings.rowcount or 0, documents.rowcount or 0

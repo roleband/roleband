@@ -17,7 +17,7 @@ import secrets
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tracker.db.models import PickRun
@@ -71,6 +71,12 @@ async def close_open(session: AsyncSession, now: datetime, *, note: str) -> int:
         run.outcome, run.finished_at, run.note = "abandoned", now, run.note or note
     await session.flush()
     return len(open_runs)
+
+
+async def forget_notes(session: AsyncSession) -> None:
+    """Clear what every run's closing note says: a note is the assistant's own
+    words and can repeat what it read of the person."""
+    await session.execute(update(PickRun).where(PickRun.note.isnot(None)).values(note=None))
 
 
 async def begin(

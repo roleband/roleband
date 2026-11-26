@@ -343,6 +343,14 @@ async def _next_version(session: AsyncSession) -> int:
     return max(held, judged) + 1
 
 
+async def _next_revision(session: AsyncSession) -> int:
+    """A revision no row of the brief has held. A replacement or a new draft
+    takes one too, so the revision a caller read never names another row:
+    a change stated against a version that has since been replaced is
+    refused, not applied to its replacement."""
+    return int(await session.scalar(select(func.coalesce(func.max(PickBrief.revision), 0))) or 0) + 1
+
+
 def _stored(row: PickBrief | None) -> dict[str, Any]:
     return dict(row.body) if row is not None else {}
 
@@ -350,7 +358,7 @@ def _stored(row: PickBrief | None) -> dict[str, Any]:
 async def patch(session: AsyncSession, change: Patch) -> PickBrief:
     """Apply one change and return the row it wrote.
 
-    A draft is changed in place and its revision counts up. The active brief
+    A draft is changed in place and takes a new revision. The active brief
     is never changed in place: its change is a new active version and the one
     before becomes `superseded`. `activate` makes the draft the active
     version. Raises `RevisionMoved` when the row moved past `if_revision`
@@ -385,7 +393,7 @@ async def patch(session: AsyncSession, change: Patch) -> PickBrief:
         row = PickBrief(
             version=await _next_version(session), status="active", body=body,
             summary=held_active.summary if change.summary is None else change.summary,
-            reason=change.reason, made_by=made_by, host=change.host, revision=1,
+            reason=change.reason, made_by=made_by, host=change.host, revision=await _next_revision(session),
         )
         held_active.status = "superseded"
         # The partial unique index admits one active row: the old one leaves first.
@@ -397,7 +405,8 @@ async def patch(session: AsyncSession, change: Patch) -> PickBrief:
         _same_revision(0, change.if_revision)
         held_draft = PickBrief(
             version=await _next_version(session), status="draft", body=_applied({}, change.parts),
-            summary=change.summary or "", reason=change.reason, made_by=made_by, host=change.host, revision=1,
+            summary=change.summary or "", reason=change.reason, made_by=made_by, host=change.host,
+            revision=await _next_revision(session),
         )
         session.add(held_draft)
     else:
@@ -407,7 +416,7 @@ async def patch(session: AsyncSession, change: Patch) -> PickBrief:
             held_draft.summary = change.summary
         held_draft.reason = change.reason
         held_draft.host = change.host
-        held_draft.revision += 1
+        held_draft.revision = await _next_revision(session)
     if change.activate:
         if held_active is not None:
             held_active.status = "superseded"

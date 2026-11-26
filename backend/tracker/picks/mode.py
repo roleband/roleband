@@ -71,8 +71,10 @@ async def mark_opened(session: AsyncSession, now: datetime) -> TopPicksSettings:
 
 async def remove(session: AsyncSession, now: datetime, *, directory: Path | None = None) -> Removed:
     """Delete the stored CV, every reading and the brief, clear what past
-    verdicts say, close any run still open, and return the mode to never set up."""
+    verdicts and runs say, close any run still open, and return the mode to
+    never set up."""
     await lock_picks(session)
+    await runs.forget_notes(session)
     await runs.close_open(session, now, note="Top picks was removed.")
     readings, documents = await background.remove_all(session, directory=directory)
     removed = Removed(
@@ -114,10 +116,16 @@ async def standing(
         )
     newest = await runs.newest_routine_run(session)
     finished = await runs.last_finished(session)
+    # Health reads the newest closed run. A run still open says nothing of how
+    # the last one ended, unless it is overdue and so reads as abandoned.
+    fact = runs.as_fact(newest, now) if newest is not None else None
+    if fact is not None and fact.outcome is None:
+        closed = await runs.newest_closed_routine_run(session)
+        fact = runs.as_fact(closed, now) if closed is not None else None
     return Standing(
         health=health(
             state=settings.state,
-            newest=runs.as_fact(newest, now) if newest is not None else None,
+            newest=fact,
             last_finished_at=finished.finished_at if finished is not None else None,
             oldest_waiting_since=waiting.oldest_waiting_since, now=now,
         ),

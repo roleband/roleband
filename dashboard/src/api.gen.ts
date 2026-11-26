@@ -19380,7 +19380,7 @@ export interface operations {
                     model?: string | null;
                     /**
                      * Trial
-                     * @description The trial at the end of setup: every open role, its verdicts kept apart.
+                     * @description The trial at the end of setup: every open role the hard rules leave, its verdicts kept apart.
                      * @default false
                      */
                     trial?: boolean;

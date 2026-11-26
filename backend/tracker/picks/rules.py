@@ -7,7 +7,7 @@ judge. Every condition here is therefore false, never NULL, for such a
 posting, so negating it keeps the row.
 
 Pay rules read the employer's own stated band, never an estimate, and only a
-band stated per year in the rule's currency.
+band with an upper bound, stated per year in the rule's currency.
 """
 
 from __future__ import annotations
@@ -38,8 +38,9 @@ _YEARLY_FLOOR = next(floor for period, floor, _ceiling in SIZE_CLASSES if period
 
 def _stated_top(entity: Any, basis: str, currency: str) -> ColumnElement[Any]:
     """The top of the posting's stated yearly band on `basis`, or NULL when it
-    states none in `currency`."""
-    top = func.coalesce(entity.disclosed_base_max, entity.disclosed_base_min)
+    states none in `currency`. A band with no top ("from $150,000", or a
+    figure stored only as its minimum) rules nothing out: the judge reads it."""
+    top = entity.disclosed_base_max
     return case(
         (
             and_(

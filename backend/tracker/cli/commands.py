@@ -24,6 +24,7 @@ import base64
 import json
 import os
 import select
+import stat
 import sys
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
@@ -307,7 +308,8 @@ def _arguments(parser: argparse.ArgumentParser, command: Command) -> None:
         parser.add_argument("--overwrite", dest="overwrite", action="store_true",
                             help="with --output, replace a file already there")
     if command.reads_file:
-        parser.add_argument("--file", dest="file", metavar="PATH", default=None,
+        # Kept as a list so a second --file is refused rather than silently replacing the first.
+        parser.add_argument("--file", dest="file", metavar="PATH", action="append", default=None,
                             help="the file to send, read from this computer as it is")
     if command.keyed:
         parser.add_argument("--idempotency-key", dest="idempotency_key", metavar="KEY", default=None,
@@ -338,7 +340,10 @@ def payload(command: Command, args: argparse.Namespace, *, stdin: Any = None) ->
             )
     data.update(dict(given.values()))
     if command.reads_file:
-        named = getattr(args, "file", None)
+        named_all = getattr(args, "file", None) or []
+        if len(named_all) > 1:
+            raise ClientError("invalid_arguments", "--file is given more than once; give one file.")
+        named = named_all[0] if named_all else None
         if named is not None:
             if twice := [name for name in FILE_FIELDS if name in data]:
                 raise ClientError(
@@ -373,12 +378,23 @@ def read_file(path: str) -> dict[str, str]:
     """The file at `path` as the fields an operation that reads a file takes:
     its name and its bytes in base64. Read whole, never past the bound."""
     try:
-        with open(os.path.expanduser(path), "rb") as handle:
-            raw = handle.read(MAX_FILE_BYTES + 1)
+        # Opened without waiting, so a named pipe with no writer is refused
+        # below instead of holding the command forever.
+        descriptor = os.open(os.path.expanduser(path), os.O_RDONLY | getattr(os, "O_NONBLOCK", 0))
     except OSError as error:
         raise ClientError(
             "invalid_arguments", f"--file: cannot read {path} ({error.strerror or type(error).__name__}).",
         ) from None
+    if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+        os.close(descriptor)
+        raise ClientError("invalid_arguments", f"--file: cannot read {path} (not a regular file).")
+    with os.fdopen(descriptor, "rb") as handle:
+        try:
+            raw = handle.read(MAX_FILE_BYTES + 1)
+        except OSError as error:
+            raise ClientError(
+                "invalid_arguments", f"--file: cannot read {path} ({error.strerror or type(error).__name__}).",
+            ) from None
     if len(raw) > MAX_FILE_BYTES:
         raise ClientError("invalid_arguments", f"--file: {path} is larger than {MAX_FILE_BYTES // (1024 * 1024)} MiB.")
     if not raw:

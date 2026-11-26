@@ -14,8 +14,9 @@ A routine run is three calls:
 3. `picks.finish` closes the run.
 
 `picks.next` reads a further batch when a run holds more than one. The trial
-at the end of setup is the same run with `trial`: it takes every open role,
-its verdicts are kept apart, and it does not need the mode on.
+at the end of setup is the same run with `trial`: it takes every open role
+the hard rules leave, its verdicts are kept apart, and it does not need the
+mode on.
 
 `picks.status` says where setup and the routine stand, `picks.samples` gives a
 few of the person's own Radar postings to calibrate on, `picks.list` reads the
@@ -313,7 +314,7 @@ class RunCounts(Shape):
 
 class BeginInput(Shape):
     trial: bool = Field(
-        default=False, description="The trial at the end of setup: every open role, its verdicts kept apart.",
+        default=False, description="The trial at the end of setup: every open role the hard rules leave, its verdicts kept apart.",
     )
     model: str | None = Field(default=None, max_length=128, description="Your own model's name.")
     limit: int = Field(default=MAX_BATCH, ge=1, le=MAX_BATCH, description="Most postings in the first batch.")
@@ -661,10 +662,14 @@ def _posting(job: Job, *, rank: int, names: dict[str, str], now: datetime, estim
 
 async def _postings(
     session: AsyncSession, jobs: list[Job], *, first_rank: int, now: datetime, estimates: bool,
+    ranks: list[int] | None = None,
 ) -> list[Posting]:
+    """`ranks`, when given, is each posting's place in the run's queue; else
+    the postings run on from `first_rank`."""
     names = await display_names(session) if jobs else {}
     return [
-        _posting(job, rank=first_rank + index, names=names, now=now, estimates=estimates)
+        _posting(job, rank=ranks[index] if ranks is not None else first_rank + index, names=names, now=now,
+                 estimates=estimates)
         for index, job in enumerate(jobs)
     ]
 
@@ -696,7 +701,8 @@ def _month_start(now: datetime) -> datetime:
 
 
 async def _suggested_check_times(session: AsyncSession, now: datetime) -> list[str]:
-    """The two half hours scans most often finished just before, in local time."""
+    """The two half hours scans most often finished just before, in local time:
+    each scan counts toward the first half hour strictly after it ended."""
     finished = (await session.scalars(
         select(ScrapeRun.finished_at).where(
             ScrapeRun.finished_at.isnot(None), ScrapeRun.finished_at >= now - timedelta(days=_SCAN_DAYS),
@@ -707,8 +713,9 @@ async def _suggested_check_times(session: AsyncSession, now: datetime) -> list[s
     for at in finished:
         if at is None:
             continue
-        local = at.astimezone(zone) + timedelta(minutes=29)
-        slots[f"{local.hour:02d}:{'30' if local.minute >= 30 else '00'}"] += 1
+        local = at.astimezone(zone)
+        after = local.replace(minute=30 if local.minute >= 30 else 0, second=0, microsecond=0) + timedelta(minutes=30)
+        slots[f"{after.hour:02d}:{after.minute:02d}"] += 1
     if not slots:
         return list(_DEFAULT_CHECK_TIMES)
     return sorted(slot for slot, _ in sorted(slots.items(), key=lambda pair: (-pair[1], pair[0]))[:2])
@@ -930,6 +937,10 @@ async def begin(
 def shown_begin(result: RunStart, withheld: Collection[DataClass]) -> RunStart:
     """A run's first answer under the caller's categories: the stored receipt
     keeps it whole, and an answer leaves out what the person does not share."""
+    if "public_posting" in withheld:
+        # The first batch is postings: a replay after posting sharing was
+        # turned off answers nothing of them.
+        raise category_disabled("public_posting")
     shown = result.model_copy(deep=True)
     if "private_pursuit" in withheld:
         shown.reactions = None
@@ -954,13 +965,20 @@ async def next_batch(
     except RunError as error:
         raise _run_refusal(error) from None
     ids = [int(job_id) for job_id, _ in run.queue]
+    handed = runs.queue_of(run)
     window = ids[params.cursor : params.cursor + params.limit]
     found = {job.id: job for job in (await session.scalars(select(Job).where(Job.id.in_(window)))).all()} if window else {}
-    jobs = [found[job_id] for job_id in window if job_id in found]
+    # A posting whose text changed since the run began is left out: a verdict
+    # on its new text would be refused, and the next run hands it out again.
+    kept = [
+        (params.cursor + offset + 1, found[job_id]) for offset, job_id in enumerate(window)
+        if job_id in found and (found[job_id].content_hash or "") == handed[job_id]
+    ]
     end = params.cursor + len(window)
     more = end < len(ids)
     postings = await _postings(
-        session, jobs, first_rank=params.cursor + 1, now=now, estimates="market_statistic" not in withheld,
+        session, [job for _, job in kept], first_rank=params.cursor + 1, now=now,
+        estimates="market_statistic" not in withheld, ranks=[rank for rank, _ in kept],
     )
     return Batch(
         run=run.id, count=len(postings), batch=postings, next_cursor=end if more else None,
@@ -1123,7 +1141,8 @@ class RunActivity:
 
 @dataclass(frozen=True)
 class SwitchActivity:
-    """What turning the mode on or off lists: its state before and after."""
+    """What a switch lists: the mode turned on or off with its state before
+    and after, or the settings changed when the mode stayed as it was."""
 
     async def before(self, session: AsyncSession) -> str:
         return (await get_top_picks_settings(session)).state
@@ -1131,7 +1150,11 @@ class SwitchActivity:
     def entry(self, before: object, result: BaseModel) -> Changed:
         if not isinstance(result, ModeState):
             raise TypeError(f"a switch answers ModeState, not {type(result).__name__}")
-        english = "Turned top picks on" if result.state == "on" else "Turned top picks off"
+        if before == result.state:
+            # The daily limit, the host or the schedule changed; the mode did not.
+            english = "Changed the top picks settings"
+        else:
+            english = "Turned top picks on" if result.state == "on" else "Turned top picks off"
         changes = (FieldChange("state", before, result.state),) if before != result.state else ()
         return Changed(Said("picks.switched", english, {"state": result.state, "host": result.routine_host}), changes)
 

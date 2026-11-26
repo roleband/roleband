@@ -285,9 +285,16 @@ class BriefActivity:
     named, and the brief's status before and after."""
 
     parts: tuple[str, ...]
+    #: The row the change names, as the patch states it; None lets the engine
+    #: choose as it does.
+    target: str | None = None
 
     async def before(self, session: AsyncSession) -> str | None:
-        row = await store.current(session)
+        """The status of the row the change writes, before it does: the draft
+        when it names the draft or the engine would choose it, else the active brief."""
+        draft, active = await store.draft(session), await store.active(session)
+        target = self.target or ("draft" if draft is not None or active is None else "active")
+        row = draft if target == "draft" else active
         return row.status if row is not None else None
 
     def entry(self, before: object, result: BaseModel) -> Changed:

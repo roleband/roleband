@@ -46895,7 +46895,7 @@
          },
          "trial": {
           "default": false,
-          "description": "The trial at the end of setup: every open role, its verdicts kept apart.",
+          "description": "The trial at the end of setup: every open role the hard rules leave, its verdicts kept apart.",
           "title": "Trial",
           "type": "boolean"
          }

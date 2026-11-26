@@ -124,6 +124,21 @@ async def test_a_base_floor_rules_out_a_stated_base_below_it_and_nothing_that_st
     assert await _kept(db_session, _body()) == ON_BOARD
 
 
+async def test_a_base_floor_rules_out_only_a_band_whose_top_is_below_it(db_session, board):
+    # "From 150,000": a band with no top says nothing of where it ends.
+    board["staff"].disclosed_base_min, board["staff"].disclosed_base_max = 150_000, None
+    # One figure as both ends, and a band stated only by its top: both end under the floor.
+    board["senior"].disclosed_base_min = board["senior"].disclosed_base_max = 180_000
+    board["nopay"].disclosed_base_max, board["nopay"].disclosed_currency = 150_000, "USD"
+    board["nopay"].disclosed_pay_basis, board["nopay"].disclosed_pay_period = "base", "year"
+    await db_session.commit()
+
+    kept = await _kept(db_session, _body({"form": "min_base", "amount": 200_000}))
+
+    assert "staff" in kept, "a band with no top is never below a floor"
+    assert {"senior", "nopay"}.isdisjoint(kept)
+
+
 async def test_a_base_floor_reads_only_a_yearly_band_in_its_own_currency(db_session, board):
     board["senior"].disclosed_currency = "EUR"
     board["staff"].disclosed_pay_period = "hour"
@@ -238,7 +253,7 @@ async def _verdict(session, job: Job, verdict: str = "pass", *, version: int = 1
 
 
 async def test_a_judged_posting_leaves_the_queue_until_its_text_changes(db_session, board):
-    await _verdict(db_session, board["staff"])
+    verdict_id = (await _verdict(db_session, board["staff"])).id
     assert "staff" not in await _queue(db_session)
 
     board["staff"].content_hash = "h-staff-rewritten"
@@ -246,7 +261,9 @@ async def test_a_judged_posting_leaves_the_queue_until_its_text_changes(db_sessi
 
     assert "staff" in await _queue(db_session), "new text is a new case"
     # Control: the verdict itself is untouched, so only the hash decided it.
-    assert await db_session.scalar(select(PickVerdict.superseded_at).where(PickVerdict.job_id == board["staff"].id)) is None
+    db_session.expire_all()
+    held = await db_session.get(PickVerdict, verdict_id)
+    assert held is not None and (held.content_hash, held.superseded_at) == ("h-staff", None)
 
 
 async def test_a_trials_verdict_never_counts_as_judged(db_session, board):
@@ -378,14 +395,16 @@ async def test_activating_the_draft_supersedes_the_active_brief_and_a_later_chan
     await _patch(db_session, {"urgency": "open"}, if_revision=0, activate=True)
     changed = await _patch(db_session, {"budget": 5}, if_revision=1)
 
-    assert (changed.version, changed.status, changed.revision) == (2, "active", 1)
+    # A revision is never reused, so one read from the version before cannot apply to this one.
+    assert (changed.version, changed.status, changed.revision) == (2, "active", 2)
     assert changed.body["urgency"] == "open", "the new version starts from the one before"
     statuses = dict((await db_session.execute(select(PickBrief.version, PickBrief.status))).all())
     assert statuses == {1: "superseded", 2: "active"}
 
     # Starting over: a draft beside the active brief, then made active.
-    await _patch(db_session, {"urgency": "active"}, if_revision=0, target="draft")
-    await _patch(db_session, {}, if_revision=1, activate=True, summary="Actively looking.")
+    draft = await _patch(db_session, {"urgency": "active"}, if_revision=0, target="draft")
+    assert draft.revision == 3, "a new draft takes a revision no version has had"
+    await _patch(db_session, {}, if_revision=draft.revision, activate=True, summary="Actively looking.")
     statuses = dict((await db_session.execute(select(PickBrief.version, PickBrief.status))).all())
     assert statuses == {1: "superseded", 2: "superseded", 3: "active"}
 
@@ -412,7 +431,7 @@ async def test_a_routine_write_cannot_change_a_hard_rule_and_the_same_write_by_t
     assert learned.made_by == "routine" and learned.body["proposed_rules"][0]["id"] == "x1"
     assert len(learned.body["rules"]) == 1, "a proposal is not a rule"
 
-    by_person = await _patch(db_session, stricter, if_revision=1)
+    by_person = await _patch(db_session, stricter, if_revision=learned.revision)
     assert [rule["id"] for rule in by_person.body["rules"]] == ["r1", "r2"] and by_person.made_by == "person"
 
 
@@ -455,6 +474,42 @@ async def test_a_document_is_stored_once_as_a_private_file_and_never_in_the_data
         assert path.stat().st_mode & 0o777 == 0o600
     assert (stored, stored_again, again.id) == (True, False, row.id)
     assert [item.name for item in tmp_path.iterdir()] == [row.stored_name], "the same bytes are not written twice"
+
+
+async def test_a_document_whose_write_rolls_back_leaves_no_file_and_a_committed_one_stays(
+    db_session, scratch_scope, tmp_path,
+):
+    content = b"%PDF-1.7 Dana Reyes"
+    await background.store_document(db_session, filename="cv.pdf", content=content, now=NOW, directory=tmp_path)
+    assert len(list(tmp_path.iterdir())) == 1
+
+    await db_session.rollback()
+
+    assert list(tmp_path.iterdir()) == [], "no file is left without the row Remove reads"
+    row, stored = await background.store_document(db_session, filename="cv.pdf", content=content, now=NOW,
+                                                  directory=tmp_path)
+    await db_session.commit()
+    await db_session.rollback()
+    assert stored is True and [item.name for item in tmp_path.iterdir()] == [row.stored_name]
+
+
+async def test_remove_deletes_every_file_in_the_documents_folder_and_nothing_a_link_points_to(
+    db_session, scratch_scope, tmp_path,
+):
+    folder, outside = tmp_path / "documents", tmp_path / "elsewhere.txt"
+    outside.write_text("kept")
+    await background.store_document(db_session, filename="cv.pdf", content=b"%PDF-1.7 Dana", now=NOW, directory=folder)
+    await db_session.commit()
+    # A file a failed write left behind has no row to find it by.
+    (folder / "0123456789abcdef-00000000.pdf").write_bytes(b"%PDF-1.7 Dana, an older copy")
+    (folder / "link.txt").symlink_to(outside)
+
+    _, documents = await background.remove_all(db_session, directory=folder)
+    await db_session.commit()
+
+    assert documents == 1
+    assert [item.name for item in folder.iterdir()] == ["link.txt"]
+    assert outside.read_text() == "kept"
 
 
 @pytest.mark.parametrize(("filename", "content", "code"), [

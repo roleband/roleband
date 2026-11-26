@@ -10,6 +10,8 @@ from __future__ import annotations
 import base64
 import copy
 import json
+import os
+import threading
 
 import pytest
 
@@ -84,6 +86,36 @@ def test_the_file_is_required_and_given_once(tmp_path):
     assert _refused("--file", str(path), "--input", f"@{given}").details == {"fields": ["filename", "content_base64"]}
     # `--input` alone still carries a whole request, as for any operation.
     assert _payload("--input", f"@{given}")["filename"] == "other.pdf"
+
+
+def test_a_second_file_is_refused_rather_than_sent_in_place_of_the_first(tmp_path):
+    first, second = tmp_path / "cv.pdf", tmp_path / "other.pdf"
+    first.write_bytes(CV)
+    second.write_bytes(b"%PDF-1.7 someone else")
+
+    assert "more than once" in _refused("--file", str(first), "--file", str(second)).message
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="named pipes are POSIX")
+def test_a_named_pipe_is_refused_at_once_rather_than_waited_on(tmp_path):
+    pipe = tmp_path / "cv.pdf"
+    os.mkfifo(pipe)
+    refusals: list[ClientError] = []
+
+    def read() -> None:
+        with pytest.raises(ClientError) as refused:
+            _payload("--file", str(pipe))
+        refusals.append(refused.value)
+
+    reader = threading.Thread(target=read, daemon=True)
+    reader.start()
+    reader.join(timeout=5)
+    if reader.is_alive():
+        # Release the reader that waits for a writer, so the test ends.
+        os.close(os.open(pipe, os.O_WRONLY | os.O_NONBLOCK))
+        reader.join(timeout=5)
+        pytest.fail("the command waited on a pipe with no writer")
+    assert [error.message for error in refusals] == [f"--file: cannot read {pipe} (not a regular file)."]
 
 
 def test_only_an_operation_that_reads_a_file_takes_one(tmp_path):

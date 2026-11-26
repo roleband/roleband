@@ -31,7 +31,9 @@ router = APIRouter(tags=["picks"])
 
 #: The assistant writes whose answers carry the person's background or brief:
 #: Remove deletes their receipts with what they saved.
-PERSONAL_WRITES = frozenset({"background.set", "background.add_document", "brief.patch", "picks.begin"})
+PERSONAL_WRITES = frozenset({
+    "background.set", "background.add_document", "brief.patch", "picks.begin", "picks.finish",
+})
 
 
 @router.get("/api/picks/removed", response_model=RemovedPicksResponse)
