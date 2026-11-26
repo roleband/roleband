@@ -25,7 +25,6 @@ import {
   settingsRetentionSectionLoadFailed,
   settingsRetentionSectionMakesPostingsDueTheyAre,
   settingsRetentionSectionNever,
-  settingsRetentionSectionRolebandKeepsEveryPostingIts,
   settingsRetentionSectionNoLongerListed,
   settingsRetentionSectionNoneYet,
   settingsRetentionSectionRemoveAfter,
@@ -127,10 +126,7 @@ export function RetentionSection() {
   };
 
   return (
-    <Card
-      title={settingsRetentionSectionDataRetention()}
-      intro={settingsRetentionSectionRolebandKeepsEveryPostingIts()}
-    >
+    <Card title={settingsRetentionSectionDataRetention()}>
       <AsyncBoundary
         resource={retention}
         failed={settingsRetentionSectionLoadFailed()}
@@ -178,7 +174,7 @@ export function RetentionSection() {
                 (facts carry counts and timestamps, never prose). */}
             <CardRow
               title={settingsRetentionSectionDueForRemoval()}
-              description={settingsRetentionSectionDueDetail({ state: state.days === null ? "never" : "set" })}
+              description={state.days === null ? undefined : settingsRetentionSectionDueDetail()}
               facts={<span data-testid="retention-due" role="status">{dueCount(state)}</span>}
             />
             <CardRow

@@ -189,8 +189,8 @@ settings-recipes-section-the-recipe-has-problems = { $count ->
 settings-recipes-section-this-careers-page-asks-not = This careers page asks not to be read automatically, so it won't be scanned.
 # kind=sentence wording=as-is
 settings-recipes-section-no-roles-found-on-the = No roles found on the first pages.
-# kind=sentence wording=as-is
-settings-recipes-section-no-recipes-yet-write-one = No recipes yet. Write one below and preview it.
+# kind=sentence
+settings-recipes-section-no-recipes-yet-write-one = No recipes yet.
 # kind=button wording=as-is
 settings-recipes-section-open = Open
 # kind=label wording=as-is
@@ -310,16 +310,14 @@ settings-retention-section-text = { $choice ->
 settings-retention-section-removed = { $at } · { $removed } removed{ $more }
 # kind=heading wording=as-is
 settings-retention-section-data-retention = Data retention
-# kind=sentence
-settings-retention-section-roleband-keeps-every-posting-its = Every posting a scan finds is kept, so a change to what you look for can put roles on your radar at once.
 # kind=heading wording=as-is
 settings-retention-section-remove-postings-after = Remove postings after
 # kind=sentence
-settings-retention-section-a-posting-stops-being-read = Closed postings, and those from companies you unfollowed, are removed once unseen this long. Roles on your radar and saved roles always stay, with their history.
+settings-retention-section-a-posting-stops-being-read = Closed postings, and those from companies you unfollowed, once unseen this long. Roles on your radar and saved roles always stay, with their history.
 # kind=label wording=as-is
 settings-retention-section-no-longer-listed = · { $no_longer_listed } no longer listed
-# kind=label wording=as-is
-settings-retention-section-from-companies-you-stopped-following = · { $stopped_following } from companies you stopped following
+# kind=status
+settings-retention-section-from-companies-you-stopped-following = · { $stopped_following } from unfollowed companies
 # kind=label wording=as-is
 settings-retention-section-remove-postings-after-2 = Remove postings after
 # kind=heading wording=as-is
@@ -331,11 +329,8 @@ settings-retention-section-due-count = { $count ->
     [one] { $due } { -posting(num: "one") }
    *[other] { $due } { -posting(num: "other") }
 }
-# kind=sentence note="Under Due for removal. never = the window is Never; set = a window is chosen"
-settings-retention-section-due-detail = { $state ->
-    [never] Nothing is removed while this is set to Never.
-   *[set] Due postings are removed during scans, never by saving.
-}
+# kind=sentence note="Under Due for removal, while a window is chosen"
+settings-retention-section-due-detail = Removed during scans, not when you change this.
 # kind=status note="A new window was saved"
 settings-retention-section-saved = Saved.
 
@@ -407,13 +402,13 @@ settings-schedule-section-looks-for-new-and-changed = Looks for new and changed 
 # kind=heading
 settings-schedule-section-when-the-computer-is-off = When your computer is asleep or off
 # kind=sentence
-settings-schedule-section-nothing-runs-and-missed-scans = Nothing runs, and missed scans aren't repeated. The next one runs when your computer wakes. The schedule follows when you usually use your computer, so there's nothing to set.
+settings-schedule-section-nothing-runs-and-missed-scans = Missed scans aren't repeated. The next one runs when your computer wakes.
 # kind=label wording=as-is
 settings-schedule-section-times-you-set = Times you set
 # kind=sentence
 settings-schedule-section-a-company-with-a-time = A company with a time of its own keeps it. Drag its scan, or click it to type a time.
 # kind=sentence
-settings-schedule-section-outer-orbit-is-the-full = Outer ring: full scan. Inner ring: quick scan. Shaded hours: your computer is usually asleep or off.
+settings-schedule-section-outer-orbit-is-the-full = Shaded hours: your computer is usually asleep or off.
 # kind=label same-as=settings-chronograph-dial-quick-scan
 settings-schedule-section-discovery = Quick scan
 # kind=sentence
@@ -438,8 +433,6 @@ settings-schedule-section-first-scan-of-the-day = First scan of the day
 settings-schedule-section-full-scan-done-by = Full scan, done by
 # kind=label wording=as-is
 settings-schedule-section-then-while-it-is-on = Then, while it is on
-# kind=label wording=as-is
-settings-schedule-section-a-quick-scan-every-hours = a quick scan every { $repeat_hours } hours
 # kind=label wording=as-is
 settings-schedule-section-days = Days
 # kind=label wording=as-is
@@ -584,20 +577,13 @@ settings-schedule-section-until-tomorrow = Until tomorrow
 settings-schedule-section-couldn-t-save-that-change = Couldn't save that change. Try again.
 # kind=aria wording=as-is
 settings-schedule-section-plan-settings = Plan settings
-# kind=label wording=as-is note="Under the full scan's done-by time; source = usual (learned) or set (typed); time = when it starts, companies = how many it reads"
+# kind=status note="Under the full scan's done-by time; source = usual (learned) or set (typed); time = when it starts"
 settings-schedule-section-starts-about = { $source ->
-    [usual] Your usual start, learned. Starts about { $time } · { $companies } companies
-   *[set] Starts about { $time } · { $companies } companies
+    [usual] Your usual start, learned: about { $time }
+   *[set] Starts about { $time }
 }
-# kind=label wording=as-is note="Under the full scan's done-by time once a full scan is planned; duration = how long it takes"
-settings-schedule-section-starts-about-duration = { $source ->
-    [usual] Your usual start, learned. Starts about { $time } · { $companies } companies · { $duration }
-   *[set] Starts about { $time } · { $companies } companies · { $duration }
-}
-# kind=status note="Under the full scan's done-by time when none is set; companies = how many it reads"
-settings-schedule-section-no-time-set = No time set: it runs once a day and when your computer wakes · Companies: { $companies }
-# kind=status note="Under the full scan's done-by time when none is set, once a full scan is planned; duration = how long it takes"
-settings-schedule-section-no-time-set-duration = No time set: it runs once a day and when your computer wakes · Companies: { $companies } · { $duration }
+# kind=status note="Under the full scan's done-by time when none is set"
+settings-schedule-section-no-time-set = Once a day, and when your computer wakes
 # kind=label wording=as-is note="Clears the done-by time; fallback = usual (a learned start takes over) or none"
 settings-schedule-section-clear-ready-by = { $fallback ->
     [usual] Use my usual start
@@ -605,18 +591,8 @@ settings-schedule-section-clear-ready-by = { $fallback ->
 }
 # kind=aria wording=as-is
 settings-schedule-section-scan-days = Scan days
-# kind=label wording=as-is note="How many days a week the plan scans; count = 1 to 7"
-settings-schedule-section-days-a-week = { $count ->
-    [7] Every day
-    [one] { $count } day a week
-   *[other] { $count } days a week
-}
-# kind=sentence note="Under Only when plugged in; power = waiting (on battery now and only scanning plugged in), mains (only scanning plugged in) or any"
-settings-schedule-section-power-note = { $power ->
-    [waiting] On battery now: the next scan waits until your computer is plugged in.
-    [mains] Scans wait while your computer is on battery.
-   *[any] Scans also run on battery.
-}
+# kind=sentence note="Under Only when plugged in, while the computer is on battery and scans wait for power"
+settings-schedule-section-power-note = On battery: the next scan waits until you plug in.
 # kind=aria wording=as-is
 settings-schedule-section-pause-scans = Pause scans
 # kind=aria
@@ -869,11 +845,11 @@ settings-plugins-section-none = No plugins installed yet.
 # kind=heading note="A card on Settings, Plugins: where listed companies' daily closing prices come from"
 settings-price-feed-title = Stock prices
 # kind=sentence note="The card's intro"
-settings-price-feed-intro = Daily closing prices for listed companies, shown on their profiles and updated once a day.
+settings-price-feed-intro = Daily closing prices for listed companies, shown on their profiles.
 # kind=name note="The card's one row: the price service, by its name"
 settings-price-feed-source = Tiingo
 # kind=sentence note="Under Tiingo: the terms the key comes with. A Get a free key link follows it"
-settings-price-feed-source-terms = Free for personal use with your own key.
+settings-price-feed-source-terms = Free for personal use.
 # kind=status note="First fact under Tiingo: whether a key is set and where. $origin: settings (saved here), environment (set outside the app, as ROLEBAND_TIINGO_API_KEY), none"
 settings-price-feed-key-state = { $origin ->
     [settings] Key saved
@@ -896,7 +872,7 @@ settings-price-feed-remove = Remove key
 # kind=heading note="The key dialog's title"
 settings-price-feed-dialog-title = Tiingo key
 # kind=sentence note="The key dialog's note: where the key comes from and where it goes. A Get a free key link follows it"
-settings-price-feed-dialog-note = Paste the key from your Tiingo account. It stays on this computer and is sent only to Tiingo.
+settings-price-feed-dialog-note = It stays on this computer and is sent only to Tiingo.
 # kind=label note="The key field's label in the dialog"
 settings-price-feed-dialog-field = Key
 # kind=button note="The key dialog's submit. $choice: yes while saving"
@@ -979,12 +955,10 @@ settings-plugins-section-turn-on-first = Turn it on first
 settings-plugins-section-approve-first = Approve it first
 # kind=label note="The sign that stands in for the list of installed plugins while plugins are not part of this release"
 settings-plugins-section-coming-soon = Coming soon
-# kind=sentence note="Under Coming soon: what arrives later is turning plugins on and managing them on this screen"
-settings-plugins-section-coming-soon-note = Turning plugins on and managing them here arrives in a later release.
 # kind=label note="The placeholder row for plugins that are not installed"
 settings-plugins-section-more = More plugins
 # kind=sentence note="Followed by the install command, shown as code the person copies"
-settings-plugins-section-more-note = Finding and adding plugins here is coming. For now, install one from the command line, in the RoleBand folder:
+settings-plugins-section-more-note = Install one from the command line, in the RoleBand folder:
 # kind=sentence
 settings-plugins-section-waiting-wake = Update queued. It starts the next time you use your computer.
 # kind=sentence

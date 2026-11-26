@@ -2,7 +2,7 @@
 
 ## features/intelligence/AimLine.tsx
 ai-aim-line-your-aim-in-one-sentence = 你的目标（一句话）
-ai-aim-line-roles-closest-to-it-come = 按“最佳匹配”排序雷达时，最接近目标的{ -role(num: "other") }排在前面。它不会隐藏任何{ -role(num: "one") }。留空则按你保存和标记为不适合我的内容排序。
+ai-aim-line-roles-closest-to-it-come = 在“最佳匹配”中，最接近目标的{ -role(num: "other") }排在前面。它不会隐藏任何{ -role(num: "one") }。
 ai-aim-line-couldn-t-save-your-aim = 无法保存你的目标。请重试。
 ai-aim-line-cancel = 取消
 ai-aim-line-save = 保存
@@ -29,8 +29,8 @@ ai-assistants-card-any-app-that-can-run-commands = 任何能运行命令的应�
 ai-assistants-card-assistant-apps-2 = 助手应用
 ai-assistants-card-allow-assistant-apps-to-connect-2 = 先允许助手应用连接
 ai-assistants-card-off-nothing-leaves-this-computer = { $choice ->
-    [yes] 开启 · 仅与你连接的应用共享
-   *[no] 关闭 · 不会有任何内容离开这台电脑
+    [yes] 仅与你连接的应用共享
+   *[no] 不会有任何内容离开这台电脑
 }
 ai-assistants-card-clipboard-access-was-blocked-select = 无法复制。请选中文本后自行复制。
 ai-assistants-card-copy = { $choice ->
@@ -40,10 +40,6 @@ ai-assistants-card-copy = { $choice ->
 
 ## features/intelligence/CapabilitiesCard.tsx
 ai-capabilities-card-extended-capabilities = 扩展功能
-ai-capabilities-card-of-on = { $choice ->
-    [yes] { $on }/{ $capCount } 已开启 · 全部在这台电脑上
-   *[no] { $on }/{ $capCount } 已开启
-}
 ai-capabilities-card-your-own-model = 你自己的模型
 ai-capabilities-card-finds-duplicate-job-posts-only = { $value } · 查找重复的{ -posting(num: "other") }，仅在你要求时运行
 ai-capabilities-card-apple-intelligence = Apple Intelligence
@@ -74,8 +70,8 @@ ai-capabilities-card-server-stopped = 服务器已停止
 ai-capabilities-card-extended-capabilities-2 = 扩展功能
 ai-capabilities-card-use-your-own-model = 使用你自己的模型
 ai-capabilities-card-save-a-connection-first-then = { $choice ->
-    [yes] 开启后启动本地 AI 服务器
-   *[no] 请先保存一个连接，然后开启
+    [yes] 启动本地 AI 服务器
+   *[no] 请先保存一个连接
 }
 ai-capabilities-card-start = { $choice ->
     [v1] 处理中…
@@ -125,7 +121,7 @@ ai-capabilities-card-test-2 = 测试 { $name }
 ai-capabilities-card-configure = 配置 { $name }
 
 ## features/intelligence/CloudDialog.tsx
-ai-cloud-dialog-a-direct-api-connection-billed = 使用你自己的 API 密钥，与任何 ChatGPT 或 Claude 订阅分开计费。仅在 { $b } 开启期间使用。
+ai-cloud-dialog-a-direct-api-connection-billed = 使用你自己的 API 密钥，与任何 ChatGPT 或 Claude 订阅分开计费。
 ai-cloud-dialog-name = 名称
 ai-cloud-dialog-provider = 提供商
 ai-cloud-dialog-server-address-https = 服务器地址（HTTPS）
@@ -163,8 +159,7 @@ ai-fit-field-fit-of-open-roles-rising = { $total } 个在招{ -role(num: "other"
 ai-fit-field-roles = { $label }：{ $count } 个{ -role(num: "other") }
 
 ## features/intelligence/IntelligenceSection.tsx
-ai-intelligence-section-the-board-keeps-working-meanwhile = 雷达仍可照常使用
-ai-intelligence-section-preparing-matching-mb = 正在准备排序：{ $b }/{ $total_bytes } MB
+ai-intelligence-section-preparing-matching-mb = 正在准备排序
 ai-intelligence-section-new-roles-added-today = 今日新增 { $n } 个{ -role(num: "other") }
 ai-intelligence-section-no-new-roles-today = 今日没有新{ -role(num: "other") }
 ai-intelligence-section-fit-ranking = 匹配度排名
@@ -182,7 +177,7 @@ ai-intelligence-section-this-band = 这个等级
 
 ## features/intelligence/LocalModelDialog.tsx
 ai-local-model-dialog-your-own-model = 你自己的模型
-ai-local-model-dialog-a-model-server-you-run = 本地 AI 服务器上的模型。仅在你比较两条{ -posting(num: "other") }时使用。不会有任何内容离开这台电脑。
+ai-local-model-dialog-a-model-server-you-run = 仅用于比较两条{ -posting(num: "other") }。不会有任何内容离开这台电脑。
 ai-local-model-dialog-server-type = 服务器类型
 ai-local-model-dialog-server-address = 服务器地址
 ai-local-model-dialog-generation-and-reasoning-parameters = 模型设置
@@ -214,10 +209,8 @@ ai-local-model-dialog-test-connection = { $choice ->
 ## features/intelligence/MatchingModel.tsx
 ai-matching-model-local-ai-model = 排序模型
 ai-matching-model-downloading-of-mb = · 正在下载，{ $round }/{ $round2 } MB
-ai-matching-model-roles-are-listed-newest-first = 完成之前，{ -role(num: "other") }按最新优先列出。
 ai-matching-model-switching-to-the = 正在切换到{ $nAME_LOWER }
 ai-matching-model-of-roles-updated = 已更新 { $done }/{ $total } 个{ -role(num: "other") }
-ai-matching-model-you-can-keep-working-meanwhile = 在此期间你可以继续工作。
 ai-matching-model-not-downloaded = · 未下载
 ai-matching-model-the-could-not-be-downloaded = 无法下载{ $value }。
 ai-matching-model-could-not-be-downloaded = 无法下载排序模型。
@@ -313,7 +306,6 @@ ai-assistants-card-other-used = { $age }使用过
 ai-assistants-card-connected = 已连接
 ai-assistants-card-app-activity = { $app } 的活动记录
 ai-access-dialog-title = 自定义应用可获取的内容
-ai-access-dialog-apply-at-once = 更改会立即生效。
 ai-access-dialog-data = 应用读取的数据
 ai-access-dialog-changes = 应用可做的更改
 ai-access-dialog-any-model = 任何模型
@@ -371,10 +363,10 @@ ai-intelligence-section-matches-load-failed = 无法加载最契合你的职位
 ai-intelligence-section-band-load-failed = 无法加载此等级的职位
 ai-egress-title = 允许使用 AI 提供商？
 ai-egress-destinations = 已保存的提供商
-ai-egress-empty = 尚未添加 AI 提供商。添加并开启一个提供商之前，不会有任何内容离开这台电脑。
+ai-egress-empty = 尚未添加 AI 提供商。
 ai-egress-allow = 允许
 
-ai-capabilities-card-apple-off = 关闭
+ai-capabilities-card-apple-experimental = 实验性
 
 ai-capabilities-card-apple-off-in-system-settings = 已在系统设置中关闭
 

@@ -4,7 +4,7 @@
 # kind=label wording=as-is
 ai-aim-line-your-aim-in-one-sentence = Your aim, in one sentence
 # kind=sentence
-ai-aim-line-roles-closest-to-it-come = Roles closest to it come first when Radar is sorted by Best fit. It never hides a role. Leave it empty to rank by what you save and mark Not for me.
+ai-aim-line-roles-closest-to-it-come = Roles closest to it come first in Best fit. It never hides a role.
 # kind=error
 ai-aim-line-couldn-t-save-your-aim = Couldn't save your aim. Try again.
 # kind=button wording=as-is
@@ -62,10 +62,10 @@ ai-assistants-card-any-app-that-can-run-commands = Any app that can run commands
 ai-assistants-card-assistant-apps-2 = Assistant apps
 # kind=label wording=as-is
 ai-assistants-card-allow-assistant-apps-to-connect-2 = Allow assistant apps to connect first
-# kind=status note="The note beside the Allow assistant apps to connect switch, by its state"
+# kind=status note="The note beside the Allow assistant apps to connect switch: on (yes) or off (no). The switch shows which"
 ai-assistants-card-off-nothing-leaves-this-computer = { $choice ->
-    [yes] on · shared only with the apps you connect
-   *[no] off · nothing leaves this computer
+    [yes] shared only with the apps you connect
+   *[no] nothing leaves this computer
 }
 # kind=error
 ai-assistants-card-clipboard-access-was-blocked-select = Couldn't copy. Select the text and copy it yourself.
@@ -83,16 +83,11 @@ ai-egress-detail = Only the AI providers you turn on are used, each with your ow
 # kind=heading
 ai-egress-destinations = Saved providers
 # kind=sentence
-ai-egress-empty = No AI providers added. Nothing leaves this computer until one is added and turned on.
+ai-egress-empty = No AI providers added.
 # kind=button
 ai-egress-allow = Allow
 # kind=heading wording=as-is
 ai-capabilities-card-extended-capabilities = Extended capabilities
-# kind=status note="How many AI capabilities are on. $on is that count, in bold; $capCount how many there are. $choice: yes when every one that is on runs on this computer"
-ai-capabilities-card-of-on = { $choice ->
-    [yes] { $on } of { $capCount } on · all on this computer
-   *[no] { $on } of { $capCount } on
-}
 # kind=label wording=as-is
 ai-capabilities-card-your-own-model = Your own model
 # kind=status
@@ -144,8 +139,8 @@ ai-capabilities-card-extended-capabilities-2 = Extended capabilities
 ai-capabilities-card-use-your-own-model = Use your own model
 # kind=tooltip note="Hover text on the Start button while your own model is switched off: a connection is saved (yes) or not (no)"
 ai-capabilities-card-save-a-connection-first-then = { $choice ->
-    [yes] Turn this on to start your local AI server
-   *[no] Save a connection first, then turn this on
+    [yes] Starts your local AI server
+   *[no] Save a connection first
 }
 # kind=label wording=as-is
 ai-capabilities-card-start = { $choice ->
@@ -212,8 +207,8 @@ ai-capabilities-card-test-2 = Test { $name }
 ai-capabilities-card-configure = Configure { $name }
 
 ## features/intelligence/CloudDialog.tsx
-# kind=sentence note="$b is the Allow AI providers switch's name, in bold"
-ai-cloud-dialog-a-direct-api-connection-billed = Uses your own API key, billed separately from any ChatGPT or Claude plan. Used only while { $b } is on.
+# kind=sentence
+ai-cloud-dialog-a-direct-api-connection-billed = Uses your own API key, billed apart from any ChatGPT or Claude plan.
 # kind=label wording=as-is
 ai-cloud-dialog-name = Name
 # kind=label wording=as-is
@@ -270,9 +265,7 @@ ai-fit-field-roles = { $label }: { $count } roles
 
 ## features/intelligence/IntelligenceSection.tsx
 # kind=label
-ai-intelligence-section-the-board-keeps-working-meanwhile = Radar keeps working meanwhile
-# kind=label
-ai-intelligence-section-preparing-matching-mb = preparing ranking: { $b }/{ $total_bytes } MB
+ai-intelligence-section-preparing-matching-mb = preparing ranking
 # kind=status note="Roles that joined the ranking today. $n is that count, in bold"
 ai-intelligence-section-new-roles-added-today = { $count ->
     [one] { $n } new role added today
@@ -319,7 +312,7 @@ ai-intelligence-section-this-band = this grade
 # kind=heading wording=as-is
 ai-local-model-dialog-your-own-model = Your own model
 # kind=sentence
-ai-local-model-dialog-a-model-server-you-run = A model on your local AI server. Used only when you compare two postings. Nothing leaves this computer.
+ai-local-model-dialog-a-model-server-you-run = Used only to compare two postings. Nothing leaves this computer.
 # kind=label wording=as-is
 ai-local-model-dialog-server-type = Server type
 # kind=label wording=as-is
@@ -371,14 +364,10 @@ ai-local-model-dialog-test-connection = { $choice ->
 ai-matching-model-local-ai-model = Ranking model
 # kind=label wording=as-is
 ai-matching-model-downloading-of-mb = · downloading, { $round } of { $round2 } MB
-# kind=sentence wording=as-is
-ai-matching-model-roles-are-listed-newest-first = Roles are listed newest first until this finishes.
 # kind=label wording=as-is
 ai-matching-model-switching-to-the = Switching to the { $nAME_LOWER }
 # kind=label wording=as-is
 ai-matching-model-of-roles-updated = { $done } of { $total } roles updated
-# kind=sentence wording=as-is
-ai-matching-model-you-can-keep-working-meanwhile = You can keep working meanwhile.
 # kind=label wording=as-is
 ai-matching-model-not-downloaded = · not downloaded
 # kind=sentence
@@ -548,8 +537,6 @@ ai-assistants-card-app-activity = { $app } activity
 ## features/intelligence/AgentAccessDialog.tsx
 # kind=heading
 ai-access-dialog-title = Customize what apps get
-# kind=sentence note="The dialog has no Save button: each choice is stored as it is made"
-ai-access-dialog-apply-at-once = Changes apply at once.
 # kind=heading note="Above the grid of kinds of data, each read by any model, by models on this computer only, or by none"
 ai-access-dialog-data = Data apps read
 # kind=heading note="Above the grid of kinds of change, each on or off"
@@ -645,8 +632,8 @@ ai-local-server-action-failed = { $action ->
 # kind=label wording=as-is
 ai-capabilities-card-running = running
 
-# kind=status note="The Apple Intelligence row's state when its setting turns it off, the first part of a line of facts joined by dots"
-ai-capabilities-card-apple-off = off
+# kind=status note="The Apple Intelligence row's line while its switch is off; the switch shows that it is off"
+ai-capabilities-card-apple-experimental = experimental
 
 # kind=status note="The Apple Intelligence row's state when Apple Intelligence is off in macOS, the first part of a line of facts joined by dots"
 ai-capabilities-card-apple-off-in-system-settings = off in System Settings

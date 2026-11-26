@@ -860,16 +860,6 @@
 
 /* ---- the model line's states ---------------------------------- */
 
-.intel-model-sub {
-  margin-top: var(--app-space-1);
-  /* Aligned with the line above: label column + its gap. Derived, so the two
-     cannot drift apart when the label text changes. */
-  padding-left: calc(var(--intel-model-label-w) + var(--app-space-4));
-  color: var(--app-text-muted);
-  font-family: var(--app-font-mono);
-  font-size: var(--app-type-meta);
-}
-
 .intel-mono {
   font-family: var(--app-font-mono);
   font-variant-numeric: tabular-nums;

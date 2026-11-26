@@ -226,7 +226,7 @@ test("a running switch shows progress and stops by going back, never by a bare k
   await expect(ranking.getByText("Switching to the small model")).toBeVisible();
   await expect(ranking.getByRole("progressbar", { name: "Switching progress" })).toBeVisible();
   await expect(ranking.getByText(/1,212 of 4,114 roles updated · about 13 min left/)).toBeVisible();
-  await expect(ranking.getByText(/You can keep working meanwhile/)).toBeVisible();
+  await expect(ranking.getByText(/keep working meanwhile/)).toHaveCount(0);
 
   // One action, and it means stop AND revert — a bare stop would leave the
   // nightly pass to finish the switch the user just cancelled.
@@ -718,7 +718,7 @@ test("the standing permission is confirmed before connecting an online service",
   const dialog = page.getByRole("dialog", { name: msg("ai-cloud-dialog-add-an-online-model-service", { choice: "no", name: "" }) });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Server address (HTTPS)")).toHaveValue("https://api.openai.com/v1");
-  await expect(dialog.getByText(/billed separately/)).toBeVisible();
+  await expect(dialog.getByText(msg("ai-cloud-dialog-a-direct-api-connection-billed"))).toBeVisible();
   await dialog.getByRole("button", { name: "Cancel" }).click();
 });
 

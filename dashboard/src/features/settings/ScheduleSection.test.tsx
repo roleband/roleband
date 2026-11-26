@@ -708,7 +708,7 @@ describe("ScheduleSection under the schedule plan", () => {
     // note under them, not rows of their own.
     expect(within(settings).getByText("First scan of the day")).toBeInTheDocument();
     expect(within(settings).getByLabelText("Full scan done by")).toBeInTheDocument();
-    expect(within(settings).getByText(/Companies: 1,112 · 41 min/)).toBeInTheDocument();
+    expect(within(settings).queryByText(/Companies: 1,112|41 min/)).not.toBeInTheDocument();
     expect(within(settings).getByRole("group", { name: "Quick scan every" })).toBeInTheDocument();
     expect(within(settings).queryByText("Your computer is usually on")).not.toBeInTheDocument();
     expect(within(settings).queryByText("If it was off")).not.toBeInTheDocument();
@@ -726,7 +726,7 @@ describe("ScheduleSection under the schedule plan", () => {
     expect(await screen.findByText(msg("settings-schedule-section-plan-roster-pinned-excepted", {
       companies: 3, roster: 1112, pinned: 1, excepted: 1,
     }))).toBeInTheDocument();
-    expect(screen.getByText(msg("settings-schedule-section-days-a-week", { count: 7 }))).toBeInTheDocument();
+    expect(screen.queryByText(/Every day|days? a week/)).not.toBeInTheDocument();
   });
 
   it("sums up the plan without the parts that have nothing to count", async () => {
@@ -775,7 +775,9 @@ describe("ScheduleSection under the schedule plan", () => {
     expect(screen.getByText(/your computer is on all day every day/)).toBeInTheDocument();
     // On all day: there is no usual start to be done by, and the field says so.
     expect(screen.getByLabelText("Full scan done by")).toHaveValue("");
-    expect(screen.getByText(/No time set: it runs once a day and when your computer wakes/)).toBeInTheDocument();
+    const line = screen.getByText(msg("settings-schedule-section-no-time-set"));
+    // Its companies and length are in Next scans; the field shows no time is set.
+    expect(line.textContent).not.toMatch(/compan|min\b|No time set/i);
   });
 
   it("offers no drag hint when no company has a time of its own to drag", async () => {
@@ -817,7 +819,8 @@ describe("ScheduleSection under the schedule plan", () => {
     await waitFor(() => expect(api.updateSchedulePlan).toHaveBeenCalledWith({ repeat_hours: 3 }));
     await waitFor(() =>
       expect(within(repeat).getByRole("button", { name: "3 h" })).toHaveAttribute("aria-pressed", "true"));
-    expect(screen.getByText("a quick scan every 3 hours")).toBeInTheDocument();
+    // The pressed choice is the answer: no line under it says it again.
+    expect(screen.queryByText(/a quick scan every/i)).not.toBeInTheDocument();
   });
 
   it("says so when the repeat could not be changed, and keeps the old one", async () => {
@@ -942,7 +945,9 @@ describe("ScheduleSection under the schedule plan", () => {
 
     const field = within(settings).getByLabelText("Full scan done by");
     expect(field).toHaveValue("08:30");
-    expect(within(settings).getByText(/^Your usual start, learned\. Starts about 07:39/)).toBeInTheDocument();
+    expect(within(settings).getByText(msg("settings-schedule-section-starts-about", { source: "usual", time: "07:39" })))
+      .toBeInTheDocument();
+    expect(within(settings).queryByText(/Starts about 07:39 ·|07:39 · \d+ compan/)).not.toBeInTheDocument();
     expect(within(settings).queryByRole("button", { name: "Use my usual start" })).not.toBeInTheDocument();
 
     fireEvent.change(field, { target: { value: "07:30" } });
@@ -1074,7 +1079,8 @@ describe("ScheduleSection under the schedule plan", () => {
     await waitFor(() => expect(api.updateSchedulePlan).toHaveBeenCalledWith({ days: [0, 1, 2, 3, 4, 6] }));
     await waitFor(() =>
       expect(within(days).getByRole("button", { name: "Sat" })).toHaveAttribute("aria-pressed", "false"));
-    expect(screen.getByText("6 days a week")).toBeInTheDocument();
+    // The chips are the answer: no line under them counts the days.
+    expect(screen.queryByText(/days? a week|Every day/)).not.toBeInTheDocument();
   });
 
   it("keeps the last scan day switched on", async () => {
@@ -1083,8 +1089,7 @@ describe("ScheduleSection under the schedule plan", () => {
     const days = await screen.findByRole("group", { name: "Scan days" });
     expect(within(days).getByRole("button", { name: "Wed" })).toBeDisabled();
     expect(within(days).getByRole("button", { name: "Thu" })).toBeEnabled();
-    // One day is singular: never "1 days a week".
-    expect(screen.getByText("1 day a week")).toBeInTheDocument();
+    expect(screen.queryByText(/days? a week/)).not.toBeInTheDocument();
   });
 
   it("waits for mains power when asked, and says so while on battery", async () => {
@@ -1092,9 +1097,12 @@ describe("ScheduleSection under the schedule plan", () => {
     render(<ScheduleSection />);
     const toggle = await screen.findByRole("checkbox", { name: /Only when plugged in/ });
     expect(toggle).not.toBeChecked();
+    // Off, the switch says it all: no line under it.
+    expect(screen.queryByText(/run on battery|wait while your computer/)).not.toBeInTheDocument();
+    expect(screen.queryByText(msg("settings-schedule-section-power-note"))).not.toBeInTheDocument();
     fireEvent.click(toggle);
     await waitFor(() => expect(api.updateSchedulePlan).toHaveBeenCalledWith({ mains_only: true }));
-    expect(await screen.findByText(msg("settings-schedule-section-power-note", { power: "waiting" }))).toBeInTheDocument();
+    expect(await screen.findByText(msg("settings-schedule-section-power-note"))).toBeInTheDocument();
     expect(screen.getByText(msg("settings-schedule-chronograph-waiting", { waiting: "mains" }))).toBeInTheDocument();
   });
 

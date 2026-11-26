@@ -11,28 +11,24 @@ companies-add-more-companies-careers-page-link = 招聘页面链接
 companies-add-more-companies-cancel = 取消
 companies-add-more-companies-a-specific-company = 指定公司
 companies-add-more-companies-added-by-its-careers-page = 通过招聘页面链接
-companies-add-more-companies-not-on-this-list-paste = 不在列表中？粘贴链接，即可知道能否扫描。
 companies-add-more-companies-the-wider-market = 更广的市场
 companies-add-more-companies-stop-scanning-the-wider-market = 停止扫描更广的市场
 companies-add-more-companies-the-wider-market-heading = 更广的市场
-companies-add-more-companies-about-companies-on-the-same = 另有约 { $about } 家可扫描的公司
-companies-add-more-companies-each-one-is-checked-daily = 每家公司每天扫描一次，只有正在招聘你雷达上职位的公司才会加入你的列表。
+companies-add-more-companies-about-companies-on-the-same = 另有约 { $about } 家公司
+companies-add-more-companies-each-one-is-checked-daily = 每天扫描。只有正在招聘你雷达上职位的公司才会加入你的列表。
 companies-add-more-companies-first-scan-state = { $scan ->
     [paused] 约 { $about } 家公司，首次扫描因使用电池暂停
    *[running] 约 { $about } 家公司，首次扫描中
 }
 companies-add-more-companies-first-scan-note = { $scan ->
     [paused] 接通电源后继续。目前找到的公司在“其他公司”中。
-   *[running] 正在为你招聘的公司会显示在“其他公司”中。离开此页面后扫描仍会继续。
+   *[running] 正在为你招聘的公司会显示在“其他公司”中。
 }
 companies-add-more-companies-scanned-of-about = 已扫描，共约 { $to_check } 家
 companies-add-more-companies-hiring-for-you-so-far = 目前正在为你招聘
 companies-add-more-companies-companies-scanned = 已扫描的公司
 companies-add-more-companies-about-companies-checked-daily = 约 { $about } 家公司，每天扫描
-companies-add-more-companies-daily-check-note = { $scan ->
-    [paused] 因使用电池已暂停。接通电源后恢复每日扫描。
-   *[running] 暂无动静的公司明天会再次扫描。
-}
+companies-add-more-companies-daily-check-note = 已暂停，接通电源后继续。
 companies-add-more-companies-hiring-for-you = 正在为你招聘
 companies-add-more-companies-quiet-today = 今日无动静
 companies-add-more-companies-couldn-t-add-that-company = 无法添加该公司。
@@ -114,7 +110,7 @@ companies-company-register-rows-open-count = { $count } 个在招{ $mark }
 companies-company-register-rows-aka = 又名 { $aliasHit }
 companies-company-register-rows-limits-collection = 限制收集
 companies-company-register-rows-also = 另有 { $name }
-companies-company-register-rows-showing-of-matches-keep-typing = 显示 { $matchCount } 个匹配中的 { $shown } 个。继续输入以缩小范围。
+companies-company-register-rows-showing-of-matches-keep-typing = 显示 { $matchCount } 个匹配中的 { $shown } 个。
 companies-company-register-rows-planned = 计划中
 companies-company-register-rows-coverage-problem = { $cause ->
     [empty_listing] 未列出职位
@@ -129,11 +125,11 @@ companies-company-register-rows-live-or-ready = { $connector ->
 }
 companies-company-register-rows-scanned-ago = { $scanned }前扫描。
 companies-company-register-rows-label-scanned-ago = { $label } · { $scanned }前扫描
-companies-company-register-rows-scanned-ago-roleband-scans-when = { $scanned }前扫描。你选择“立即扫描”时会扫描 { $display }。
+companies-company-register-rows-scanned-ago-roleband-scans-when = { $scanned }前扫描。仅在“立即扫描”时扫描。
 companies-company-register-rows-not-counted-last-read-ago = { $label } · 未计入，上次扫描于 { $lastRead }前
-companies-company-register-rows-roleband-last-read-s-roles = { $display } 的职位来自 { $lastRead }前的扫描，时间太久，暂不计入。下次完整扫描后会重新计入。
+companies-company-register-rows-roleband-last-read-s-roles = 下次完整扫描后，它的职位会重新计入。
 companies-company-register-rows-partly-counted = { $label } · 部分计入
-companies-company-register-rows-s-scans-have-not-read = { $display } 的部分职位尚未计入。下次完整扫描后会计入。
+companies-company-register-rows-s-scans-have-not-read = 其余职位在下次完整扫描后计入。
 companies-company-register-rows-not-counted-yet = { $label } · 尚未计入
 companies-company-register-rows-not-counted-why = { $reason ->
     [stale] { $company } 的职位来自较早的扫描。下次完整扫描后会计入。
@@ -143,8 +139,8 @@ companies-company-register-rows-following-not-scanned-yet = 已关注 · 尚未�
 companies-company-register-rows-roleband-starts-scanning-as-soon = 能读取 { $display } 的招聘页面后就会开始扫描。
 companies-company-register-rows-open-role-counts-are-unavailable = 在招职位数暂不可用
 companies-company-register-rows-open-roles-loading = 正在加载在招职位
-companies-company-register-rows-of-s-roles-name-a = { $display } 有 { $unplaced } 个职位的地点无法识别，因此无论你选择哪个地点都不会显示它们。
-companies-company-register-rows-of-s-roles-fit-no = { $display } 有 { $unsorted } 个职位不属于任何已知职能，因此无论你选择哪个职能都不会显示它们。
+companies-company-register-rows-of-s-roles-name-a = 它有 { $unplaced } 个职位的地点无法识别，因此无论你选择哪个地点都不会显示它们。
+companies-company-register-rows-of-s-roles-fit-no = 它有 { $unsorted } 个职位不属于任何已知职能，因此无论你选择哪个职能都不会显示它们。
 companies-company-register-rows-open-careers-page = 打开招聘页面：{ $display }
 companies-company-register-rows-careers-page = 招聘页面
 companies-company-register-rows-show-or-hide-on-radar = { $visibility ->
@@ -253,13 +249,11 @@ companies-follow-copy-unfollow-any-time = 可随时在 设置 › 关注的公�
 companies-follow-copy-keep = 保留{ $curatedList }
 companies-follow-copy-follow-all = 关注全部 { $count } 家
 companies-follow-copy-unfollow-outside-your = 取消关注你的{ $curatedList }之外的 { $count } 家公司？
-companies-follow-copy-roleband-stops-scanning-them-your = { $count ->
-   *[other] 将停止扫描它们。你的{ $curatedList }以及你自己添加的公司仍保持关注。
-}
+companies-follow-copy-roleband-stops-scanning-them-your = 你的{ $curatedList }和你添加的公司仍保持关注。
 companies-follow-copy-keep-following = 继续关注
 companies-follow-copy-unfollow = 取消关注 { $count } 家
 companies-follow-copy-follow-all-in = 关注 { $sector } 中的全部 { $count } 家公司？
-companies-follow-copy-this-will-likely-add-to = 这可能会为你的雷达增加{ $estimate }，并让每次扫描变长。你之后可以取消关注任何公司。
+companies-follow-copy-this-will-likely-add-to = 可能会为你的雷达增加{ $estimate }，每次扫描也会变长。
 companies-follow-copy-cancel = 取消
 companies-follow-copy-follow = 关注 { $display }？
 companies-follow-copy-follow-company = 关注 { $display }

@@ -57,7 +57,6 @@ import {
   aiMatchingModelOtherModel,
   aiMatchingModelReRanked,
   aiMatchingModelRoles,
-  aiMatchingModelRolesAreListedNewestFirst,
   aiMatchingModelRolesRanked,
   aiMatchingModelRolesReRanked,
   aiMatchingModelSmallModel,
@@ -79,7 +78,6 @@ import {
   aiMatchingModelTheSwitchToTheIs,
   aiMatchingModelUnderAMinute,
   aiMatchingModelUseThe,
-  aiMatchingModelYouCanKeepWorkingMeanwhile,
   aiMatchingModelYourComputerHas,
 } from "../../copy/gen/ai";
 import { Msg } from "../../ui/Msg";
@@ -167,7 +165,6 @@ export function MatchingModel({
             <i style={{ width: `${Math.round((done / totalBytes) * 100)}%` }} />
           </span>
           <span className="intel-model-end">
-            <span data-selection="chrome" className="intel-model-note">{aiMatchingModelRolesAreListedNewestFirst()}</span>
             {other && (
               <Button className="ui-btn-strong" onClick={stop} disabled={saving}>
                 {aiMatchingModelStopAndGoBackTo({ choice: (saving) ? "yes" : "no", nAME_LOWER: (saving) ? "" : String(NAME_LOWER[other]) })}
@@ -206,7 +203,6 @@ export function MatchingModel({
             </Button>
           </span>
         </div>
-        <div className="intel-model-sub">{aiMatchingModelYouCanKeepWorkingMeanwhile()}</div>
         {error && <div className="intel-error" role="alert">{error}</div>}
       </>
     );

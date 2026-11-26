@@ -7,7 +7,6 @@ import type { AgentAccessChoices, AgentAccessState } from "../../api";
 import { Button, Dialog, InfoTip } from "../../ui";
 import {
   aiAccessDialogAnyModel,
-  aiAccessDialogApplyAtOnce,
   aiAccessDialogCell,
   aiAccessDialogChanges,
   aiAccessDialogControllingCollection,
@@ -113,7 +112,6 @@ export function AgentAccessDialog({
       <div className="ledger-form intel-access">
         <div>
           <h3>{aiAccessDialogTitle()}</h3>
-          <p className="intel-dialog-note">{aiAccessDialogApplyAtOnce()}</p>
         </div>
 
         <ChoiceGrid

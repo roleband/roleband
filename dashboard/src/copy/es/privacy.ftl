@@ -1,7 +1,7 @@
 
 ## Lo enviado hace poco.
 privacy-sent-recently = Enviado hace poco
-privacy-sent-recently-detail = Lo que salió de este equipo en los últimos 30 días y lo que esta ventana envió desde que se abrió.
+privacy-sent-recently-detail = Los últimos 30 días.
 privacy-show-sent = Mostrar la lista
 privacy-hide-sent = Ocultar la lista
 privacy-sent-none = No se envió nada en los últimos 30 días.
@@ -19,7 +19,6 @@ privacy-happy-to-help = Encantado de ayudar
 privacy-your-answer = Tu respuesta
 privacy-save-error = No se pudo guardar tu elección. Inténtalo de nuevo.
 privacy-settings-title = Privacidad
-privacy-settings-intro = Cada tipo de envío está desactivado hasta que lo actives. Al desactivar uno, se detiene al momento.
 privacy-settings-blocked = El envío está desactivado en este ordenador: { $switch } está definido.
 privacy-settings-stale = Lo que cubre este tipo ha crecido desde que elegiste. Vuelve a activarlo para seguir compartiendo.
 privacy-settings-load-failed = No se pudieron cargar tus opciones de privacidad
@@ -35,7 +34,7 @@ privacy-next-send-count =
         [many] { $count } de eventos
        *[other] { $count } eventos
     }
-privacy-next-send-detail = Espera al envío diario.
+privacy-next-send-detail = Una vez al día.
 privacy-last-sent = Último envío
 privacy-last-sent-never = Nunca
 privacy-show-next = Ver el envío

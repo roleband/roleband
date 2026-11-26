@@ -146,7 +146,7 @@ function ConnectorCell({
       // Scanned only when the user asks: never an alert,
       // the clock and how to move it.
       label = companiesCompanyRegisterRowsLabelScannedAgo({ label: String(label), scanned: String(scanned) });
-      title = companiesCompanyRegisterRowsScannedAgoRolebandScansWhen({ scanned: String(scanned), display: String(company.display) });
+      title = companiesCompanyRegisterRowsScannedAgoRolebandScansWhen({ scanned: String(scanned) });
     }
     // Scanned, and still left out of the count on Profile: no
     // catalog yet, or one from before the count could place its roles.
@@ -156,11 +156,11 @@ function ConnectorCell({
     const lastRead = why === "stale" ? shortAge(hoursSince(counts.data?.last_read?.[company.slug])) : null;
     if (lastRead) {
       label = companiesCompanyRegisterRowsNotCountedLastReadAgo({ label: String(label), lastRead: String(lastRead) });
-      title = companiesCompanyRegisterRowsRolebandLastReadSRoles({ display: String(company.display), lastRead: String(lastRead) });
+      title = companiesCompanyRegisterRowsRolebandLastReadSRoles();
     } else if (why === "partial") {
       // Counted from scans that have not read its whole board.
       label = companiesCompanyRegisterRowsPartlyCounted({ label: String(label) });
-      title = companiesCompanyRegisterRowsSScansHaveNotRead({ display: String(company.display) });
+      title = companiesCompanyRegisterRowsSScansHaveNotRead();
     } else if (why) {
       label = companiesCompanyRegisterRowsNotCountedYet({ label: String(label) });
       title = companiesCompanyRegisterRowsNotCountedWhy({ reason: why, company: company.display });
@@ -228,8 +228,8 @@ function OpenRolesCell({
   const unplaced = counts.data?.unplaced[company.slug] ?? 0;
   const unsorted = counts.data?.unsorted[company.slug] ?? 0;
   const why = [
-    unplaced > 0 ? companiesCompanyRegisterRowsOfSRolesNameA({ unplaced: String(copyNumber(unplaced)), display: String(company.display) }) : null,
-    unsorted > 0 ? companiesCompanyRegisterRowsOfSRolesFitNo({ unsorted: String(copyNumber(unsorted)), display: String(company.display) }) : null,
+    unplaced > 0 ? companiesCompanyRegisterRowsOfSRolesNameA({ unplaced: String(copyNumber(unplaced)) }) : null,
+    unsorted > 0 ? companiesCompanyRegisterRowsOfSRolesFitNo({ unsorted: String(copyNumber(unsorted)) }) : null,
   ].filter(Boolean).join(" ");
   return (
     <span data-selection="chrome" className="ledger-count" id={id} title={why || undefined}>

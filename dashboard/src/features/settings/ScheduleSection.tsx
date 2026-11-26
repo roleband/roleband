@@ -34,7 +34,6 @@ import {
   settingsScheduleSection3Hours,
   settingsScheduleSectionACompanyWithATime,
   settingsScheduleSectionAFullScanReadsA,
-  settingsScheduleSectionAQuickScanEveryHours,
   settingsScheduleSectionAdaptsTo81224h,
   settingsScheduleSectionAfterTwoHoursOrMore,
   settingsScheduleSectionBindingsProjectedThrough,
@@ -45,7 +44,6 @@ import {
   settingsScheduleSectionCoolingDownUntil,
   settingsScheduleSectionCouldnTSaveThatChange,
   settingsScheduleSectionDays,
-  settingsScheduleSectionDaysAWeek,
   settingsScheduleSectionDiscovery,
   settingsScheduleSectionDiscoveryCadence,
   settingsScheduleSectionDragAMarkAroundThe,
@@ -75,7 +73,6 @@ import {
   settingsScheduleSectionNextScans,
   settingsScheduleSectionNextScans2,
   settingsScheduleSectionNoTimeSet,
-  settingsScheduleSectionNoTimeSetDuration,
   settingsScheduleSectionNonAuthoritative,
   settingsScheduleSectionNotAvailable,
   settingsScheduleSectionNotScheduled,
@@ -121,7 +118,6 @@ import {
   settingsScheduleSectionSchedule,
   settingsScheduleSectionSchedulerPolicy,
   settingsScheduleSectionStartsAbout,
-  settingsScheduleSectionStartsAboutDuration,
   settingsScheduleSectionTheAuthoritativeCycleOnlyThis,
   settingsScheduleSectionTheCycle,
   settingsScheduleSectionThenWhileItIsOn,
@@ -219,21 +215,13 @@ const cycleTitle = (count: number, only: { company: string } | null) =>
 /** How long a full scan is taken to last before one has been planned. */
 const FULL_SCAN_GUESS_SECONDS = 2700;
 
-/** The line under the full scan's done-by time: when it starts and over how
-    many companies, or that no time is set, and how long it takes once a full
-    scan is planned. */
+/** The line under the full scan's done-by time: when it starts, or when it
+    runs while no time is set. Its companies and length are in Next scans. */
 const readyByText = (plan: SchedulePlan, full: ScheduleUpcomingRun | undefined) => {
   const ready = plan.ready_by_today;
-  const companies = plan.roster;
-  if (!ready) {
-    return full
-      ? settingsScheduleSectionNoTimeSetDuration({ companies, duration: durationText(full) })
-      : settingsScheduleSectionNoTimeSet({ companies });
-  }
+  if (!ready) return settingsScheduleSectionNoTimeSet();
   const time = formatMinute(startForReadyBy(ready.minute, full?.seconds ?? FULL_SCAN_GUESS_SECONDS));
-  return full
-    ? settingsScheduleSectionStartsAboutDuration({ source: ready.source, time, companies, duration: durationText(full) })
-    : settingsScheduleSectionStartsAbout({ source: ready.source, time, companies });
+  return settingsScheduleSectionStartsAbout({ source: ready.source, time });
 };
 
 const toneFor = (status: ScheduleBinding["status"]) => {
@@ -464,7 +452,6 @@ function PlanSettings({
             }))}
             onChange={(value) => void save({ repeat_hours: Number(value) as RepeatHours })}
           />
-          <small><Msg of={settingsScheduleSectionAQuickScanEveryHours} elems={{ repeat_hours: plan.repeat_hours }} /></small>
         </dd>
       </div>
       <div>
@@ -490,7 +477,6 @@ function PlanSettings({
               </FilterChip>
             ))}
           </div>
-          <small>{settingsScheduleSectionDaysAWeek({ count: days.size })}</small>
         </dd>
       </div>
       <div>
@@ -503,9 +489,7 @@ function PlanSettings({
           >
             {settingsScheduleSectionOnlyWhenPluggedIn()}
           </Switch>
-          <small>
-            {settingsScheduleSectionPowerNote({ power: plan.waiting === "mains" ? "waiting" : plan.mains_only ? "mains" : "any" })}
-          </small>
+          {plan.waiting === "mains" && <small>{settingsScheduleSectionPowerNote()}</small>}
         </dd>
       </div>
       <div>

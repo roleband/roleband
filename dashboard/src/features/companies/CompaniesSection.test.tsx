@@ -450,7 +450,7 @@ describe("CompaniesSection — the ledger", () => {
 
     await waitFor(() => expect(row("FAANG", "Google")).toHaveAccessibleDescription(/^Live · scanned 5d ago/));
     const faang = screen.getByRole("region", { name: "FAANG" });
-    expect(within(faang).getByTitle("Scanned 5d ago. Google is scanned when you choose Scan now."))
+    expect(within(faang).getByTitle(msg("companies-company-register-rows-scanned-ago-roleband-scans-when", { scanned: "5d" })))
       .not.toHaveClass("is-warn");
   });
 
@@ -462,9 +462,10 @@ describe("CompaniesSection — the ledger", () => {
 
     await waitFor(() => expect(row("FAANG", "Meta")).toHaveAccessibleDescription(/^Live · partly counted/));
     const faang = screen.getByRole("region", { name: "FAANG" });
-    expect(within(faang).getByTitle(
-      msg("companies-company-register-rows-s-scans-have-not-read", { display: "Meta" }),
-    )).toHaveTextContent("Live · partly counted");
+    const partly = within(faang).getByTitle(msg("companies-company-register-rows-s-scans-have-not-read"));
+    expect(partly).toHaveTextContent("Live · partly counted");
+    // The row names the company; its hover text does not say it again.
+    expect(partly.title).not.toMatch(/Meta/);
     expect(row("FAANG", "Google")).toHaveAccessibleDescription(/^Live · not counted yet/);
   });
 
@@ -480,9 +481,10 @@ describe("CompaniesSection — the ledger", () => {
 
     await waitFor(() => expect(row("FAANG", "Meta")).toHaveAccessibleDescription(/^Live · not counted, last scanned 3d ago/));
     const faang = screen.getByRole("region", { name: "FAANG" });
-    expect(within(faang).getByTitle(
-      msg("companies-company-register-rows-roleband-last-read-s-roles", { display: "Meta", lastRead: "3d" }),
-    )).toHaveTextContent("Live · not counted, last scanned 3d ago");
+    const stale = within(faang).getByTitle(msg("companies-company-register-rows-roleband-last-read-s-roles"));
+    expect(stale).toHaveTextContent("Live · not counted, last scanned 3d ago");
+    // The label gives the age; the hover text says only what happens next.
+    expect(stale.title).not.toMatch(/Meta|3d/);
     expect(row("FAANG", "Google")).toHaveAccessibleDescription(/^Live · not counted yet/);
   });
 
@@ -500,7 +502,7 @@ describe("CompaniesSection — the ledger", () => {
       .toHaveTextContent("Live · not counted yet");
     // Counted, so its state is plain; its number carries the unplaced mark.
     expect(row("FAANG", "Google")).toHaveAccessibleDescription(/^Live(?! · not counted)/);
-    expect(within(faang).getByTitle(msg("companies-company-register-rows-of-s-roles-name-a", { unplaced: 3, display: "Google" })))
+    expect(within(faang).getByTitle(msg("companies-company-register-rows-of-s-roles-name-a", { unplaced: 3 })))
       .toHaveTextContent("12 open ·");
     expect(within(faang).getByText("40 open")).not.toHaveAttribute("title");
   });
@@ -513,7 +515,7 @@ describe("CompaniesSection — the ledger", () => {
 
     const faang = await screen.findByRole("region", { name: "FAANG" });
     const count = await within(faang).findByTitle(
-      msg("companies-company-register-rows-of-s-roles-fit-no", { unsorted: 432, display: "Google" }),
+      msg("companies-company-register-rows-of-s-roles-fit-no", { unsorted: 432 }),
     );
     expect(count).toHaveTextContent("12 open ·");
     expect(count.title).not.toMatch(/place/);
@@ -1272,8 +1274,8 @@ describe("CompaniesSection — curated list", () => {
     fireEvent.click(act);
 
     const ask = await screen.findByRole("dialog", { name: "Follow all 2 companies in AI?" });
-    // A short word that opens a sentence mid-paragraph keeps to the word after it.
-    expect(within(ask).getByText("You can", { exact: true })).toHaveClass("ledger-confirm-unbroken");
+    // Unfollowing is always possible: the estimate stands alone.
+    expect(ask).not.toHaveTextContent(/unfollow any company later/);
     const cancel = within(ask).getByRole("button", { name: "Cancel" });
     await waitFor(() => expect(cancel).toHaveFocus());
     fireEvent.click(cancel);
@@ -1642,7 +1644,7 @@ describe("CompaniesSection — every other company, found by name", () => {
     search("sp");
     await waitFor(() =>
       expect(sectorPanel("Other companies")).toHaveTextContent(
-        "Showing 1 of 57 matches. Keep typing to narrow the list.",
+        msg("companies-company-register-rows-showing-of-matches-keep-typing", { shown: 1, matchCount: 57 }),
       ),
     );
   });
@@ -1675,6 +1677,8 @@ describe("CompaniesSection — every other company, followed as one", () => {
     renderSection();
     await waitFor(() => expect(row("FAANG", "Google")).toBeInTheDocument());
     expect(within(addMore()).getByRole("button", { name: "Add by link" })).toBeInTheDocument();
+    // Its subtitle and button say how: no sentence restates them.
+    expect(addMore()).not.toHaveTextContent(/Paste the link|Not on this list/);
     expect(within(addMore()).queryByRole("group")).not.toBeInTheDocument();
     // The group of other companies is drawn only when it has rows.
     expect(screen.queryByRole("region", { name: "Other companies" })).not.toBeInTheDocument();
@@ -1686,7 +1690,7 @@ describe("CompaniesSection — every other company, followed as one", () => {
     renderSection();
 
     await waitFor(() => expect(setCard()).toHaveTextContent(msg("companies-add-more-companies-about-companies-on-the-same", { about: "10,000" })));
-    expect(setCard()).toHaveTextContent("only the ones hiring for roles on your radar join your list");
+    expect(setCard()).toHaveTextContent(msg("companies-add-more-companies-each-one-is-checked-daily"));
     expect(within(addMore()).getByRole("button", { name: "Add by link" })).toBeInTheDocument();
     // No row for any of them: the set is not a list, and not a group.
     expect(screen.queryByRole("region", { name: "Other companies" })).not.toBeInTheDocument();
@@ -1695,6 +1699,8 @@ describe("CompaniesSection — every other company, followed as one", () => {
 
     fireEvent.click(within(setCard()).getByRole("button", { name: "Find the ones hiring for you" }));
     const dialog = await screen.findByRole("dialog", { name: "Scan about 10,000 more companies?" });
+    // A short word that opens a sentence mid-paragraph keeps to the word after it.
+    expect(within(dialog).getByText("The rest", { exact: true })).toHaveClass("ledger-confirm-unbroken");
     // Enter on a dialog that just opened must never start scanning the whole set.
     expect(within(dialog).getByRole("button", { name: "Cancel" })).toHaveFocus();
     fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
@@ -1718,7 +1724,9 @@ describe("CompaniesSection — every other company, followed as one", () => {
     expect(bar).toHaveAttribute("aria-valuemax", "10214");
     expect(setCard()).toHaveTextContent("3,200 scanned of about 10,000");
     expect(setCard()).toHaveTextContent("4 hiring for you so far");
-    expect(setCard()).toHaveTextContent("The scan continues if you leave this page.");
+    expect(setCard()).toHaveTextContent(msg("companies-add-more-companies-first-scan-note", { scan: "running" }));
+    // Leaving the page is safe everywhere: the card does not reassure about it.
+    expect(setCard()).not.toHaveTextContent(/leave this page/);
     // Two cards side by side: neither spends a sentence on the app's own name.
     expect(addMore()).not.toHaveTextContent("RoleBand");
     // The sectors are our curation, not the reader's choice: never "your sectors".
@@ -1736,9 +1744,8 @@ describe("CompaniesSection — every other company, followed as one", () => {
     await waitFor(() => expect(setCard()).toHaveTextContent("5 hiring for you"));
     expect(setCard()).toHaveTextContent("10,209 quiet today");
     expect(setCard()).toHaveTextContent("scanned daily");
-    expect(setCard()).toHaveTextContent(
-      "Quiet ones are scanned again tomorrow.",
-    );
+    // "scanned daily" is the status; no line under it says so again.
+    expect(setCard().querySelector(".ledger-add-card-note")).toBeNull();
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   });
 
@@ -1752,7 +1759,7 @@ describe("CompaniesSection — every other company, followed as one", () => {
     await waitFor(() => expect(setCard()).toHaveTextContent("first scan paused on battery"));
     expect(setCard()).toHaveTextContent(msg("companies-add-more-companies-first-scan-note", { scan: "paused" }));
     expect(setCard()).not.toHaveTextContent("first scan running");
-    expect(setCard()).not.toHaveTextContent("The scan continues if you leave this page.");
+    expect(setCard()).not.toHaveTextContent(/leave this page/);
     // What it read so far still counts.
     expect(setCard()).toHaveTextContent("3,200 scanned of about 10,000");
   });
@@ -1762,8 +1769,7 @@ describe("CompaniesSection — every other company, followed as one", () => {
       following: true, since: "2026-09-24T12:00:00Z", checked: 10214, with_roles: 5, waiting_for_power: true,
     }));
     renderSection();
-    await waitFor(() => expect(setCard()).toHaveTextContent("Paused on battery. Daily scans resume when you plug in."));
-    expect(setCard()).not.toHaveTextContent("Quiet ones are scanned again tomorrow.");
+    await waitFor(() => expect(setCard()).toHaveTextContent(msg("companies-add-more-companies-daily-check-note")));
     expect(setCard()).toHaveTextContent("5 hiring for you");
   });
 

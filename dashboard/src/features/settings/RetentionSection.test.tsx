@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import { api } from "../../api";
 import { retentionStateFixture } from "../../test/fixtures";
+import { msg } from "../../test/msg";
 import { RetentionSection } from "./RetentionSection";
 
 vi.mock("../../api", () => ({
@@ -24,7 +25,7 @@ it("shows the saved window, what is kept, what is due and the last removal", asy
   expect(await screen.findByRole("heading", { name: "Data retention" })).toBeVisible();
   expect(select()).toHaveValue("60");
   expect(screen.getByTestId("retention-counts")).toHaveTextContent(
-    "1,240 kept · 210 no longer listed · 330 from companies you stopped following",
+    "1,240 kept · 210 no longer listed · 330 from unfollowed companies",
   );
   // What is due is a row of its own: the count is its fact, the prose its
   // description, never glued to the counts line.
@@ -34,13 +35,15 @@ it("shows the saved window, what is kept, what is due and the last removal", asy
   const dueRow = due.closest(".settings-row") as HTMLElement;
   expect(dueRow).not.toContainElement(screen.getByTestId("retention-counts"));
   expect(within(dueRow).getByText("Due for removal")).toBeVisible();
-  expect(within(dueRow).getByText("Due postings are removed during scans, never by saving."))
+  expect(within(dueRow).getByText(msg("settings-retention-section-due-detail")))
     .toHaveClass("settings-row-desc");
   expect(screen.getByTestId("retention-counts").closest(".settings-row-facts")).toHaveTextContent(
-    /^1,240 kept · 210 no longer listed · 330 from companies you stopped following$/,
+    /^1,240 kept · 210 no longer listed · 330 from unfollowed companies$/,
   );
   expect(screen.getByTestId("retention-last")).toHaveTextContent("57 removed");
   expect(screen.getByText(/saved roles always stay/)).toBeVisible();
+  // The card opens on its rows: no intro explaining why postings are kept.
+  expect(screen.queryByText(/Every posting a scan finds is kept/)).toBeNull();
 });
 
 it("labels each choice with what it would remove now, before anything is saved", async () => {
@@ -110,7 +113,10 @@ it("sends Never as null and says nothing is removed", async () => {
   expect(api.saveRetention).toHaveBeenCalledWith({ days: null });
   expect(await screen.findByText("Saved.")).toBeVisible();
   expect(screen.getByTestId("retention-due")).toHaveTextContent(/^0 postings$/);
-  expect(screen.getByText("Nothing is removed while this is set to Never.")).toBeVisible();
+  // The menu shows Never: the due row adds no line saying it again.
+  const dueRow = screen.getByTestId("retention-due").closest(".settings-row") as HTMLElement;
+  expect(dueRow.querySelector(".settings-row-desc")).toBeNull();
+  expect(screen.queryByText(/set to Never/)).toBeNull();
   expect(select()).toHaveValue("never");
 });
 

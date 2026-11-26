@@ -109,7 +109,7 @@ settings-recipes-section-the-recipe-has-problems = { $count ->
 }
 settings-recipes-section-this-careers-page-asks-not = 此招聘页面要求不被自动读取，因此不会扫描它。
 settings-recipes-section-no-roles-found-on-the = 前几页未找到职位。
-settings-recipes-section-no-recipes-yet-write-one = 还没有规则。在下方写一条并预览。
+settings-recipes-section-no-recipes-yet-write-one = 还没有规则。
 settings-recipes-section-open = 打开
 settings-recipes-section-recipe-json = 规则（JSON）
 settings-recipes-section-save-draft = 保存草稿
@@ -188,19 +188,15 @@ settings-retention-section-text = { $choice ->
 }
 settings-retention-section-removed = { $at } · 已删除 { $removed } 条{ $more }
 settings-retention-section-data-retention = 数据保留
-settings-retention-section-roleband-keeps-every-posting-its = 扫描找到的每条招聘信息都会保留，因此你更改搜索条件后，职位可以立即出现在你的雷达上。
 settings-retention-section-remove-postings-after = 招聘信息删除期限
-settings-retention-section-a-posting-stops-being-read = 已关闭的招聘信息，以及来自你已取消关注的公司的招聘信息，超过这段时间未再出现就会删除。你雷达上的职位和已保存的职位及其历史记录始终保留。
+settings-retention-section-a-posting-stops-being-read = 已关闭的招聘信息，以及来自你已取消关注的公司的招聘信息，超过这段时间未再出现。你雷达上的职位和已保存的职位及其历史记录始终保留。
 settings-retention-section-no-longer-listed = · { $no_longer_listed } 条已不再发布
 settings-retention-section-from-companies-you-stopped-following = · { $stopped_following } 条来自已取消关注的公司
 settings-retention-section-remove-postings-after-2 = 招聘信息删除期限
 settings-retention-section-last-removal = 上次删除
 settings-retention-section-due-for-removal = 待删除
 settings-retention-section-due-count = { $due } 条{ -posting(num: "other") }
-settings-retention-section-due-detail = { $state ->
-    [never] 设为“永不”时不会删除任何内容。
-   *[set] 待删除的招聘信息会在扫描时删除，保存时不会删除。
-}
+settings-retention-section-due-detail = 在扫描时删除，更改此设置时不会删除。
 settings-retention-section-saved = 已保存。
 
 ## features/settings/ScheduleChronograph.tsx
@@ -248,10 +244,10 @@ settings-schedule-section-how-scanning-works = 扫描如何运作
 settings-schedule-section-reads-every-company-s-whole = 读取每家公司的整个招聘页面，可以关闭已消失的职位。每天运行一次，电脑睡眠或关机两小时或以上后再次开启时也会运行。
 settings-schedule-section-looks-for-new-and-changed = 电脑运行期间，每 { $repeat_hours } 小时在你关注的每家公司查找新增和变更的职位。从不关闭职位。
 settings-schedule-section-when-the-computer-is-off = 电脑睡眠或关机时
-settings-schedule-section-nothing-runs-and-missed-scans = 不会运行任何扫描，错过的扫描也不会补做。下一次扫描在电脑唤醒时运行。计划会跟随你通常使用电脑的时间，无需设置。
+settings-schedule-section-nothing-runs-and-missed-scans = 错过的扫描不会补做。下一次扫描在电脑唤醒时运行。
 settings-schedule-section-times-you-set = 你设定的时间
 settings-schedule-section-a-company-with-a-time = 有单独时间的公司会保留该时间。拖动它的扫描，或点击后输入时间。
-settings-schedule-section-outer-orbit-is-the-full = 外圈：完整扫描。内圈：快速扫描。阴影时段：电脑通常睡眠或关机。
+settings-schedule-section-outer-orbit-is-the-full = 阴影时段：电脑通常睡眠或关机。
 settings-schedule-section-discovery = 快速扫描
 settings-schedule-section-probes-a-company-s-board = 查找新增和变更的职位，从不关闭职位。
 settings-schedule-section-reconciliation = 完整扫描
@@ -264,7 +260,6 @@ settings-schedule-section-outer-orbit-is-reconciliation-inner = 外圈：完整�
 settings-schedule-section-first-scan-of-the-day = 每天第一次扫描
 settings-schedule-section-full-scan-done-by = 完整扫描，完成时间
 settings-schedule-section-then-while-it-is-on = 之后，开机期间
-settings-schedule-section-a-quick-scan-every-hours = 每 { $repeat_hours } 小时快速扫描
 settings-schedule-section-days = 日期
 settings-schedule-section-power = 电源
 settings-schedule-section-only-when-plugged-in = 仅在接通电源时
@@ -342,29 +337,16 @@ settings-schedule-section-until-tomorrow = 直到明天
 settings-schedule-section-couldn-t-save-that-change = 无法保存该更改。请重试。
 settings-schedule-section-plan-settings = 计划设置
 settings-schedule-section-starts-about = { $source ->
-    [usual] 已学习的平常开始时间 · 约 { $time } 开始 · { $companies } 家公司
-   *[set] 约 { $time } 开始 · { $companies } 家公司
+    [usual] 已学习的平常开始时间：约 { $time }
+   *[set] 约 { $time } 开始
 }
-settings-schedule-section-starts-about-duration = { $source ->
-    [usual] 已学习的平常开始时间 · 约 { $time } 开始 · { $companies } 家公司 · { $duration }
-   *[set] 约 { $time } 开始 · { $companies } 家公司 · { $duration }
-}
-settings-schedule-section-no-time-set = 未设定时间：每天运行一次，电脑唤醒时也会运行 · 公司：{ $companies }
-settings-schedule-section-no-time-set-duration = 未设定时间：每天运行一次，电脑唤醒时也会运行 · 公司：{ $companies } · { $duration }
+settings-schedule-section-no-time-set = 每天一次，电脑唤醒时也会运行
 settings-schedule-section-clear-ready-by = { $fallback ->
     [usual] 使用我平常的开始时间
    *[none] 清除
 }
 settings-schedule-section-scan-days = 扫描日
-settings-schedule-section-days-a-week = { $count ->
-    [7] 每天
-   *[other] 每周 { $count } 天
-}
-settings-schedule-section-power-note = { $power ->
-    [waiting] 正在使用电池：下次扫描会等到电脑接通电源。
-    [mains] 电脑使用电池时，扫描会等待。
-   *[any] 使用电池时也会扫描。
-}
+settings-schedule-section-power-note = 正在使用电池：下次扫描会等到接通电源。
 settings-schedule-section-pause-scans = 暂停扫描
 settings-schedule-section-when-roleband-scans = 何时扫描
 settings-schedule-section-next-scans-2 = 接下来的扫描
@@ -526,16 +508,15 @@ settings-schedule-hours = { $hours } 小时
 settings-schedule-days = { $days } 天
 
 settings-plugins-section-coming-soon = 即将推出
-settings-plugins-section-coming-soon-note = 在这里启用和管理插件的功能将在后续版本中推出。
 settings-plugins-section-title = 插件
 settings-plugins-section-intro = 可选的附加组件，带来更多数据和功能。
 settings-plugins-section-search = 搜索插件
 settings-plugins-section-on-count = 已开启 { $on }/{ $total }
 settings-plugins-section-none = 尚未安装插件。
 settings-price-feed-title = 股价
-settings-price-feed-intro = 上市公司的每日收盘价，显示在它们的资料页上，每天更新一次。
+settings-price-feed-intro = 上市公司的每日收盘价，显示在它们的资料页上。
 settings-price-feed-source = Tiingo
-settings-price-feed-source-terms = 使用你自己的密钥，个人使用免费。
+settings-price-feed-source-terms = 个人使用免费。
 settings-price-feed-key-state =
     { $origin ->
         [settings] 密钥已保存
@@ -551,7 +532,7 @@ settings-price-feed-add = 添加密钥
 settings-price-feed-replace = 替换密钥
 settings-price-feed-remove = 移除密钥
 settings-price-feed-dialog-title = Tiingo 密钥
-settings-price-feed-dialog-note = 粘贴你 Tiingo 账户中的密钥。它保存在这台电脑上，只会发送给 Tiingo。
+settings-price-feed-dialog-note = 它保存在这台电脑上，只会发送给 Tiingo。
 settings-price-feed-dialog-field = 密钥
 settings-price-feed-dialog-save = { $choice ->
     [yes] 正在保存…
@@ -605,7 +586,7 @@ settings-plugins-section-resume = 继续
 settings-plugins-section-turn-on-first = 请先开启
 settings-plugins-section-approve-first = 请先批准
 settings-plugins-section-more = 更多插件
-settings-plugins-section-more-note = 很快就能在这里查找和添加插件。目前请在 RoleBand 文件夹中，用命令行安装：
+settings-plugins-section-more-note = 请在 RoleBand 文件夹中，用命令行安装：
 settings-plugins-section-waiting-wake = 更新已排队，会在你下次使用电脑时开始。
 settings-plugins-section-moved =
     { $moved ->

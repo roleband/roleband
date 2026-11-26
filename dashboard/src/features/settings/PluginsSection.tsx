@@ -8,7 +8,6 @@ import { Card, CardMessage, CardRow } from "../../ui/Card";
 import { Content } from "../../ui/Content";
 import {
   settingsPluginsSectionComingSoon,
-  settingsPluginsSectionComingSoonNote,
   settingsPluginsSectionIntro,
   settingsPluginsSectionLoadFailed,
   settingsPluginsSectionLoading,
@@ -253,7 +252,6 @@ export function PluginsSection() {
                 testId="plugins-coming-soon"
                 className="plugins-soon"
                 title={<Badge tone="info">{settingsPluginsSectionComingSoon()}</Badge>}
-                description={settingsPluginsSectionComingSoonNote()}
               />
             ) : data.plugins.length === 0 ? (
               <EmptyState variant="inline" title={settingsPluginsSectionNone()} />

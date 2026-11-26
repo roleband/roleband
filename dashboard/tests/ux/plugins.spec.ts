@@ -416,8 +416,8 @@ test("with plugins not available yet, Coming soon stands where the list was and 
   await page.goto("/settings/plugins");
   const region = page.getByRole("region", { name: "Plugins" });
   const soon = region.getByTestId("plugins-coming-soon");
-  await expect(soon).toContainText(msg("settings-plugins-section-coming-soon"));
-  await expect(soon).toContainText(msg("settings-plugins-section-coming-soon-note"));
+  // The sign is the whole message: no note under it restates that plugins are unavailable.
+  await expect(soon).toHaveText(msg("settings-plugins-section-coming-soon"));
   await expect(region.getByTestId(/^plugin-row-/)).toHaveCount(0);
   await expect(region.getByRole("searchbox")).toHaveCount(0);
   await expect(region.getByRole("checkbox")).toHaveCount(0);

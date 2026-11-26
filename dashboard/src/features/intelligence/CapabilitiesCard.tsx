@@ -45,7 +45,7 @@ import {
   aiCapabilitiesCardAppleDownloading,
   aiCapabilitiesCardAppleNeedsMacos,
   aiCapabilitiesCardAppleNotSupported,
-  aiCapabilitiesCardAppleOff,
+  aiCapabilitiesCardAppleExperimental,
   aiCapabilitiesCardAppleOffInSystemSettings,
   aiCapabilitiesCardExperimentalWeAreStillTesting,
   aiCapabilitiesCardExtendedCapabilities,
@@ -60,7 +60,6 @@ import {
   aiCapabilitiesCardNoneConnected,
   aiCapabilitiesCardNotInstalled,
   aiCapabilitiesCardNothingIsSent,
-  aiCapabilitiesCardOfOn,
   aiCapabilitiesCardOffNothingIsSent,
   aiCapabilitiesCardOnDevice,
   aiCapabilitiesCardOnlineModelServices,
@@ -100,7 +99,6 @@ const clause = (text: string) => text.replace(/[.。]\s*$/, "");
 /* The Apple Intelligence row's own short word for a state, the first fact of a
    line joined by dots. A state without one falls back to its sentence. */
 const APPLE_ROW: Partial<Record<IntelligenceAvailability["state"], () => string>> = {
-  disabled_by_flag: aiCapabilitiesCardAppleOff,
   apple_intelligence_disabled: aiCapabilitiesCardAppleOffInSystemSettings,
   model_not_ready: aiCapabilitiesCardAppleDownloading,
   sdk_absent: aiCapabilitiesCardAppleNeedsMacos,
@@ -275,16 +273,7 @@ export function CapabilitiesCard({
   const egressOn = status?.routing?.egress_enabled ?? false;
   const cloudProfiles = cloud?.profiles ?? [];
   const egressDisabled = savingEgress || status == null || (!egressOn && cloud == null);
-
   const localOn = Boolean(activeProfile && local?.enabled);
-  // A cloud service is ON only when BOTH switches agree. Its own switch is a
-  // preference; `ai_egress_enabled` is the permission, and the backend router
-  // refuses the tier without it (`RouteReason.EGRESS_BLOCKED`). Counting the
-  // preference alone would count a service that cannot run as on.
-  const cloudOn = cloudProfiles.filter((p) => p.enabled && egressOn).length;
-  const onCount = (localOn ? 1 : 0) + (appleOn ? 1 : 0) + cloudOn;
-  const capCount = 2 + cloudProfiles.length;
-  const allLocal = cloudOn === 0;
 
   return (
     <section className="intel-card" aria-label={aiCapabilitiesCardExtendedCapabilities2()}>
@@ -292,9 +281,6 @@ export function CapabilitiesCard({
         <div className="intel-head-title">
           <h2>{aiCapabilitiesCardExtendedCapabilities()}</h2>
         </div>
-        <span className="intel-aside">
-          <Msg of={aiCapabilitiesCardOfOn} args={{ choice: (allLocal) ? "yes" : "no" }} elems={{ on: <b>{copyNumber(onCount)}</b>, capCount: capCount }} />
-        </span>
       </div>
 
       <div className="intel-caps">
@@ -362,7 +348,10 @@ export function CapabilitiesCard({
             <span className="intel-cap-text">
               <span className="intel-cap-name">{aiCapabilitiesCardAppleIntelligence()}</span>
               <span className="intel-cap-sub">
-                <Msg of={aiCapabilitiesCardExperimentalWeAreStillTesting} elems={{ value: status.availability.ok ? aiCapabilitiesCardReady() : (APPLE_ROW[status.availability.state]?.() ?? clause(availabilityText(status.availability.state))) }} />
+                {/* Off by its own switch: the switch says so, and the line keeps only what it is. */}
+                {status.availability.state === "disabled_by_flag"
+                  ? aiCapabilitiesCardAppleExperimental()
+                  : <Msg of={aiCapabilitiesCardExperimentalWeAreStillTesting} elems={{ value: status.availability.ok ? aiCapabilitiesCardReady() : (APPLE_ROW[status.availability.state]?.() ?? clause(availabilityText(status.availability.state))) }} />}
               </span>
             </span>
             <Button

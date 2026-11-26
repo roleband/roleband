@@ -11,28 +11,24 @@ companies-add-more-companies-careers-page-link = Enlace a página de empleo
 companies-add-more-companies-cancel = Cancelar
 companies-add-more-companies-a-specific-company = Una empresa concreta
 companies-add-more-companies-added-by-its-careers-page = Enlace a página de empleo
-companies-add-more-companies-not-on-this-list-paste = ¿No está en esta lista? Pega el enlace y verás si se puede escanear.
 companies-add-more-companies-the-wider-market = El mercado amplio
 companies-add-more-companies-stop-scanning-the-wider-market = Dejar de escanear el mercado amplio
 companies-add-more-companies-the-wider-market-heading = El mercado amplio
-companies-add-more-companies-about-companies-on-the-same = Unas { $about } empresas más que se pueden escanear
-companies-add-more-companies-each-one-is-checked-daily = Cada una se escanea a diario, y solo las que contratan para puestos de tu radar entran en tu lista.
+companies-add-more-companies-about-companies-on-the-same = Unas { $about } empresas más
+companies-add-more-companies-each-one-is-checked-daily = Se escanean a diario. Solo las que contratan para puestos de tu radar entran en tu lista.
 companies-add-more-companies-first-scan-state = { $scan ->
     [paused] Unas { $about } empresas, primer escaneo en pausa con batería
    *[running] Unas { $about } empresas, primer escaneo en curso
 }
 companies-add-more-companies-first-scan-note = { $scan ->
     [paused] Se reanuda cuando conectes el cargador. Las empresas encontradas hasta ahora están en Otras empresas.
-   *[running] Las empresas que contratan para ti aparecen en Otras empresas. El escaneo sigue si sales de esta página.
+   *[running] Las empresas que contratan para ti aparecen en Otras empresas.
 }
 companies-add-more-companies-scanned-of-about = escaneadas de unas { $to_check }
 companies-add-more-companies-hiring-for-you-so-far = contratan para ti hasta ahora
 companies-add-more-companies-companies-scanned = Empresas escaneadas
 companies-add-more-companies-about-companies-checked-daily = Unas { $about } empresas, escaneadas a diario
-companies-add-more-companies-daily-check-note = { $scan ->
-    [paused] En pausa con batería. Los escaneos diarios continúan cuando conectes el cargador.
-   *[running] Las que no tienen novedades se escanean de nuevo mañana.
-}
+companies-add-more-companies-daily-check-note = En pausa hasta que conectes el cargador.
 companies-add-more-companies-hiring-for-you = contratan para ti
 companies-add-more-companies-quiet-today = sin novedades hoy
 companies-add-more-companies-couldn-t-add-that-company = No se pudo añadir esa empresa.
@@ -134,7 +130,7 @@ companies-company-register-rows-open-count = { $count } abiertos{ $mark }
 companies-company-register-rows-aka = también llamada { $aliasHit }
 companies-company-register-rows-limits-collection = limita la recogida
 companies-company-register-rows-also = también { $name }
-companies-company-register-rows-showing-of-matches-keep-typing = Se muestran { $shown } de { $matchCount } coincidencias. Sigue escribiendo para acotar la lista.
+companies-company-register-rows-showing-of-matches-keep-typing = Se muestran { $shown } de { $matchCount } coincidencias.
 companies-company-register-rows-planned = Prevista
 companies-company-register-rows-coverage-problem = { $cause ->
     [empty_listing] No publica puestos
@@ -149,11 +145,11 @@ companies-company-register-rows-live-or-ready = { $connector ->
 }
 companies-company-register-rows-scanned-ago = Escaneada hace { $scanned }.
 companies-company-register-rows-label-scanned-ago = { $label } · escaneada hace { $scanned }
-companies-company-register-rows-scanned-ago-roleband-scans-when = Escaneada hace { $scanned }. { $display } se escanea cuando eliges Escanear ahora.
+companies-company-register-rows-scanned-ago-roleband-scans-when = Escaneada hace { $scanned }. Solo con Escanear ahora.
 companies-company-register-rows-not-counted-last-read-ago = { $label } · sin contar, último escaneo hace { $lastRead }
-companies-company-register-rows-roleband-last-read-s-roles = Los puestos de { $display } vienen de un escaneo de hace { $lastRead }, demasiado antiguo para que se cuenten. Vuelven a contarse tras su próximo escaneo completo.
+companies-company-register-rows-roleband-last-read-s-roles = Sus puestos vuelven a contarse tras su próximo escaneo completo.
 companies-company-register-rows-partly-counted = { $label } · contada en parte
-companies-company-register-rows-s-scans-have-not-read = Algunos puestos de { $display } aún no se cuentan. Se cuentan tras su próximo escaneo completo.
+companies-company-register-rows-s-scans-have-not-read = El resto se cuenta tras su próximo escaneo completo.
 companies-company-register-rows-not-counted-yet = { $label } · aún sin contar
 companies-company-register-rows-not-counted-why = { $reason ->
     [stale] Los puestos de { $company } vienen de un escaneo antiguo. Se cuentan tras su próximo escaneo completo.
@@ -163,8 +159,8 @@ companies-company-register-rows-following-not-scanned-yet = Siguiendo · aún si
 companies-company-register-rows-roleband-starts-scanning-as-soon = El escaneo de { $display } empieza en cuanto se pueda leer su página de empleo.
 companies-company-register-rows-open-role-counts-are-unavailable = El recuento de puestos abiertos no está disponible
 companies-company-register-rows-open-roles-loading = Cargando puestos abiertos
-companies-company-register-rows-of-s-roles-name-a = { $unplaced } de los puestos de { $display } indican un lugar que no se reconoce, así que no aparecen con ningún lugar que elijas.
-companies-company-register-rows-of-s-roles-fit-no = { $unsorted } de los puestos de { $display } no encajan en ninguna disciplina conocida, así que no aparecen con ninguna disciplina que elijas.
+companies-company-register-rows-of-s-roles-name-a = { $unplaced } de sus puestos indican un lugar que no se reconoce, así que no aparecen con ningún lugar que elijas.
+companies-company-register-rows-of-s-roles-fit-no = { $unsorted } de sus puestos no encajan en ninguna disciplina conocida, así que no aparecen con ninguna disciplina que elijas.
 companies-company-register-rows-open-careers-page = Abrir página de empleo: { $display }
 companies-company-register-rows-careers-page = Página de empleo
 companies-company-register-rows-show-or-hide-on-radar = { $visibility ->
@@ -295,11 +291,7 @@ companies-follow-copy-unfollow-outside-your = ¿Dejar de seguir { $count } { $co
         [many] empresas
        *[other] empresas
     } fuera de tu { $curatedList }?
-companies-follow-copy-roleband-stops-scanning-them-your = { $count ->
-    [one] Deja de escanearse. Tu { $curatedList }, y cualquier empresa que hayas añadido tú, siguen en tu lista.
-    [many] Dejan de escanearse. Tu { $curatedList }, y cualquier empresa que hayas añadido tú, siguen en tu lista.
-   *[other] Dejan de escanearse. Tu { $curatedList }, y cualquier empresa que hayas añadido tú, siguen en tu lista.
-}
+companies-follow-copy-roleband-stops-scanning-them-your = Tu { $curatedList } y las empresas que añadiste siguen en tu lista.
 companies-follow-copy-keep-following = Seguir siguiendo
 companies-follow-copy-unfollow = Dejar de seguir { $count }
 companies-follow-copy-follow-all-in = ¿Seguir las { $count } { $count ->
@@ -307,7 +299,7 @@ companies-follow-copy-follow-all-in = ¿Seguir las { $count } { $count ->
         [many] empresas
        *[other] empresas
     } de { $sector }?
-companies-follow-copy-this-will-likely-add-to = Esto probablemente añadirá { $estimate } a tu radar y hará cada escaneo más largo. Puedes dejar de seguir cualquier empresa más tarde.
+companies-follow-copy-this-will-likely-add-to = Probablemente añade { $estimate } a tu radar, y cada escaneo tarda más.
 companies-follow-copy-cancel = Cancelar
 companies-follow-copy-follow = ¿Seguir a { $display }?
 companies-follow-copy-follow-company = Seguir a { $display }
