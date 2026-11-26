@@ -79,10 +79,19 @@ function readLimit(text: string, max: number): number | null {
   return Number.isInteger(value) && value >= 1 && value <= max ? value : null;
 }
 
+/** A failed write: what failed and the message to fall back on, put into
+ *  words at render, so state never holds text. */
+interface Failure {
+  cause: unknown;
+  fallback: () => string;
+}
+
+const failureText = ({ cause, fallback }: Failure) => errorText(cause, fallback());
+
 export function TopPicksCard() {
   const [state, setState] = useState<PicksState | null>(null);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Failure | null>(null);
   const [removing, setRemoving] = useState(false);
   const headingId = useId();
 
@@ -99,7 +108,7 @@ export function TopPicksCard() {
       .catch(() => undefined);
   }, []);
 
-  const save = useCallback(async (write: () => Promise<PicksState>, failed: string) => {
+  const save = useCallback(async (write: () => Promise<PicksState>, failed: () => string) => {
     requests.current += 1;
     setSaving(true);
     setError(null);
@@ -108,7 +117,7 @@ export function TopPicksCard() {
       requests.current += 1;
       setState(next);
     } catch (e) {
-      setError(errorText(e, failed));
+      setError({ cause: e, fallback: failed });
     } finally {
       setSaving(false);
     }
@@ -124,9 +133,9 @@ export function TopPicksCard() {
 
   const on = state.state === "on";
   const toggle = (next: boolean) => next
-    ? save(() => api.setPicksMode("on"), picksResumeFailed())
-    : save(() => api.setPicksMode("off"), aiTopPicksCardPauseFailed());
-  const saveLimit = (limit: number) => save(() => api.setPicksDailyLimit(limit), aiTopPicksCardLimitFailed());
+    ? save(() => api.setPicksMode("on"), picksResumeFailed)
+    : save(() => api.setPicksMode("off"), aiTopPicksCardPauseFailed);
+  const saveLimit = (limit: number) => save(() => api.setPicksDailyLimit(limit), aiTopPicksCardLimitFailed);
 
   return (
     <section className="intel-card" aria-labelledby={headingId} data-testid="top-picks-card">
@@ -175,7 +184,7 @@ export function TopPicksCard() {
         </Button>
       </div>
 
-      {error && <div className="intel-error" role="alert">{error}</div>}
+      {error && <div className="intel-error" role="alert">{failureText(error)}</div>}
 
       {removing && <RemoveDialog onCancel={() => setRemoving(false)} onRemoved={onRemoved} />}
     </section>
@@ -244,8 +253,13 @@ function DailyLimit({ value, max, saving, onSave }: {
 }) {
   const [draft, setDraft] = useState(() => numberInput(value));
   // The saved limit replaces the draft: after a save, or when the assistant
-  // changed it.
-  useEffect(() => setDraft(numberInput(value)), [value]);
+  // changed it. The swap happens during render, not in an effect, so it never
+  // lands after something typed.
+  const [saved, setSaved] = useState(value);
+  if (saved !== value) {
+    setSaved(value);
+    setDraft(numberInput(value));
+  }
   const id = useId();
   const noteId = useId();
   const rangeId = useId();
@@ -297,7 +311,7 @@ function DailyLimit({ value, max, saving, onSave }: {
 function RemoveDialog({ onCancel, onRemoved }: { onCancel: () => void; onRemoved: () => void }) {
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Failure | null>(null);
   const remove = async () => {
     setBusy(true);
     setError(null);
@@ -306,7 +320,7 @@ function RemoveDialog({ onCancel, onRemoved }: { onCancel: () => void; onRemoved
       toast({ key: "top-picks", text: aiTopPicksCardRemoved() });
       onRemoved();
     } catch (e) {
-      setError(errorText(e, aiTopPicksCardRemoveFailed()));
+      setError({ cause: e, fallback: aiTopPicksCardRemoveFailed });
       setBusy(false);
     }
   };
@@ -322,7 +336,7 @@ function RemoveDialog({ onCancel, onRemoved }: { onCancel: () => void; onRemoved
       <div className="ledger-form ledger-confirm">
         <h3>{aiTopPicksCardRemoveConfirmTitle()}</h3>
         <p>{aiTopPicksCardRemoveConfirm()}</p>
-        {error && <p className="ledger-form-error" role="alert">{error}</p>}
+        {error && <p className="ledger-form-error" role="alert">{failureText(error)}</p>}
         <div className="ledger-form-actions">
           <Button onClick={onCancel} disabled={busy}>{aiAimLineCancel()}</Button>
           <Button variant="danger" onClick={() => void remove()} disabled={busy}>{aiTopPicksCardRemove()}</Button>

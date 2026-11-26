@@ -1,7 +1,8 @@
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, type PicksState } from "../../api";
+import { activate } from "../../copy/activate";
 import { relative } from "../../copy/format";
 import { picksStateFixture } from "../../test/fixtures";
 import { msg } from "../../test/msg";
@@ -153,6 +154,26 @@ describe("TopPicksCard: the switch", () => {
 
     expect(await within(region).findByRole("alert")).toHaveTextContent(msg("picks-resume-failed"));
     expect(theSwitch(region)).not.toBeChecked();
+  });
+
+  it("puts a failed change into words at render, in the language on screen", async () => {
+    mocked.picksState.mockResolvedValue(setUp());
+    mocked.setPicksMode.mockRejectedValue(new Error("refused"));
+    const user = userEvent.setup();
+    const { rerender } = mount();
+    const region = await screen.findByRole("region", { name: msg("shell-nav-top-picks") });
+    await user.click(theSwitch(region));
+    const english = msg("ai-top-picks-card-pause-failed");
+    expect(await within(region).findByRole("alert")).toHaveTextContent(english);
+    try {
+      await activate("es");
+      rerender(<ToastProvider><TopPicksCard /></ToastProvider>);
+      const spanish = msg("ai-top-picks-card-pause-failed");
+      expect(spanish).not.toBe(english);
+      expect(within(region).getByRole("alert")).toHaveTextContent(spanish);
+    } finally {
+      await activate("en");
+    }
   });
 });
 
@@ -333,6 +354,28 @@ describe("TopPicksCard: the daily limit", () => {
     await user.keyboard("{Enter}");
     expect(mocked.setPicksDailyLimit).toHaveBeenCalledTimes(2);
     expect(mocked.setPicksDailyLimit).toHaveBeenLastCalledWith(250);
+  });
+
+  it("keeps what is typed the moment the field is on screen", async () => {
+    // The field takes input as soon as it is drawn, before React has run the
+    // effects of that render: the saved limit must not land over it later.
+    const emptied = new Promise<HTMLElement>((resolve) => {
+      const observer = new MutationObserver(() => {
+        const field = screen.queryByRole("textbox", { name: msg("ai-top-picks-card-limit") });
+        if (!field) return;
+        observer.disconnect();
+        fireEvent.change(field, { target: { value: "" } });
+        resolve(field);
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    });
+    mount();
+    const field = await emptied;
+    const region = await screen.findByRole("region", { name: msg("shell-nav-top-picks") });
+    await userEvent.setup().tab();
+    expect(field).toHaveValue("");
+    expect(field).toHaveAttribute("aria-invalid", "true");
+    expect(within(region).getByRole("alert")).toHaveTextContent(msg("ai-top-picks-card-limit-range", { max: 5000 }));
   });
 
   it("sends nothing when the limit did not change", async () => {
