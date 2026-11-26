@@ -21,6 +21,7 @@ import {
   localModelProfileFixture,
   localModelTestResultFixture,
   localServerStatusFixture,
+  picksStateFixture,
 } from "../../test/fixtures";
 import { IntelligenceTab } from "./IntelligenceSection";
 
@@ -56,6 +57,7 @@ vi.mock("../../api", () => ({
     addCloudLLMProfile: vi.fn(),
     updateCloudLLMProfile: vi.fn(),
     deleteCloudLLMProfile: vi.fn(),
+    picksState: vi.fn(),
   },
 }));
 
@@ -124,6 +126,7 @@ function primeHappyPath() {
     reachable: false,
   });
   mocked.cloudLLMProfiles.mockResolvedValue({ profiles: [] });
+  mocked.picksState.mockResolvedValue(picksStateFixture());
 }
 
 function mount() {
