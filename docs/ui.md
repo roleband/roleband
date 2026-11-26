@@ -1406,7 +1406,7 @@ Unit gates (`npm run test:unit`) are under `dashboard/src/`; UX specs
 | Every class selector is rendered somewhere | `design/dead-rules.test.ts` |
 | A selector lives in one sheet; keyframes defined once and reachable | `design/one-definition.test.ts` |
 | Filter register type grammar | `design/filter-grammar.test.ts` |
-| Every tab wears `PageHeader`; the Pipeline's alone is off screen | `patterns/page-header.test.ts`, `page-header.spec.ts` |
+| Every tab wears `PageHeader`; the Radar's, Top picks' and the Pipeline's are off screen | `patterns/page-header.test.ts`, `page-header.spec.ts` |
 | The Pipeline's star opens Considering and is chosen with the view on screen; elsewhere its views drop out of it on a resting pointer and push the rail down | `shell/NavRail.test.tsx`, `pipeline-rail.spec.ts` |
 | Rail boundary named once | `patterns/rail-shell.test.ts` |
 | Sticky offsets derived, container queries kept | `features/companies/register.test.ts`, `features/opportunities/board-shell.test.ts` |

@@ -260,6 +260,27 @@ test("a scan that ends while Top picks is open offers the new list, and moves no
   await expect(offer).toHaveCount(0);
 });
 
+test("a Radar lens lit when Top picks opens again narrows none of its reads", async ({ page }) => {
+  await installTopPicksRoutes(page);
+  const picksReads: URLSearchParams[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (url.pathname === "/api/jobs" && url.searchParams.get("top_picks") === "true") picksReads.push(url.searchParams);
+  });
+  // A first visit loads the screen, so the next one mounts with the route change.
+  await page.goto("/top-picks");
+  await expect(page.locator(".job-row .pick-reasons")).toHaveCount(2);
+  await page.locator('.nav-rail a[href="/"]').click();
+  await page.getByRole("button", { name: "1 new in the last 2 days" }).click();
+  await expect(page.getByRole("button", { name: msg("radar-new-today"), exact: true })).toHaveAttribute("aria-pressed", "true");
+
+  picksReads.length = 0;
+  await railItem(page).click();
+  await expect(page.locator(".job-row .pick-reasons")).toHaveCount(2);
+  expect(picksReads.length).toBeGreaterThan(0);
+  expect(picksReads.filter((params) => params.get("new_today_only") === "true").map(String)).toEqual([]);
+});
+
 test("paused checks say so above the list, and Resume checks turns them back on", async ({ page }) => {
   const paused = healthyState({ state: "off", health: "off" });
   await installTopPicksRoutes(page, { state: paused });

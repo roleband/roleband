@@ -53,7 +53,7 @@ import { AsyncBoundary, Button, Content, EmptyState, Msg, RAIL_QUERY, RouterLink
 import { RowSkeleton } from "../../ui/RowSkeleton";
 import { BoardFilters } from "./BoardFilters";
 import { BoardToolbar } from "./BoardToolbar";
-import { RESET_FILTERS, TOP_PICKS_MEMORY_SCOPE, countNarrowingFilters } from "./filters";
+import { NO_LENSES, RESET_FILTERS, TOP_PICKS_MEMORY_SCOPE, countNarrowingFilters } from "./filters";
 import { useBoardController, type BoardSurface } from "./useBoardController";
 import "../../patterns/jobs/job-page.css";
 import "./board-shell.css";
@@ -61,7 +61,6 @@ import "./top-picks.css";
 
 /** Settings › AI: where an assistant is connected, and its connection fixed. */
 const SETTINGS_AI_PATH = "/settings/intelligence";
-const NO_LENSES = { newSignalsOnly: false, repostsOnly: false };
 const ignoreMode = () => {};
 
 /* Top picks: the few roles the person's assistant judged worth a move. It is

@@ -27,6 +27,8 @@ export const MODE_PARAMS = Object.values(MODE_PARAM) as readonly string[];
 
 type FilterKind = "queryContext" | "railFilter" | "externalLens" | "pagination" | "transport";
 export interface BoardLenses { newSignalsOnly: boolean; repostsOnly: boolean }
+/** Both lenses off: what a list the Radar's lenses do not narrow reads. */
+export const NO_LENSES: BoardLenses = { newSignalsOnly: false, repostsOnly: false };
 type Field = {
   kind: FilterKind;
   group?: string;

@@ -20,6 +20,7 @@ import {
   BOARD_MEMORY_SCOPE,
   BOARD_MEMORY_SHAPE,
   MODE_FILTERS,
+  NO_LENSES,
   TOP_PICKS_MEMORY_SCOPE,
   boardMode,
   boardRequestFilters,
@@ -82,7 +83,10 @@ export function useBoardController({
   const search = surface.search ?? shared.search;
   const topPicks = surface.topPicks;
   const defaultSort = topPicks ? TOP_PICKS_DEFAULTS.sort! : DEFAULT_FILTERS.sort;
-  const { newSignalsOnly, repostsOnly } = useMissionState();
+  // The lenses narrow the Radar alone: Top picks reads with both off, whatever
+  // the Radar has lit.
+  const radarLenses = useMissionState();
+  const { newSignalsOnly, repostsOnly } = topPicks ? NO_LENSES : radarLenses;
   const { refreshStats } = useMissionActions();
   const { favVersion } = useJobWorkspace();
   const { toast } = useToast();
