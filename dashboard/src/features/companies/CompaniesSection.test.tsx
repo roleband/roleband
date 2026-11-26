@@ -1714,6 +1714,22 @@ describe("CompaniesSection — every other company, followed as one", () => {
     )).toBeInTheDocument();
   });
 
+  it("asks about the set the card names, even when clicked the moment the card appears", async () => {
+    let answer: (status: CompanyDirectoryStatus) => void = () => {};
+    vi.mocked(api.companyDirectoryStatus).mockReturnValue(new Promise((resolve) => { answer = resolve; }));
+    renderSection();
+    await waitFor(() => expect(row("FAANG", "Google")).toBeInTheDocument());
+    expect(within(addMore()).queryByRole("group")).not.toBeInTheDocument();
+
+    answer(setStatus());
+    // The click runs in the DOM-mutation callback of the commit that draws
+    // the card, before React's passive effects get their turn.
+    await waitFor(() => {
+      fireEvent.click(within(setCard()).getByRole("button", { name: "Find the ones hiring for you" }));
+    });
+    expect(await screen.findByRole("dialog", { name: "Scan about 10,000 more companies?" })).toBeInTheDocument();
+  });
+
   it("shows the first pass in the card as it runs: how many are read, and how many are hiring", async () => {
     vi.mocked(api.companyDirectoryStatus).mockResolvedValue(
       setStatus({ following: true, since: "2026-09-24T12:00:00Z", checked: 3200, with_roles: 4 }),

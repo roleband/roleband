@@ -7,6 +7,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useDeferredValue,
   useRef,
@@ -504,9 +505,11 @@ export function CompaniesDataProvider({ children }: { children: ReactNode }) {
   const { refresh: refreshDirectory, mutate: mutateDirectory } = directoryStatus;
   const scanStatus = directoryStatus.data;
   // The verbs read the status here, at the click, so a poll gives none of
-  // them a new identity.
+  // them a new identity. Filled in the commit that draws the card, not in a
+  // passive effect after it: a click can land in between, and the dialog it
+  // opens keeps the size it read.
   const scanStatusRef = useRef(scanStatus);
-  useEffect(() => { scanStatusRef.current = scanStatus; }, [scanStatus]);
+  useLayoutEffect(() => { scanStatusRef.current = scanStatus; }, [scanStatus]);
   const firstPass = Boolean(scanStatus?.following && scanStatus.checked < scanStatus.to_check);
   useEffect(() => {
     if (!firstPass) return;
