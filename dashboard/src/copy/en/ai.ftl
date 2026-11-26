@@ -662,3 +662,53 @@ ai-capabilities-card-apple-not-supported = not supported on this computer
 
 # kind=status note="Beside the local AI server's switch when a start ran past its time limit and the server may still come up"
 ai-local-server-start-pending = Your local AI server is still starting. Check again in a minute.
+
+## features/intelligence/TopPicksCard.tsx
+# kind=status note="The Top picks card's status line, beside its title. It starts with whether the checks are on, as the Assistant apps card's line does. $host is the assistant's name (Claude Code, Codex); $when is how long ago, already worded (2 hours ago). checked: the last check finished; first: no check has finished yet; late: roles are waiting and no check has finished for a day and a half; stopped: the last check ended before it finished; disconnected: the assistant is no longer connected; asks: it asks before each command, so a check can't run unattended; read-only: its read-only mode blocks the checks; paused-checked and paused: the checks are off"
+ai-top-picks-card-status = { $state ->
+    [checked] on · { $host } checked { $when }
+    [first] on · { $host } hasn't checked yet
+    [late] on · { $host } last checked { $when }
+    [stopped] on · { $host } stopped early { $when }
+    [disconnected] on · { $host } is no longer connected
+    [asks] on · { $host } asks before each command
+    [read-only] on · { $host } is blocked by read-only mode
+    [paused-checked] off · { $host } last checked { $when }
+   *[paused] off · checks paused
+}
+# kind=heading note="The Top picks card's switch and its name: on, the person's assistant reads the new roles of each scan and keeps the few worth a move"
+ai-top-picks-card-check = Check each scan for top picks
+# kind=sentence note="Under the switch, in both states"
+ai-top-picks-card-check-note = Off stops the checks and the alerts, and keeps what you are looking for.
+# kind=error
+ai-top-picks-card-pause-failed = Couldn't pause the checks. Try again.
+# kind=heading note="Above what the person told their assistant they look for, in the assistant's words"
+ai-top-picks-card-brief = What you are looking for
+# kind=sentence note="In place of what the person is looking for while their assistant has saved no summary of it"
+ai-top-picks-card-brief-none = Your assistant hasn't written it down yet.
+# kind=label note="A sentence the person copies and says to their assistant to change what it looks for; lower case, as typed in a chat"
+ai-top-picks-card-sentence = update my top picks
+# kind=aria note="The name of the button that copies the sentence; $sentence is the sentence shown on it"
+ai-top-picks-card-copy-sentence = Copy “{ $sentence }” to say to your assistant
+# kind=heading
+ai-top-picks-card-limit = Roles read a day, at most
+# kind=sentence note="Under the daily limit: reading uses the person's plan with their AI provider"
+ai-top-picks-card-limit-note = Bounds how much of your plan a day of reading can use. Your assistant can change it too.
+# kind=error next=none note="Under the daily limit while its field holds something it can't take; the message is itself the instruction. $max is the most it can be"
+ai-top-picks-card-limit-range = Type a whole number from 1 to { $max }.
+# kind=error
+ai-top-picks-card-limit-failed = Couldn't save the daily limit. Try again.
+# kind=heading
+ai-top-picks-card-remove-title = Remove your CV and preferences
+# kind=sentence
+ai-top-picks-card-remove-note = Removes the CV, what was read from it, what you are looking for and the reasons on past picks. Roles you saved stay saved.
+# kind=button
+ai-top-picks-card-remove = Remove
+# kind=heading note="The confirmation's title"
+ai-top-picks-card-remove-confirm-title = Remove your CV and preferences?
+# kind=sentence note="The confirmation's text, under its title"
+ai-top-picks-card-remove-confirm = This can't be undone. The checks stop until you set Top picks up again.
+# kind=error
+ai-top-picks-card-remove-failed = Couldn't remove them. Try again.
+# kind=toast note="Once Remove has deleted them; the card is gone from the screen"
+ai-top-picks-card-removed = Your CV and preferences are removed.

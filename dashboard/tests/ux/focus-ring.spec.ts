@@ -50,7 +50,7 @@ const SCREENS = [
 
 /** The dialogs a person opens most, each judged stop by stop like a screen:
  *  where it opens, and how. */
-const DIALOGS: { name: string; path: string; open: (page: Page) => Promise<unknown> }[] = [
+const DIALOGS: { name: string; path: string; open: (page: Page) => Promise<unknown>; install?: (page: Page) => Promise<unknown> }[] = [
   { name: "the interview form", path: "/company/openai/job/101?tab=workspace",
     open: (page) => page.getByRole("button", { name: msg("applications-interview-add") }).click() },
   { name: "the notes' earlier versions", path: "/company/openai/job/101?tab=workspace",
@@ -63,6 +63,9 @@ const DIALOGS: { name: string; path: string; open: (page: Page) => Promise<unkno
     } },
   { name: "the command palette", path: "/", open: (page) => page.keyboard.press("ControlOrMeta+k") },
   { name: "the keyboard shortcuts", path: "/", open: (page) => page.keyboard.press("?") },
+  { name: "Remove on the Top picks card", path: "/settings/intelligence",
+    install: (page) => mockGet(page, "/api/picks/state", (route) => route.fulfill({ json: healthyState() })),
+    open: (page) => page.getByRole("button", { name: msg("ai-top-picks-card-remove") }).click() },
 ];
 
 /** Focused element -> the element that draws its ring. Kept in step with the
@@ -228,6 +231,7 @@ for (const theme of ["light", "dark"] as const) {
       test.skip(isMobile, "Tab order is a desktop keyboard contract; WebKit's Tab skips links by default");
       test.setTimeout(60_000);
       await routeRoleOnBoard(page);
+      await dialog.install?.(page);
       await page.addInitScript((t) => localStorage.setItem("theme", t), theme);
       await page.setViewportSize({ width: 1440, height: 900 });
       await page.goto(dialog.path);

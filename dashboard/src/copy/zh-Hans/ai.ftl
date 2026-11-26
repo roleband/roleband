@@ -385,3 +385,34 @@ ai-capabilities-card-apple-needs-macos = 需要 Apple 芯片上的 macOS 26 或�
 ai-capabilities-card-apple-not-supported = 这台电脑不支持
 
 ai-local-server-start-pending = 本地 AI 服务器仍在启动。请一分钟后再查看。
+
+## features/intelligence/TopPicksCard.tsx
+ai-top-picks-card-status = { $state ->
+    [checked] 开启 · { $host } { $when }检查过
+    [first] 开启 · { $host } 还没有检查过
+    [late] 开启 · { $host } 上次检查是{ $when }
+    [stopped] 开启 · { $host } { $when }提前停止了检查
+    [disconnected] 开启 · { $host } 已不再连接
+    [asks] 开启 · { $host } 每条命令前都会询问
+    [read-only] 开启 · { $host } 被只读模式阻止
+    [paused-checked] 关闭 · { $host } 上次检查是{ $when }
+   *[paused] 关闭 · 检查已暂停
+}
+ai-top-picks-card-check = 在每次扫描中检查首选
+ai-top-picks-card-check-note = 关闭后会停止检查和提醒，并保留你要找的内容。
+ai-top-picks-card-pause-failed = 无法暂停检查。请重试。
+ai-top-picks-card-brief = 你要找的
+ai-top-picks-card-brief-none = 你的助手还没有写下来。
+ai-top-picks-card-sentence = 更新我的首选
+ai-top-picks-card-copy-sentence = 复制“{ $sentence }”，说给你的助手
+ai-top-picks-card-limit = 每天最多读取的{ -role }数
+ai-top-picks-card-limit-note = 限制一天的阅读最多能用掉你多少套餐额度。你的助手也可以更改它。
+ai-top-picks-card-limit-range = 请输入 1 到 { $max } 之间的整数。
+ai-top-picks-card-limit-failed = 无法保存每日上限。请重试。
+ai-top-picks-card-remove-title = 删除你的简历和偏好
+ai-top-picks-card-remove-note = 删除简历、从中读取的内容、你要找的内容，以及以往首选的理由。你保存的{ -role }仍然保留。
+ai-top-picks-card-remove = 删除
+ai-top-picks-card-remove-confirm-title = 删除你的简历和偏好？
+ai-top-picks-card-remove-confirm = 此操作无法撤销。检查会停止，直到你重新设置首选。
+ai-top-picks-card-remove-failed = 无法删除。请重试。
+ai-top-picks-card-removed = 你的简历和偏好已删除。

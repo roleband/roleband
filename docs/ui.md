@@ -1423,5 +1423,6 @@ Unit gates (`npm run test:unit`) are under `dashboard/src/`; UX specs
 | First-run setup | `routing/setupMode.test.tsx`, `features/scope/walk/Walk.test.tsx`, `features/companies/SetupCompanies.test.tsx`, `welcome.spec.ts` |
 | First-run setup magnification: the factor, window units, placed pop-ups, the planet's pointer | `features/scope/setupZoom.test.ts`, `features/scope/welcome/globeDrag.test.ts`, `setup-magnification.spec.ts`, `setup-magnification-webkit.spec.ts`, `setup-magnification-unhinted.spec.ts` |
 | The board during and after the first scan | `board-first-scan.spec.ts` |
+| Settings › AI's Top picks card: drawn only once Top picks is set up; its switch, its status line by case, a daily limit from 1 to the most the engine takes, and Remove asked first; long text, rings and contrast at 1440 and 2000 | `features/intelligence/TopPicksCard.test.tsx`, `top-picks-settings.spec.ts` |
 
 Baselines move only downward. When a gate fails, change the code.

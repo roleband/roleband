@@ -8,6 +8,7 @@ import { installBoardRoutes, installJobDetailRoutes, twoJobList } from "./boardH
 import { bootPseudo, unbracketed } from "./pseudoScan";
 import { installEveryRoute } from "./routesHarness";
 import { installSettingsRoutes, syncScheduleUnderway } from "./settingsHarness";
+import { healthyState } from "./topPicksHarness";
 
 /* Every screen in its populated state says only the catalog's words.
  * `copy-locale.spec.ts` sweeps the rail after a live switch, over
@@ -138,6 +139,27 @@ test("assistant apps with choices held back, and Customize, say only the catalog
   const customize = page.getByRole("dialog");
   await expect(customize.getByRole("radio")).toHaveCount(23);
   expect(await unbracketed(page, "[role='dialog']"), "Customize").toEqual([]);
+});
+
+// Settings > AI once Top picks is set up: the card in a state that needs the
+// person's eye, then its Remove question. What the person looks for and the
+// schedule are the assistant's words, marked as such.
+test("the Top picks card and its Remove question say only the catalog's words", async ({ page }) => {
+  await bootPseudo(page);
+  await installSettingsRoutes(page);
+  await mockGet(page, "/api/picks/state", (route) => route.fulfill({ json: healthyState({
+    health: "late", waiting: 40, schedule: "daily 09:30 and 17:30", brief_summary: "Staff level and above, remote in the EU.",
+  }) }));
+  await page.goto("/settings/intelligence");
+  await expect(page.locator("h1").first()).toBeVisible();
+  const card = page.locator("[data-testid='top-picks-card']");
+  await expect(card.getByText(/⟦/).first()).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  expect(await unbracketed(page, "main"), "/settings/intelligence with Top picks set up").toEqual([]);
+
+  await card.locator(".ui-btn-danger").click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  expect(await unbracketed(page, "[role='dialog']"), "the Remove question").toEqual([]);
 });
 
 /* The states a populated fixture never shows: nothing to list, a surface laid

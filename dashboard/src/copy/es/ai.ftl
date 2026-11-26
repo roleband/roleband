@@ -421,3 +421,34 @@ ai-capabilities-card-apple-needs-macos = necesita macOS 26 o posterior en Apple 
 ai-capabilities-card-apple-not-supported = no compatible con este ordenador
 
 ai-local-server-start-pending = Tu servidor de IA local aún se está iniciando. Vuelve a comprobarlo en un minuto.
+
+## features/intelligence/TopPicksCard.tsx
+ai-top-picks-card-status = { $state ->
+    [checked] activado · { $host } revisó { $when }
+    [first] activado · { $host } aún no ha revisado
+    [late] activado · { $host } revisó por última vez { $when }
+    [stopped] activado · { $host } se detuvo antes de terminar { $when }
+    [disconnected] activado · { $host } ya no está conectado
+    [asks] activado · { $host } pide permiso en cada comando
+    [read-only] activado · { $host } está bloqueado por el modo de solo lectura
+    [paused-checked] desactivado · { $host } revisó por última vez { $when }
+   *[paused] desactivado · revisiones en pausa
+}
+ai-top-picks-card-check = Revisar cada escaneo en busca de destacados
+ai-top-picks-card-check-note = Desactivarlo detiene las revisiones y los avisos, y conserva lo que buscas.
+ai-top-picks-card-pause-failed = No se pudieron pausar las revisiones. Inténtalo de nuevo.
+ai-top-picks-card-brief = Lo que buscas
+ai-top-picks-card-brief-none = Tu asistente aún no lo ha anotado.
+ai-top-picks-card-sentence = actualiza mis destacados
+ai-top-picks-card-copy-sentence = Copiar «{ $sentence }» para decírselo a tu asistente
+ai-top-picks-card-limit = Máximo de { -role(num: "other") } leídos al día
+ai-top-picks-card-limit-note = Limita cuánto de tu plan puede usar un día de lectura. Tu asistente también puede cambiarlo.
+ai-top-picks-card-limit-range = Escribe un número entero del 1 al { $max }.
+ai-top-picks-card-limit-failed = No se pudo guardar el límite diario. Inténtalo de nuevo.
+ai-top-picks-card-remove-title = Eliminar tu CV y tus preferencias
+ai-top-picks-card-remove-note = Elimina el CV, lo que se leyó de él, lo que buscas y los motivos de los destacados anteriores. Los { -role(num: "other") } que guardaste siguen guardados.
+ai-top-picks-card-remove = Eliminar
+ai-top-picks-card-remove-confirm-title = ¿Eliminar tu CV y tus preferencias?
+ai-top-picks-card-remove-confirm = No se puede deshacer. Las revisiones se detienen hasta que vuelvas a configurar Destacados.
+ai-top-picks-card-remove-failed = No se pudieron eliminar. Inténtalo de nuevo.
+ai-top-picks-card-removed = Tu CV y tus preferencias se han eliminado.

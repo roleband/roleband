@@ -1,11 +1,12 @@
 import { errorText } from "../../api/errorText";
 import { number as copyNumber } from "../../copy/format";
-// Settings > Intelligence: three instruments on the register material.
+// Settings > Intelligence: the instruments on the register material.
 //
-// The screen answers three human questions, one card each:
+// The screen answers a human question with each card:
 //   1. Role ranking          (on this computer; the field + the model)
 //   2. Assistant apps        (cloud-connected; the data sheet + one gate)
-//   3. Extended capabilities (your own model, the OS built-in model, services)
+//   3. Top picks             (what an assistant judges; drawn once it is set up)
+//   4. Extended capabilities (your own model, the OS built-in model, services)
 //
 // Material: the shared register material (design/materials/register-material.css),
 // by a body marker so portals inherit it, the same mechanism as Companies.
@@ -29,6 +30,7 @@ import { CapabilitiesCard } from "./CapabilitiesCard";
 import { FitBandKey, FitField } from "./FitField";
 import { MatchingModel } from "./MatchingModel";
 import { OriginBadge } from "./OriginBadge";
+import { TopPicksCard } from "./TopPicksCard";
 import "../../design/materials/register-material.css";
 import "./IntelligenceSection.css";
 import {
@@ -109,6 +111,7 @@ export function IntelligenceTab() {
         onTierMutationChange={onTierMutationChange}
       />
       <AssistantsCard />
+      <TopPicksCard />
       <CapabilitiesCard status={status} setStatus={setStatus} />
       {error && <div className="intel-error" role="alert">{error}</div>}
     </div>
