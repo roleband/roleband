@@ -350,6 +350,18 @@ def _no_test_probes_the_network(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def desktop_banners(monkeypatch) -> list[tuple[str, str]]:
+    """The desktop banners code under test posted, as (title, message), in
+    order. No test puts a banner on this machine's screen: a producer's banner
+    (`notifications.desktop`) is recorded here instead of shown."""
+    from tracker.notifications import desktop
+
+    posted: list[tuple[str, str]] = []
+    monkeypatch.setattr(desktop, "_show", lambda title, message: posted.append((title, message)))
+    return posted
+
+
+@pytest.fixture(autouse=True)
 def _no_test_reads_the_machines_power(monkeypatch):
     """Background reads wait for a full wake, the directory scan for mains
     power (`platform.power`). No test may depend on the machine it

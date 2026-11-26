@@ -370,7 +370,30 @@ To add a sentence:
 unregistered key, or a registered key with no sample.
 
 **Operating-system banners** use the `banner-` messages in English only, so
-reporting a database failure never needs a database read for the language.
+reporting a database failure never needs a database read for the language. A new
+`banner-` message is listed in `englishOnly` in `dashboard/src/copy/locales.json`.
+A producer asks for its banner with `post_after_commit`
+(`backend/tracker/notifications/desktop.py`), which posts it once the write that
+made the row commits, and only for a row that write created: `deliver` says
+whether it did.
+
+**Top picks** rings in two kinds, and both open Top picks:
+
+- `top_pick`: one row per posting an assistant picks outside a trial, written by
+  the `picks.decide` call that saved it. A trial rings nothing, a replayed call
+  runs nothing, and a posting picked again keeps its one row. One banner per call
+  names the first new pick and how many there are.
+- `picks_stalled`: one row while the checks have fallen behind with roles waiting:
+  health `late`; `stopped_early` for a run begun since the mode was last turned
+  on; `never_ran` once a role has waited as long as `late` allows. It is
+  reconciled at each scan, when a run finishes and when the mode is switched or
+  removed, rings once per stall, and goes when the checks catch up, the mode is
+  off or nothing waits. The rail's Top picks dot never says this.
+
+While Top picks is on, the daily digest is not written; rows about saved and
+pursued roles ring as before. Neither kind repeats a pick's reasons or a run's
+note: they quote the person's own facts, and Remove deletes them where they are
+stored (`backend/tracker/notifications/top_picks.py`).
 
 **Backend prose outside the catalog** (in notification and banner producers) is
 held to the same banned words and mechanics by `backend/tests/test_copy_glossary.py`,

@@ -323,6 +323,10 @@ shell-notif-scan-failed = Scan failed
 shell-notif-coverage = Coverage problem at a company you follow
 # kind=label
 shell-notif-scan-stopped = Scan stopped
+# kind=label note="The icon of a notification that the person's assistant picked a role"
+shell-notif-top-pick = New top pick
+# kind=label note="The icon of a notification that the Top picks checks fell behind"
+shell-notif-picks-stalled = Checks fell behind
 # kind=label note="A category this version does not know yet"
 shell-notif-other = Notification
 # kind=toast

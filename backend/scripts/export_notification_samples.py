@@ -22,7 +22,7 @@ import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +38,7 @@ from tracker.notifications.digest import DigestMatch, classify_daily_digest
 from tracker.notifications.events import ClassifiedNotif, classify_event
 from tracker.notifications.pursuit_due import classify_pursuit_due, classify_pursuit_quiet
 from tracker.notifications.run_result import classify_sync_result, classify_sync_started
+from tracker.notifications.top_picks import Stall, classify_picks_stalled, classify_top_pick
 from tracker.workflows.collection_types import empty_stats
 
 COMMITTED = (
@@ -159,6 +160,11 @@ def cases() -> Iterator[tuple[str, ClassifiedNotif | None]]:
              DigestMatch(3, "stripe", "Lead", None)],
             names=NAMES,
         )
+
+    yield "top-pick", classify_top_pick("stripe", "Head of Product", names=NAMES)
+    yield "picks-late", classify_picks_stalled(Stall("late", 12, date(2026, 9, 26)))
+    yield "picks-stopped-one-waiting", classify_picks_stalled(Stall("stopped_early", 1, date(2026, 9, 27)))
+    yield "picks-never-ran", classify_picks_stalled(Stall("never_ran", 40, None))
 
     yield "follow-up-due-today", classify_pursuit_due("stripe", "Head of Product", "applied", None, 0, names=NAMES)
     yield "follow-up-overdue", classify_pursuit_due(
