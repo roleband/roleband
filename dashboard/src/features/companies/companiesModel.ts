@@ -148,8 +148,6 @@ export interface SectorGroup {
   /** Select-all domain: connectable AND selectable. */
   bulk: CompanyDiscoveryCompany[];
   trackedCount: number;
-  /** Null until the counts aggregate lands — never 0 as a stand-in. */
-  openRoles: number | null;
   /** What the register actually draws, in order: connectable first, then the
    *  planned tail. One list, because the ledger has no per-sector disclosure —
    *  a planned company is a muted ROW, not a hidden one. */
@@ -272,8 +270,6 @@ export function buildSectorGroups({
   filters,
   sectorNames,
   orderIndex,
-  openRoles,
-  countsReady,
   directoryHits = [],
 }: {
   state: CompanyDiscoveryState | null;
@@ -281,8 +277,6 @@ export function buildSectorGroups({
   filters: RegisterFilters;
   sectorNames: Record<string, string>;
   orderIndex: ReadonlyMap<string, number>;
-  openRoles: (slug: string) => number | null;
-  countsReady: boolean;
   /** Directory search hits the roster does not hold yet. */
   directoryHits?: readonly CompanyDiscoveryCompany[];
 }): SectorGroup[] {
@@ -327,13 +321,6 @@ export function buildSectorGroups({
       // as recording intent without overstating connector readiness.
       bulk: rows.filter((company) => company.selectable),
       trackedCount: members.filter((company) => chosen.has(company.slug)).length,
-      // Tracked members only: an untracked company is never collected, so
-      // folding its 0 in would pass our own inaction off as a measurement.
-      openRoles: countsReady
-        ? members
-            .filter((company) => chosen.has(company.slug))
-            .reduce((total, company) => total + (openRoles(company.slug) ?? 0), 0)
-        : null,
       rows,
       hiddenPlanned: plannedVisible
         ? 0
@@ -443,13 +430,6 @@ export function trackedSummary({
 }) {
   return {
     trackedTotal: tracked.length,
-    trackedOpenRoles: countsReady
-      ? tracked.reduce((total, company) => total + (openRoles(company.slug) ?? 0), 0)
-      : null,
-    trackedLive: tracked.filter(
-      (company) => isConnectable(company) && company.connector_state !== "ready",
-    ).length,
-    trackedReady: tracked.filter((company) => company.connector_state === "ready").length,
     maxOpenRoles: countsReady
       ? Math.max(0, ...tracked.map((company) => openRoles(company.slug) ?? 0))
       : 0,

@@ -25,8 +25,7 @@ test("opening an opportunity shows a full-screen detail that fills the viewport"
 
   const mission = page.getByRole("banner", { name: msg("shell-topbar-aria") });
   await expect(mission).toContainText("Radar");
-  await expect(mission.locator(".stat-chip").nth(0)).toHaveAttribute("aria-label", msg("shell-stat-open-aria", { count: 1 }));
-  await expect(mission.locator(".stat-chip").nth(1)).toHaveAttribute("aria-label", "1 new in the last 2 days");
+  await expect(mission.locator(".stat-chip").nth(0)).toHaveAttribute("aria-label", "1 new in the last 2 days");
   await expect(mission.getByRole("status", { name: /Last scan/ })).toContainText("Last scan");
   await expect(page.getByRole("main")).toContainText("2 roles");
   await expect(page.getByRole("status", { name: /Last scan/ })).toContainText(msg("shell-freshness-checked", { age: msg("format-age-hours", { count: 2 }) }));

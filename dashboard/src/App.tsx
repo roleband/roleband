@@ -14,13 +14,10 @@ import {
   shellRouteDashboard,
   shellRouteWelcome,
   shellSkipToContent,
+  shellStatLensClearTitle,
   shellStatNew,
   shellStatNewAria,
   shellStatNewTitle,
-  shellStatOpen,
-  shellStatOpenAria,
-  shellStatOpenAriaUnknown,
-  shellStatOpenTitle,
   shellStatReposted,
   shellStatRepostedAria,
   shellStatRepostedTitle,
@@ -38,6 +35,7 @@ import type { Location } from "react-router-dom";
 import { shellApi, type UsageState } from "./api/shell";
 import { FreshnessBadge } from "./shell/FreshnessBadge";
 import { NavRail } from "./shell/NavRail";
+import { useSideBarExpanded } from "./hooks/sideBar";
 import { CompareChip } from "./shell/CompareChip";
 import { ModelSwitchChip } from "./shell/ModelSwitchChip";
 import { CompareSaveAlert } from "./shell/CompareSaveAlert";
@@ -52,7 +50,6 @@ import { ActivityRoute, CompareRoute, PassedOverRoute, PositionRoute, ROUTE_COMP
 import { AppProviders } from "./context/AppProviders";
 import { CopyBoundary } from "./copy/CopyBoundary";
 import { useMissionActions, useMissionState, useMissionStats } from "./context/MissionState";
-import { modeFromParam } from "./features/opportunities/boardMode";
 import { BEHIND_COVER } from "./ui/Overlay";
 import { BrandMark } from "./ui/BrandMark";
 import { onSharingAnswered } from "./diagnostics/sharingAnswered";
@@ -134,9 +131,9 @@ function Shell() {
   // query, so it must not re-render on a keystroke.
   const stats = useMissionStats();
   const { newSignalsOnly, repostsOnly } = useMissionState();
-  const { screenSearchRef, showNewSignals, showReposts, clearLenses } = useMissionActions();
+  const { screenSearchRef, showNewSignals, clearNewSignals, showReposts, clearReposts, clearLenses } = useMissionActions();
   const [theme, setTheme] = useState<Theme>(readTheme);
-  const [navExpanded, setNavExpanded] = useState(false);
+  const [navExpanded, toggleNav] = useSideBarExpanded();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const location = useLocation();
@@ -308,19 +305,11 @@ function Shell() {
     ? shellRouteActivity()
     : routedLocation.pathname === PASSED_OVER_ROUTE ? shellRoutePassedOver() : null;
 
-  /* Which of the top bar's counts is lit: at most one, and it is what the page
+  /* Which of the top bar's lenses is lit: at most one, and it is what the page
      shows. Asked of the page ON SCREEN, not the routed one — a cover is its own
      screen, so a role opened from the board lights none of them. */
   const onBoard = location.pathname === "/";
-  const boardView = !onBoard
-    ? null
-    : newSignalsOnly
-      ? "new"
-      : repostsOnly
-        ? "reposted"
-        : modeFromParam(new URLSearchParams(location.search).get("show") ?? "") === "open"
-          ? "open"
-          : null;
+  const boardView = !onBoard ? null : newSignalsOnly ? "new" : repostsOnly ? "reposted" : null;
 
   // While setup may be running (the welcome page, or the setup flag while the
   // install is probed) the page is dark; the saved choice is the person's own.
@@ -385,9 +374,10 @@ function Shell() {
       {!room && (
         <NavRail
           expanded={navExpanded}
-          onToggleExpanded={() => setNavExpanded((open) => !open)}
+          onToggleExpanded={toggleNav}
           theme={theme}
           onToggleTheme={toggleTheme}
+          onRadar={clearLenses}
         />
       )}
 
@@ -443,39 +433,29 @@ function Shell() {
           {/* `group`, for the same reason as the breadcrumb: the name needs a
               role to be announced on. */}
           <div className="top-stats" role="group" aria-label={shellStatsAria()}>
-            {/* The count IS the way back to the board it counts, so no chip
-                in this strip of lenses and links is inert. `/` with no query
-                is the open board by definition, which is why the mode lives in
-                `?show=`. The lenses do not, so the link takes them off itself. */}
-            <StatChip
-              kind="link"
-              to="/"
-              active={boardView === "open"}
-              onClick={clearLenses}
-              n={stats?.open_total ?? "—"}
-              label={shellStatOpen()}
-              ariaLabel={stats ? shellStatOpenAria({ count: stats.open_total }) : shellStatOpenAriaUnknown()}
-              title={shellStatOpenTitle()}
-            />
+            {/* Only news: the total lives in the Radar's own toolbar. A lens
+                lit on the Radar turns off on a second press, the way back to
+                every role; the side bar's Radar entry takes it off too. */}
             <StatChip
               kind="lens"
               good={(stats?.new_today ?? 0) > 0}
               n={stats?.new_today ?? "—"}
               label={shellStatNew()}
-              onClick={showNewSignals}
+              onClick={boardView === "new" ? clearNewSignals : showNewSignals}
               pressed={boardView === "new"}
               ariaLabel={shellStatNewAria({ count: stats?.new_today ?? shellStatUnknown() })}
-              title={shellStatNewTitle()}
+              title={boardView === "new" ? shellStatLensClearTitle() : shellStatNewTitle()}
             />
             {(stats?.reposted_today ?? 0) > 0 && (
               <StatChip
                 kind="lens"
+                className="stat-chip-reposted"
                 n={stats?.reposted_today ?? "—"}
                 label={shellStatReposted()}
-                onClick={showReposts}
+                onClick={boardView === "reposted" ? clearReposts : showReposts}
                 pressed={boardView === "reposted"}
                 ariaLabel={shellStatRepostedAria({ count: stats?.reposted_today ?? 0 })}
-                title={shellStatRepostedTitle()}
+                title={boardView === "reposted" ? shellStatLensClearTitle() : shellStatRepostedTitle()}
               />
             )}
             <CompareChip />

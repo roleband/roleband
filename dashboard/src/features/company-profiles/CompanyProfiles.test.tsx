@@ -1278,25 +1278,28 @@ describe("CompanyProfilesView — search + branding", () => {
     expect(count()).toMatch(/1\s*of\s*3\s*companies/);
   });
 
-  it("counts what needs review among the roles SHOWN, not across the roster", async () => {
+  /* Most profiles carry a field nobody has confirmed, so a review figure
+     would be a warning lit every day. The count says how many companies are
+     listed; the Needs review only switch is how the person finds the rest. */
+  it("counts the companies and never prices how many need review", async () => {
+    mockList(Array.from({ length: 1234 }, (_, i) =>
+      summary(`co-${i}`, `Company ${i}`, { data_health: i < 1200 ? "stale" : "ok" })));
+    render(<CompanyProfilesView />);
+    await waitFor(() => expect(count()).toMatch(/^1,234\s*companies$/));
+    expect(count()).not.toMatch(/review|1,200/);
+    expect(screen.getByRole("checkbox", { name: "Needs review only" })).toBeEnabled();
+  });
+
+  it("says all profiles are current only when none in the roster needs review", async () => {
     mockList(FLAGGED);
     render(<CompanyProfilesView />);
     await screen.findByRole("button", { name: "Google" });
-    expect(count()).toMatch(/2\s*need review/);
 
-    // Narrow to the one healthy company: the roster still holds two flagged
-    // profiles, but none of them is on screen to be reviewed.
+    // Narrowed to the one healthy company, the roster still holds two flagged
+    // profiles: the switch stays on offer, so nothing claims all are current.
     fireEvent.change(screen.getByLabelText("Search companies"), { target: { value: "goog" } });
-    expect(count()).toContain("all profiles current");
-    expect(count()).not.toContain("2");
-  });
-
-  it("writes the review count with the region's grouping, like the count before it", async () => {
-    mockList(Array.from({ length: 1234 }, (_, i) =>
-      summary(`co-${i}`, `Company ${i}`, { data_health: "stale" })));
-    render(<CompanyProfilesView />);
-    await waitFor(() => expect(count()).toMatch(/1,234\s*need review/));
-    expect(count()).not.toContain("1234");
+    expect(count()).toMatch(/^1\s*of\s*3\s*companies$/);
+    expect(count()).not.toContain("all profiles current");
   });
 
   /* A disabled review lens says why. The count beside it already does — "all

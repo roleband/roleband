@@ -8,7 +8,6 @@ import { PageHeader } from "../../patterns/PageHeader";
 import { ResultsSummary } from "../../patterns/ResultsSummary";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { CompanyProfileSummary, api } from "../../api";
-import { number } from "../../copy/format";
 import { sectorName } from "../../copy/vocab";
 import { companiesModelOtherCompanies } from "../../copy/gen/companies";
 import { Button } from "../../ui/Button";
@@ -41,7 +40,6 @@ import {
   profilesCompanyProfilesViewEnrichFields,
   profilesCompanyProfilesViewFindACompanyOrTicker,
   profilesCompanyProfilesViewMatch,
-  profilesCompanyProfilesViewNeedReview,
   profilesCompanyProfilesViewNeedsReviewOnly,
   profilesCompanyProfilesViewNoCompaniesToShow,
   profilesCompanyProfilesViewSearchCompanies,
@@ -435,7 +433,7 @@ export function CompanyProfilesView() {
   // which is strictly better than reading these two booleans in order and is
   // why the empty state does not share them.
   const searching = q !== "";
-  const reviewShown = shown.filter((c) => c.data_health !== "ok").length;
+  const nothingToReview = needsReview.length === 0;
 
   const sections = rosterSections(shown, sectorOrder);
   const narrowing = searching || reviewOnly;
@@ -462,9 +460,12 @@ export function CompanyProfilesView() {
           value={query}
           onChange={setQuery}
         />
-        {/* The shared count, on the Board's two shapes. Both halves describe
-            the list underneath, not the whole roster: the fraction states the
-            search narrowing, and the review clause counts what is SHOWN. No
+        {/* The shared count, on the Board's two shapes. It describes the list
+            underneath, not the whole roster: the fraction states the search
+            narrowing, and the review lens names its list. No review figure
+            otherwise: most profiles carry an unconfirmed field, so a share of
+            the roster would read as a warning every day. "All profiles
+            current" stays, because it is why the switch beside it is off. No
             reset here for the query: Reset all has one scope app-wide and it
             is never the search. */}
         <ResultsSummary
@@ -473,17 +474,10 @@ export function CompanyProfilesView() {
           noun="company"
           meta={reviewOnly ? (
             <>{" "}<span>{profilesCompanyProfilesViewThatNeedReview({ count: shown.length })}</span></>
-          ) : (
+          ) : nothingToReview && (
             <>
               {" "}<span className="results-sep" aria-hidden="true">·</span>{" "}
-              {reviewShown === 0 ? (
-                <span id="prof-review-why">{profilesCompanyProfilesViewAllProfilesCurrent()}</span>
-              ) : (
-                <>
-                  <b className="is-warn">{number(reviewShown)}</b>{" "}
-                  <span>{profilesCompanyProfilesViewNeedReview({ count: reviewShown })}</span>
-                </>
-              )}
+              <span id="prof-review-why">{profilesCompanyProfilesViewAllProfilesCurrent()}</span>
             </>
           )}
           reset={reviewOnly && (
@@ -496,8 +490,8 @@ export function CompanyProfilesView() {
         <div className="prof-toolbar-end">
           <Switch
             checked={reviewOnly}
-            disabled={needsReview.length === 0 && !reviewOnly}
-            describedBy={needsReview.length === 0 && !reviewOnly ? "prof-review-why" : undefined}
+            disabled={nothingToReview && !reviewOnly}
+            describedBy={nothingToReview && !reviewOnly ? "prof-review-why" : undefined}
             onChange={setReviewOnly}
           >
             {profilesCompanyProfilesViewNeedsReviewOnly()}

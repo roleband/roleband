@@ -92,17 +92,6 @@ shell-palette-open-title = Command palette (⌘K)
 shell-stats-aria = Radar summary
 # kind=label note="A count no status has answered yet"
 shell-stat-unknown = Unknown
-# kind=label note="Beside the count of open roles"
-shell-stat-open = open
-# kind=aria note="$count is a number, or shell-stat-unknown"
-shell-stat-open-aria = { $count ->
-    [one] { $count } open role
-   *[other] { $count } open roles
-}
-# kind=aria
-shell-stat-open-aria-unknown = Open roles, not counted yet
-# kind=tooltip
-shell-stat-open-title = Show every open role
 # kind=label note="Beside the count of roles posted in the last 2 days"
 shell-stat-new = new
 # kind=aria
@@ -115,6 +104,8 @@ shell-stat-reposted = reposted
 shell-stat-reposted-aria = { $count } reposted today
 # kind=tooltip
 shell-stat-reposted-title = Show today's reposted roles
+# kind=tooltip note="On new or reposted while it is lit on the Radar: pressing it again takes the lens off"
+shell-stat-lens-clear-title = Show every role
 # kind=label
 shell-loading-page = Loading this page…
 # kind=heading

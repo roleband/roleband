@@ -86,10 +86,6 @@ const groups = (over: Partial<RegisterFilters> = {}, chosen: ReadonlySet<string>
     filters,
     sectorNames: NAMES,
     orderIndex: buildOrderIndex(STATE, chosen, null),
-    // planned-co carries a count on purpose: if a sector folded in members
-    // it does not track, this 5 would show up in the total below.
-    openRoles: openRolesLookup({ counts: { meta: 4, openai: 6, stripe: 1, "planned-co": 5 } }),
-    countsReady: true,
   });
 };
 
@@ -163,22 +159,6 @@ describe("the register's three filters", () => {
     expect(sectors.ai.members).toHaveLength(3);
   });
 
-  it("counts open roles for tracked members only, and not at all before the counts land", () => {
-    const sectors = bySlug();
-    expect(sectors.ai.openRoles).toBe(10); // meta 4 + openai 6; planned-co's 5 is not ours to count
-
-    const pending = buildSectorGroups({
-      state: STATE,
-      chosen: CHOSEN,
-      filters: FILTERS,
-      sectorNames: NAMES,
-      orderIndex: new Map(),
-      openRoles: openRolesLookup(null),
-      countsReady: false,
-    });
-    expect(pending[0].openRoles).toBeNull();
-  });
-
   it("offers select-all over the rows on screen, never the whole sector", () => {
     const parked = {
       ...STATE,
@@ -193,8 +173,6 @@ describe("the register's three filters", () => {
       filters: { ...FILTERS, query: "planned" },
       sectorNames: NAMES,
       orderIndex: new Map(),
-      openRoles: openRolesLookup(null),
-      countsReady: false,
     });
 
     expect(ai.bulk.map((c) => c.slug)).toEqual(["planned-co"]);
@@ -209,8 +187,6 @@ describe("the register's three filters", () => {
       filters: FILTERS,
       sectorNames: { ai: "AI" },
       orderIndex: new Map(),
-      openRoles: openRolesLookup(null),
-      countsReady: false,
     });
     expect(only.dormant).toBe(true);
   });
@@ -325,7 +301,6 @@ describe("the rest of the register's arithmetic", () => {
       company({ slug, connector_state: "live" }),
     );
     const summary = trackedSummary({ tracked, openRoles: lookup, countsReady: true });
-    expect(summary.trackedOpenRoles).toBe(10);
     expect(summary.maxOpenRoles).toBe(6);
     const order = buildOrderIndex(
       { ...STATE, companies: [...STATE.companies, company({ slug: "constructor" })] },
@@ -408,8 +383,6 @@ describe("the directory: every other company, found by name", () => {
         filters: { ...FILTERS, ...over },
         sectorNames: NAMES,
         orderIndex: buildOrderIndex(DIR_STATE, enabledSet(DIR_STATE), null),
-        openRoles: openRolesLookup(null),
-        countsReady: false,
         directoryHits: hits,
       }).map((group) => [group.slug, group]),
     );
@@ -442,8 +415,7 @@ describe("the directory: every other company, found by name", () => {
     const groups = Object.fromEntries(
       buildSectorGroups({
         state: STATE, chosen: CHOSEN, filters: FILTERS, sectorNames: NAMES,
-        orderIndex: buildOrderIndex(STATE, CHOSEN, null), openRoles: openRolesLookup(null),
-        countsReady: false,
+        orderIndex: buildOrderIndex(STATE, CHOSEN, null),
       }).map((group) => [group.slug, group]),
     );
     expect(groups[DIRECTORY_SLUG]).toBeUndefined();

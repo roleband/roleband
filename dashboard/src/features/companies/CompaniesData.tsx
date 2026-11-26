@@ -173,11 +173,6 @@ export interface CompaniesContextValue {
   groups: SectorGroup[];
   trackedTotal: number;
   catalogTotal: number;
-  trackedOpenRoles: number | null;
-  /** Of the companies YOU track, not of the catalog. The toolbar says "your",
-   *  so a catalog-wide connector count there would answer another question. */
-  trackedLive: number;
-  trackedReady: number;
   openRoles: (slug: string) => number | null;
   /** Largest tracked count, so every volume bar in the register is drawn
    *  against the same scale rather than per-sector. */
@@ -613,12 +608,10 @@ export function CompaniesDataProvider({ children }: { children: ReactNode }) {
         filters: { query: shownQuery, trackedOnly, showPlanned },
         sectorNames,
         orderIndex,
-        openRoles,
-        countsReady: Boolean(counts.data),
         directoryHits,
       }),
     [
-      state, chosen, counts.data, openRoles, orderIndex, shownQuery, trackedOnly, showPlanned,
+      state, chosen, orderIndex, shownQuery, trackedOnly, showPlanned,
       sectorNames, directoryHits,
     ],
   );

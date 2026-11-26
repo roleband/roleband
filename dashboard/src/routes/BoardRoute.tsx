@@ -7,7 +7,7 @@ import { useSearchParamList } from "../routing/useSearchParamList";
 export function BoardRoute() {
   const [companyParam, onCompanyParamChange] = useSearchParamList("company");
   /* `?show=closed` / `?show=not-for-me`; absent is open, which is the board's
-     default view and the one the top bar's "N open roles" links back to.
+     default view and the one the side bar's Radar entry links back to.
      Same shape as `?company=`: the route TRANSLATES, the screen
      owns the semantics. `useSearchParam` drops the key at the fallback, so an
      open board has a clean address and the link's plain `/` reaches it. */

@@ -249,16 +249,17 @@ test("the Mac panel's new-roles address opens the board on New, then leaves the 
   await expect(page.getByRole("button", { name: "1 new in the last 2 days" })).toHaveAttribute("aria-pressed", "false");
 });
 
-/* The top bar's counts are ONE choice, like tabs: open roles, new,
-   reposted. Whichever was clicked last is the one lit, and it is what the
-   page shows. A lens kept beside the route rather than in it fails three
-   ways: "open roles" leaves a lens on, so the board keeps filtering under a
-   chip that says it is not; leaving for the pipeline leaves "new" lit there;
-   and the lens comes back the next time the board opens, from any door. */
-test("the top-bar counts are one choice: whatever you click is what you see", async ({
+/* The top bar's lenses are ONE choice: new or reposted, or neither.
+   Whichever was clicked last is the one lit, and it is what the page shows;
+   pressing the lit one again, or the side bar's Radar entry, shows every
+   role. A lens kept beside the route rather than in it fails three ways: the
+   Radar entry leaves a lens on, so the board keeps filtering under a chip
+   that says it is not; leaving for the pipeline leaves "new" lit there; and
+   the lens comes back the next time the board opens, from any door. */
+test("the top-bar lenses are one choice: whatever you click is what you see", async ({
   page, isMobile,
 }) => {
-  test.skip(isMobile, "the compact header hides the open-roles count");
+  test.skip(isMobile, "the compact header hides the reposted count");
   const lists: URLSearchParams[] = [];
   await page.route("/api/jobs?**", (route) => {
     const url = new URL(route.request().url());
@@ -273,43 +274,55 @@ test("the top-bar counts are one choice: whatever you click is what you see", as
   await page.goto("/");
 
   const bar = page.getByRole("banner", { name: msg("shell-topbar-aria") });
-  const openRoles = bar.getByRole("link", { name: /open roles?$/ });
+  const rail = page.getByRole("navigation", { name: msg("shell-rail-aria") });
+  const radar = rail.getByRole("link", { name: "Radar" });
   const newToday = bar.getByRole("button", { name: "1 new in the last 2 days" });
   const reposted = bar.getByRole("button", { name: "2 reposted today" });
   const lensChip = page.getByRole("button", { name: msg("radar-new-today"), exact: true });
   const last = () => lists.at(-1);
   const lensesSent = () => `${last()?.get("new_today_only")}/${last()?.get("repost_today_only")}`;
 
-  // The plain board: open roles is the one lit.
-  await expect(openRoles).toHaveAttribute("aria-current", "page");
+  // The plain board: nothing lit, and the total is the toolbar's alone.
   await expect(newToday).toHaveAttribute("aria-pressed", "false");
+  await expect(reposted).toHaveAttribute("aria-pressed", "false");
+  await expect(bar.getByRole("link", { name: /open roles?$/ })).toHaveCount(0);
 
-  // New: it lights, and open roles goes dark, since the board now shows
-  // a subset of the open roles.
+  // New: it lights, and its tooltip says what a second press does.
   await newToday.click();
   await expect.poll(lensesSent).toBe("true/false");
   await expect(newToday).toHaveAttribute("aria-pressed", "true");
-  await expect(openRoles).not.toHaveAttribute("aria-current", "page");
+  await expect(newToday).toHaveAttribute("title", msg("shell-stat-lens-clear-title"));
 
-  // Open roles: the lens comes off, on the list and on the chip.
-  await openRoles.click();
+  // Pressed again: the lens comes off, on the list and on the chip.
+  await newToday.click();
   await expect.poll(lensesSent).toBe("false/false");
   await expect(lensChip).toHaveCount(0);
   await expect(newToday).toHaveAttribute("aria-pressed", "false");
-  await expect(openRoles).toHaveAttribute("aria-current", "page");
+  await expect(newToday).toHaveAttribute("title", msg("shell-stat-new-title"));
 
-  // Reposted and new replace each other; a second click on the chip
-  // already chosen keeps it chosen, never flips back to something unclicked.
+  // Reposted and new replace each other, and reposted turns off the same way.
   await reposted.click();
   await expect.poll(lensesSent).toBe("false/true");
-  await reposted.click();
-  await expect(reposted).toHaveAttribute("aria-pressed", "true");
   await newToday.click();
   await expect.poll(lensesSent).toBe("true/false");
   await expect(reposted).toHaveAttribute("aria-pressed", "false");
+  await reposted.click();
+  await expect.poll(lensesSent).toBe("false/true");
+  await reposted.click();
+  await expect.poll(lensesSent).toBe("false/false");
+  await expect(reposted).toHaveAttribute("aria-pressed", "false");
+
+  // The side bar's Radar entry, pressed on the Radar itself, takes the lens
+  // off too: the address does not move, so the link alone would keep it.
   await newToday.click();
-  await expect(newToday).toHaveAttribute("aria-pressed", "true");
-  await expect(openRoles).not.toHaveAttribute("aria-current", "page");
+  await expect.poll(lensesSent).toBe("true/false");
+  await radar.click();
+  await expect.poll(lensesSent).toBe("false/false");
+  await expect(newToday).toHaveAttribute("aria-pressed", "false");
+  await expect(lensChip).toHaveCount(0);
+
+  await newToday.click();
+  await expect.poll(lensesSent).toBe("true/false");
 
   // A role opened from the board is a cover OVER it, not a departure: close
   // it and the board is still the one that was chosen, lens and all.
@@ -323,21 +336,19 @@ test("the top-bar counts are one choice: whatever you click is what you see", as
   await expect(lensChip).toBeVisible();
   expect(lensesSent()).toBe("true/false");
 
-  // The pipeline is another place: no count is lit there.
-  const rail = page.getByRole("navigation", { name: msg("shell-rail-aria") });
+  // The pipeline is another place: no lens is lit there.
   await rail.getByRole("link", { name: msg("shell-nav-pipeline") }).click();
   await expect(page).toHaveURL(/\/pipeline\//);
   await expect(newToday).toHaveAttribute("aria-pressed", "false");
-  await expect(openRoles).not.toHaveAttribute("aria-current", "page");
 
   // And the lens does not wait for the board's next visit: back through the
   // rail, it is the plain board again.
   const before = lists.length;
-  await rail.getByRole("link", { name: "Radar" }).click();
+  await radar.click();
   await expect.poll(() => lists.length).toBeGreaterThan(before);
   expect(lensesSent()).toBe("false/false");
   await expect(lensChip).toHaveCount(0);
-  await expect(openRoles).toHaveAttribute("aria-current", "page");
+  await expect(radar).toHaveAttribute("aria-current", "page");
 });
 
 test("discloses-pay filter reaches the API, is worn as state, and clears in place", async ({ page }) => {
@@ -505,7 +516,7 @@ test("the way back leaves on its own, and a second dismissal moves it rather tha
 });
 
 /* The MODE: which population the board is showing. Open roles is
-   the board itself — the top bar's own count links to it — and Closed and
+   the board itself — the side bar's Radar entry links to it — and Closed and
    Not-for-me sit at the FOOT of `More filters`, because a reader goes there on
    purpose and comes back. They are exclusive by construction (one control,
    three positions), they count as one filter, and `?show=` carries them so the
@@ -572,9 +583,9 @@ test("Not for me, reached from the drawer, restores a role and grows a standing 
     page.getByRole("status").filter({ hasText: "left your radar" })
   ).toContainText(msg("radar-exclude-done", { count: 4, value: "API" }));
 
-  // The way out is the top bar's own count of open roles.
+  // The way out is the side bar's Radar entry.
   const before = lists.length;
-  await page.getByRole("link", { name: /open roles?$/ }).click();
+  await page.getByRole("navigation", { name: msg("shell-rail-aria") }).getByRole("link", { name: "Radar" }).click();
   await expect(page).not.toHaveURL(/show=/);
   await expect.poll(() => lists.at(-1)?.get("status")).toBe("open");
 
@@ -622,8 +633,8 @@ test("the empty pile teaches the control, and its way out switches the whole mod
 
 test("Reset all clears the filters and leaves you where you are", async ({ page }) => {
   /* It clears every FILTER and lens; the mode is which list you are looking
-     at, and the way back to the open board is the top bar's own count of open
-     roles. Clearing both here would also race: `setSearchParams` does not
+     at, and the way back to the open board is the side bar's Radar entry.
+     Clearing both here would also race: `setSearchParams` does not
      queue its functional form, so the company deletion recomputes from params
      that still carry `?show=` and puts it straight back. */
   const lists: URLSearchParams[] = [];
@@ -655,12 +666,12 @@ test("Reset all clears the filters and leaves you where you are", async ({ page 
 /* The company filter has ONE writer, the URL, like the mode. The board stays
    mounted when the address changes, so a filter seeded from `?company=` once
    at mount and mirrored back (filters -> URL) would still hold the company
-   when the top bar's "open roles" link reaches `/`, write `?company=` straight
+   when the side bar's Radar entry reaches `/`, write `?company=` straight
    back, and land on the same filtered list the link was clicked from. */
-test("open roles reaches the unfiltered board from a company's roles, and settles there", async ({
+test("the Radar entry reaches the unfiltered board from a company's roles, and settles there", async ({
   page, isMobile,
 }) => {
-  test.skip(isMobile, "the compact header hides the open-roles count");
+  test.skip(isMobile, "phones are not supported: the dock has no filter register");
   const lists: URLSearchParams[] = [];
   await page.route("/api/jobs?**", (route) => {
     const url = new URL(route.request().url());
@@ -674,8 +685,8 @@ test("open roles reaches the unfiltered board from a company's roles, and settle
   await expect(rail.getByRole("checkbox", { name: "Amazon" })).toBeChecked();
 
   const before = lists.length;
-  await page.getByRole("banner", { name: msg("shell-topbar-aria") })
-    .getByRole("link", { name: /open roles?$/ }).click();
+  await page.getByRole("navigation", { name: msg("shell-rail-aria") })
+    .getByRole("link", { name: "Radar" }).click();
   await expect.poll(() => lists.at(-1)?.getAll("company")).toEqual([]);
   // Nothing is chosen any more, so the closed group has no row to show.
   await expect(rail.getByRole("checkbox", { name: "Amazon" })).toHaveCount(0);
@@ -870,7 +881,7 @@ test("a remembered company reaches the ADDRESS, so `/` still means the whole boa
   await expect.poll(() => lists.at(-1)?.getAll("company")).toEqual(["amazon"]);
 
   /* Back to a bare `/`, and the company comes with it — INTO the address,
-     not just into the register. The top bar's "N open roles" links to `/` and
+     not just into the register. The side bar's Radar entry links to `/` and
      is the documented way back to the unfiltered board; a company
      that lived only in the rail would make that link a no-op. */
   await page.goto("/");
@@ -878,8 +889,8 @@ test("a remembered company reaches the ADDRESS, so `/` still means the whole boa
   await expect(rail.getByRole("checkbox", { name: "Amazon" })).toBeChecked();
 
   const before = lists.length;
-  await page.getByRole("banner", { name: msg("shell-topbar-aria") })
-    .getByRole("link", { name: /open roles?$/ }).click();
+  await page.getByRole("navigation", { name: msg("shell-rail-aria") })
+    .getByRole("link", { name: "Radar" }).click();
   await expect.poll(() => lists.at(-1)?.getAll("company")).toEqual([]);
   await expect(page).not.toHaveURL(/company=/);
   // And it settles: no mirror writes the remembered company back.

@@ -126,7 +126,7 @@ export function useBoardController({
 
   /* ONE direction for the company too: `?company=` -> filters, the
      same rule as the mode. A filters -> URL mirror breaks because the board
-     stays mounted when the address changes: the top bar's "open roles" link
+     stays mounted when the address changes: the side bar's Radar entry
      to `/` finds `filters.company` still holding the company, the mirror
      re-fires on the new params, and it writes `?company=` straight back. So
      nothing on the board answers the URL by writing it: an address that moves on its own —
@@ -140,7 +140,7 @@ export function useBoardController({
      address is silent about: its first pass would otherwise read that silence
      as "no company" and wipe the restored selection before the first request
      went out. A later move to an empty `?company=` is still applied — that is
-     the top bar's "open roles" link clearing it, not silence. */
+     the side bar's Radar entry clearing it, not silence. */
   const appliedCompany = useRef(companyKey);
   useEffect(() => {
     if (companyKey === appliedCompany.current) return;
@@ -182,7 +182,7 @@ export function useBoardController({
 
   /* A REMEMBERED company still has to reach the address, once, at mount.
      Without it the register would show a company the URL does not name, and
-     `/` — the top bar's "N open roles" link, the documented way back to the
+     `/` — the side bar's Radar entry, the documented way back to the
      unfiltered board — would already be the address we are on, so
      clicking it would change nothing. Writing it keeps the one-writer rule
      intact instead of breaking it: after this the address is again the only
