@@ -18,6 +18,7 @@ from tracker.notifications.digest import digest_days, generate_daily_digest
 from tracker.notifications.events import classify_event
 from tracker.notifications.pursuit_due import generate_pursuit_due_notifications
 from tracker.notifications.run_result import classify_sync_result, classify_sync_started
+from tracker.notifications.top_picks import reconcile_picks_stalled
 from tracker.notifications.tracked import tracked_job_ids
 
 
@@ -176,7 +177,8 @@ async def generate_notifications(
       because the user committed to these. Gated by `tracked_job_ids`.
     * **Discovery** -- one fit-ranked digest row for the day. Ambient, because
       browsing has a daily rhythm, not a per-scrape one.
-    * **Operations** -- the run's own outcome, and only when it was not clean.
+    * **Operations** -- the run's own outcome, and only when it was not clean,
+      and whether the Top picks checks fell behind.
 
     Mixing an ambient signal into an interrupt channel makes the feed
     unreadable: it gets cleared in bulk rather than read.
@@ -269,6 +271,11 @@ async def generate_notifications(
     # the same heartbeat: this run's per-company commits have already written
     # the health it reads.
     attempted += await generate_coverage_notifications(session)
+
+    # Whether the person's assistant still checks new roles for their top
+    # picks. The checks run on the assistant's own schedule, so a scan is the
+    # heartbeat that notices when they stop.
+    attempted += await reconcile_picks_stalled(session)
 
     if not include_run:
         return attempted

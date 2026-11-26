@@ -7,6 +7,7 @@ import {
   shellNotifOther,
   shellNotifPayDown,
   shellNotifPayUp,
+  shellNotifPicksStalled,
   shellNotifReminder,
   shellNotifReposted,
   shellNotifSavedListed,
@@ -15,6 +16,7 @@ import {
   shellNotifScanStopped,
   shellNotifScanUnfinished,
   shellNotifScanning,
+  shellNotifTopPick,
 } from "../../copy/gen/shell";
 import { Icon } from "../../ui";
 import type { IconName } from "../../ui/Icon";
@@ -49,7 +51,24 @@ export const NOTIF_ICON: Record<string, { icon: IconName; label: string }> = {
   sync_failed: { icon: "errorOctagon", get label() { return shellNotifScanFailed(); } },
   // A company you follow that RoleBand can't scan cleanly right now.
   coverage: { icon: "eyeOff", get label() { return shellNotifCoverage(); } },
+  // Top picks: a role the person's assistant picked, with the rail item's
+  // mark, and the checks that read new roles falling behind.
+  top_pick: { icon: "crosshair", get label() { return shellNotifTopPick(); } },
+  picks_stalled: { icon: "calendarClock", get label() { return shellNotifPicksStalled(); } },
 };
+
+/** The screen a notification opens when it is about a screen, not a bare
+ *  posting: a top pick opens Top picks, where its reasons are, and so does a
+ *  note that the checks fell behind. Every other category opens its role, if
+ *  it has one. */
+const NOTIF_OPENS: Record<string, string> = {
+  top_pick: "/top-picks",
+  picks_stalled: "/top-picks",
+};
+
+export function notifOpens(category: string): string | null {
+  return NOTIF_OPENS[category] ?? null;
+}
 
 export function notifIconMeta(category: string, meta: Record<string, unknown> = {}): { icon: IconName; label: string } {
   const found = NOTIF_ICON[category] ?? { icon: "bell", label: shellNotifOther() };

@@ -7,6 +7,7 @@ import {
   notificationsCategoryLongOpen,
   notificationsCategoryPayDown,
   notificationsCategoryPayUp,
+  notificationsCategoryPicksChecks,
   notificationsCategoryRanOutOfTime,
   notificationsCategoryReminders,
   notificationsCategoryReposted,
@@ -14,6 +15,7 @@ import {
   notificationsCategoryScanFailed,
   notificationsCategoryScanProblems,
   notificationsCategoryScanning,
+  notificationsCategoryTopPicks,
 } from "../../copy/gen/notifications";
 
 /* Notification filter semantics: the taxonomy the register is built from and
@@ -54,19 +56,25 @@ export const SYNC_CATEGORIES: [string, () => string][] = [
   // reconciled each scan. "Coverage" is the vocabulary's word for
   // whether RoleBand can read a company's careers page (docs/copy.md).
   ["coverage", notificationsCategoryCoverage],
+  // The person's assistant stopped reading new roles for their top picks:
+  // the other thing besides a scan that keeps the radar current.
+  ["picks_stalled", notificationsCategoryPicksChecks],
 ];
 
 /* Roles. Every entry here is about a role the user SAVED or is PURSUING --
- * the per-role channel writes nothing for anything else -- so the group reads
- * as one errand rather than a mix of your work and the whole board's churn.
- * `daily_digest` and `pursuit_due` lead because they are the two the user
- * opens the bell for; the rest are state changes on work already committed to.
+ * the per-role channel writes nothing for anything else -- or one picked for
+ * them, so the group reads as one errand rather than a mix of your work and
+ * the whole board's churn. `top_pick`, `daily_digest` and `pursuit_due` lead
+ * because they are the ones the user opens the bell for (the digest is not
+ * written while Top picks is on); the rest are state changes on work already
+ * committed to.
  *
  * Not in the taxonomy: per-role match news (`new_match`, `high_comp_match`) is
  * the digest's, and the backend writes no `scraper_health` (it would duplicate
  * `sync_warning`), `sync_success` (a clean sync says nothing) or
  * `duplicate_listing`. */
 export const ROLE_CATEGORIES: [string, () => string][] = [
+  ["top_pick", notificationsCategoryTopPicks],
   ["daily_digest", notificationsCategoryForYou],
   ["pursuit_due", notificationsCategoryReminders],
   ["saved_update", notificationsCategorySaved],
