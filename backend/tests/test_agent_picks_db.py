@@ -932,6 +932,47 @@ async def test_not_for_me_on_a_pick_removes_it_keeps_the_reason_and_can_be_put_b
     assert len(await _verdicts(db_session)) == 2, "removing and putting back never touched a verdict"
 
 
+async def test_passed_over_reads_the_weeks_near_misses_passes_by_why_and_what_the_rules_ruled_out(
+    api_client, db_session, workspace,
+):
+    jobs = workspace["jobs"]
+    # Under the floor too, but it arrived before this week.
+    db_session.add(make_job(
+        "underpaid-earlier", title="Staff Product Manager, Search", first_seen=datetime.now(UTC) - timedelta(days=10),
+        last_seen=datetime.now(UTC), content_hash="h-earlier", disclosed_base_min=150_000, disclosed_base_max=190_000,
+        disclosed_currency="USD", disclosed_pay_basis="base", disclosed_pay_period="year",
+    ))
+    await db_session.commit()
+    run = await _begin(api_client)
+    near = _reason("Owns risk products", ", but the base tops out under the 210,000 you hold.")
+    await _outcomes(api_client, run, [
+        _pick(jobs["staff"]),
+        {"job": jobs["principal"], "verdict": "near_miss", "against_baseline": "comparable", "reasons": [near]},
+        {"job": jobs["lead"], "verdict": "pass", "pass_code": "hard_rule"},
+    ])
+
+    passed = (await api_client.get("/api/picks/passed")).json()
+    assert passed["passed_this_week"] == 2, "the pick is not passed over"
+    assert [(row["job_id"], row["reason"]) for row in passed["near_misses"]] == [
+        (jobs["principal"], {"opening": "Owns risk products", "rest": ", but the base tops out under the 210,000 you hold."}),
+    ]
+    assert passed["passes"] == [{"code": "hard_rule", "count": 1}]
+    assert passed["judged_rules"] == ["No on-call"]
+    # The underpaid role states a base under the floor: no assistant read it.
+    assert (passed["ruled_out"], passed["ruled_out_by_rule"]) == (1, [{"rule": "Base under 200,000", "count": 1}])
+
+    # A near miss the person marked Not for me leaves the list.
+    await api_client.put(f"/api/jobs/{jobs['principal']}/feedback", json={"verdict": "dismissed"})
+    assert (await api_client.get("/api/picks/passed")).json()["near_misses"] == []
+
+    # Verdicts from before the last seven days are not this week's.
+    async with _fresh(db_session) as session:
+        await session.execute(update(PickVerdict).values(created_at=datetime.now(UTC) - timedelta(days=8)))
+        await session.commit()
+    stale = (await api_client.get("/api/picks/passed")).json()
+    assert (stale["passed_this_week"], stale["near_misses"], stale["passes"]) == (0, [], [])
+
+
 async def test_a_dismissal_keeps_only_a_known_reason_and_a_short_line_of_the_persons_words(
     api_client, db_session, workspace,
 ):

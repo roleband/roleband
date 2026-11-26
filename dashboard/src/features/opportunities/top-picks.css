@@ -32,3 +32,77 @@
   margin-bottom: var(--app-space-3);
   padding-right: var(--job-margin, 0px);
 }
+
+/* Not for me asks why: the reasons are one row of answers that wraps, the
+   dialog's other children keep the form's column. */
+.ledger-form > .pick-feedback-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--app-space-2);
+}
+
+.ledger-confirm .pick-feedback-role {
+  color: var(--app-text-muted);
+}
+
+.ledger-confirm .pick-feedback-note {
+  color: var(--app-text-muted);
+}
+
+/* Passed over: a page of short lists under the Board's section heads. Every
+   block ends where the rows end, short of the ledger margin. */
+.passed-over > .passed-summary,
+.passed-over > .passed-section,
+.passed-over > .empty {
+  box-sizing: border-box;
+  padding-right: var(--job-margin, 0px);
+}
+
+.passed-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--app-space-3);
+  margin-block: var(--app-space-2) var(--app-space-3);
+  color: var(--app-text-muted);
+  font-size: var(--app-type-body);
+}
+
+.passed-section {
+  margin-bottom: var(--app-space-5);
+}
+
+/* What the person said, under the row in the reasons' voice and ink. */
+.passed-said {
+  margin: -6px 0 0;
+  font-size: var(--app-type-body);
+  font-weight: var(--app-weight-body);
+  line-height: 1.5;
+  color: var(--row-ink-2, var(--app-text-muted));
+}
+
+.passed-more {
+  margin: var(--app-space-2) 0 0;
+}
+
+/* A tally: why on the left, how many on the right, one hairline a line. */
+.passed-tally {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--app-border);
+}
+
+.passed-tally > li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--app-space-4);
+  padding: var(--app-space-2) 18px var(--app-space-2) 22px;
+  border-bottom: 1px solid var(--app-border);
+  font-size: var(--app-type-body);
+}
+
+.passed-count {
+  color: var(--app-text-muted);
+  font-variant-numeric: tabular-nums;
+}

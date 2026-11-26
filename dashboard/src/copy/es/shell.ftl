@@ -36,6 +36,7 @@ shell-tab-settings-language = Idioma
 shell-route-welcome = Bienvenida
 shell-route-compare = Comparar
 shell-route-dashboard = RoleBand
+shell-route-passed-over = Descartados
 shell-skip-to-content = Saltar al contenido
 shell-topbar-aria = Barra superior
 shell-breadcrumb-aria = Ruta de navegación

@@ -74,6 +74,8 @@ shell-route-welcome = Welcome
 shell-route-compare = Compare
 # kind=label note="The breadcrumb's last segment on Settings › AI › Activity, the list of what assistant apps did"
 shell-route-activity = Activity
+# kind=label note="The top bar's last segment on Passed over, after Top picks"
+shell-route-passed-over = Passed over
 # kind=label
 shell-route-dashboard = RoleBand
 # kind=label

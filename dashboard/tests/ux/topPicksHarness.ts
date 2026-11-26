@@ -65,3 +65,55 @@ export async function installTopPicksRoutes(
     isLens(route.request().url()) ? route.fulfill({ json: facetsFixture }) : route.fallback());
   return seen;
 }
+
+type PassedOver = Awaited<ReturnType<typeof import("../../src/api").api.picksPassed>>;
+type RemovedPick = Awaited<ReturnType<typeof import("../../src/api").api.picksRemoved>>["picks"][number];
+
+/** A week with one removed pick, four near misses, passes by why and what a
+ *  checkable rule ruled out. Rows 601 to 605 answer the reads by id. */
+const passedOverRows = (): Row[] => [
+  { ...jobFixture, id: 601, title: "Principal Product Manager, Platform", company: "linear", viewed_at: null },
+  { ...jobFixture, id: 602, title: "Group Product Manager, Enterprise", company: "notion", viewed_at: null },
+  { ...jobFixture, id: 603, title: "Staff Product Manager, Observability", company: "datadog", viewed_at: null },
+  { ...jobFixture, id: 604, title: "Principal Product Manager, AI", company: "notion", viewed_at: null },
+  { ...jobFixture, id: 605, title: "Staff Product Manager, Issues", company: "linear", viewed_at: null },
+];
+
+const removedPickFixture = (over: Partial<RemovedPick> = {}): RemovedPick => ({
+  job_id: 601, title: "Principal Product Manager, Platform", company: "Linear", company_slug: "linear", is_open: true,
+  reasons: [], reason: "pay_too_low", reason_text: null, removed_at: "2026-11-25T10:00:00Z", judged_at: "2026-11-25T08:00:00Z",
+  ...over,
+});
+
+export const passedOverFixture = (over: Partial<PassedOver> = {}): PassedOver => ({
+  passed_this_week: 41,
+  near_misses: [
+    { job_id: 602, reason: { opening: "Mostly people management", rest: ", eight reports and little product work." }, judged_at: "2026-11-25T08:00:00Z" },
+    { job_id: 603, reason: { opening: "Infrastructure", rest: ", further from customers than you asked for." }, judged_at: "2026-11-25T08:00:00Z" },
+    { job_id: 604, reason: { opening: "Base around 240,000", rest: ", close to your floor." }, judged_at: "2026-11-25T08:00:00Z" },
+    { job_id: 605, reason: { opening: "Same level as today", rest: ", with a smaller product." }, judged_at: "2026-11-25T08:00:00Z" },
+  ],
+  passes: [{ code: "hard_rule", count: 30 }, { code: "below_level", count: 5 }, { code: "off_direction", count: 2 }],
+  judged_rules: ["No on-call"],
+  ruled_out: 12,
+  ruled_out_by_rule: [{ rule: "Base under 200,000", count: 12 }],
+  ...over,
+});
+
+/** Passed over's reads, on top of Top picks' routes: the week, the removed
+ *  picks, and the rows by id. */
+export async function installPassedOverRoutes(
+  page: Page,
+  { passed = passedOverFixture(), removed = [removedPickFixture()], rows = passedOverRows() }:
+    { passed?: PassedOver; removed?: RemovedPick[]; rows?: Row[] } = {},
+) {
+  await installTopPicksRoutes(page);
+  await mockGet(page, "/api/picks/passed", (route) => route.fulfill({ json: passed }));
+  await mockGet(page, "/api/picks/removed", (route) => route.fulfill({ json: { picks: removed } }));
+  await mockGet(page, "/api/jobs?**", (route) => {
+    const ids = new URL(route.request().url()).searchParams.getAll("ids").map(Number);
+    if (ids.length === 0) return route.fallback();
+    const items = rows.filter((row) => ids.includes(row.id));
+    return route.fulfill({ json: { ...jobListFixture, total: items.length, items } });
+  });
+}

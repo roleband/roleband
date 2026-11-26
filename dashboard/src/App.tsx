@@ -9,6 +9,7 @@ import {
   shellPaletteOpenAria,
   shellPaletteOpenTitle,
   shellRouteActivity,
+  shellRoutePassedOver,
   shellRouteCompare,
   shellRouteDashboard,
   shellRouteWelcome,
@@ -43,11 +44,11 @@ import { CompareSaveAlert } from "./shell/CompareSaveAlert";
 import { StatChip } from "./shell/StatChip";
 import { NotificationBell } from "./features/notifications/NotificationBell";
 import { SyncButton } from "./shell/SyncButton";
-import { ACTIVITY_ROUTE, POSITION_ROUTE, positionKey } from "./routing/paths";
+import { ACTIVITY_ROUTE, PASSED_OVER_ROUTE, POSITION_ROUTE, positionKey } from "./routing/paths";
 import { ScreenProvider } from "./routing/screen";
 import { readUnconfigured, useSetupMode } from "./routing/setupMode";
 import { NAV_TABS } from "./navigation";
-import { ActivityRoute, CompareRoute, PositionRoute, ROUTE_COMPONENTS, SettingsItemRoute, WelcomeRoute, preloadProfile, preloadScreens } from "./routeRegistry";
+import { ActivityRoute, CompareRoute, PassedOverRoute, PositionRoute, ROUTE_COMPONENTS, SettingsItemRoute, WelcomeRoute, preloadProfile, preloadScreens } from "./routeRegistry";
 import { AppProviders } from "./context/AppProviders";
 import { CopyBoundary } from "./copy/CopyBoundary";
 import { useMissionActions, useMissionState, useMissionStats } from "./context/MissionState";
@@ -118,6 +119,7 @@ const RoutedScreens = memo(function RoutedScreens({ location }: { location: Loca
           which reads `:pluginId` (any other tab sends it back). */}
       {/* Settings › AI › Activity: a screen of its own, outranking the plugin address above. */}
       <Route path={ACTIVITY_ROUTE} element={<ActivityRoute />} />
+      <Route path={PASSED_OVER_ROUTE} element={<PassedOverRoute />} />
       <Route path="/settings/:tab/:pluginId" element={<SettingsItemRoute />} />
       <Route path="/welcome" element={<WelcomeRoute />} />
       <Route path="*" element={<Navigate to="/" replace />} />
@@ -298,9 +300,11 @@ function Shell() {
   const headerDetail = activeTab?.tabs
     ? activeTab.tabs.find((s) => s.slug === routedLocation.pathname.split("/")[2])?.label ?? null
     : null;
-  // A screen under a tab (Settings › AI › Activity) adds its own last segment,
-  // and the tab before it becomes the way back.
-  const headerLeaf = routedLocation.pathname === ACTIVITY_ROUTE ? shellRouteActivity() : null;
+  // A screen under a tab (Settings › AI › Activity, Top picks › Passed over)
+  // adds its own last segment, and the segment before it becomes the way back.
+  const headerLeaf = routedLocation.pathname === ACTIVITY_ROUTE
+    ? shellRouteActivity()
+    : routedLocation.pathname === PASSED_OVER_ROUTE ? shellRoutePassedOver() : null;
 
   /* Which of the top bar's counts is lit: at most one, and it is what the page
      shows. Asked of the page ON SCREEN, not the routed one — a cover is its own
@@ -397,7 +401,11 @@ function Shell() {
               breadcrumb is the APG's navigation landmark, distinguished from
               the rail's "Primary" by its own name. */}
           <nav className="route-breadcrumb" aria-label={shellBreadcrumbAria()}>
-            <span aria-current={headerDetail ? undefined : "page"}>{routeLabel}</span>
+            {headerLeaf && !headerDetail ? (
+              <Link to={`/${routedLocation.pathname.split("/")[1]}`}>{routeLabel}</Link>
+            ) : (
+              <span aria-current={headerDetail ? undefined : "page"}>{routeLabel}</span>
+            )}
             {headerDetail && (
               <>
                 <span className="route-slash" aria-hidden="true">/</span>
@@ -408,7 +416,7 @@ function Shell() {
                 )}
               </>
             )}
-            {headerDetail && headerLeaf && (
+            {headerLeaf && (
               <>
                 <span className="route-slash" aria-hidden="true">/</span>
                 <strong aria-current="page">{headerLeaf}</strong>

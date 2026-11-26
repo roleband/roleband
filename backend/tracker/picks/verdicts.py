@@ -318,6 +318,19 @@ async def tally_since(session: AsyncSession, since: datetime) -> Tally:
     return Tally(read=read or 0, passed_over=passed or 0)
 
 
+async def passes_by_code(session: AsyncSession, since: datetime) -> dict[str, int]:
+    """The roles passed since `since` on a verdict that stands, by why."""
+    rows = (await session.execute(
+        select(PickVerdict.pass_code, func.count(func.distinct(PickVerdict.job_id)))
+        .where(
+            PickVerdict.trial.is_(False), PickVerdict.superseded_at.is_(None),
+            PickVerdict.verdict == "pass", PickVerdict.created_at >= since,
+        )
+        .group_by(PickVerdict.pass_code)
+    )).all()
+    return {str(code): count for code, count in rows}
+
+
 async def listed(
     session: AsyncSession, view: View, *, body: BriefBody, since: datetime | None = None, limit: int = 200,
     keep_removed: bool = False,

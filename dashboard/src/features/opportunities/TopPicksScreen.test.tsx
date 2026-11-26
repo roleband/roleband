@@ -169,16 +169,21 @@ describe("PicksEnd", () => {
   const renderEnd = (picks: PicksState) => render(<MemoryRouter><PicksEnd picks={picks} /></MemoryRouter>);
   const checked = (hours: number, host = "claude-code") =>
     msg("picks-end-checked", { when: relative(-hours * 3600), host: msg("picks-host", { host }) });
+  const passed = (count: number) => msg("picks-end-passed-only", { passed: msg("picks-end-passed", { count }) });
 
-  it("names the last check and how many roles were passed over this week, as plain text", () => {
+  it("names the last check, and links how many roles were passed over this week to the page that lists them", () => {
     renderEnd(picksStateFixture({ state: "on", passed_this_week: 41, last_check: lastCheck({ host: "codex" }) }));
-    expect(screen.getByRole("note")).toHaveTextContent(`${checked(2, "codex")} ${msg("picks-end-passed", { count: 41 })}`);
-    expect(screen.queryByRole("link")).toBeNull();
+    expect(screen.getByRole("note").textContent).toBe(`${checked(2, "codex")} ${passed(41)}`);
+    const link = screen.getByRole("link", { name: msg("picks-end-passed", { count: 41 }) });
+    expect(link).toHaveAttribute("href", "/top-picks/passed");
+    // The sentence's full stop is outside the link.
+    expect(link.textContent).not.toMatch(/\.$/);
   });
 
-  it("says nothing of what was passed over when nothing was", () => {
+  it("says nothing of what was passed over when nothing was, and links nowhere", () => {
     renderEnd(picksStateFixture({ state: "on", passed_this_week: 0, last_check: lastCheck() }));
     expect(screen.getByRole("note").textContent).toBe(checked(2));
+    expect(screen.queryByRole("link")).toBeNull();
   });
 
   it("says, after the last check, how many roles wait while the checks are late", () => {
@@ -186,8 +191,8 @@ describe("PicksEnd", () => {
       state: "on", health: "late", waiting: 14, passed_this_week: 41,
       last_check: lastCheck({ finished_at: hoursAgo(72) }),
     }));
-    expect(screen.getByRole("note")).toHaveTextContent(
-      `${checked(72)} ${msg("picks-end-waiting", { count: 14 })} ${msg("picks-end-passed", { count: 41 })}`,
+    expect(screen.getByRole("note").textContent).toBe(
+      `${checked(72)} ${msg("picks-end-waiting", { count: 14 })} ${passed(41)}`,
     );
   });
 

@@ -36,7 +36,7 @@ from tracker.company_store import off_board_company_slugs
 from tracker.db.models import Favorite, Job, JobFeedback, PickVerdict, Pursuit
 from tracker.db.queries.jobs import apply_job_filters, listed_since
 from tracker.lineage.counts import is_new_job_clause, place_set_member_in
-from tracker.picks.brief import BriefBody, checkable_rules
+from tracker.picks.brief import BriefBody, Rule, checkable_rules
 from tracker.picks.rules import excludes, ruled_out
 from tracker.platform.local_zone import local_zone
 from tracker.search.fit import fit_expr
@@ -179,6 +179,33 @@ async def best_first(session: AsyncSession, stmt: Select[Any], body: BriefBody, 
     intent = await build_intent_vector(session, stored["vector"] if stored else None)
     order = [fit_expr(intent).desc().nullslast()] if intent is not None else []
     return list((await session.scalars(kept.order_by(*order, listed_since().desc(), Job.id.desc()).limit(limit))).all())
+
+
+@dataclass(frozen=True)
+class RuledOut:
+    #: Arrivals any checkable rule rules out.
+    total: int
+    #: Each checkable rule with the arrivals it rules out; a posting two rules
+    #: rule out counts under both.
+    by_rule: list[tuple[Rule, int]]
+
+
+async def ruled_out_since(session: AsyncSession, body: BriefBody, since: datetime) -> RuledOut:
+    """The roles that arrived on the Board since `since` that the checkable
+    rules of `body` rule out, so no assistant reads them. A role counts on the
+    day it was first seen, whether or not it is still open."""
+    rules = checkable_rules(body)
+    if not rules:
+        return RuledOut(total=0, by_rule=[])
+    filters = {"hidden": list(await off_board_company_slugs(session))}
+    arrivals = apply_job_filters(select(Job.id), filters).where(Job.first_seen >= since, is_new_job_clause())
+    row = (await session.execute(
+        select(
+            func.count().filter(ruled_out(body)),
+            *(func.count().filter(excludes(rule)) for rule in rules),
+        ).select_from(Job).where(Job.id.in_(arrivals))
+    )).one()
+    return RuledOut(total=row[0] or 0, by_rule=[(rule, row[1 + index] or 0) for index, rule in enumerate(rules)])
 
 
 @dataclass(frozen=True)

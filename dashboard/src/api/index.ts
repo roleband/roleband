@@ -53,7 +53,7 @@ export const api = {
 };
 
 export { ApiError, isNotFound } from "./transport";
-export type { PicksState } from "./picks";
+export type { PassCode, PassedOver, PicksState, RemovedPicks } from "./picks";
 export { DEFAULT_FILTERS } from "./jobs";
 export { PRICE_FEED_KEY_URL } from "./companies";
 export type {

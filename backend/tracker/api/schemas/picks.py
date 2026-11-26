@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from tracker.api.schemas.base import Built
 from tracker.api.schemas.text_class import text
+from tracker.picks.verdicts import PassCode
 from tracker.settings_store import DAILY_CAP_MAX
 
 
@@ -38,6 +39,42 @@ class RemovedPicksResponse(Built):
     newest verdict first. `DELETE /api/jobs/{job_id}/feedback` puts one back."""
 
     picks: list[RemovedPick]
+
+
+class NearMiss(Built):
+    job_id: int
+    #: The one thing that failed, read as `opening` then `rest`.
+    reason: PickReason
+    judged_at: datetime
+
+
+class PassGroup(Built):
+    code: PassCode = Field(json_schema_extra=text("code"))
+    #: Roles passed for this reason, each once.
+    count: int
+
+
+class RuleCount(Built):
+    #: The rule in the person's own words.
+    rule: str = Field(json_schema_extra=text("record"))
+    count: int
+
+
+class PassedOverResponse(Built):
+    """`GET /api/picks/passed`: what the assistant read in the last seven days
+    and did not pick, and what the hard rules ruled out before any reading.
+    The picks the person removed are `GET /api/picks/removed`."""
+
+    passed_this_week: int
+    #: Near misses that stand, newest first, without the ones marked Not for me.
+    near_misses: list[NearMiss]
+    #: Passes by why, the most first.
+    passes: list[PassGroup]
+    #: The brief's hard rules only reading can check, which a `hard_rule` pass breaks.
+    judged_rules: list[str] = Field(json_schema_extra=text("record"))
+    #: Roles that arrived this week a checkable rule ruled out, in all and by rule.
+    ruled_out: int
+    ruled_out_by_rule: list[RuleCount]
 
 
 class LastCheck(Built):

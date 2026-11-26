@@ -722,6 +722,9 @@ Sort) under a hairline, and the Pipeline, which leads with one row of its views
 and the tools of the view on screen. Their `PageHeader` is `offScreen`, so each
 page keeps its one heading for assistive technology. The Radar and Top picks
 stay identical in this: neither draws a title the other does not.
+A page under a tab (Settings › AI › Activity, Top picks › Passed over) keeps
+its tab chosen on the rail; the top bar adds the page's name after the tab's,
+and the segment before it becomes the way back (`App.tsx`, `headerLeaf`).
 The Pipeline's views (Considering, Board, Up next) are both its tab row and
 rail entries under its star. The star is the Pipeline's rail entry: it opens
 Considering, and in the Pipeline it and the view on screen are both chosen,

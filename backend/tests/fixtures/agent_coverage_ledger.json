@@ -393,6 +393,11 @@
   },
   {
    "method": "GET",
+   "path": "/api/picks/passed",
+   "operation": "picks.list"
+  },
+  {
+   "method": "GET",
    "path": "/api/picks/removed",
    "operation": "picks.list"
   },
