@@ -1409,8 +1409,10 @@ on the Radar; Newest orders by when the pick was made, and each row carries
 what the picks contain. `GET /api/picks/state` answers the mode, its health,
 what waits, the week's reads and passes, the last check, the daily limit,
 whether a pick arrived since the person last opened Top picks (`unseen_pick`,
-which `POST /api/picks/opened` resets) and the routine assistant's connection
-as its own files state it. `GET /api/picks/passed` lists the last seven days'
+which `POST /api/picks/opened` resets), the routine assistant's connection
+as its own files state it, and how far the setup conversation has come
+(`setup`: the stages saved, the next one and those that wait for roles, read
+through the same reader as the assistant's `picks.status`). `GET /api/picks/passed` lists the last seven days'
 near misses, passes by code and what the rules ruled out before any reading;
 `GET /api/picks/removed` lists the picks marked Not for me. Not for me is the
 Board's own dismissal (`PUT /api/jobs/{job_id}/feedback`), which keeps a

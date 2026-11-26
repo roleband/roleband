@@ -29,7 +29,8 @@ allowed:
     - features/notifications/sync-progress/SyncContribution.tsx
     - api/lineage.ts
   phrases: ["Apple Intelligence", "Opportunity radar", "your opportunity radar", "requisition ID",
-    "Vector Databases"]   # the brand line; a skill employers name (vocab.ftl)
+    "Vector Databases",   # the brand line; a skill employers name (vocab.ftl)
+    "in pay or in scope"]  # a role's reach, in Top picks onboarding's example reason (picks.ftl)
 
 proper_nouns: [RoleBand, Applications, Finder, AI, LinkedIn, GitHub, macOS, Apple, Google, Stripe, English, Spanish, Chinese, Mac, Radar, Decided, Board, Windows, Setup, Microsoft, Store, Claude, Code, Codex]
 

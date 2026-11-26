@@ -1,0 +1,84 @@
+/* ui/CopyField: see CopyField.tsx. The whole field is the button. */
+
+.ui-copy-field-host {
+  display: grid;
+  gap: var(--app-space-1);
+  min-width: 0;
+}
+
+.ui-copy-field {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--app-control-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-3);
+  padding: var(--app-space-2) var(--app-space-3);
+  border: 1px solid var(--app-border-strong);
+  border-radius: var(--app-radius-md);
+  background: var(--app-canvas);
+  color: var(--app-text);
+  font-family: var(--app-font-mono);
+  font-size: var(--app-type-body);
+  font-weight: var(--app-weight-body);
+  line-height: 1.5;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--app-duration-fast) var(--app-ease),
+    background-color var(--app-duration-fast) var(--app-ease);
+}
+
+.ui-copy-field:hover {
+  border-color: var(--app-border-control);
+  background: var(--app-surface-hover);
+}
+
+.ui-copy-field.is-copied {
+  border-color: var(--app-action-edge);
+}
+
+/* Drawn as a field: the ring takes the place of its border. */
+.ui-copy-field:focus-visible {
+  outline-offset: calc(-1 * var(--app-ring-offset));
+}
+
+.ui-copy-field-text {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  overflow-wrap: anywhere;
+}
+
+.ui-copy-field > svg {
+  flex: none;
+  color: var(--app-text-muted);
+}
+
+.ui-copy-field:hover > svg {
+  color: var(--app-text);
+}
+
+.ui-copy-field.is-copied > svg,
+.ui-copy-field-done {
+  color: var(--app-action-text);
+}
+
+.ui-copy-field-done {
+  flex: none;
+  font-family: var(--app-font-sans);
+  font-size: var(--app-type-label);
+  font-weight: var(--app-weight-ui);
+}
+
+.ui-copy-field-failed {
+  margin: 0;
+  font-size: var(--app-type-meta);
+  color: var(--app-danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-copy-field {
+    transition: none;
+  }
+}

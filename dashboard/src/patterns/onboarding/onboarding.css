@@ -1,0 +1,118 @@
+/* Onboarding (patterns/onboarding): the screen a feature shows before it is
+   set up. A pattern of its own, apart from the working screens: one centred
+   column, a headline at its own size (`--app-type-intro`), one line under it,
+   one picture, the steps on one line, the action, one quiet footnote. The
+   tokens, the weights, the focus ring and both themes stay the app's. */
+/* Its measure is its own: it outranks the measure a screen's main gives every
+   child (`.main > *`, `.board-main > *`). */
+.main > .onboard {
+  max-width: 920px;
+}
+
+.onboard {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0 auto;
+  padding: calc(var(--app-space-6) + var(--app-space-4)) 0 var(--app-space-6);
+  display: grid;
+  gap: var(--app-space-6);
+  justify-items: center;
+  text-align: center;
+}
+
+.onboard-head {
+  display: grid;
+  justify-items: center;
+  gap: var(--app-space-2);
+}
+
+.onboard-headline {
+  margin: 0;
+  font-size: var(--app-type-intro);
+  font-weight: var(--app-weight-name);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--app-text);
+}
+
+.onboard-line {
+  margin: 0;
+  max-width: 52ch;
+  text-wrap: balance;
+  font-size: var(--app-type-read);
+  line-height: 1.5;
+  color: var(--app-text-muted);
+}
+
+/* The steps, as one plain numbered line; a hairline joins each to the one
+   before it. The step the person is on is the chosen one of the set. */
+.onboard-steps {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: var(--app-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--app-type-body);
+  color: var(--app-text-faint);
+}
+
+.onboard-steps > li {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+}
+
+.onboard-steps > li + li::before {
+  content: "";
+  width: 72px;
+  height: 1px;
+  margin-right: var(--app-space-1);
+  background: var(--app-border-strong);
+}
+
+.onboard-step-mark {
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--app-border-strong);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--app-font-mono);
+  font-size: var(--app-type-label);
+  font-weight: var(--app-weight-ui);
+  line-height: 1;
+  color: var(--app-text-muted);
+}
+
+.onboard-steps > li.is-done {
+  color: var(--app-text-muted);
+}
+
+.onboard-steps > li[aria-current="step"] {
+  color: var(--app-chosen-text);
+}
+
+.onboard-steps > li[aria-current="step"] .onboard-step-mark {
+  border-color: var(--app-chosen-mark);
+  background: var(--app-chosen-wash);
+  color: var(--app-chosen-text);
+}
+
+.onboard-action {
+  width: 100%;
+  display: grid;
+  gap: var(--app-space-3);
+  text-align: left;
+}
+
+.onboard-footnote {
+  margin: calc(-1 * var(--app-space-2)) 0 0;
+  max-width: 70ch;
+  font-size: var(--app-type-meta);
+  line-height: 1.5;
+  color: var(--app-text-faint);
+}

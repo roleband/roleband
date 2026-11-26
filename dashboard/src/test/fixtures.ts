@@ -1400,6 +1400,30 @@ export const levelGuideFixture: LevelGuide = {
   },
 };
 
+type PicksSetupStepId = PicksState["setup"]["next_step"];
+const PICKS_SETUP_STEPS: readonly PicksSetupStepId[] = [
+  "connect", "background", "situation", "bar", "rules", "tradeoffs", "targets", "calibration", "budget",
+  "confirm", "trial", "routine", "done",
+];
+
+/** Setup as the engine reads it: every stage before `next` saved, none after,
+ *  unless `saved` names them; `started` once anything past `connect` is. */
+export function picksSetupFixture(
+  next: PicksSetupStepId = "background",
+  { saved, deferred = [], started }: { saved?: readonly PicksSetupStepId[]; deferred?: PicksSetupStepId[]; started?: boolean } = {},
+): PicksState["setup"] {
+  const at = PICKS_SETUP_STEPS.indexOf(next);
+  const done = (step: PicksSetupStepId, i: number) =>
+    step === "connect" || (step === "done" ? next === "done" : saved ? saved.includes(step) : i < at);
+  const steps = PICKS_SETUP_STEPS.map((id, i) => ({ id, done: done(id, i) }));
+  return {
+    started: started ?? steps.some((step) => step.id !== "connect" && step.done),
+    next_step: next,
+    steps,
+    deferred,
+  };
+}
+
 /** `GET /api/picks/state` as the engine answers it: never set up, the rail's
  *  dot out, unless `overrides` say otherwise. */
 export function picksStateFixture(overrides: Partial<PicksState> = {}): PicksState {
@@ -1417,6 +1441,7 @@ export function picksStateFixture(overrides: Partial<PicksState> = {}): PicksSta
     routine_host_connection: null,
     daily_limit: 1000,
     daily_limit_max: 5000,
+    setup: picksSetupFixture(),
     ...overrides,
   };
 }

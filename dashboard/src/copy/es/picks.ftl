@@ -3,7 +3,6 @@
 ## La pantalla
 picks-loading = Cargando tus destacados…
 picks-load-failed = No se pudieron cargar tus destacados
-picks-not-set-up = Destacados no está configurado
 picks-host = { $host ->
     [claude-code] Claude Code
     [codex] Codex
@@ -100,3 +99,55 @@ picks-pass-not-real = Puesto no activo
 picks-pass-other = Otros
 picks-passed-empty-title = Nada descartado esta semana
 picks-passed-empty = Aquí aparecen los puestos que el asistente lee y no elige, con el motivo.
+
+## Presentación: Destacados antes de configurarlo
+picks-onboard-headline = Tu asistente de IA
+picks-onboard-line = Un modelo de IA de frontera aprende lo que quieres, lee cada { -role(num: "one") } nuevo y se queda con los pocos que merecen un cambio.
+picks-onboard-count = { $count ->
+    [one] { -role(num: "one") } nuevo, leído
+    [many] de { -role(num: "other") } nuevos, todos leídos
+   *[other] { -role(num: "other") } nuevos, todos leídos
+}
+picks-onboard-reason-work-lead = El trabajo que pediste
+picks-onboard-reason-work = { $lead }, al nivel que fijaste.
+picks-onboard-reason-more-lead = Más de lo que tienes hoy
+picks-onboard-reason-more = { $lead }, en sueldo o en alcance.
+picks-onboard-step-say = Di una frase a tu asistente
+picks-onboard-step-arrive = Los destacados llegan aquí
+picks-onboard-say = Dilo en tu asistente
+picks-onboard-works-with = Funciona con Claude Code y Codex
+picks-onboard-sentence = Ejecuta `roleband connect --apply` y luego configura mis destacados.
+picks-onboard-sentence-connected = configura mis destacados
+picks-onboard-waiting = Esperando a tu asistente
+picks-onboard-connected = { $host } está conectado. Lo que guarde aparece aquí.
+picks-onboard-terminal = O ejecuta el comando en Terminal
+picks-onboard-footnote = Unos diez minutos, con el plan que ya tienes. Permite que tu asistente ejecute roleband sin preguntar. Tu CV y los { -role(num: "other") } que lee van al modelo de tu asistente.
+picks-onboard-in-terminal = En Terminal, para
+picks-onboard-terminal-host = Asistente
+picks-onboard-in-host = En { $host }
+picks-onboard-back = Volver a una sola frase
+picks-onboard-access = Permite que tu asistente lea tus { -role(num: "other") } y guarde destacados.
+picks-onboard-under-way = La configuración está en marcha
+picks-onboard-under-way-line = { $host } pregunta. Lo que guarde aparece aquí.
+picks-onboard-row = { $step ->
+    [connect] { $host } está conectado
+    [background] Tu trayectoria
+    [situation] Dónde estás hoy
+    [bar] Qué te haría cambiar
+    [rules] Reglas firmes
+    [tradeoffs] Qué estarías dispuesto a ceder
+    [targets] Empresas que quieres y las que evitas
+    [calibration] Un primer vistazo a { -role(num: "other") } reales
+    [budget] Cada cuánto quieres tener noticias
+    [confirm] Lo que buscas, dicho en voz alta
+    [trial] Una primera prueba con { -role(num: "other") } abiertos hoy
+   *[routine] Revisiones programadas cada día
+}
+picks-onboard-row-now = { $step ->
+    [trial] Probándolo ahora
+    [routine] Programándose ahora
+   *[other] Preguntándose ahora
+}
+picks-onboard-row-waits = Espera al primer escaneo
+picks-onboard-row-saved = Guardado
+picks-onboard-resume = ¿Cerraste el chat? Cualquier chat lo retoma:

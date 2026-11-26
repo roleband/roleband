@@ -1,4 +1,4 @@
-import { picksStateFixture, usageStateFixture } from "../../src/test/fixtures";
+import { agentAccessFixture, picksStateFixture, usageStateFixture } from "../../src/test/fixtures";
 import { test as base, expect } from "@playwright/test";
 import type { BrowserContext, Page, Request } from "@playwright/test";
 
@@ -122,6 +122,12 @@ export const test = base.extend<{ apiGuard: void }>({
     await context.route("/api/picks/opened", (route) =>
       route.request().method() === "POST"
         ? route.fulfill({ json: picksStateFixture() })
+        : route.fallback());
+    /* Its onboarding reads which assistants are connected: none, with
+       assistant apps not yet allowed. A spec about access routes its own. */
+    await context.route("/api/intelligence/agents", (route) =>
+      route.request().method() === "GET"
+        ? route.fulfill({ json: agentAccessFixture })
         : route.fallback());
     await use();
   }, { auto: true }],

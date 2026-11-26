@@ -2,32 +2,39 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { PicksState } from "../../api";
+import type { AgentAccessState, PicksState } from "../../api";
 import { ToastProvider } from "../../ui";
 import { forgetPicksDot } from "../../hooks/picksDot";
 import { relative } from "../../copy/format";
-import { picksStateFixture } from "../../test/fixtures";
+import { agentAccessFixture, picksSetupFixture, picksStateFixture } from "../../test/fixtures";
 import { msg } from "../../test/msg";
 import { PickReasons, PicksEnd, PicksNotes, TopPicksScreen } from "./TopPicksScreen";
 
 const picksState = vi.fn<() => Promise<PicksState>>();
 const picksOpened = vi.fn<() => Promise<PicksState>>();
 const setPicksMode = vi.fn<(state: "on" | "off") => Promise<PicksState>>();
+const agentAccess = vi.fn<() => Promise<AgentAccessState>>();
 vi.mock("../../api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../api")>()),
   api: {
     picksState: () => picksState(),
     picksOpened: () => picksOpened(),
     setPicksMode: (state: "on" | "off") => setPicksMode(state),
+    agentAccess: () => agentAccess(),
   },
 }));
+vi.mock("../../context/MissionState", () => ({ useMissionStats: () => null }));
 
 beforeEach(() => {
   forgetPicksDot();
   picksState.mockReset();
   picksOpened.mockReset().mockResolvedValue(picksStateFixture());
   setPicksMode.mockReset();
+  agentAccess.mockReset().mockResolvedValue(agentAccessFixture);
 });
+
+const renderScreen = () => render(<ToastProvider><TopPicksScreen /></ToastProvider>);
+const onboardingHeadline = () => screen.findByRole("heading", { level: 2, name: msg("picks-onboard-headline") });
 
 const HOURS = 3_600_000;
 const hoursAgo = (n: number) => new Date(Date.now() - n * HOURS).toISOString();
@@ -51,32 +58,38 @@ const notes = () => screen.queryAllByRole("note").map((note) => note.textContent
 describe("TopPicksScreen", () => {
   it("records the opening once, which puts out the rail's dot", async () => {
     picksState.mockResolvedValue(picksStateFixture());
-    const { rerender } = render(<TopPicksScreen />);
-    rerender(<TopPicksScreen />);
-    await screen.findByText(msg("picks-not-set-up"));
+    const { rerender } = renderScreen();
+    rerender(<ToastProvider><TopPicksScreen /></ToastProvider>);
+    await onboardingHeadline();
     expect(picksOpened).toHaveBeenCalledOnce();
   });
 
   it("names the page in one heading that takes no room, and draws no title block", async () => {
     picksState.mockResolvedValue(picksStateFixture());
-    const { container } = render(<TopPicksScreen />);
+    const { container } = renderScreen();
     const title = screen.getByRole("heading", { level: 1, name: msg("shell-nav-top-picks") });
     expect(title).toHaveClass("sr-only");
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(container.querySelector(".page-hero")).toBeNull();
   });
 
-  it("says it is not set up until the assistant has set it up", async () => {
+  it("shows the onboarding until the assistant has set Top picks up", async () => {
     picksState.mockResolvedValue(picksStateFixture({ state: "never_set_up" }));
-    render(<TopPicksScreen />);
-    expect(await screen.findByText(msg("picks-not-set-up"))).toBeVisible();
+    renderScreen();
+    expect(await onboardingHeadline()).toBeVisible();
+  });
+
+  it("follows the setup conversation in the onboarding as it saves", async () => {
+    picksState.mockResolvedValue(picksStateFixture({ setup: picksSetupFixture("situation") }));
+    renderScreen();
+    expect(await screen.findByRole("heading", { level: 2, name: msg("picks-onboard-under-way") })).toBeVisible();
   });
 
   it("says the read failed in place of the body", async () => {
     picksState.mockRejectedValue(new Error("engine away"));
-    render(<TopPicksScreen />);
+    renderScreen();
     expect(await screen.findByText(msg("picks-load-failed"))).toBeVisible();
-    expect(screen.queryByText(msg("picks-not-set-up"))).toBeNull();
+    expect(screen.queryByRole("heading", { level: 2, name: msg("picks-onboard-headline") })).toBeNull();
   });
 });
 

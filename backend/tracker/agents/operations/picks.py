@@ -736,19 +736,8 @@ async def status(session: AsyncSession, *, pursuits: bool, now: datetime | None 
     active, draft = await briefs.active(session), await briefs.draft(session)
     writing = briefs.body_of(draft or active)
     reading = await background.newest(session)
-    filters = await queue.board_filters(session)
-    open_roles = int(await session.scalar(apply_job_filters(select(func.count()).select_from(Job), filters)) or 0)
-    trial = await runs.last_finished(session, trial=True)
-    finished = await runs.last_finished(session)
     newest = await runs.newest_routine_run(session)
-    progress = setup_steps.progress(setup_steps.Facts(
-        background_confirmed=reading is not None and reading.confirmed_at is not None,
-        body=writing,
-        has_active_brief=active is not None,
-        trial_finished=trial is not None,
-        routine_ran=settings.state == "on" and finished is not None,
-        has_postings=open_roles > 0,
-    ))
+    progress = setup_steps.progress((await setup_steps.stored(session, mode_on=settings.state == "on")).facts)
     stands = await mode.standing(session, settings, active, now)
     persona = await get_persona_profile(session) or {}
     floor = await get_pay_floor(session)

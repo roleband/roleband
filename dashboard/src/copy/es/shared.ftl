@@ -120,3 +120,11 @@ shared-refresh-failed = No se pudo actualizar. Se muestra el último resultado.
 ## ui/TimeField.tsx
 shared-time-field-choose = Elige una hora
 shared-time-field-times = Horas
+
+## El patrón de presentación (patterns/onboarding/)
+shared-onboard-steps = Pasos
+
+## ui/CopyField.tsx
+shared-copy-text = Copiar “{ $text }”
+shared-copied = Copiado
+shared-copy-failed = No se pudo copiar. Copia tú el texto seleccionado.

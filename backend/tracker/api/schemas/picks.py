@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from tracker.api.schemas.base import Built
 from tracker.api.schemas.text_class import text
+from tracker.picks.setup import Step
 from tracker.picks.verdicts import PassCode
 from tracker.settings_store import DAILY_CAP_MAX
 
@@ -87,8 +88,29 @@ class LastCheck(Built):
     note: str | None = Field(json_schema_extra=text("record"))
 
 
+class PicksSetupStep(Built):
+    id: Step = Field(json_schema_extra=text("code"))
+    done: bool
+
+
+class PicksSetup(Built):
+    """Where the setup conversation in the person's assistant stands, read
+    from what it has saved, as `picks.status` tells the assistant."""
+
+    #: The conversation saved something: a document, a reading of the
+    #: background or a brief.
+    started: bool
+    #: The stage to do now; `done` when none is left.
+    next_step: Step = Field(json_schema_extra=text("code"))
+    #: Every stage in order, `connect` first and `done` last.
+    steps: list[PicksSetupStep]
+    #: Stages waiting for the first scan to find roles.
+    deferred: list[Step] = Field(json_schema_extra=text("code"))
+
+
 class PicksStateResponse(Built):
-    """`GET /api/picks/state`: what the rail and the Settings card read."""
+    """`GET /api/picks/state`: what the rail, the Settings card and Top picks
+    read, its onboarding included."""
 
     state: Literal["never_set_up", "on", "off"] = Field(json_schema_extra=text("code"))
     #: The assistant that runs the checks, and when it runs them, in its own words.
@@ -117,6 +139,7 @@ class PicksStateResponse(Built):
     #: The most roles read in a day, and the most it can be set to.
     daily_limit: int
     daily_limit_max: int
+    setup: PicksSetup
 
 
 class PicksModeInput(BaseModel):

@@ -28524,9 +28524,112 @@
     "title": "PicksRemovedResponse",
     "type": "object"
    },
+   "PicksSetup": {
+    "additionalProperties": false,
+    "description": "Where the setup conversation in the person's assistant stands, read\nfrom what it has saved, as `picks.status` tells the assistant.",
+    "properties": {
+     "deferred": {
+      "items": {
+       "enum": [
+        "connect",
+        "background",
+        "situation",
+        "bar",
+        "rules",
+        "tradeoffs",
+        "targets",
+        "calibration",
+        "budget",
+        "confirm",
+        "trial",
+        "routine",
+        "done"
+       ],
+       "type": "string"
+      },
+      "title": "Deferred",
+      "type": "array",
+      "x-text": "code"
+     },
+     "next_step": {
+      "enum": [
+       "connect",
+       "background",
+       "situation",
+       "bar",
+       "rules",
+       "tradeoffs",
+       "targets",
+       "calibration",
+       "budget",
+       "confirm",
+       "trial",
+       "routine",
+       "done"
+      ],
+      "title": "Next Step",
+      "type": "string",
+      "x-text": "code"
+     },
+     "started": {
+      "title": "Started",
+      "type": "boolean"
+     },
+     "steps": {
+      "items": {
+       "$ref": "#/components/schemas/PicksSetupStep"
+      },
+      "title": "Steps",
+      "type": "array"
+     }
+    },
+    "required": [
+     "started",
+     "next_step",
+     "steps",
+     "deferred"
+    ],
+    "title": "PicksSetup",
+    "type": "object"
+   },
+   "PicksSetupStep": {
+    "additionalProperties": false,
+    "properties": {
+     "done": {
+      "title": "Done",
+      "type": "boolean"
+     },
+     "id": {
+      "enum": [
+       "connect",
+       "background",
+       "situation",
+       "bar",
+       "rules",
+       "tradeoffs",
+       "targets",
+       "calibration",
+       "budget",
+       "confirm",
+       "trial",
+       "routine",
+       "done"
+      ],
+      "title": "Id",
+      "type": "string",
+      "x-text": "code"
+     }
+    },
+    "required": [
+     "id",
+     "done"
+    ],
+    "title": "PicksSetupStep",
+    "type": "object"
+   },
    "PicksStateResponse": {
     "additionalProperties": false,
-    "description": "`GET /api/picks/state`: what the rail and the Settings card read.",
+    "description": "`GET /api/picks/state`: what the rail, the Settings card and Top picks\nread, its onboarding included.",
     "properties": {
      "brief_summary": {
       "anyOf": [
@@ -28620,6 +28723,9 @@
       "title": "Schedule",
       "x-text": "record"
      },
+     "setup": {
+      "$ref": "#/components/schemas/PicksSetup"
+     },
      "state": {
       "enum": [
        "never_set_up",
@@ -28652,7 +28758,8 @@
      "passed_this_week",
      "routine_host_connection",
      "daily_limit",
-     "daily_limit_max"
+     "daily_limit_max",
+     "setup"
     ],
     "title": "PicksStateResponse",
     "type": "object"

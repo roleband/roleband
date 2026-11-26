@@ -14,7 +14,6 @@ import {
   picksHost,
   picksLoadFailed,
   picksLoading,
-  picksNotSetUp,
   picksNoteAsks,
   picksNoteConnect,
   picksNoteDisconnected,
@@ -54,6 +53,7 @@ import { AsyncBoundary, Button, Content, EmptyState, Msg, RAIL_QUERY, RouterLink
 import { RowSkeleton } from "../../ui/RowSkeleton";
 import { PASSED_OVER_ROUTE } from "../../routing/paths";
 import { PickFeedbackDialog, type PickFeedbackReason } from "./PickFeedbackDialog";
+import { TopPicksOnboarding } from "./TopPicksOnboarding";
 import { BoardFilters } from "./BoardFilters";
 import { BoardToolbar } from "./BoardToolbar";
 import { NO_LENSES, RESET_FILTERS, TOP_PICKS_MEMORY_SCOPE, countNarrowingFilters } from "./filters";
@@ -69,22 +69,25 @@ const ignoreMode = () => {};
 /* Top picks: the few roles the person's assistant judged worth a move. It is
    the Radar's list, toolbar, filter column and row, narrowed to the picks,
    with each pick's reasons under its row. Its filters and its search are its
-   own. Opening it puts out the rail's dot. Its one heading is off screen, as
-   the Radar's is: the toolbar row leads, and the top bar and the rail name the
-   place. */
+   own. Before setup it is the onboarding (TopPicksOnboarding), which gives way
+   to the list once the checks are set up. Opening it puts out the rail's dot.
+   Its one heading is off screen, as the Radar's is: the toolbar row leads,
+   and the top bar and the rail name the place. */
 export function TopPicksScreen() {
   useEffect(() => {
     picksOpened();
   }, []);
   const state = useAsyncResource(() => api.picksState(), []);
+  const { mutate } = state;
+  const onPicksChange = useCallback((next: PicksState) => mutate(() => next), [mutate]);
   const rootRef = useRef<HTMLElement>(null);
   return (
     <main className="main board-main job-margin-page" data-design-system="app" ref={rootRef}>
       <PageHeader title={shellNavTopPicks()} offScreen />
       <AsyncBoundary resource={state} loading={picksLoading()} failed={picksLoadFailed()}>
         {(picks) => picks.state === "never_set_up"
-          ? <EmptyState title={picksNotSetUp()} />
-          : <TopPicksList picks={picks} rootRef={rootRef} onPicksChange={(next) => state.mutate(() => next)} />}
+          ? <TopPicksOnboarding picks={picks} onPicksChange={onPicksChange} />
+          : <TopPicksList picks={picks} rootRef={rootRef} onPicksChange={onPicksChange} />}
       </AsyncBoundary>
     </main>
   );

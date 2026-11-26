@@ -19,6 +19,8 @@ from tracker.api.schemas.picks import (
     PickReason,
     PicksModeInput,
     PicksRemovedResponse,
+    PicksSetup,
+    PicksSetupStep,
     PicksStateResponse,
     RemovedPick,
     RemovedPicksResponse,
@@ -27,7 +29,7 @@ from tracker.api.schemas.picks import (
 from tracker.db.queries.companies import display_names
 from tracker.notifications import reconcile_picks_stalled
 from tracker.picks import brief as briefs
-from tracker.picks import mode, queue, runs, verdicts
+from tracker.picks import mode, queue, runs, setup, verdicts
 from tracker.picks.brief import BriefBody
 from tracker.platform import agent_hosts
 from tracker.settings_store import DAILY_CAP_MAX, get_top_picks_settings
@@ -105,6 +107,8 @@ async def _state(session: AsyncSession) -> PicksStateResponse:
     connection = (
         await asyncio.to_thread(agent_hosts.connection, host) if host in agent_hosts.HOSTS else None
     )
+    stored = await setup.stored(session, mode_on=settings.state == "on")
+    progress = setup.progress(stored.facts)
     return PicksStateResponse(
         state=settings.state,  # type: ignore[arg-type]
         routine_host=host, schedule=settings.schedule,
@@ -121,6 +125,11 @@ async def _state(session: AsyncSession) -> PicksStateResponse:
         read_this_week=week.read, passed_this_week=week.passed_over,
         routine_host_connection=connection,
         daily_limit=settings.daily_cap, daily_limit_max=DAILY_CAP_MAX,
+        setup=PicksSetup(
+            started=stored.started, next_step=progress.next_step,
+            steps=[PicksSetupStep(id=step.id, done=step.done) for step in progress.steps],
+            deferred=list(progress.deferred),
+        ),
     )
 
 

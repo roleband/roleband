@@ -5,8 +5,6 @@
 picks-loading = Loading your top picks…
 # kind=heading
 picks-load-failed = Couldn't load your top picks
-# kind=heading note="Shown in place of the list until the person's assistant has set Top picks up"
-picks-not-set-up = Top picks is not set up
 # kind=label note="The assistant that runs the checks, by its code: claude-code or codex"
 picks-host = { $host ->
     [claude-code] Claude Code
@@ -152,3 +150,83 @@ picks-pass-other = Other
 picks-passed-empty-title = Nothing passed over this week
 # kind=empty note="Under the empty title"
 picks-passed-empty = Roles the assistant reads and does not pick are listed here, with why.
+
+## Onboarding: Top picks before setup (features/opportunities/TopPicksOnboarding.tsx)
+# kind=heading
+picks-onboard-headline = Your AI assistant
+# kind=sentence
+picks-onboard-line = A frontier AI model learns what you want, reads every new { -role(num: "one") }, and keeps the few worth a move.
+# kind=status note="Under a large figure: how many new roles today. $count only chooses the plural; the figure is drawn above it"
+picks-onboard-count = { $count ->
+    [one] new { -role(num: "one") }, read
+   *[other] new { -role(num: "other") }, every one read
+}
+# kind=status note="The first fact of an example reason, set apart in ink; the reason's sentence goes on in picks-onboard-reason-work"
+picks-onboard-reason-work-lead = The work you asked for
+# kind=sentence note="An example reason under an example top pick; $lead is picks-onboard-reason-work-lead"
+picks-onboard-reason-work = { $lead }, at the level you set.
+# kind=status note="The first fact of an example reason, set apart in ink; the reason's sentence goes on in picks-onboard-reason-more"
+picks-onboard-reason-more-lead = More than you hold today
+# kind=sentence note="An example reason under an example top pick; $lead is picks-onboard-reason-more-lead"
+picks-onboard-reason-more = { $lead }, in pay or in scope.
+# kind=status note="The first of two steps"
+picks-onboard-step-say = Say one sentence to your assistant
+# kind=status note="The second of two steps: the working Top picks screen"
+picks-onboard-step-arrive = Picks arrive here
+# kind=status note="Over the sentence the person copies and says in their assistant"
+picks-onboard-say = Say this in your assistant
+# kind=aria note="Names the marks of the assistants Top picks runs in"
+picks-onboard-works-with = Works with Claude Code and Codex
+# kind=sentence note="Said to the assistant, which runs the command in backticks: keep the command exactly as written, backticks included"
+picks-onboard-sentence = Run `roleband connect --apply`, then set up my top picks.
+# kind=status note="Said to an assistant that is already connected; lower case, as typed in a chat"
+picks-onboard-sentence-connected = set up my top picks
+# kind=status note="Live: no assistant has connected yet"
+picks-onboard-waiting = Waiting for your assistant
+# kind=sentence note="Live: an assistant has connected; $host is its name"
+picks-onboard-connected = { $host } is connected. What it saves shows here.
+# kind=link note="Shows the command to run in Terminal in place of the sentence"
+picks-onboard-terminal = Or run the command in Terminal
+# kind=sentence note="Under the steps: the time it takes, what the connection allows, and where the person's data goes"
+picks-onboard-footnote = About ten minutes, on the plan you already have. It lets your assistant run roleband without asking. Your CV and the { -role(num: "other") } it reads go to your assistant's model.
+# kind=status note="Before a choice of assistant, then the command to run in Terminal for it"
+picks-onboard-in-terminal = In Terminal, for
+# kind=aria note="Names the choice of assistant the Terminal command is for"
+picks-onboard-terminal-host = Assistant
+# kind=label note="Before the sentence to say in the assistant; $host is its name"
+picks-onboard-in-host = In { $host }
+# kind=link note="Goes back from the Terminal command to the one sentence"
+picks-onboard-back = Back to one sentence
+# kind=sentence note="Under the switch that lets assistant apps connect, shown while it is off"
+picks-onboard-access = Lets your assistant read your { -role(num: "other") } and save picks.
+# kind=heading note="The conversation in the assistant has saved its first answer"
+picks-onboard-under-way = Setup is under way
+# kind=sentence note="$host is the assistant's name"
+picks-onboard-under-way-line = { $host } asks. What it saves shows here.
+# kind=status note="A stage of the setup conversation, by its code; $host is the assistant's name"
+picks-onboard-row = { $step ->
+    [connect] { $host } is connected
+    [background] Your background
+    [situation] Where you stand
+    [bar] What would make you move
+    [rules] Hard rules
+    [tradeoffs] What you would trade
+    [targets] Companies you want, and ones to avoid
+    [calibration] A first look at real { -role(num: "other") }
+    [budget] How often you want to hear
+    [confirm] What you are looking for, said back
+    [trial] A first try on { -role(num: "other") } open today
+   *[routine] Checks set to run each day
+}
+# kind=status note="Beside the stage the conversation is at, by its code"
+picks-onboard-row-now = { $step ->
+    [trial] Trying it now
+    [routine] Being set up now
+   *[other] Being asked now
+}
+# kind=status note="Beside a stage that needs roles; setup goes on past it until the first scan finds some"
+picks-onboard-row-waits = Waits for the first scan
+# kind=aria note="A stage whose answer is saved"
+picks-onboard-row-saved = Saved
+# kind=status note="Before the sentence that resumes setup in any conversation with the assistant"
+picks-onboard-resume = Closed the chat? Any chat carries on:
