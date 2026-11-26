@@ -8,6 +8,7 @@ whose pulls and rules the verdicts' reasons name.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -18,6 +19,7 @@ import pytest_asyncio
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from tests.barriers import until_waiting
 from tests.factories import make_company, make_job
 from tracker.agents.config import AgentAccessConfig, set_agent_access
 from tracker.agents.operations import picks as picks_operations
@@ -41,9 +43,11 @@ from tracker.db.models import (
 )
 from tracker.picks import background as background_store
 from tracker.picks import brief as briefs
+from tracker.picks import mode as picks_mode
 from tracker.picks.background import Reading
 from tracker.picks.brief import Patch
 from tracker.picks.health import ABANDONED_AFTER
+from tracker.picks.lock import lock_picks
 from tracker.picks.verdicts import REASON_MAX
 from tracker.platform import agent_hosts
 from tracker.settings_store import get_top_picks_settings, update_top_picks_settings
@@ -578,6 +582,66 @@ async def test_the_status_budget_is_the_one_runs_keep_to_with_a_drafts_beside_it
 
     assert status["budget"]["per_month"] == run["budget"]["per_month"] == 3, "the active brief governs the run"
     assert status["budget"]["draft_per_month"] == 8
+
+
+async def _listed(db_session, operation: str) -> AgentActivity:
+    async with _fresh(db_session) as session:
+        listed = await session.scalar(
+            select(AgentActivity).where(AgentActivity.operation == operation).order_by(AgentActivity.id.desc())
+        )
+    assert listed is not None
+    return listed
+
+
+async def test_a_limit_change_beside_a_switch_lists_the_state_it_wrote_under(api_client, db_session, workspace):
+    """A switch held open turns the mode off while a change of the daily limit
+    waits on it: the limit's entry lists a settings change, not that switch."""
+    async with _fresh(db_session) as holder:
+        await picks_mode.change(holder, state="off", now=datetime.now(UTC))
+        task = asyncio.create_task(_write(api_client, "PUT", "/picks/mode", {"daily_cap": 40}))
+        await until_waiting(db_session.bind, task)
+        assert not task.done(), "the limit's write waits for the switch"
+        await holder.commit()
+    assert _data(*await task)["state"] == "off"
+
+    listed = await _listed(db_session, "picks.switch")
+    assert listed.summary == "Changed the top picks settings"
+    assert listed.changes == []
+
+
+async def test_a_change_beside_a_draft_being_made_lists_the_row_it_wrote(api_client, db_session, workspace):
+    """A draft is made, uncommitted, while a change that names no row waits:
+    the change lands on that draft, and its entry says the draft stayed a draft."""
+    async with _fresh(db_session) as holder:
+        drafted = await briefs.patch(holder, Patch(parts={"budget": 6}, reason="A wider net.", if_revision=0, target="draft"))
+        task = asyncio.create_task(_write(api_client, "PATCH", "/brief", {
+            "if_revision": drafted.revision, "reason": "Budget.", "budget": 7,
+        }))
+        await until_waiting(db_session.bind, task)
+        assert not task.done(), "the change waits for the draft"
+        await holder.commit()
+    assert _data(*await task)["status"] == "draft"
+
+    listed = await _listed(db_session, "brief.patch")
+    assert listed.changes == [], "the draft it wrote was a draft before"
+
+
+async def test_a_routine_change_waits_for_the_picks_lock_before_it_holds_its_run(api_client, db_session, workspace):
+    """`picks.decide` holds the picks lock, then its run's row. A routine change
+    of the brief waiting on the same lock holds neither, so the two cannot
+    deadlock: the run's row is free while the change waits."""
+    run = await _begin(api_client)
+    async with _fresh(db_session) as holder:
+        await lock_picks(holder)
+        task = asyncio.create_task(_write(api_client, "PATCH", "/brief", {
+            "if_revision": 1, "reason": "A pull.", "run": run["run"], "pulls": [{"text": "Payments"}],
+        }))
+        await until_waiting(db_session.bind, task)
+        assert not task.done(), "the change waits for the picks lock"
+        async with asyncio.timeout(5):
+            await holder.execute(select(PickRun.id).where(PickRun.id == run["run"]).with_for_update())
+        await holder.commit()
+    assert _data(*await task)["made_by"] == "routine"
 
 
 async def test_the_suggested_check_times_are_the_half_hours_just_after_scans_most_often_end(db_session, monkeypatch):
