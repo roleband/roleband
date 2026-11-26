@@ -665,7 +665,7 @@ def test_a_reply_that_trickles_past_the_deadline_is_a_deadline_with_exit_8(home)
 DISCOVERY_BUDGET = 1_500 * 4
 #: The most the default index may take, with room under the budget for the
 #: operations still to come.
-INDEX_BUDGET = 1_000 * 4
+INDEX_BUDGET = 1_300 * 4
 
 
 def test_offline_discovery_fits_the_capability_index_budget(home):

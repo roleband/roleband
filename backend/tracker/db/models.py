@@ -1160,7 +1160,11 @@ class CompareSelection(Base):
 
 # Optional structured reason on a dismissal. A vocabulary, not free text, so a
 # suggestion loop can aggregate them.
-FEEDBACK_REASONS = ("wrong_domain", "wrong_level", "wrong_role", "company", "other")
+FEEDBACK_REASONS = (
+    "wrong_domain", "wrong_level", "wrong_role", "company", "pay_too_low", "wrong_place", "other",
+)
+#: The most characters of the person's own words a dismissal keeps.
+FEEDBACK_TEXT_MAX = 200
 
 
 class JobFeedback(Base):
@@ -1181,6 +1185,8 @@ class JobFeedback(Base):
     )
     verdict: Mapped[str] = mapped_column(String(16), default="dismissed")
     reason: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    #: The person's own words for why, beside or instead of a `reason` code.
+    reason_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -1813,6 +1819,175 @@ class AgentActivity(Base):
         Index("ix_agent_activity_occurred", "occurred_at", "id"),
         # Each host's last call, for Settings, and the screen's list for one host.
         Index("ix_agent_activity_host", "host", "occurred_at"),
+    )
+
+
+class CandidateDocument(Base):
+    """A file the person gave about themselves (a CV), as its facts.
+
+    The bytes are a file named `stored_name` in the data folder's `documents`
+    directory, never a column, so a dump of the database holds no CV. The
+    engine stores the file and never parses it.
+    """
+
+    __tablename__ = "candidate_document"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    filename: Mapped[str] = mapped_column(Text, nullable=False)
+    media_type: Mapped[str] = mapped_column(String(128), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    stored_name: Mapped[str] = mapped_column(String(96), nullable=False, unique=True)
+    added_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("sha256 ~ '^[0-9a-f]{64}$'", name="ck_candidate_document_sha256"),
+        CheckConstraint("size_bytes >= 0", name="ck_candidate_document_size"),
+    )
+
+
+class CandidateBackground(Base):
+    """A reading of who the person is, one row per version.
+
+    A reading is the person's own statement only once `confirmed_at` is set;
+    before that it is an assistant's reading of a file or a conversation. A
+    change is a new row, and the row it replaces gets `superseded_at`.
+    """
+
+    __tablename__ = "candidate_background"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
+    reading: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    source: Mapped[str] = mapped_column(String(16), nullable=False)
+    document_id: Mapped[int | None] = mapped_column(
+        ForeignKey("candidate_document.id", ondelete="SET NULL"), nullable=True
+    )
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: The host that wrote it (`tracker/platform/agent_hosts.py`).
+    host: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    superseded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("source IN ('document', 'spoken', 'minimal')", name="ck_candidate_background_source"),
+    )
+
+
+class PickBrief(Base):
+    """What the person wants from a move, one row per version.
+
+    `body` holds the brief's parts (`tracker/picks/brief.py`); `summary` is the
+    same in plain text. At most one row is `active` and at most one `draft`:
+    the judge reads the active one, and setup writes the draft until the
+    person confirms it. `revision` counts the writes of one row, so a change
+    names the revision it read.
+    """
+
+    __tablename__ = "pick_brief"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    body: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
+    #: One line: why this version exists.
+    reason: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
+    made_by: Mapped[str] = mapped_column(String(16), nullable=False)
+    host: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint("status IN ('draft', 'active', 'superseded')", name="ck_pick_brief_status"),
+        CheckConstraint("made_by IN ('person', 'routine')", name="ck_pick_brief_made_by"),
+        Index("uq_pick_brief_active", "status", unique=True, postgresql_where=text("status = 'active'")),
+        Index("uq_pick_brief_draft", "status", unique=True, postgresql_where=text("status = 'draft'")),
+    )
+
+
+class PickRun(Base):
+    """One run of the judge: the routine's, or the trial at the end of setup.
+
+    `queue` is what the run was handed, each posting with the content hash it
+    had then, so a verdict on a posting outside it, or on text that changed
+    since, is refused. A run with no `outcome` is still open.
+    """
+
+    __tablename__ = "pick_run"
+
+    #: The token the assistant passes back with each call.
+    id: Mapped[str] = mapped_column(String(24), primary_key=True)
+    host: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    #: The model as the assistant names it.
+    model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    trial: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    brief_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    outcome: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    queue: Mapped[list] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    counts: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    tokens: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    #: Why the run stopped, when it did.
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "outcome IS NULL OR outcome IN ('finished', 'stopped', 'abandoned')", name="ck_pick_run_outcome"
+        ),
+        CheckConstraint("(outcome IS NULL) = (finished_at IS NULL)", name="ck_pick_run_closed"),
+        Index("ix_pick_run_started", "started_at"),
+    )
+
+
+class PickVerdict(Base):
+    """An assistant's verdict on one posting, for one text of it and one brief.
+
+    A posting whose text changed, or a newer brief, is a new case: its verdict
+    is a new row and the earlier one gets `superseded_at`. `reasons` is a list
+    of `{opening, rest, brief_item}`: the opening fact of a sentence, the rest
+    of it, and the item of the brief it rests on. A trial's verdicts are kept
+    apart (`trial`) and never count as judged.
+    """
+
+    __tablename__ = "pick_verdict"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False, index=True)
+    #: `jobs.content_hash` when judged; empty for a posting that had none.
+    content_hash: Mapped[str] = mapped_column(String(32), nullable=False)
+    brief_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    verdict: Mapped[str] = mapped_column(String(16), nullable=False)
+    reasons: Mapped[list] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    against_baseline: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    pass_code: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    run_id: Mapped[str] = mapped_column(ForeignKey("pick_run.id", ondelete="CASCADE"), nullable=False, index=True)
+    trial: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    superseded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("job_id", "content_hash", "brief_version", "trial", name="uq_pick_verdict_case"),
+        CheckConstraint("verdict IN ('pick', 'near_miss', 'pass')", name="ck_pick_verdict_verdict"),
+        CheckConstraint(
+            "against_baseline IS NULL OR against_baseline IN ('better', 'comparable', 'weaker', 'unknown')",
+            name="ck_pick_verdict_baseline",
+        ),
+        CheckConstraint("(verdict = 'pass') = (pass_code IS NOT NULL)", name="ck_pick_verdict_pass_code"),
+        CheckConstraint("verdict <> 'pick' OR against_baseline <> 'weaker'", name="ck_pick_verdict_not_weaker"),
     )
 
 

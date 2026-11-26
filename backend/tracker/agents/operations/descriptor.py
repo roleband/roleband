@@ -7,8 +7,8 @@ effects are declared once, here, and never inferred from its route.
 Engine effects are what the engine does on the caller's behalf (write state,
 reach the network, send data to a model, act outside the machine). The
 client's own connection to the engine is not one of them. Client effects are
-what the client does on this computer (write a file, open a browser or the
-app). An export, for example, is an engine read plus a client file write.
+what the client does on this computer (write a file, read one the person
+named, open a browser or the app). An export, for example, is an engine read plus a client file write.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ DataClass = Literal["public_posting", "market_statistic", "private_pursuit", "of
 ActionGroup = Literal["tracking_progress", "keeping_findings", "tuning_radar", "controlling_collection"]
 ToolTier = Literal["small", "standard", "full"]
 Idempotency = Literal["read", "required_key", "natural_key"]
-ClientEffect = Literal["file_write", "browser_open", "app_open"]
+ClientEffect = Literal["file_write", "file_read", "browser_open", "app_open"]
 #: Which of the person's two agent switches an operation needs: a read needs
 #: `enabled`, a write needs `enabled` and `allow_writes`.
 Access = Literal["read", "write"]
@@ -86,6 +86,9 @@ class OperationDescriptor:
     #: A write that changes an existing record names the revision it read in
     #: its input's `if_revision` field, and is refused when the record moved.
     expects_revision: bool = False
+    #: The largest request body this operation takes, when it is not the
+    #: engine's usual bound: an operation that carries a file names its own.
+    max_body_bytes: int | None = None
     examples: tuple[dict[str, Any], ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:

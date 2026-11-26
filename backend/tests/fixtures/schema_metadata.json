@@ -1,12 +1,14 @@
 {
  "_why": "The schema as the models declare it, frozen so a change to a column, index, constraint or default cannot land without showing up in a reviewer's diff. `alembic check` already answers 'do the models and the migrations agree?', but only against a live cluster and only in a CI log; this fixture answers 'did the models change at all?' with no database, in the pull request itself. The two claims are independent: a model edit WITH a matching migration keeps `check` green and still belongs in review, which is what this catches. Regenerate deliberately, in the same change as the migration: `.venv/bin/python -m scripts.freeze_schema_metadata`.",
  "embedding_dim": 768,
- "table_count": 78,
+ "table_count": 83,
  "classes": {
   "AgentActivity": "agent_activity",
   "AiTaskLog": "ai_task_log",
   "AppSetting": "app_settings",
   "BindingReconciliationDecision": "binding_reconciliation_decisions",
+  "CandidateBackground": "candidate_background",
+  "CandidateDocument": "candidate_document",
   "Cluster": "clusters",
   "CommandReceipt": "command_receipts",
   "CompMetric": "comp_metrics",
@@ -48,6 +50,9 @@
   "JobTwinLink": "job_twin_link",
   "MachineAwakeSample": "machine_awake_samples",
   "Notification": "notifications",
+  "PickBrief": "pick_brief",
+  "PickRun": "pick_run",
+  "PickVerdict": "pick_verdict",
   "PluginCoverage": "plugin_coverage",
   "PluginInstall": "plugin_install",
   "PluginReport": "plugin_report",
@@ -191,6 +196,53 @@
     "actor": "'system'",
     "evidence": "dict()"
    },
+   "python_onupdate": {},
+   "comment": null,
+   "column_comments": {}
+  },
+  "candidate_background": {
+   "create": [
+    "CREATE TABLE candidate_background (",
+    "    id SERIAL NOT NULL,",
+    "    version INTEGER NOT NULL,",
+    "    reading JSONB NOT NULL,",
+    "    source VARCHAR(16) NOT NULL,",
+    "    document_id INTEGER,",
+    "    confirmed_at TIMESTAMP WITH TIME ZONE,",
+    "    host VARCHAR(32),",
+    "    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,",
+    "    superseded_at TIMESTAMP WITH TIME ZONE,",
+    "    PRIMARY KEY (id),",
+    "    CONSTRAINT ck_candidate_background_source CHECK (source IN ('document', 'spoken', 'minimal')),",
+    "    UNIQUE (version),",
+    "    FOREIGN KEY(document_id) REFERENCES candidate_document (id) ON DELETE SET NULL",
+    ")"
+   ],
+   "indexes": [],
+   "python_defaults": {},
+   "python_onupdate": {},
+   "comment": null,
+   "column_comments": {}
+  },
+  "candidate_document": {
+   "create": [
+    "CREATE TABLE candidate_document (",
+    "    id SERIAL NOT NULL,",
+    "    filename TEXT NOT NULL,",
+    "    media_type VARCHAR(128) NOT NULL,",
+    "    size_bytes BIGINT NOT NULL,",
+    "    sha256 VARCHAR(64) NOT NULL,",
+    "    stored_name VARCHAR(96) NOT NULL,",
+    "    added_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,",
+    "    removed_at TIMESTAMP WITH TIME ZONE,",
+    "    PRIMARY KEY (id),",
+    "    CONSTRAINT ck_candidate_document_sha256 CHECK (sha256 ~ '^[0-9a-f]{64}$'),",
+    "    CONSTRAINT ck_candidate_document_size CHECK (size_bytes >= 0),",
+    "    UNIQUE (stored_name)",
+    ")"
+   ],
+   "indexes": [],
+   "python_defaults": {},
    "python_onupdate": {},
    "comment": null,
    "column_comments": {}
@@ -791,6 +843,7 @@
     "    job_id INTEGER NOT NULL,",
     "    verdict VARCHAR(16) NOT NULL,",
     "    reason VARCHAR(32),",
+    "    reason_text TEXT,",
     "    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,",
     "    PRIMARY KEY (id),",
     "    FOREIGN KEY(job_id) REFERENCES jobs (id) ON DELETE CASCADE",
@@ -1494,6 +1547,97 @@
    "python_defaults": {
     "meta": "dict()"
    },
+   "python_onupdate": {},
+   "comment": null,
+   "column_comments": {}
+  },
+  "pick_brief": {
+   "create": [
+    "CREATE TABLE pick_brief (",
+    "    id SERIAL NOT NULL,",
+    "    version INTEGER NOT NULL,",
+    "    status VARCHAR(16) NOT NULL,",
+    "    body JSONB NOT NULL,",
+    "    summary TEXT DEFAULT '' NOT NULL,",
+    "    reason TEXT DEFAULT '' NOT NULL,",
+    "    made_by VARCHAR(16) NOT NULL,",
+    "    host VARCHAR(32),",
+    "    revision INTEGER DEFAULT '1' NOT NULL,",
+    "    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,",
+    "    PRIMARY KEY (id),",
+    "    CONSTRAINT ck_pick_brief_status CHECK (status IN ('draft', 'active', 'superseded')),",
+    "    CONSTRAINT ck_pick_brief_made_by CHECK (made_by IN ('person', 'routine')),",
+    "    UNIQUE (version)",
+    ")"
+   ],
+   "indexes": [
+    "CREATE UNIQUE INDEX uq_pick_brief_active ON pick_brief (status) WHERE status = 'active'",
+    "CREATE UNIQUE INDEX uq_pick_brief_draft ON pick_brief (status) WHERE status = 'draft'"
+   ],
+   "python_defaults": {},
+   "python_onupdate": {},
+   "comment": null,
+   "column_comments": {}
+  },
+  "pick_run": {
+   "create": [
+    "CREATE TABLE pick_run (",
+    "    id VARCHAR(24) NOT NULL,",
+    "    host VARCHAR(32),",
+    "    model VARCHAR(128),",
+    "    trial BOOLEAN DEFAULT false NOT NULL,",
+    "    brief_version INTEGER NOT NULL,",
+    "    started_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,",
+    "    finished_at TIMESTAMP WITH TIME ZONE,",
+    "    outcome VARCHAR(16),",
+    "    queue JSONB DEFAULT '[]'::jsonb NOT NULL,",
+    "    counts JSONB DEFAULT '{}'::jsonb NOT NULL,",
+    "    tokens BIGINT,",
+    "    note TEXT,",
+    "    PRIMARY KEY (id),",
+    "    CONSTRAINT ck_pick_run_outcome CHECK (outcome IS NULL OR outcome IN ('finished', 'stopped', 'abandoned')),",
+    "    CONSTRAINT ck_pick_run_closed CHECK ((outcome IS NULL) = (finished_at IS NULL))",
+    ")"
+   ],
+   "indexes": [
+    "CREATE INDEX ix_pick_run_started ON pick_run (started_at)"
+   ],
+   "python_defaults": {},
+   "python_onupdate": {},
+   "comment": null,
+   "column_comments": {}
+  },
+  "pick_verdict": {
+   "create": [
+    "CREATE TABLE pick_verdict (",
+    "    id BIGSERIAL NOT NULL,",
+    "    job_id INTEGER NOT NULL,",
+    "    content_hash VARCHAR(32) NOT NULL,",
+    "    brief_version INTEGER NOT NULL,",
+    "    verdict VARCHAR(16) NOT NULL,",
+    "    reasons JSONB DEFAULT '[]'::jsonb NOT NULL,",
+    "    against_baseline VARCHAR(16),",
+    "    pass_code VARCHAR(24),",
+    "    note TEXT,",
+    "    run_id VARCHAR(24) NOT NULL,",
+    "    trial BOOLEAN DEFAULT false NOT NULL,",
+    "    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,",
+    "    superseded_at TIMESTAMP WITH TIME ZONE,",
+    "    PRIMARY KEY (id),",
+    "    CONSTRAINT uq_pick_verdict_case UNIQUE (job_id, content_hash, brief_version, trial),",
+    "    CONSTRAINT ck_pick_verdict_verdict CHECK (verdict IN ('pick', 'near_miss', 'pass')),",
+    "    CONSTRAINT ck_pick_verdict_baseline CHECK (against_baseline IS NULL OR against_baseline IN ('better', 'comparable', 'weaker', 'unknown')),",
+    "    CONSTRAINT ck_pick_verdict_pass_code CHECK ((verdict = 'pass') = (pass_code IS NOT NULL)),",
+    "    CONSTRAINT ck_pick_verdict_not_weaker CHECK (verdict <> 'pick' OR against_baseline <> 'weaker'),",
+    "    FOREIGN KEY(job_id) REFERENCES jobs (id) ON DELETE CASCADE,",
+    "    FOREIGN KEY(run_id) REFERENCES pick_run (id) ON DELETE CASCADE",
+    ")"
+   ],
+   "indexes": [
+    "CREATE INDEX ix_pick_verdict_job_id ON pick_verdict (job_id)",
+    "CREATE INDEX ix_pick_verdict_run_id ON pick_verdict (run_id)"
+   ],
+   "python_defaults": {},
    "python_onupdate": {},
    "comment": null,
    "column_comments": {}

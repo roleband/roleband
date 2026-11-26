@@ -181,6 +181,13 @@ class PostingReality(Built):
     listings: int
 
 
+class PickReasonText(Built):
+    """One reason of a pick: `opening` then `rest` reads as the sentence."""
+
+    opening: str | None = Field(json_schema_extra=text("record"))
+    rest: str = Field(json_schema_extra=text("record"))
+
+
 class JobListItem(JobRow):
     """A row of `GET /api/jobs`. Each ranked path adds its keys; they are absent otherwise.
 
@@ -196,6 +203,10 @@ class JobListItem(JobRow):
     # Intent-ranked rows only: the world the role serves, as a slug the
     # dashboard names.
     why_world: str | None = Field(default=None, json_schema_extra=text("code"))
+    # Top picks rows only (`top_picks=true`): why an assistant picked the role,
+    # each reason as its opening fact and the rest of its sentence, and when.
+    pick_reasons: list[PickReasonText] | SkipJsonSchema[None] = None
+    picked_at: datetime | SkipJsonSchema[None] = None
     # Relevance rows only: membership evidence, "exact" first on exact rows.
     matched_via: list[str] | SkipJsonSchema[None] = None
     match_class: MatchClass | SkipJsonSchema[None] = None
@@ -652,6 +663,8 @@ class DismissResponse(Built):
     job_id: int
     is_dismissed: bool
     reason: str | None = Field(json_schema_extra=text("code"))
+    #: The person's own words, when they gave any.
+    reason_text: str | None = Field(default=None, json_schema_extra=text("record"))
     company: str
     department: str | None
     team: str | None

@@ -47,6 +47,7 @@ from tracker.api.serializers.jobs import application_form_view, serialize_job
 from tracker.company_store import visible_company_names
 from tracker.db.models import (
     FEEDBACK_REASONS,
+    FEEDBACK_TEXT_MAX,
     CompareSelection,
     Favorite,
     Job,
@@ -74,12 +75,15 @@ from tracker.db.queries.jobs import (
     list_rows,
     open_in_scope_count_stmt,
     place_facet_count_stmt,
+    roles_within_count_stmt,
     row_context,
     unclassified_domain_count_stmt,
 )
 from tracker.db.queries.listing_history import lineage_members, listing_history, role_of
 from tracker.db.queries.reference_pay import package_rows
 from tracker.enrich.enricher import ESTIMATE_FIELDS
+from tracker.picks import brief as pick_briefs
+from tracker.picks import verdicts as pick_verdicts
 from tracker.plugins.registry import PAY_LEVELS, reader_providers
 from tracker.search.best_match import (
     IntentRanking,
@@ -141,8 +145,65 @@ async def list_jobs(
     sort: Annotated[JobSort, BeforeValidator(known_sort)] = DEFAULT_SORT,
     order: Annotated[SortOrder, BeforeValidator(known_order)] = "desc",
     include_related: bool = False,
+    top_picks: bool = False,
     limit: Annotated[int, Query(ge=1, le=500)] = 50,
     offset: Offset = 0,
+) -> dict:
+    listed = await _listed(
+        session, hidden, company=company, level_band=level_band, level_confidence=level_confidence, family=family,
+        track=track, location_group=location_group, domain=domain, workplace_type=workplace_type, status=status,
+        q=q, base_min=base_min, base_max=base_max, posted_within_days=posted_within_days,
+        new_today_only=new_today_only, repost_today_only=repost_today_only, favorites_only=favorites_only,
+        dismissed_only=dismissed_only, discloses_pay=discloses_pay, viewed=viewed, ids=ids, sort=sort, order=order,
+        include_related=include_related, top_picks=top_picks, limit=limit, offset=offset,
+    )
+    return await _with_pick_reasons(session, listed) if top_picks else listed
+
+
+async def _with_pick_reasons(session: AsyncSession, listed: dict) -> dict:
+    """The rows of a Top picks list, each with why it was picked and when."""
+    rows = [*listed["items"], *(listed.get("related_items") or [])]
+    picks = await pick_verdicts.standing_picks_of(session, [row["id"] for row in rows])
+    for row in rows:
+        pick = picks.get(row["id"])
+        if pick is not None:
+            row["pick_reasons"] = [
+                {"opening": reason.get("opening"), "rest": reason["rest"]} for reason in pick.reasons
+            ]
+            row["picked_at"] = pick.created_at
+    return listed
+
+
+async def _listed(
+    session: AsyncSession,
+    hidden: list[str],
+    *,
+    company: list[str] | None,
+    level_band: list[str] | None,
+    level_confidence: str | None,
+    family: list[str] | None,
+    track: list[str] | None,
+    location_group: list[str] | None,
+    domain: list[str] | None,
+    workplace_type: list[str] | None,
+    status: str | None,
+    q: str | None,
+    base_min: int | None,
+    base_max: int | None,
+    posted_within_days: int | None,
+    new_today_only: bool,
+    repost_today_only: bool,
+    favorites_only: bool,
+    dismissed_only: bool,
+    discloses_pay: bool,
+    viewed: str | None,
+    ids: list[int] | None,
+    sort: str,
+    order: str,
+    include_related: bool,
+    top_picks: bool,
+    limit: int,
+    offset: int,
 ) -> dict:
     params = {
         "company": company,
@@ -171,6 +232,19 @@ async def list_jobs(
         # plain list (a dependency override) knows none.
         "unfollowed": getattr(hidden, "unfollowed", frozenset()),
     }
+    ordering = None
+    if top_picks:
+        # Top picks is the Radar's list narrowed to the roles an assistant
+        # picked: every filter, the search and each sort work as they do there,
+        # and so do scope, hidden companies and Not for me. Newest means newest
+        # pick, since that is what arrived.
+        params["pick_ids"] = pick_verdicts.standing_pick_ids(
+            pick_briefs.body_of(await pick_briefs.active(session)), keep_removed=True,
+        )
+        # The Not-for-me lens keeps its own order, below.
+        if sort == DEFAULT_SORT and not dismissed_only:
+            picked = pick_verdicts.picked_at()
+            ordering = [picked.asc() if order == "asc" else picked.desc(), Job.id.desc()]
 
     # The Not-for-me lens is a review list, not a ranking: it reads in the
     # order the reader made the marks, newest first, whatever sort the board
@@ -206,7 +280,9 @@ async def list_jobs(
             ranking = await intent_ranking(session, params, intent_vec, limit, offset)
             return _intent_response(ranking, limit=limit, offset=offset)
 
-    page = await browse_jobs(session, params, sort=sort, order=order, limit=limit, offset=offset)
+    page = await browse_jobs(
+        session, params, sort=sort, order=order, limit=limit, offset=offset, ordering=ordering,
+    )
     response = {
         "total": page.total,
         "limit": limit,
@@ -598,26 +674,30 @@ async def _visible_company_options(session: AsyncSession) -> dict[str, dict]:
 
 
 @router.get("/api/facets", response_model=FacetsResponse)
-async def facets(session: SessionDep, hidden: OffBoardDep) -> dict:
-    """Filter-sidebar options with open-job counts."""
+async def facets(session: SessionDep, hidden: OffBoardDep, top_picks: bool = False) -> dict:
+    """Filter-sidebar options with open-job counts. With `top_picks`, the
+    options and counts of the Top picks list: only what the picks contain."""
+    within = None
+    if top_picks:
+        within = pick_verdicts.standing_pick_ids(pick_briefs.body_of(await pick_briefs.active(session)))
 
     # Every count is of open roles, a place set once, so the number
     # beside an option is the rows choosing it lists.
     async def grouped(column) -> dict[str, int]:
-        rows = (await session.execute(facet_count_stmt(column, hidden))).all()
+        rows = (await session.execute(facet_count_stmt(column, hidden, within))).all()
         return {str(k): v for k, v in rows if k is not None}
 
     bound_locations = {
-        str(k): v for k, v in (await session.execute(place_facet_count_stmt(hidden))).all()
+        str(k): v for k, v in (await session.execute(place_facet_count_stmt(hidden, within))).all()
     }
 
     # Worlds (domains), plus the unclassified bucket: NULL (pre-axis) and `{}`
     # (honestly unknown) rows are the fail-open volume and must stay findable,
     # not invisible.
     domain_counts = {
-        str(k): v for k, v in (await session.execute(domain_facet_count_stmt(hidden))).all()
+        str(k): v for k, v in (await session.execute(domain_facet_count_stmt(hidden, within))).all()
     }
-    unclassified = int(await session.scalar(unclassified_domain_count_stmt(hidden)) or 0)
+    unclassified = int(await session.scalar(unclassified_domain_count_stmt(hidden, within)) or 0)
     if unclassified:
         domain_counts[UNCLASSIFIED_KEY] = unclassified
 
@@ -626,15 +706,17 @@ async def facets(session: SessionDep, hidden: OffBoardDep) -> dict:
     enabled_locations = await get_enabled_locations(session)
 
     off_board = set(hidden)
+    by_company = await grouped(Job.company)
+    by_family, by_track = await grouped(Job.family), await grouped(Job.track)
     return {
         "companies": {
             slug: option
             for slug, option in (await _visible_company_options(session)).items()
-            if slug not in off_board
+            if slug not in off_board and (within is None or slug in by_company)
         },
         # Slugs only: the dashboard names them from its catalog.
-        "families": {g.slug: {} for g in ROLE_GROUPS},
-        "tracks": {t.slug: {} for t in TRACKS},
+        "families": {g.slug: {} for g in ROLE_GROUPS if within is None or by_family.get(g.slug)},
+        "tracks": {t.slug: {} for t in TRACKS if within is None or by_track.get(t.slug)},
         # Tracked AND bound. A filter option that can only ever return nothing
         # is noise here, and across every group it is a wall of it — the scope may
         # cover the planet, but the board offers the slice that actually has
@@ -673,15 +755,17 @@ async def facets(session: SessionDep, hidden: OffBoardDep) -> dict:
         # counts use. A facet VALUE whose count equals this narrows nothing
         # (a broad region can match the entire board), and an option that cannot narrow is noise in a column whose whole job
         # is narrowing.
-        "total": await session.scalar(open_in_scope_count_stmt(hidden)) or 0,
+        "total": await session.scalar(
+            open_in_scope_count_stmt(hidden) if within is None else roles_within_count_stmt(hidden, within)
+        ) or 0,
         "counts": {
-            "company": await grouped(Job.company),
+            "company": by_company,
             # A posting that names no level counts under `unstated`, never
             # under Mid-level; the filter selects it by that key.
             "level_band": await grouped(LEVEL_FACET_KEY),
             "level_confidence": await grouped(Job.level_confidence),
-            "family": await grouped(Job.family),
-            "track": await grouped(Job.track),
+            "family": by_family,
+            "track": by_track,
             "workplace_type": await grouped(Job.workplace_type),
             "location_group": bound_locations,
             "domain": domain_counts,
@@ -809,6 +893,8 @@ async def put_compare_selection(
 class FeedbackPayload(BaseModel):
     verdict: Literal["dismissed"]
     reason: str | None = Field(None, json_schema_extra=text("code"))
+    #: Why, in the person's own words, beside or instead of a reason code.
+    reason_text: str | None = Field(None, max_length=FEEDBACK_TEXT_MAX, json_schema_extra=text("record"))
 
 
 @router.put("/api/jobs/{job_id}/feedback", response_model=DismissResponse)
@@ -825,19 +911,22 @@ async def set_feedback(job_id: int, payload: FeedbackPayload, session: SessionDe
     job = await session.get(Job, job_id)
     if job is None:
         raise api_error(404, ErrorCode.JOB_NOT_FOUND, "job not found")
+    words = " ".join((payload.reason_text or "").split()) or None
     row = await session.scalar(select(JobFeedback).where(JobFeedback.job_id == job_id))
     if row is None:
-        session.add(JobFeedback(job_id=job_id, verdict=payload.verdict, reason=payload.reason))
+        session.add(JobFeedback(job_id=job_id, verdict=payload.verdict, reason=payload.reason, reason_text=words))
     else:
         # A re-mark after an undo is a NEW mark: the lens orders by it.
         row.verdict = payload.verdict
         row.reason = payload.reason
+        row.reason_text = words
         row.created_at = datetime.now(UTC)
     await session.commit()
     return {
         "job_id": job_id,
         "is_dismissed": True,
         "reason": payload.reason,
+        "reason_text": words,
         # Everything the dismiss flow needs to OFFER an employer-vocabulary
         # exclusion without another read. Offer only — a rule is
         # written solely by explicit confirmation via POST /api/scope/rules.

@@ -1,7 +1,7 @@
 {
  "_why": "The route table is frozen so the router split cannot add or drop an endpoint silently. `modelled_count` is the SECOND claim: how many of these routes declare a response_model. It is deliberately reported as 'N of M' rather than as a pass, because this gate does not verify response shapes it was never given. The number may only rise, except by the modelled routes a deliberate removal takes away.",
- "modelled_count": 235,
- "route_count": 237,
+ "modelled_count": 254,
+ "route_count": 256,
  "routes": [
   {
    "method": "DELETE",
@@ -47,6 +47,11 @@
    "method": "DELETE",
    "path": "/api/lineage/links/{link_id}",
    "response_schema": "LineageLinkRejected"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/picks/setup",
+   "response_schema": "PicksRemovedResponse"
   },
   {
    "method": "DELETE",
@@ -102,6 +107,21 @@
    "method": "GET",
    "path": "/api/agent/v1/applications/calendar",
    "response_schema": "Envelope[ApplicationCalendar]"
+  },
+  {
+   "method": "GET",
+   "path": "/api/agent/v1/background",
+   "response_schema": "Envelope[BackgroundView]"
+  },
+  {
+   "method": "GET",
+   "path": "/api/agent/v1/brief",
+   "response_schema": "Envelope[BriefView]"
+  },
+  {
+   "method": "GET",
+   "path": "/api/agent/v1/brief/history",
+   "response_schema": "Envelope[BriefHistory]"
   },
   {
    "method": "GET",
@@ -252,6 +272,26 @@
    "method": "GET",
    "path": "/api/agent/v1/opportunities/{opportunity_id}/similar",
    "response_schema": "Envelope[SimilarRoles]"
+  },
+  {
+   "method": "GET",
+   "path": "/api/agent/v1/picks",
+   "response_schema": "Envelope[PickList]"
+  },
+  {
+   "method": "GET",
+   "path": "/api/agent/v1/picks/runs/next",
+   "response_schema": "Envelope[Batch]"
+  },
+  {
+   "method": "GET",
+   "path": "/api/agent/v1/picks/samples",
+   "response_schema": "Envelope[Samples]"
+  },
+  {
+   "method": "GET",
+   "path": "/api/agent/v1/picks/status",
+   "response_schema": "Envelope[PicksStatus]"
   },
   {
    "method": "GET",
@@ -505,6 +545,16 @@
   },
   {
    "method": "GET",
+   "path": "/api/picks/removed",
+   "response_schema": "RemovedPicksResponse"
+  },
+  {
+   "method": "GET",
+   "path": "/api/picks/state",
+   "response_schema": "PicksStateResponse"
+  },
+  {
+   "method": "GET",
    "path": "/api/plugins",
    "response_schema": "PluginsResponse"
   },
@@ -695,6 +745,11 @@
   },
   {
    "method": "PATCH",
+   "path": "/api/agent/v1/brief",
+   "response_schema": "Envelope[BriefView]"
+  },
+  {
+   "method": "PATCH",
    "path": "/api/agent/v1/pursuits/{opportunity_id}",
    "response_schema": "Envelope[PursuitItem]"
   },
@@ -735,8 +790,28 @@
   },
   {
    "method": "POST",
+   "path": "/api/agent/v1/background/documents",
+   "response_schema": "Envelope[DocumentAdded]"
+  },
+  {
+   "method": "POST",
    "path": "/api/agent/v1/duplicates/verdicts",
    "response_schema": "Envelope[DuplicateVerdictsResult]"
+  },
+  {
+   "method": "POST",
+   "path": "/api/agent/v1/picks/runs",
+   "response_schema": "Envelope[RunStart]"
+  },
+  {
+   "method": "POST",
+   "path": "/api/agent/v1/picks/runs/finish",
+   "response_schema": "Envelope[RunSummary]"
+  },
+  {
+   "method": "POST",
+   "path": "/api/agent/v1/picks/verdicts",
+   "response_schema": "Envelope[DecideResult]"
   },
   {
    "method": "POST",
@@ -945,6 +1020,11 @@
   },
   {
    "method": "POST",
+   "path": "/api/picks/opened",
+   "response_schema": "PicksStateResponse"
+  },
+  {
+   "method": "POST",
    "path": "/api/plugins/{plugin_id}/approve",
    "response_schema": "PluginActionResponse"
   },
@@ -1040,6 +1120,16 @@
   },
   {
    "method": "PUT",
+   "path": "/api/agent/v1/background",
+   "response_schema": "Envelope[BackgroundView]"
+  },
+  {
+   "method": "PUT",
+   "path": "/api/agent/v1/picks/mode",
+   "response_schema": "Envelope[ModeState]"
+  },
+  {
+   "method": "PUT",
    "path": "/api/agent/v1/pursuits/{opportunity_id}",
    "response_schema": "Envelope[PursuitItem]"
   },
@@ -1122,6 +1212,11 @@
    "method": "PUT",
    "path": "/api/jobs/{job_id}/pursuit/comments/{comment_id}",
    "response_schema": "ApplicationCommentResponse"
+  },
+  {
+   "method": "PUT",
+   "path": "/api/picks/mode",
+   "response_schema": "PicksStateResponse"
   },
   {
    "method": "PUT",

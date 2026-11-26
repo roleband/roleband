@@ -113,3 +113,24 @@ async def test_a_stored_row_that_no_longer_fits_never_reaches_the_dashboard(db_s
         "pipeline.board-hidden": ["closed"],
         "workspace.applied": {"hidden": [], "order": ["next", "notes"]},
     }
+
+
+@pytest.mark.asyncio
+async def test_the_top_picks_screen_keeps_filters_of_its_own_apart_from_the_radars(api_client):
+    radar = {"companies": ["openai"], "remote": True}
+    picks = {"companies": ["stripe"], "level_band": ["principal"]}
+    assert (await api_client.put(f"{URL}/filters.board", json={"value": radar})).status_code == 200
+
+    saved_filters = await api_client.put(f"{URL}/filters.top-picks", json={"value": picks})
+    saved_open = await api_client.put(f"{URL}/filters.top-picks:open", json={"value": {"company": True}})
+
+    assert (saved_filters.status_code, saved_open.status_code) == (200, 200), saved_filters.text
+    # A reload reads them back, and the Radar's own are as they were.
+    assert await saved(api_client) == {
+        "filters.board": radar, "filters.top-picks": picks, "filters.top-picks:open": {"company": True},
+    }
+    # A name no screen has is still refused, and saves nothing.
+    for unknown in ("filters.top-picks:closed", "filters.top_picks", "filters.picks"):
+        refused = await api_client.put(f"{URL}/{unknown}", json={"value": {}})
+        assert refused.status_code == 422 and refused.json()["detail"]["code"] == "invalid-input"
+    assert set(await saved(api_client)) == {"filters.board", "filters.top-picks", "filters.top-picks:open"}

@@ -500,6 +500,39 @@ TABLE_OWNERS: dict[str, TableOwnership] = {
         writers=("tracker/api/routers/jobs.py",),
         readers=("tracker/db/queries/jobs.py",),
     ),
+    # Top picks: who the person is, what they want, and what an assistant
+    # judged. Nothing upstream can rebuild any of it.
+    "candidate_document": TableOwnership(
+        claim="user",
+        lifecycle="authored",
+        writers=("tracker/picks/background.py",),
+        readers=("tracker/picks/background.py",),
+    ),
+    "candidate_background": TableOwnership(
+        claim="user",
+        lifecycle="authored",
+        writers=("tracker/picks/background.py",),
+        readers=("tracker/picks/background.py",),
+    ),
+    "pick_brief": TableOwnership(
+        claim="user",
+        lifecycle="authored",
+        writers=("tracker/picks/brief.py",),
+        readers=("tracker/picks/brief.py",),
+    ),
+    "pick_run": TableOwnership(
+        claim="user",
+        lifecycle="authored",
+        # `verdicts.py` counts a run's verdicts on its row as it saves them.
+        writers=("tracker/picks/runs.py", "tracker/picks/verdicts.py"),
+        readers=("tracker/picks/runs.py", "tracker/picks/brief.py"),
+    ),
+    "pick_verdict": TableOwnership(
+        claim="user",
+        lifecycle="authored",
+        writers=("tracker/picks/verdicts.py",),
+        readers=("tracker/picks/verdicts.py",),
+    ),
     "profile_claims": TableOwnership(
         claim="user",
         lifecycle="authored",
@@ -600,10 +633,12 @@ TABLE_OWNERS: dict[str, TableOwnership] = {
         readers=("tracker/api/routers/ops.py",),
     ),
     # One row per agent write, in the write's own transaction; replayed by
-    # a retry with the same key, never updated.
+    # a retry with the same key, never updated. A receipt holds its write's
+    # answer, so the person removing what a write saved about them deletes
+    # that write's receipts (`receipts.forget`); nothing else does.
     "command_receipts": TableOwnership(
         claim="user",
-        lifecycle="append_only",
+        lifecycle="operational",
         writers=("tracker/agents/receipts.py",),
         readers=("tracker/agents/receipts.py",),
     ),
