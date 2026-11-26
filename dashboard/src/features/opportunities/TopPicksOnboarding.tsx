@@ -58,19 +58,22 @@ const HOSTS: readonly Host[] = ["claude-code", "codex"];
  *  is at, waiting for roles to exist, or the one after the current stage. */
 export type SetupRow = { id: Exclude<SetupStepId, "done">; state: "saved" | "now" | "waits" | "next" };
 
-/** The stages onboarding lists, in order: every saved one, any that wait for
- *  the first scan, the one the conversation is at, and the one after it. The
- *  rest stay unnamed until the conversation reaches them. */
+/** The stages onboarding lists, in order: every saved one, every one that
+ *  waits for the first scan wherever it falls, the one the conversation is
+ *  at, and the one after it. The rest stay unnamed until the conversation
+ *  reaches them. */
 export function setupRows(setup: Setup): SetupRow[] {
   const rows: SetupRow[] = [];
+  let named = false;
   for (const step of setup.steps) {
     if (step.id === "done") break;
-    if (step.done) rows.push({ id: step.id, state: "saved" });
-    else if (setup.deferred.includes(step.id)) rows.push({ id: step.id, state: "waits" });
+    if (setup.deferred.includes(step.id) && !step.done) rows.push({ id: step.id, state: "waits" });
+    else if (named) continue;
+    else if (step.done) rows.push({ id: step.id, state: "saved" });
     else if (step.id === setup.next_step) rows.push({ id: step.id, state: "now" });
     else {
       rows.push({ id: step.id, state: "next" });
-      break;
+      named = true;
     }
   }
   return rows;
@@ -110,7 +113,7 @@ export function TopPicksOnboarding({ picks, onPicksChange }: {
     const picksRead = ++started.current.picks;
     api.picksState()
       .then((next) => {
-        if (picksRead < answered.current.picks) return;
+        if (picksRead <= answered.current.picks) return;
         answered.current.picks = picksRead;
         onPicksChange(next);
       })
@@ -118,13 +121,19 @@ export function TopPicksOnboarding({ picks, onPicksChange }: {
     const accessRead = ++started.current.access;
     api.agentAccess()
       .then((next) => {
-        if (accessRead < answered.current.access) return;
+        if (accessRead <= answered.current.access) return;
         answered.current.access = accessRead;
         setAccess(next);
       })
       .catch(() => {});
   }, [onPicksChange]);
   useVisibleInterval(poll, ONBOARD_POLL_MS);
+  // A save answers for every read started before it: a read that left before
+  // the save cannot put the old access back.
+  const saved = useCallback((next: AgentAccessState) => {
+    answered.current.access = started.current.access;
+    setAccess(next);
+  }, []);
 
   const steps = [picksOnboardStepSay(), picksOnboardStepArrive()];
   if (picks.setup.started) {
@@ -136,6 +145,7 @@ export function TopPicksOnboarding({ picks, onPicksChange }: {
         steps={steps}
         current={0}
       >
+        {access && setupRefused(access) && <AccessLine access={access} onAccess={saved} />}
         <SetupRows setup={picks.setup} host={host} />
         <div className="picks-onboard-resume">
           <span>{picksOnboardResume()}</span>
@@ -153,7 +163,7 @@ export function TopPicksOnboarding({ picks, onPicksChange }: {
       current={0}
       footnote={picksOnboardFootnote()}
     >
-      <Invitation access={access} onAccess={setAccess} />
+      <Invitation access={access} onAccess={saved} />
     </Onboarding>
   );
 }

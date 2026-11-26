@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import func, select, update
+from sqlalchemy import event, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from tests.barriers import until_waiting
@@ -44,6 +44,7 @@ from tracker.db.models import (
 from tracker.picks import background as background_store
 from tracker.picks import brief as briefs
 from tracker.picks import mode as picks_mode
+from tracker.picks import setup as setup_store
 from tracker.picks.background import Reading
 from tracker.picks.brief import Patch
 from tracker.picks.health import ABANDONED_AFTER
@@ -888,6 +889,29 @@ async def test_the_app_reads_a_stored_cv_as_setup_begun_and_the_stages_that_need
     db_session.add(make_job("open", first_seen=datetime.now(UTC), last_seen=datetime.now(UTC)))
     await db_session.commit()
     assert (await _state(api_client))["setup"]["deferred"] == [], "an open role lets calibration and the trial run"
+
+
+async def test_setup_reads_the_active_brief_and_the_draft_in_one_statement(db_session, workspace):
+    """A confirm turns the draft into the active brief in one commit; two reads
+    on either side of it would see neither. One statement sees one of them."""
+    await briefs.patch(db_session, Patch(parts={"budget": 5}, reason="Fewer picks.", if_revision=0, target="draft"))
+    await db_session.commit()
+    seen: list[str] = []
+
+    def record(_conn, _cursor, statement, _parameters, _context, _executemany):
+        seen.append(statement)
+
+    engine = db_session.bind.sync_engine
+    event.listen(engine, "before_cursor_execute", record)
+    try:
+        got = await setup_store.stored(db_session, mode_on=True)
+    finally:
+        event.remove(engine, "before_cursor_execute", record)
+
+    reads = [statement for statement in seen if "FROM pick_brief " in statement or "FROM pick_brief\n" in statement]
+    assert len(reads) == 1, reads
+    assert got.facts.has_active_brief and got.facts.body.budget == 5, "the draft is the brief being set up"
+    assert got.started
 
 
 async def test_status_says_what_the_app_already_knows_and_what_waits(api_client, db_session, workspace):

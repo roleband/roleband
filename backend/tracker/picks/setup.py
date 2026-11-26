@@ -21,7 +21,7 @@ from typing import Literal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracker.db.models import CandidateDocument, Job
+from tracker.db.models import CandidateDocument, Job, PickBrief
 from tracker.db.queries.jobs import apply_job_filters
 from tracker.picks import background, queue, runs
 from tracker.picks import brief as briefs
@@ -91,7 +91,13 @@ class Stored:
 
 async def stored(session: AsyncSession, *, mode_on: bool) -> Stored:
     """Read the facts setup is derived from. `mode_on`: the mode's state is on."""
-    active, draft = await briefs.active(session), await briefs.draft(session)
+    # One statement, so a confirm that turns the draft into the active brief
+    # between two reads cannot hide both.
+    held = {
+        brief.status: brief
+        for brief in await session.scalars(select(PickBrief).where(PickBrief.status.in_(("active", "draft"))))
+    }
+    active, draft = held.get("active"), held.get("draft")
     reading = await background.newest(session)
     open_role = await session.scalar(apply_job_filters(select(Job.id), await queue.board_filters(session)).limit(1))
     finished = await runs.last_finished(session)

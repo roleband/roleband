@@ -169,8 +169,9 @@ test.describe("layout", () => {
     await installOnboarding(page, { picks: picksStateFixture({ setup }), access: connected() });
     await page.goto("/top-picks");
     const rows = page.locator(".picks-setup-row");
-    await expect(rows).toHaveCount(10);
-    await expect(page.locator(".picks-setup-row.is-waits")).toContainText(msg("picks-onboard-row-waits"));
+    await expect(rows).toHaveCount(11);
+    await expect(page.locator(".picks-setup-row.is-waits")).toHaveCount(2);
+    await expect(page.locator(".picks-setup-row.is-waits").first()).toContainText(msg("picks-onboard-row-waits"));
     expect(overlapping(await laidOut(page.locator(".picks-setup-rows"), ".picks-setup-row > *"))).toEqual([]);
   });
 

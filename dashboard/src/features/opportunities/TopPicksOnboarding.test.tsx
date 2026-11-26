@@ -74,14 +74,14 @@ describe("setupRows", () => {
     ]);
   });
 
-  it("names a stage that needs roles as waiting where it falls, while setup goes on past it", () => {
+  it("names every stage that needs roles as waiting where it falls, before the current stage and after the next", () => {
     const setup = picksSetupFixture("budget", {
       saved: ["connect", "background", "situation", "bar", "rules", "tradeoffs", "targets"],
       deferred: ["calibration", "trial"],
     });
     expect(setupRows(setup).map((row) => `${row.id}:${row.state}`)).toEqual([
       "connect:saved", "background:saved", "situation:saved", "bar:saved", "rules:saved", "tradeoffs:saved",
-      "targets:saved", "calibration:waits", "budget:now", "confirm:next",
+      "targets:saved", "calibration:waits", "budget:now", "confirm:next", "trial:waits",
     ]);
   });
 
@@ -263,6 +263,24 @@ describe("TopPicksOnboarding while setup is under way", () => {
     expect(rows.filter((row) => row.textContent?.includes(msg("picks-onboard-row-saved")))).toHaveLength(4);
   });
 
+  it("offers the switch for the setup's saves while they are refused, above the stages", async () => {
+    agentAccess.mockResolvedValue({ ...access(), allow_writes: false });
+    patchAgentAccess.mockResolvedValue(access());
+    renderOnboarding(underWay("rules"));
+    await settle();
+    const tuning = screen.getByRole("checkbox", { name: msg("ai-access-dialog-tuning-the-radar") });
+    expect(screen.getByRole("heading", { level: 2, name: msg("picks-onboard-under-way") })).toBeVisible();
+    await userEvent.click(tuning);
+    expect(patchAgentAccess).toHaveBeenCalledExactlyOnceWith({ groups: { tuning_radar: "on" } });
+    expect(screen.queryByRole("checkbox")).toBeNull();
+  });
+
+  it("shows no switch while setup runs with its saves allowed", async () => {
+    renderOnboarding(underWay("rules"));
+    await settle();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+  });
+
   it("names the assistant holding the conversation: the one that called last", async () => {
     agentAccess.mockResolvedValue(access({
       "claude-code": { connection: "connected", last_call_at: "2026-11-26T09:00:00Z" },
@@ -321,6 +339,31 @@ describe("TopPicksOnboarding's reads", () => {
       await act(async () => answers[1](second));
       expect(onPicksChange).toHaveBeenLastCalledWith(second);
       expect(onPicksChange).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps a saved switch when a read that left before the save answers after it", async () => {
+    vi.useFakeTimers();
+    try {
+      const off = access({}, false);
+      let answerLate: (state: AgentAccessState) => void = () => {};
+      agentAccess
+        .mockResolvedValueOnce(off)
+        .mockReturnValueOnce(new Promise((resolve) => { answerLate = resolve; }));
+      setAgentAccess.mockResolvedValue(access());
+      renderOnboarding();
+      await settle();
+      const allow = screen.getByRole("checkbox", { name: msg("ai-assistants-card-allow-assistant-apps-to-connect") });
+      // The next read leaves while access is still off.
+      await act(async () => {
+        vi.advanceTimersByTime(ONBOARD_POLL_MS);
+      });
+      await act(async () => allow.click());
+      expect(screen.queryByRole("checkbox")).toBeNull();
+      await act(async () => answerLate(off));
+      expect(screen.queryByRole("checkbox")).toBeNull();
     } finally {
       vi.useRealTimers();
     }
