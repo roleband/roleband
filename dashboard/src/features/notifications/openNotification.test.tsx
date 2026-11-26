@@ -8,7 +8,7 @@
  * is mocked at the boundary and `openJob` is the navigation seam. */
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api, type Notification, type NotificationList } from "../../api";
 import { ApiError } from "../../api/transport";
@@ -107,5 +107,62 @@ describe("opening a role notification", () => {
     await user.click(await screen.findByText("Already read at Google"));
     await waitFor(() => expect(nav.openJob).toHaveBeenCalledWith(202, "google"));
     expect(api.markNotificationRead).not.toHaveBeenCalled();
+  });
+});
+
+/* A top pick is opened where its reasons are, on Top picks, not as the bare
+ * posting it names; a note that the checks fell behind has no posting at
+ * all and opens Top picks too. */
+describe("opening a Top picks notification", () => {
+  const picksFeed = (): NotificationList => ({
+    total: 3, limit: PAGE_SIZE, offset: 0, unread_count: 3, high_unread_count: 2,
+    category_counts: { top_pick: 1, picks_stalled: 1, pursuit_due: 1 },
+    items: [
+      row({ id: 7, category: "top_pick", source_type: "pick", title: "New top pick at Stripe", job_id: 303, company: "stripe" }),
+      row({ id: 8, category: "picks_stalled", source_type: "picks", priority: "normal", title: "No top picks check has run yet" }),
+      row({ id: 9, title: "Follow up with OpenAI", job_id: 101, company: "openai" }),
+    ],
+  });
+  const mountWithScreens = () =>
+    render(
+      <ToastProvider>
+        <MemoryRouter initialEntries={["/notifications"]}>
+          <Routes>
+            <Route path="/notifications" element={<NotificationScreen />} />
+            <Route path="/top-picks" element={<p>The Top picks screen</p>} />
+          </Routes>
+        </MemoryRouter>
+      </ToastProvider>,
+    );
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(api.notifications).mockImplementation(async () => picksFeed());
+    vi.mocked(api.markNotificationRead).mockImplementation(async (id) => row({ id, read_at: "2026-07-13T02:00:00Z" }));
+  });
+
+  it("opens Top picks for a pick, not the posting it names, and marks it read", async () => {
+    const user = userEvent.setup();
+    mountWithScreens();
+    await user.click(await screen.findByText("New top pick at Stripe"));
+    expect(await screen.findByText("The Top picks screen")).toBeInTheDocument();
+    expect(nav.openJob).not.toHaveBeenCalled();
+    expect(api.markNotificationRead).toHaveBeenCalledWith(7, true);
+  });
+
+  it("opens Top picks for checks that fell behind", async () => {
+    const user = userEvent.setup();
+    mountWithScreens();
+    await user.click(await screen.findByText("No top picks check has run yet"));
+    expect(await screen.findByText("The Top picks screen")).toBeInTheDocument();
+    expect(api.markNotificationRead).toHaveBeenCalledWith(8, true);
+  });
+
+  it("still opens any other notification's role", async () => {
+    const user = userEvent.setup();
+    mountWithScreens();
+    await user.click(await screen.findByText("Follow up with OpenAI"));
+    expect(nav.openJob).toHaveBeenCalledWith(101, "openai");
+    expect(screen.queryByText("The Top picks screen")).not.toBeInTheDocument();
   });
 });

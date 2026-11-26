@@ -39,7 +39,7 @@ from tracker.platform.local_zone import local_zone
 from tracker.search import fit as fit_scale
 from tracker.search.fit import fit_expr
 from tracker.semantic.intent import build_intent_vector
-from tracker.settings_store import get_intent_embedding
+from tracker.settings_store import get_intent_embedding, get_top_picks_settings
 
 logger = logging.getLogger(__name__)
 
@@ -292,7 +292,15 @@ async def generate_daily_digest(
     updates quietly in place.
 
     `names` is the register's `slug -> display`, read here when not passed.
+
+    Nothing is written while Top picks is on: the person's assistant reads
+    every new role and rings for the few worth a move (`top_picks.py`), and a
+    daily row of everything new would ring for the rest. A row already written
+    stays as it was. Rows about roles the person saved or pursues are not the
+    digest's and ring either way.
     """
+    if (await get_top_picks_settings(session)).state == "on":
+        return 0
     target = day or local_today()
     matches = await collect_digest_matches(session, target, tracked)
     if names is None and matches:
