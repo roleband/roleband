@@ -26,8 +26,11 @@ describe("notifIconMeta", () => {
       label: "Coverage problem at a company you follow",
     });
 
-    expect(notifIconMeta("top_pick")).toEqual({ icon: "crosshair", label: "New top pick" });
-    expect(notifIconMeta("picks_stalled")).toEqual({ icon: "calendarClock", label: "Checks fell behind" });
+    expect(notifIconMeta("top_pick")).toEqual({ icon: "crosshair", label: msg("shell-notif-top-pick") });
+    expect(notifIconMeta("picks_stalled")).toEqual({
+      icon: "calendarClock",
+      label: msg("shell-notif-picks-stalled"),
+    });
 
     // Every mapped category resolves to a non-empty icon name and a distinct one
     // per category (the whole point: no two kinds share a glyph).

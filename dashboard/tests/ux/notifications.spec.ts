@@ -1,5 +1,5 @@
 import { installJobDetailRoutes } from "./boardHarness";
-import { expect, test } from "./fixtures";
+import { expect, mockGet, test } from "./fixtures";
 import { detail } from "./boardHarness";
 import { installSettingsRoutes } from "./settingsHarness";
 import { installTopPicksRoutes } from "./topPicksHarness";
@@ -324,7 +324,7 @@ test("a top pick's notification opens Top picks, not its posting", async ({ page
     title: "New top pick at OpenAI", body: "Staff PM", job_id: 101, company: "openai", run_id: null,
     source_type: "pick", read_at: "2026-11-26T09:30:00Z", dismissed_at: null, meta: {},
   };
-  await page.route("/api/notifications?**", (route) =>
+  await mockGet(page, "/api/notifications?**", (route) =>
     route.fulfill({ json: { ...notifList, total: 1, items: [pick], category_counts: { top_pick: 1 } } }),
   );
   await page.goto("/notifications");

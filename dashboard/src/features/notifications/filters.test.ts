@@ -1,3 +1,4 @@
+import { msg } from "../../test/msg";
 import { describe, expect, it } from "vitest";
 import {
   CATEGORIES,
@@ -61,8 +62,8 @@ describe("notification filter semantics", () => {
     // Top picks: a pick is news about a role, filed with the roles; the
     // checks falling behind is about what keeps the radar current, filed
     // with the scans.
-    expect(categoryLabel("top_pick")).toBe("Top picks");
-    expect(categoryLabel("picks_stalled")).toBe("Top picks checks");
+    expect(categoryLabel("top_pick")).toBe(msg("notifications-category-top-picks"));
+    expect(categoryLabel("picks_stalled")).toBe(msg("notifications-category-picks-checks"));
     expect(splitCategories(["picks_stalled", "top_pick"])).toEqual({ sync: ["picks_stalled"], role: ["top_pick"] });
     // A stored category outside the taxonomy falls through to the de-slugger
     // rather than crashing, so every stored row still renders.
