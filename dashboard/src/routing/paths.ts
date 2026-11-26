@@ -29,6 +29,10 @@ export function coverBackground(location: { pathname: string; state: unknown }):
 
 export const COMPARE_ROUTE = "/compare";
 
+/** Passed over: what an assistant read this week and did not pick, a page of
+ *  Top picks reached from its list's end. */
+export const PASSED_OVER_ROUTE = "/top-picks/passed";
+
 /** The Pipeline view a role was opened over, or null. A role opened from
  *  Considering, the Board or Up next is a page of the Pipeline: it opens
  *  beside the rail, which keeps the view marked, rather than over the whole

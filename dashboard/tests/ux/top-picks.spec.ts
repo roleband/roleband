@@ -14,6 +14,8 @@ import { healthyState, installTopPicksRoutes, pickFixture, picksList } from "./t
 const railItem = (page: Page) => page.locator('.nav-rail a[href="/top-picks"]');
 /** The end line's first sentence for the harness's last check, two hours ago by Claude Code. */
 const checked = () => msg("picks-end-checked", { when: relative(-2 * 3600), host: msg("picks-host", { host: "claude-code" }) });
+/** The end line's last sentence: how many roles were passed over this week, the count a link. */
+const passed = (count: number) => msg("picks-end-passed-only", { passed: msg("picks-end-passed", { count }) });
 
 /** The column heads, and the first row's cells in order, as the page draws them. */
 async function rowShape(page: Page) {
@@ -199,7 +201,7 @@ test("nothing cleared the bar: the empty state says how many roles were read, an
   await page.goto("/top-picks");
   await expect(page.getByText(msg("picks-empty-title"))).toBeVisible();
   await expect(page.getByText(msg("picks-empty-read", { count: 222 }))).toBeVisible();
-  await expect(page.locator(".board-list-end")).toHaveText(`${checked()} ${msg("picks-end-passed", { count: 41 })}`);
+  await expect(page.locator(".board-list-end")).toHaveText(`${checked()} ${passed(41)}`);
 });
 
 test("picks the filters hide are counted, and Reset all brings them back", async ({ page }) => {
@@ -303,12 +305,13 @@ test("paused checks say so above the list, and Resume checks turns them back on"
   expect(modes).toEqual([{ state: "on" }]);
 });
 
-test("the list's end names the last check and how many roles were passed over, with nothing to click", async ({ page }) => {
+test("the list's end names the last check, and how many roles were passed over as the way to them", async ({ page }) => {
   await installTopPicksRoutes(page);
   await page.goto("/top-picks");
   const end = page.locator(".board-list-end");
-  await expect(end).toHaveText(`${checked()} ${msg("picks-end-passed", { count: 41 })}`);
-  await expect(end.getByRole("link")).toHaveCount(0);
+  await expect(end).toHaveText(`${checked()} ${passed(41)}`);
+  await expect(end.getByRole("link")).toHaveText([msg("picks-end-passed", { count: 41 })]);
+  await expect(end.getByRole("link")).toHaveAttribute("href", "/top-picks/passed");
   const lastRow = (await page.locator(".job-row").last().boundingBox())!;
   expect((await end.boundingBox())!.y).toBeGreaterThanOrEqual(lastRow.y + lastRow.height);
 });

@@ -2983,6 +2983,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/picks/passed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Passed Over
+         * @description What the assistant read in the last seven days and did not pick: the
+         *     near misses with the one thing that failed, the passes by why, and what
+         *     the hard rules ruled out before any reading.
+         */
+        get: operations["passed_over_api_picks_passed_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/picks/removed": {
         parameters: {
             query?: never;
@@ -12043,6 +12065,17 @@ export interface components {
             /** Shared */
             shared: number;
         };
+        /** NearMiss */
+        NearMiss: {
+            /** Job Id */
+            job_id: number;
+            /**
+             * Judged At
+             * Format: date-time
+             */
+            judged_at: string;
+            reason: components["schemas"]["PickReason"];
+        };
         /**
          * NextAction
          * @description A typed suggestion of an operation to call next. Never a shell string,
@@ -12799,6 +12832,36 @@ export interface components {
              * @enum {string}
              */
             equity: "posted" | "company_rule" | "measured" | "estimated" | "mixed";
+        };
+        /** PassGroup */
+        PassGroup: {
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "hard_rule" | "out_of_reach" | "below_level" | "not_better" | "not_real" | "off_direction" | "other";
+            /** Count */
+            count: number;
+        };
+        /**
+         * PassedOverResponse
+         * @description `GET /api/picks/passed`: what the assistant read in the last seven days
+         *     and did not pick, and what the hard rules ruled out before any reading.
+         *     The picks the person removed are `GET /api/picks/removed`.
+         */
+        PassedOverResponse: {
+            /** Judged Rules */
+            judged_rules: string[];
+            /** Near Misses */
+            near_misses: components["schemas"]["NearMiss"][];
+            /** Passed This Week */
+            passed_this_week: number;
+            /** Passes */
+            passes: components["schemas"]["PassGroup"][];
+            /** Ruled Out */
+            ruled_out: number;
+            /** Ruled Out By Rule */
+            ruled_out_by_rule: components["schemas"]["RuleCount"][];
         };
         /** Pay */
         Pay: {
@@ -15356,6 +15419,13 @@ export interface components {
             origin: "none" | "on_device" | "this_mac" | "cloud";
             /** Provider */
             provider: string;
+        };
+        /** RuleCount */
+        RuleCount: {
+            /** Count */
+            count: number;
+            /** Rule */
+            rule: string;
         };
         /** RuleShareView */
         RuleShareView: {
@@ -23474,6 +23544,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PicksStateResponse"];
+                };
+            };
+        };
+    };
+    passed_over_api_picks_passed_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PassedOverResponse"];
                 };
             };
         };

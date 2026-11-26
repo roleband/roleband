@@ -13,16 +13,20 @@ from tracker.api.deps import SessionDep
 from tracker.api.errors import ErrorCode, api_error
 from tracker.api.schemas.picks import (
     LastCheck,
+    NearMiss,
+    PassedOverResponse,
+    PassGroup,
     PickReason,
     PicksModeInput,
     PicksRemovedResponse,
     PicksStateResponse,
     RemovedPick,
     RemovedPicksResponse,
+    RuleCount,
 )
 from tracker.db.queries.companies import display_names
 from tracker.picks import brief as briefs
-from tracker.picks import mode, runs, verdicts
+from tracker.picks import mode, queue, runs, verdicts
 from tracker.picks.brief import BriefBody
 from tracker.platform import agent_hosts
 from tracker.settings_store import DAILY_CAP_MAX, get_top_picks_settings
@@ -55,6 +59,37 @@ async def removed_picks(session: SessionDep) -> RemovedPicksResponse:
         )
         for item in rows if item.reaction is not None
     ])
+
+
+@router.get("/api/picks/passed", response_model=PassedOverResponse)
+async def passed_over(session: SessionDep) -> PassedOverResponse:
+    """What the assistant read in the last seven days and did not pick: the
+    near misses with the one thing that failed, the passes by why, and what
+    the hard rules ruled out before any reading."""
+    since = datetime.now(UTC) - timedelta(days=7)
+    body = briefs.body_of(await briefs.active(session))
+    week = await verdicts.tally_since(session, since)
+    near = await verdicts.listed(session, "near_misses", body=body, since=since)
+    by_code = await verdicts.passes_by_code(session, since)
+    out = await queue.ruled_out_since(session, body, since)
+    return PassedOverResponse(
+        passed_this_week=week.passed_over,
+        near_misses=[
+            NearMiss(
+                job_id=item.job.id, judged_at=item.verdict.created_at,
+                reason=PickReason(opening=item.verdict.reasons[0].get("opening"), rest=item.verdict.reasons[0]["rest"]),
+            )
+            for item in near
+            if item.verdict.reasons and not (item.reaction is not None and item.reaction.kind == "not_for_me")
+        ],
+        passes=[
+            PassGroup(code=code, count=count)  # type: ignore[arg-type]
+            for code, count in sorted(by_code.items(), key=lambda pair: (-pair[1], pair[0]))
+        ],
+        judged_rules=[rule.text for rule in briefs.judged_rules(body)],
+        ruled_out=out.total,
+        ruled_out_by_rule=[RuleCount(rule=rule.text, count=count) for rule, count in out.by_rule if count],
+    )
 
 
 async def _state(session: AsyncSession) -> PicksStateResponse:

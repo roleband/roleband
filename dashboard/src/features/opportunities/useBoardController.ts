@@ -383,8 +383,10 @@ export function useBoardController({
     [clearTtl]
   );
 
+  /** Not for me, or restore on the Not-for-me lens. `reason` is the code the
+   *  person chose for why, when the screen asked. */
   const dismiss = useCallback(
-    (job: Job) => {
+    (job: Job, reason?: string | null) => {
       if (job.is_dismissed) {
         // Not-for-me lens: the same button restores.
         mutateList((prev) => (prev ? removeJob(prev, job.id) : prev));
@@ -394,7 +396,7 @@ export function useBoardController({
       const seam = seamFor(list, job.id);
       mutateList((prev) => (prev ? removeJob(prev, job.id) : prev));
       api
-        .dismissJob(job.id)
+        .dismissJob(job.id, reason)
         .then(() => {
           invalidateBaseline();
           if (!mounted.current) return;

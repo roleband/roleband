@@ -1,6 +1,6 @@
 import { createElement, lazy } from "react";
 import type { ComponentProps, ComponentType } from "react";
-import { COMPARE_ROUTE, positionKey } from "./routing/paths";
+import { COMPARE_ROUTE, PASSED_OVER_ROUTE, positionKey } from "./routing/paths";
 
 /**
  * Route COMPONENTS, one lazy chunk per screen.
@@ -102,6 +102,12 @@ export const ActivityRoute = preloadable(() =>
   import("./features/intelligence/activity/ActivityScreen").then((m) => ({ default: m.ActivityScreen })),
 );
 
+/** Passed over (`PASSED_OVER_ROUTE`), a page of Top picks: the rail keeps
+ *  Top picks marked while it is open. */
+export const PassedOverRoute = preloadable(() =>
+  import("./features/opportunities/PassedOverScreen").then((m) => ({ default: m.PassedOverScreen })),
+);
+
 /** One plugin's settings (`/settings/plugins/:pluginId`): the same Settings
  *  screen and chunk, mounted on the two-segment address it reads. */
 export const SettingsItemRoute = ROUTE_COMPONENTS["/settings"];
@@ -111,6 +117,7 @@ export const SettingsItemRoute = ROUTE_COMPONENTS["/settings"];
 export function preloadRoute(pathname: string): void {
   if (positionKey(pathname)) return PositionRoute.preload();
   if (pathname === COMPARE_ROUTE) return CompareRoute.preload();
+  if (pathname === PASSED_OVER_ROUTE) return PassedOverRoute.preload();
   const path = Object.keys(ROUTE_COMPONENTS).find((tab) =>
     tab === "/" ? pathname === "/" : pathname === tab || pathname.startsWith(`${tab}/`),
   );

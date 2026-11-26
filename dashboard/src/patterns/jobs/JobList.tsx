@@ -67,9 +67,13 @@ function HeaderCell({
 export function JobList({
   children,
   sortControl,
+  columns = true,
 }: {
   children: React.ReactNode;
   sortControl?: SortControl;
+  /** The head that names the columns. A page of several short lists under
+   *  their own headings leaves it off. */
+  columns?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const labels: Record<string, string> = {
@@ -99,7 +103,7 @@ export function JobList({
 
   return (
     <div className="job-list" ref={ref} onKeyDown={onKeyDown}>
-      <div className="list-head" data-selection="chrome" aria-hidden={sortControl ? undefined : true}>
+      {columns && <div className="list-head" data-selection="chrome" aria-hidden={sortControl ? undefined : true}>
         <span>{jobsHeadRole()}</span>
         {SORTABLE_HEADERS.map((h) => (
           <HeaderCell
@@ -112,7 +116,7 @@ export function JobList({
           />
         ))}
         <span />
-      </div>
+      </div>}
       {children}
     </div>
   );

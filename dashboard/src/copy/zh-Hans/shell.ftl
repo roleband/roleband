@@ -36,6 +36,7 @@ shell-tab-settings-language = 语言
 shell-route-welcome = 欢迎
 shell-route-compare = 对比
 shell-route-dashboard = RoleBand
+shell-route-passed-over = 已略过
 shell-skip-to-content = 跳到主要内容
 shell-topbar-aria = 顶部栏
 shell-breadcrumb-aria = 面包屑导航

@@ -7,6 +7,7 @@ import {
   picksEmptyTitle,
   picksEndChecked,
   picksEndPassed,
+  picksEndPassedOnly,
   picksEndStopped,
   picksEndStoppedPlain,
   picksEndWaiting,
@@ -51,6 +52,8 @@ import { JobList } from "../../patterns/jobs/JobList";
 import { useSearchParamList } from "../../routing/useSearchParamList";
 import { AsyncBoundary, Button, Content, EmptyState, Msg, RAIL_QUERY, RouterLink, useToast } from "../../ui";
 import { RowSkeleton } from "../../ui/RowSkeleton";
+import { PASSED_OVER_ROUTE } from "../../routing/paths";
+import { PickFeedbackDialog, type PickFeedbackReason } from "./PickFeedbackDialog";
 import { BoardFilters } from "./BoardFilters";
 import { BoardToolbar } from "./BoardToolbar";
 import { NO_LENSES, RESET_FILTERS, TOP_PICKS_MEMORY_SCOPE, countNarrowingFilters } from "./filters";
@@ -100,6 +103,13 @@ function TopPicksList({ picks, rootRef, onPicksChange }: {
     total, isDirect, relatedTotal, expanded, pageableTotal,
     update, updateFilters, onSort, toggleFav, dismiss, dismissal, undoDismiss, fresh, showFresh,
   } = useBoardController({ companyParam, onCompanyParamChange, mode: "open", onModeChange: ignoreMode }, surface);
+  // The pick whose Not for me is asking why, before anything is removed.
+  const [asking, setAsking] = useState<Job | null>(null);
+  const keep = useCallback(() => setAsking(null), []);
+  const remove = useCallback((job: Job, reason: PickFeedbackReason | null) => {
+    setAsking(null);
+    dismiss(job, reason);
+  }, [dismiss]);
   const { viewedIds, compareIds, compareFull, compareCap } = useJobWorkspace();
   const { openJob, toggleCompare } = useJobActions();
   const narrowed = countNarrowingFilters(filters, NO_LENSES) > 0;
@@ -118,7 +128,7 @@ function TopPicksList({ picks, rootRef, onPicksChange }: {
         viewed={job.viewed_at != null || viewedIds.has(job.id)}
         onOpen={() => openJob(job.id, job.company)}
         onToggleFav={() => toggleFav(job)}
-        onDismiss={() => dismiss(job)}
+        onDismiss={() => setAsking(job)}
         under={job.pick_reasons && job.pick_reasons.length > 0 && <PickReasons reasons={job.pick_reasons} />}
         compareOn={compareIds.has(job.id)}
         onToggleCompare={() => toggleCompare(job.id)}
@@ -126,7 +136,7 @@ function TopPicksList({ picks, rootRef, onPicksChange }: {
         compareCap={compareCap}
       />
     ),
-    [compareCap, compareFull, compareIds, dismiss, openJob, toggleCompare, toggleFav, viewedIds],
+    [compareCap, compareFull, compareIds, openJob, toggleCompare, toggleFav, viewedIds],
   );
 
   /* The dismissed row's seam, where the way back sits level in the margin
@@ -221,6 +231,7 @@ function TopPicksList({ picks, rootRef, onPicksChange }: {
           onUndo={undoDismiss}
         />
       )}
+      <PickFeedbackDialog job={asking} onRemove={remove} onKeep={keep} />
     </div>
   );
 
@@ -324,7 +335,7 @@ export function PicksNotes({ picks, onPicksChange }: { picks: PicksState; onPick
 
 /** Where the list ends, in its quiet ink: who checked last and when, what of
  *  the checks needs no action (roles waiting while they are late, why the last
- *  one stopped early), and how many roles were read this week and not picked. */
+ *  one stopped early), and the way to what was passed over this week. */
 export function PicksEnd({ picks }: { picks: PicksState }) {
   const check = picks.last_check;
   const sentences: React.ReactNode[] = [];
@@ -337,7 +348,10 @@ export function PicksEnd({ picks }: { picks: PicksState }) {
     // The reason is the assistant's own words, set into the sentence as content.
     sentences.push(reason ? <Msg of={picksEndStopped} elems={{ reason: <Content text={reason} /> }} /> : picksEndStoppedPlain());
   }
-  if (picks.passed_this_week > 0) sentences.push(picksEndPassed({ count: picks.passed_this_week }));
+  if (picks.passed_this_week > 0) {
+    const passed = <RouterLink variant="link" to={PASSED_OVER_ROUTE}>{picksEndPassed({ count: picks.passed_this_week })}</RouterLink>;
+    sentences.push(<Msg of={picksEndPassedOnly} elems={{ passed }} />);
+  }
   if (sentences.length === 0) return null;
   return (
     <p className="board-list-end" role="note">

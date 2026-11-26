@@ -24615,6 +24615,30 @@
     "title": "MovedBoard",
     "type": "object"
    },
+   "NearMiss": {
+    "additionalProperties": false,
+    "properties": {
+     "job_id": {
+      "title": "Job Id",
+      "type": "integer"
+     },
+     "judged_at": {
+      "format": "date-time",
+      "title": "Judged At",
+      "type": "string"
+     },
+     "reason": {
+      "$ref": "#/components/schemas/PickReason"
+     }
+    },
+    "required": [
+     "job_id",
+     "reason",
+     "judged_at"
+    ],
+    "title": "NearMiss",
+    "type": "object"
+   },
    "NextAction": {
     "additionalProperties": false,
     "description": "A typed suggestion of an operation to call next. Never a shell string,\nand never a permission the caller did not already have.",
@@ -27217,6 +27241,88 @@
      "equity"
     ],
     "title": "PartSources",
+    "type": "object"
+   },
+   "PassGroup": {
+    "additionalProperties": false,
+    "properties": {
+     "code": {
+      "enum": [
+       "hard_rule",
+       "out_of_reach",
+       "below_level",
+       "not_better",
+       "not_real",
+       "off_direction",
+       "other"
+      ],
+      "title": "Code",
+      "type": "string",
+      "x-text": "code"
+     },
+     "count": {
+      "title": "Count",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "code",
+     "count"
+    ],
+    "title": "PassGroup",
+    "type": "object"
+   },
+   "PassedOverResponse": {
+    "additionalProperties": false,
+    "description": "`GET /api/picks/passed`: what the assistant read in the last seven days\nand did not pick, and what the hard rules ruled out before any reading.\nThe picks the person removed are `GET /api/picks/removed`.",
+    "properties": {
+     "judged_rules": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Judged Rules",
+      "type": "array",
+      "x-text": "record"
+     },
+     "near_misses": {
+      "items": {
+       "$ref": "#/components/schemas/NearMiss"
+      },
+      "title": "Near Misses",
+      "type": "array"
+     },
+     "passed_this_week": {
+      "title": "Passed This Week",
+      "type": "integer"
+     },
+     "passes": {
+      "items": {
+       "$ref": "#/components/schemas/PassGroup"
+      },
+      "title": "Passes",
+      "type": "array"
+     },
+     "ruled_out": {
+      "title": "Ruled Out",
+      "type": "integer"
+     },
+     "ruled_out_by_rule": {
+      "items": {
+       "$ref": "#/components/schemas/RuleCount"
+      },
+      "title": "Ruled Out By Rule",
+      "type": "array"
+     }
+    },
+    "required": [
+     "passed_this_week",
+     "near_misses",
+     "passes",
+     "judged_rules",
+     "ruled_out",
+     "ruled_out_by_rule"
+    ],
+    "title": "PassedOverResponse",
     "type": "object"
    },
    "Pay": {
@@ -35371,6 +35477,26 @@
      "blocked_reason"
     ],
     "title": "RoutingTier",
+    "type": "object"
+   },
+   "RuleCount": {
+    "additionalProperties": false,
+    "properties": {
+     "count": {
+      "title": "Count",
+      "type": "integer"
+     },
+     "rule": {
+      "title": "Rule",
+      "type": "string",
+      "x-text": "record"
+     }
+    },
+    "required": [
+     "rule",
+     "count"
+    ],
+    "title": "RuleCount",
     "type": "object"
    },
    "RuleShareView": {
@@ -53226,6 +53352,28 @@
      }
     },
     "summary": "Picks Opened",
+    "tags": [
+     "picks"
+    ]
+   }
+  },
+  "/api/picks/passed": {
+   "get": {
+    "description": "What the assistant read in the last seven days and did not pick: the\nnear misses with the one thing that failed, the passes by why, and what\nthe hard rules ruled out before any reading.",
+    "operationId": "passed_over_api_picks_passed_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PassedOverResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Passed Over",
     "tags": [
      "picks"
     ]
