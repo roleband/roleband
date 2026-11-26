@@ -1100,6 +1100,8 @@ WORKSPACE_STAGES = ("saved", "researching", "applied", "interviewing", "offer", 
 WORKSPACE_BLOCKS = ("interviews", "next", "notes", "outcome", "activity")
 BOARD_COLUMNS = ("saved", "researching", "applied", "interviewing", "offer", "decided", "closed")
 LIST_COLUMNS = ("role", "pay", "location", "level", "posting", "saved", "next", "priority", "activity")
+#: The side bar's optional places, each one listed or not by the person.
+SIDE_BAR_PLACES = ("insights", "companies", "duplicates")
 #: Each screen's filter memory: the state a screen restores (`board`,
 #: `companies`), the filter groups left open (`:open`), and the address a
 #: screen whose filters are its query string was left at (`:params`).
@@ -1181,6 +1183,7 @@ VIEW_CHOICES: dict[str, Callable[[object, bool], object]] = {
     "pipeline.list-layout": _layout(LIST_COLUMNS),
     "pipeline.crossings-dismissed": _dismissed,
     "posting.similar-folded": _flag,
+    **{f"sidebar.{place}": _flag for place in SIDE_BAR_PLACES},
     "insights.view": _insights_view,
     **{f"filters.{key}": _filters for key in FILTER_KEYS},
 }

@@ -1,5 +1,5 @@
 import { msg } from "./test/msg";
-import { shellBellUnread, shellRailPending as pending } from "./copy/gen/shell";
+import { shellBellUnread as unread } from "./copy/gen/shell";
 import { describe, expect, it } from "vitest";
 import { COUNTRY_LABEL } from "./locations.gen";
 import { activate } from "./copy/activate";
@@ -25,13 +25,13 @@ describe("format helpers", () => {
      stops claiming to be one. `99+` did neither — it was a number-shaped
      string that stayed put while the queue moved. */
   it("shows a real count up to the cap", () => {
-    expect(countBadge(1, pending).text).toBe("1");
-    expect(countBadge(COUNT_BADGE_MAX, pending).text).toBe("99");
-    expect(countBadge(COUNT_BADGE_MAX, pending).dot).toBe(false);
+    expect(countBadge(1, unread).text).toBe("1");
+    expect(countBadge(COUNT_BADGE_MAX, unread).text).toBe("99");
+    expect(countBadge(COUNT_BADGE_MAX, unread).dot).toBe(false);
   });
 
   it("drops to a dot past the cap instead of a saturated number", () => {
-    const over = countBadge(COUNT_BADGE_MAX + 1, pending);
+    const over = countBadge(COUNT_BADGE_MAX + 1, unread);
     expect(over.dot).toBe(true);
     expect(over.text).toBeNull();
     // The specific regression: nothing renders "99+" any more.
@@ -41,10 +41,10 @@ describe("format helpers", () => {
   it("keeps the exact count reachable at every size", () => {
     // The dot's whole cost is the magnitude, so the number has to survive in
     // the string the caller hangs on the tooltip and the accessible name.
-    expect(countBadge(342, pending).label).toBe("342 pending");
-    expect(countBadge(7, shellBellUnread).label).toBe("7 unread");
+    expect(countBadge(342, unread).label).toBe("342 unread");
+    expect(countBadge(7, unread).label).toBe("7 unread");
     // Grouped by the region inside the message; the digits are the assertion.
-    expect(countBadge(1204, pending).label).toMatch(/^1\D?204 pending$/);
+    expect(countBadge(1204, unread).label).toMatch(/^1\D?204 unread$/);
   });
 
   it("labels day counts in user-facing language", () => {

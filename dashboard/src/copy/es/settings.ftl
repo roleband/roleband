@@ -1,15 +1,20 @@
 ## Ajustes > Idioma y región (docs/copy.md)
 
 settings-language-title = Idioma y región
-settings-language-intro = Elige el idioma de la aplicación y cómo se escriben los números y las fechas. El cambio es inmediato y no se recarga nada de lo que tengas abierto.
 settings-language-label = Idioma
-settings-language-description = Los nombres de empresas, los títulos y las ofertas se muestran tal como los escribieron las empresas.
+settings-language-description = Las ofertas se muestran en su idioma original.
 settings-language-partial = { $name }, traducido en parte
 settings-language-check = { $name }, para revisar textos
 settings-region-label = Números y fechas
-settings-region-description = Cómo se escriben los números y las fechas: { $number }, { $date }.
-settings-region-automatic = Igual que tu sistema
+settings-region-description = { $number } · { $date }
+settings-region-automatic = Sistema
 settings-region-option = { $country }: { $number }, { $date }
+settings-side-bar-title = Barra lateral
+settings-side-bar-intro = Los lugares ocultos se siguen abriendo con { $platform ->
+    [mac] ⌘K
+   *[other] Ctrl K
+}.
+settings-side-bar-duplicates = Ofertas que pueden ser el mismo puesto.
 settings-save-failed = No se pudo guardar. Inténtalo de nuevo.
 
 ## features/settings/ChronographDial.tsx

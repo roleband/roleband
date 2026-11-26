@@ -15,24 +15,33 @@ settings-full-scan-starts = starts { $time }
 
 # kind=heading
 settings-language-title = Language and region
-# kind=sentence
-settings-language-intro = Choose the app's language and how numbers and dates are written. It changes at once, and nothing you have open is reloaded.
 # kind=label
 settings-language-label = Language
-# kind=sentence
-settings-language-description = Company names, titles and postings stay as their employers wrote them.
+# kind=sentence note="Under the language choice: postings are shown as their employers wrote them, never translated"
+settings-language-description = Postings stay in their original language.
 # kind=label note="A language only partly translated: the rest shows in English"
 settings-language-partial = { $name }, partly translated
 # kind=label note="A pseudo language for checking copy, listed only with the copy-check flag"
 settings-language-check = { $name }, for checking copy
 # kind=label
 settings-region-label = Numbers and dates
-# kind=sentence
-settings-region-description = How numbers and dates are written: { $number }, { $date }.
+# kind=status note="Under the numbers and dates choice: a sample of how they are written, such as 1,234.5 · Apr 12"
+settings-region-description = { $number } · { $date }
 # kind=label note="The region option that follows the operating system"
-settings-region-automatic = Same as your system
+settings-region-automatic = System
 # kind=label note="A region option: the country, then a sample of its formats"
 settings-region-option = { $country }: { $number }, { $date }
+
+## features/settings/PreferencesSection.tsx
+# kind=heading note="The Preferences card that chooses which places the side bar lists"
+settings-side-bar-title = Side bar
+# kind=sentence note="A place taken off the side bar still opens from the command palette; $platform is mac or other, for the keys that open it"
+settings-side-bar-intro = Hidden places still open with { $platform ->
+    [mac] ⌘K
+   *[other] Ctrl K
+}.
+# kind=sentence note="Under the Duplicates switch: what the Duplicates place holds"
+settings-side-bar-duplicates = Postings that may be the same role.
 
 ## features/settings/ChronographDial.tsx
 # kind=label

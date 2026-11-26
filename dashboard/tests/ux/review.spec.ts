@@ -1,4 +1,5 @@
-import { expect, test } from "./fixtures";
+import { expect, test, viewChoices } from "./fixtures";
+import { msg } from "../../src/test/msg";
 import {
   duplicateProposalFixture,
   duplicateVerdictFixture,
@@ -64,13 +65,9 @@ test.beforeEach(async ({ page }) => {
  * states the page as the backlog, and it never moves: a verdict drops it by
  * one only for the reload to fetch another full page and put it back. This
  * fixture is a small page in front of a large set, the only arrangement that
- * can tell the two numbers apart.
- *
- * The rail is asserted in the same test on purpose. Its badge comes from
- * `/api/stats`, a different query against the same two tables, so the screen
- * and the chrome are two independent statements of one fact and the defect
- * class to guard is them disagreeing. */
-test("the queue states the backlog behind its page, and the rail says the same number", async ({
+ * can tell the two numbers apart. The side bar carries no count for it: the
+ * backlog is there most days, and a count lit every day says nothing. */
+test("the queue states the backlog behind its page, and the side bar states no count", async ({
   page,
 }) => {
   const pending = (id: number, jobId: number, priorId: number) => ({
@@ -82,6 +79,7 @@ test("the queue states the backlog behind its page, and the rail says the same n
   const reviewed = { total: 0, limit: 20, offset: 0, items: [] };
   const isHistory = (url: string) => new URL(url).searchParams.get("status") === "reviewed";
 
+  await viewChoices(page, { "sidebar.duplicates": true });
   await page.route("/api/stats", (route) =>
     route.fulfill({ json: { ...statsFixture, review_pending: 476 } }));
   await page.route("/api/lineage/review?**", (route) =>
@@ -104,9 +102,9 @@ test("the queue states the backlog behind its page, and the rail says the same n
   await expect(page.getByText(/^2 pairs to decide/)).toHaveCount(0);
   // The tab badge is the same count, not a second opinion.
   await expect(page.getByRole("tab", { name: /^Queue/ })).toContainText("476");
-  await expect(
-    page.getByRole("link", { name: "Duplicates, 476 pending" }),
-  ).toHaveAttribute("title", "Duplicates, 476 pending");
+  const rail = page.getByRole("link", { name: msg("shell-nav-duplicates"), exact: true });
+  await expect(rail).toHaveAttribute("aria-current", "page");
+  await expect(rail.locator(".rail-badge")).toHaveCount(0);
 });
 
 test("local duplicate advice stays separate from the human verdict", async ({ page }) => {

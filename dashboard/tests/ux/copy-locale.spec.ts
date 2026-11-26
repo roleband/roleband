@@ -35,7 +35,7 @@ test.describe("switching language", () => {
   test("changes the app in place from Settings, saves it, and keeps the page", async ({ page }) => {
     await installEveryRoute(page);
     const puts = await locale(page, { language: "en", region: null });
-    await page.goto("/settings/language");
+    await page.goto("/settings/preferences");
     await expect(nav(page).getByRole("link", { name: msg("shell-nav-radar") })).toBeVisible();
     // A reload would drop this; a remount keeps the window.
     await page.evaluate(() => ((window as unknown as { __kept: number }).__kept = 1));
@@ -44,10 +44,10 @@ test.describe("switching language", () => {
 
     await expect(nav(page).getByRole("link", { name: "Perfil" })).toBeVisible();
     await expect(star(page)).toHaveAttribute("aria-label", "Seguimiento");
-    await expect(page.getByRole("tab", { name: "Idioma" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Preferencias" })).toBeVisible();
     await expect(page.getByRole("combobox", { name: "Idioma" })).toHaveValue("es");
     expect(puts).toEqual([ES]);
-    await expect(page).toHaveURL(/\/settings\/language$/);
+    await expect(page).toHaveURL(/\/settings\/preferences$/);
     await expect(page.locator("html")).toHaveAttribute("lang", "es");
     expect(await page.evaluate(() => (window as unknown as { __kept?: number }).__kept)).toBe(1);
 
@@ -55,7 +55,7 @@ test.describe("switching language", () => {
     await page.getByRole("combobox", { name: "Idioma" }).selectOption("zh-Hans");
     await expect(nav(page).getByRole("link", { name: "个人资料" })).toBeVisible();
     await expect(star(page)).toHaveAttribute("aria-label", "求职进展");
-    await expect(page.getByRole("tab", { name: "语言" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "偏好设置" })).toBeVisible();
     await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hans");
 
     await page.getByRole("combobox", { name: "语言" }).selectOption("en");
@@ -67,7 +67,7 @@ test.describe("switching language", () => {
   test("a region changes how numbers and dates are written, not the words", async ({ page }) => {
     await installEveryRoute(page);
     const puts = await locale(page, { language: "en", region: null });
-    await page.goto("/settings/language");
+    await page.goto("/settings/preferences");
     const region = page.getByRole("combobox", { name: msg("settings-region-label") });
     await region.selectOption("es-ES");
     // The words stay English; the sample is written the Spanish way.
@@ -97,7 +97,7 @@ test.describe("the pseudo locale", () => {
   test("is listed only with the copy-check flag, and never saved for the account", async ({ page }) => {
     await installEveryRoute(page);
     const puts = await locale(page, { language: "en", region: null });
-    await page.goto("/settings/language");
+    await page.goto("/settings/preferences");
     const language = page.getByRole("combobox", { name: msg("settings-language-label") });
     await expect(language.locator("option[value='en-XA']")).toHaveCount(0);
 
@@ -112,7 +112,7 @@ test.describe("the pseudo locale", () => {
     await installEveryRoute(page);
     await locale(page, { language: "en", region: null });
     await page.addInitScript(() => localStorage.setItem("roleband.copy-check", "1"));
-    await page.goto("/settings/language");
+    await page.goto("/settings/preferences");
     await page.getByRole("combobox", { name: msg("settings-language-label") }).selectOption("en-XA");
 
     const links = await nav(page).getByRole("link").count();
@@ -190,7 +190,7 @@ test.describe("locale ordering and requested choices", () => {
   test("automatic and equivalent explicit region settle without freezing controls", async ({page}) => {
     await installEveryRoute(page);
     const puts=await locale(page,{language:"en",region:null});
-    await page.goto("/settings/language");
+    await page.goto("/settings/preferences");
     const region=page.getByRole("combobox",{name:msg("settings-region-label")});
     const language=page.getByRole("combobox",{name:msg("settings-language-label")});
     await region.selectOption("en-US");
@@ -210,7 +210,7 @@ test.describe("locale ordering and requested choices", () => {
       if(route.request().method()==="PUT") { const body=route.request().postDataJSON();puts.push(body);await route.fulfill({json:body}); }
       else { await pending;await route.fulfill({json:{language:"en",region:null}}); }
     });
-    await page.goto("/settings/language");
+    await page.goto("/settings/preferences");
     await page.getByRole("combobox",{name:msg("settings-language-label")}).selectOption("es");
     await expect(nav(page).getByRole("link",{name:"Perfil"})).toBeVisible();
     release();
@@ -222,7 +222,7 @@ test.describe("locale ordering and requested choices", () => {
     await installEveryRoute(page);
     await page.addInitScript(()=>localStorage.setItem("roleband.locale",JSON.stringify({language:"en",region:"en-12-34"})));
     await page.route("/api/settings/locale",route=>route.fulfill(route.request().method()==="PUT"?{status:503,json:{detail:{code:"server"}}}:{json:{language:"en",region:null}}));
-    await page.goto("/settings/language");
+    await page.goto("/settings/preferences");
     const language=page.getByRole("combobox",{name:msg("settings-language-label")});
     await language.selectOption("es");
     await expect(page.getByRole("alert")).toHaveText(msg("settings-save-failed"));

@@ -8,7 +8,7 @@ import { IntelligenceTab } from "../features/intelligence/IntelligenceSection";
 import { ScheduleSection } from "../features/settings/ScheduleSection";
 import { RecipesSection } from "../features/settings/RecipesSection";
 import { RetentionSection } from "../features/settings/RetentionSection";
-import { LanguageSection } from "../features/settings/LanguageSection";
+import { PreferencesSection } from "../features/settings/PreferencesSection";
 import { PrivacySection } from "../features/settings/PrivacySection";
 import { PluginsSection } from "../features/settings/PluginsSection";
 import { PluginSettings } from "../features/settings/PluginSettings";
@@ -23,7 +23,7 @@ import { shellNavSettings } from "../copy/gen/shell";
 const SETTINGS_SLUGS = SETTINGS_TABS.map((tab) => tab.slug) as [string, ...string[]];
 
 /* Settings keeps the machinery: companies, intelligence, schedule, recipes,
-   language, privacy, plugins, retention. The candidate scope surface is
+   preferences, privacy, plugins, retention. The candidate scope surface is
    Profile › Direction; /settings/scope redirects there in App.tsx.
 
    It lives in `routes/`, not in `features/settings/`, because what it does is
@@ -56,7 +56,7 @@ export function SettingsRoute() {
         {tab === "schedule" && <ScheduleSection />}
         {tab === "recipes" && <RecipesSection />}
         {tab === "retention" && <RetentionSection />}
-        {tab === "language" && <LanguageSection />}
+        {tab === "preferences" && <PreferencesSection />}
         {tab === "privacy" && <PrivacySection />}
         {tab === "plugins" && (pluginId != null ? <PluginSettings pluginId={pluginId} /> : (
           <>

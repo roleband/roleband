@@ -49,12 +49,13 @@ export function sharedGroups(state: UsageState): SharedGroups {
    only when it is one of the app's own sub-tabs, otherwise it is an id or a
    slug and becomes a placeholder. */
 const SCREENS = new Set([
-  "", "favorites", "profile", "statistics", "company", "review", "notifications", "settings",
+  "", "top-picks", "pipeline", "favorites", "profile", "statistics", "company", "review", "notifications", "settings",
   "welcome", "compare", "job", "jobs", "position",
 ]);
 const SUB_TABS = new Set([
+  "list", "board", "up-next",
   "direction", "experience",
-  "companies", "intelligence", "schedule", "recipes", "language", "privacy", "retention", "plugins",
+  "companies", "intelligence", "schedule", "recipes", "preferences", "language", "privacy", "retention", "plugins",
   "overview", "demand", "velocity", "compensation", "levels", "trajectory", "skills",
 ]);
 

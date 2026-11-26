@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { StrictMode, useState } from "react";
 import { MemoryRouter, useLocation, useNavigationType } from "react-router-dom";
 import { beforeAll, describe, expect, it, vi } from "vitest";
@@ -118,6 +118,17 @@ describe("CommandPalette", () => {
     expect(p.pathname()).toBe("/statistics/velocity");
     expect(mocks.setSearch).not.toHaveBeenCalled();
     expect(p.onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens Duplicates and Notifications, which the side bar does not list", () => {
+    for (const [query, path] of [["Duplicates", "/review"], ["Notifications", "/notifications"]]) {
+      const p = renderPalette();
+      p.type(query);
+      press("ArrowDown");
+      press("Enter");
+      expect(p.pathname()).toBe(path);
+      cleanup();
+    }
   });
 
   // A keystroke whose state commit lands AFTER the arrow key must not move the

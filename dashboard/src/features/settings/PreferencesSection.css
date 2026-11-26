@@ -1,0 +1,12 @@
+/* A side bar place's switch is named as the side bar shows it: its icon,
+   then its name. */
+.preferences-place {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--app-space-2);
+}
+
+.preferences-place svg {
+  flex: none;
+  color: var(--app-text-muted);
+}
