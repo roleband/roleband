@@ -408,7 +408,7 @@ against `backend/tests/fixtures/copy_glossary.gen.json`, the glossary copy
 
 Language and region are two settings. Language picks the catalog; region picks
 how numbers, dates and lists are written (`1,219` or `1.219`, `12 Apr` or
-`Apr 12`). People choose both in Settings › Language and region. The account's
+`Apr 12`). People choose both in Settings › Preferences. The account's
 choice lives in the settings store (`GET`/`PUT /api/settings/locale`) and is
 mirrored in the browser (`localStorage` key `roleband.locale`) so the first paint
 is already in the right language. With nothing stored, the browser's languages

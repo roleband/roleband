@@ -7,7 +7,7 @@
    `React.lazy` caches the rejection so even a manual retry re-throws the same
    error. */
 
-import { expect, mockGet, test, type Page } from "./fixtures";
+import { expect, mockGet, test, viewChoices, type Page } from "./fixtures";
 import { msg } from "../../src/test/msg";
 import { installBoardRoutes } from "./boardHarness";
 import { openPipelineView } from "./pipelineRail";
@@ -381,46 +381,45 @@ test("the mobile dock's destinations do not overlap each other", async ({
   }
 });
 
-/* The rail's count badges, on both sides of the cap.
- *
- * `review_pending` counts pending duplicate/twin links, which every scrape
- * refills, so a `99+` badge would never settle: a call to action that is
- * always on. Past the cap the badge stops claiming to be a count and hands the
- * exact one to the item.
- *
- * The geometry is measured rather than taken from the class, because that is
- * the half a class assertion cannot see: `.rail-badge` is sized in three
- * places (collapsed, expanded, and the dock's own block), so a dot rule that
- * loses on specificity leaves a full-size pill with no digits in it — which
- * looks deliberate and says less than `99+` would. */
-test("a rail count past the cap becomes a dot that still carries the exact number", async ({
+/* The side bar as a person first sees it: the work at the top, what is about
+ * the person and the app at the foot. Duplicates always has a backlog and
+ * Notifications a count, so neither is listed: Notifications lives in the
+ * top bar's bell, and Duplicates comes back from Settings › Preferences, with
+ * no count, because a count lit most days says nothing. The choice is the
+ * person's, so it holds after a reload. */
+test("the side bar lists Duplicates only once the person turns it on, and no place carries a count", async ({
   page,
+  isMobile,
 }) => {
+  test.skip(isMobile, "the dock folds the Pipeline's star into its views");
+  const held = await viewChoices(page);
   await mockGet(page, "/api/stats", (route) =>
     route.fulfill({ json: { ...statsFixture, review_pending: 342, notif_unread: 7 } }));
 
   await page.goto("/");
+  const rail = page.getByRole("navigation", { name: msg("shell-rail-aria") });
+  const names = (group: string) =>
+    rail.locator(`${group} .rail-item:visible`).evaluateAll((items) => items.map((item) => item.getAttribute("aria-label")));
+  await expect(rail.getByRole("link", { name: msg("shell-nav-radar"), exact: true })).toBeVisible();
+  expect(await names(".rail-top")).toEqual([
+    msg("shell-nav-radar"), msg("shell-nav-top-picks"), msg("shell-nav-pipeline"),
+    msg("shell-nav-insights"), msg("shell-nav-companies"),
+  ]);
+  expect(await names(".rail-bottom")).toEqual([
+    msg("shell-nav-profile"), msg("shell-nav-settings"), msg("shell-theme-aria"),
+  ]);
+  await expect(rail.locator(".rail-badge")).toHaveCount(0);
 
-  const review = page.getByRole("link", { name: "Duplicates, 342 pending" });
-  await expect(review).toHaveAttribute("title", "Duplicates, 342 pending");
-  await expect(review).toHaveAttribute("data-tip", "Duplicates, 342 pending");
-  await expect(review).not.toContainText("99+");
+  await page.goto("/settings/preferences");
+  await page.getByRole("checkbox", { name: msg("shell-nav-duplicates"), exact: true }).check();
+  const duplicates = rail.getByRole("link", { name: msg("shell-nav-duplicates"), exact: true });
+  await expect(duplicates).toBeVisible();
+  await expect(duplicates.locator(".rail-badge")).toHaveCount(0);
+  await expect.poll(() => held["sidebar.duplicates"]).toBe(true);
 
-  const dot = review.locator(".rail-badge");
-  await expect(dot).toHaveText("");
-  const dotBox = await dot.boundingBox();
-  expect(dotBox, "the dot did not render at all").not.toBeNull();
-  expect(
-    Math.round(dotBox!.width),
-    `a ${Math.round(dotBox!.width)}px badge with no digits in it is not a dot`,
-  ).toBeLessThanOrEqual(12);
-
-  // Below the cap nothing changes: a count a user can act on stays a count.
-  const notifications = page.getByRole("link", { name: "Notifications, 7 unread" });
-  const pill = notifications.locator(".rail-badge");
-  await expect(pill).toHaveText("7");
-  const pillBox = await pill.boundingBox();
-  expect(Math.round(pillBox!.width)).toBeGreaterThan(Math.round(dotBox!.width));
+  await page.reload();
+  await expect(duplicates).toBeVisible();
+  expect(await names(".rail-top")).toContain(msg("shell-nav-duplicates"));
 });
 
 /* A group's name is announced on entering it, so it says what the numbers
@@ -436,10 +435,9 @@ test("a screen reader hears the top bar's counts as the radar summary", async ({
   await expect(summary.getByRole("button", { name: msg("shell-stat-new-aria", { count: 6 }), exact: true })).toBeVisible();
 });
 
-/* The bell paints the SAME number as the rail's Notifications badge, in the
- * same viewport, so a cap applied to one and not the other would put two
- * spellings of one count on screen at once. */
-test("the bell caps the same count the same way", async ({ page, isMobile }) => {
+/* The bell is where the unread count lives, so past the badge cap it stops
+ * claiming to be a count and its name carries the exact one. */
+test("the bell caps its count", async ({ page, isMobile }) => {
   test.skip(isMobile, "the bell lives in the desktop topbar");
 
   await mockGet(page, "/api/stats", (route) =>

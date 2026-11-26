@@ -8,7 +8,6 @@ import {
   settingsLanguageCheck,
   settingsLanguageDescription,
   settingsSaveFailed,
-  settingsLanguageIntro,
   settingsLanguageLabel,
   settingsLanguagePartial,
   settingsLanguageTitle,
@@ -21,7 +20,7 @@ import { Card, CardMessage, CardRow } from "../../ui/Card";
 import { Select } from "../../ui";
 import type { SelectOption } from "../../ui";
 
-// Settings > Language and region (docs/copy.md).
+// Settings > Preferences > Language and region (docs/copy.md).
 // Two controls, saved on change. Language picks the catalog; region picks how
 // numbers and dates are written, "As your system" following the operating
 // system. A change is saved for the account, then applied: the UI remounts
@@ -74,7 +73,7 @@ export function LanguageSection() {
   };
 
   return (
-    <Card title={settingsLanguageTitle()} intro={settingsLanguageIntro()}>
+    <Card title={settingsLanguageTitle()}>
       <CardRow
         title={settingsLanguageLabel()}
         description={settingsLanguageDescription()}

@@ -30,7 +30,7 @@ shell-tab-settings-retention = Conservación de datos
 ## Pestañas de Perfil
 shell-tab-profile-looking-for = Qué buscas
 shell-tab-profile-experience = Tu experiencia
-shell-tab-settings-language = Idioma
+shell-tab-settings-preferences = Preferencias
 
 ## La barra superior
 shell-route-welcome = Bienvenida
@@ -205,7 +205,6 @@ shell-compare-cleared = { $count ->
     [many] Se quitaron { $count } de puestos de la comparación
    *[other] Se quitaron { $count } puestos de la comparación
 }
-shell-rail-pending = { $count } pendientes
 shell-rail-picks-unseen = con novedades
 shell-rail-item-count = { $label }, { $badge }
 

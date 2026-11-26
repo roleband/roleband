@@ -662,6 +662,15 @@ textarea {
   position: relative;
 }
 
+/* On the Notifications page the bell is the place, since the side bar does
+   not list it: the chosen set, as the stat chips paint theirs. Scoped to the
+   bar so it outranks the bar's own icon-button rule. */
+.topbar .bell-btn[aria-current="page"] {
+  color: var(--app-chosen-text);
+  border-color: var(--app-chosen-line);
+  background: var(--app-chosen-wash);
+}
+
 .bell-btn.has-high {
   color: var(--tb-danger);
   /* Derived from the strip's own danger, never a literal of the dark danger

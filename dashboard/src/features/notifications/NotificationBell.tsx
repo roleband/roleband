@@ -10,7 +10,7 @@ import {
 } from "../../copy/gen/shell";
 import { Button } from "../../ui/Button";
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { shellApi, type Notification } from "../../api/shell";
 import { countBadge, fmtDate } from "../../format";
 import { useJobActions } from "../../context/JobWorkspace";
@@ -123,13 +123,12 @@ export function NotificationBell() {
   };
 
   const unread = stats?.notif_unread ?? 0;
-  /* The rail's Notifications badge is this same number, so it follows the same
-     cap: two spellings of one count in one viewport is what the rule is for
-     (format.ts). The count also goes into the button's name, so a screen
-     reader hears how many. */
+  /* The count follows the badge cap (format.ts) and goes into the button's
+     name, so a screen reader hears how many. */
   const count = unread > 0 ? countBadge(unread, shellBellUnread) : null;
   const bellName = count ? shellBellAriaCount({ badge: count.label }) : shellNavNotifications();
   const badgeClass = count?.dot ? "bell-badge bell-badge-dot" : "bell-badge";
+  const onPage = useLocation().pathname === "/notifications";
 
   return (
     <div className="bell-wrap" ref={wrapRef}>
@@ -140,6 +139,8 @@ export function NotificationBell() {
         aria-label={bellName}
         title={bellName}
         aria-expanded={open}
+        // The side bar does not list Notifications: on its page, the bell is the place.
+        aria-current={onPage ? "page" : undefined}
       >
         <Icon name="bell" />
         {count && <CountBadge className={badgeClass}>{count.text}</CountBadge>}

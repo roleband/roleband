@@ -107,6 +107,11 @@ test("the rail's dot is lit for an unseen pick and goes out when the screen open
   await page.goto("/");
   await expect(railItem(page).locator(".rail-badge-dot")).toBeVisible();
   await expect(railItem(page).locator(".rail-badge-dot")).toHaveText("");
+  /* Measured, because `.rail-badge` is sized in three places (collapsed,
+     expanded, the dock): a dot rule that loses on specificity leaves a
+     full-size pill with no digits in it. */
+  const dot = await railItem(page).locator(".rail-badge-dot").boundingBox();
+  expect(Math.round(dot!.width), "a badge with no digits in it is a dot").toBeLessThanOrEqual(12);
 
   await railItem(page).click();
   await expect(page.locator(".job-row .pick-reasons").first()).toBeVisible();
