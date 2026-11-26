@@ -2,6 +2,7 @@ import { installJobDetailRoutes } from "./boardHarness";
 import { expect, test } from "./fixtures";
 import { detail } from "./boardHarness";
 import { installSettingsRoutes } from "./settingsHarness";
+import { installTopPicksRoutes } from "./topPicksHarness";
 import { expectMeasuredToolbar } from "./measuredToolbar";
 import type { Page } from "@playwright/test";
 import { facetsFixture, jobFixture, jobListFixture, statsFixture, statusFixture } from "../../src/test/fixtures";
@@ -311,6 +312,27 @@ test("clicking a job notification opens the company-scoped position URL", async 
   await page.getByRole("button", { name: /High comp match at OpenAI/ }).click();
   await expect(page).toHaveURL(/\/company\/openai\/job\/101$/);
   await expect(detail(page)).toBeVisible();
+});
+
+// A top pick opens Top picks, where its reasons are, not the bare posting it
+// names; the click is the row's own, so it works from the feed as it would from
+// the bell.
+test("a top pick's notification opens Top picks, not its posting", async ({ page }) => {
+  await installTopPicksRoutes(page);
+  const pick = {
+    id: 3, created_at: "2026-11-26T09:00:00Z", priority: "high", category: "top_pick",
+    title: "New top pick at OpenAI", body: "Staff PM", job_id: 101, company: "openai", run_id: null,
+    source_type: "pick", read_at: "2026-11-26T09:30:00Z", dismissed_at: null, meta: {},
+  };
+  await page.route("/api/notifications?**", (route) =>
+    route.fulfill({ json: { ...notifList, total: 1, items: [pick], category_counts: { top_pick: 1 } } }),
+  );
+  await page.goto("/notifications");
+
+  await page.getByRole("button", { name: /New top pick at OpenAI/ }).click();
+  await expect(page).toHaveURL(/\/top-picks$/);
+  await expect(page.getByText("Staff Product Manager, API")).toBeVisible();
+  await expect(detail(page)).toHaveCount(0);
 });
 
 // Marking read is incidental to opening. An UNREAD role whose read POST never

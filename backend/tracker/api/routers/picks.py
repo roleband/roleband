@@ -25,6 +25,7 @@ from tracker.api.schemas.picks import (
     RuleCount,
 )
 from tracker.db.queries.companies import display_names
+from tracker.notifications import reconcile_picks_stalled
 from tracker.picks import brief as briefs
 from tracker.picks import mode, queue, runs, verdicts
 from tracker.picks.brief import BriefBody
@@ -140,6 +141,8 @@ async def set_picks_mode(payload: PicksModeInput, session: SessionDep) -> PicksS
         await mode.change(session, state=payload.state, now=datetime.now(UTC), **changes)
     except mode.BriefRequired:
         raise api_error(409, ErrorCode.INVALID_INPUT, "top picks is not set up") from None
+    # Paused, the checks are not expected: a stall's row goes with the switch.
+    await reconcile_picks_stalled(session)
     await session.commit()
     return await _state(session)
 
@@ -158,6 +161,7 @@ async def remove_picks_setup(session: SessionDep) -> PicksRemovedResponse:
     verdicts say and the receipts that repeat any of it, and return the mode to never set up. Saved roles, Not for me
     marks and the Board stay."""
     removed = await mode.remove(session, datetime.now(UTC))
+    await reconcile_picks_stalled(session)
     # The receipts of the writes that saved these hold them too.
     await receipts.forget(session, PERSONAL_WRITES)
     await session.commit()

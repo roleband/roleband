@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { NOTIF_ICON, NotifIcon, notifIconMeta } from "./notifIcons";
+import { NOTIF_ICON, NotifIcon, notifIconMeta, notifOpens } from "./notifIcons";
 import { NotificationScreen } from "./NotificationScreen";
 import { api, type NotificationList } from "../../api";
 
@@ -26,6 +26,9 @@ describe("notifIconMeta", () => {
       label: "Coverage problem at a company you follow",
     });
 
+    expect(notifIconMeta("top_pick")).toEqual({ icon: "crosshair", label: "New top pick" });
+    expect(notifIconMeta("picks_stalled")).toEqual({ icon: "calendarClock", label: "Checks fell behind" });
+
     // Every mapped category resolves to a non-empty icon name and a distinct one
     // per category (the whole point: no two kinds share a glyph).
     const icons = Object.values(NOTIF_ICON).map((m) => m.icon);
@@ -45,6 +48,17 @@ describe("notifIconMeta", () => {
 
   it("falls back to a plain bell for unknown categories, never the raw category", () => {
     expect(notifIconMeta("some_future_kind")).toEqual({ icon: "bell", label: msg("shell-notif-other") });
+  });
+});
+
+describe("notifOpens", () => {
+  it("opens Top picks for its two kinds and leaves every other category to its role", () => {
+    expect(notifOpens("top_pick")).toBe("/top-picks");
+    expect(notifOpens("picks_stalled")).toBe("/top-picks");
+    for (const category of Object.keys(NOTIF_ICON).filter((c) => c !== "top_pick" && c !== "picks_stalled")) {
+      expect(notifOpens(category)).toBeNull();
+    }
+    expect(notifOpens("some_future_kind")).toBeNull();
   });
 });
 

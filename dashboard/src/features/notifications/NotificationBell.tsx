@@ -17,7 +17,7 @@ import { useJobActions } from "../../context/JobWorkspace";
 import { useMissionActions, useMissionStats } from "../../context/MissionState";
 import { useSyncEpoch } from "../../context/SyncState";
 import { Icon, Popover, useToast } from "../../ui";
-import { NotifIcon, notifStateClass } from "./notifIcons";
+import { NotifIcon, notifOpens, notifStateClass } from "./notifIcons";
 // The line anatomy inside the panel is the notification row's, shared with
 // the /notifications list; only the popover chrome is this component's own.
 import "./notification-row.css";
@@ -94,13 +94,17 @@ export function NotificationBell() {
     return () => window.removeEventListener("pointerdown", onPointer);
   }, [open]);
 
-  // The role opens first and the panel closes. Marking read is
-  // incidental: it follows in the background, and a failure (a reminder the
-  // reconcile deleted while the panel was open answers 404, so does a row
-  // another tab dismissed) is said in a toast, never an inert row or an
-  // unhandled rejection.
+  // The role, or the screen its category opens (`notifOpens`), opens first
+  // and the panel closes. Marking read is incidental: it follows in the
+  // background, and a failure (a reminder the reconcile deleted while the
+  // panel was open answers 404, so does a row another tab dismissed) is said
+  // in a toast, never an inert row or an unhandled rejection.
   const openNotification = (n: Notification) => {
-    if (n.job_id) {
+    const opens = notifOpens(n.category);
+    if (opens) {
+      navigate(opens);
+      setOpen(false);
+    } else if (n.job_id) {
       openJob(n.job_id, n.company);
       setOpen(false);
     }

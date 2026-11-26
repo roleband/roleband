@@ -68,6 +68,7 @@ from tracker.api.deps import SessionDep, end_read
 from tracker.api.routers import ops, statistics
 from tracker.api.routers import skills as skill_routes
 from tracker.config import get_settings
+from tracker.notifications import generate_top_pick_notifications, reconcile_picks_stalled
 from tracker.platform.paths import DATA_DIR
 
 router = APIRouter(route_class=AgentRoute, tags=["agent"])
@@ -1079,7 +1080,14 @@ async def picks_decide(
     op: Annotated[OperationContext, Depends(admitted(picks.PICKS_DECIDE))],
 ) -> Envelope[Any]:
     params = op.input_as(picks.DecideInput)
-    return await op.write(lambda: picks.decide(op.session, params), described=picks.RunActivity())
+
+    async def decide() -> picks.DecideResult:
+        # The picks ring in the transaction that saves them; a replay runs none of this.
+        decided = await picks.decide(op.session, params)
+        await generate_top_pick_notifications(op.session, decided.run)
+        return decided
+
+    return await op.write(decide, described=picks.RunActivity())
 
 
 @router.post(
@@ -1091,7 +1099,15 @@ async def picks_finish(
     op: Annotated[OperationContext, Depends(admitted(picks.PICKS_FINISH))],
 ) -> Envelope[Any]:
     params = op.input_as(picks.FinishInput)
-    return await op.write(lambda: picks.finish(op.session, params), described=picks.RunActivity())
+
+    async def finish() -> picks.RunSummary:
+        # A run's end is when the checks fall behind or catch up again.
+        finished = await picks.finish(op.session, params)
+        if not finished.trial:
+            await reconcile_picks_stalled(op.session)
+        return finished
+
+    return await op.write(finish, described=picks.RunActivity())
 
 
 @router.get(
@@ -1116,4 +1132,11 @@ async def picks_switch(
     op: Annotated[OperationContext, Depends(admitted(picks.PICKS_SWITCH))],
 ) -> Envelope[Any]:
     params = op.input_as(picks.SwitchInput)
-    return await op.write(lambda: picks.switch(op.session, params), described=picks.SwitchActivity())
+
+    async def switch() -> picks.ModeState:
+        # Paused, the checks are not expected: a stall's row goes with the switch.
+        switched = await picks.switch(op.session, params)
+        await reconcile_picks_stalled(op.session)
+        return switched
+
+    return await op.write(switch, described=picks.SwitchActivity())

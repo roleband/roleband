@@ -260,6 +260,8 @@ notifications-category-reposted = Republicados
 notifications-category-long-open = Abiertos hace tiempo
 notifications-category-changed = Cambiados
 notifications-category-closed = Cerrados
+notifications-category-top-picks = Destacados
+notifications-category-picks-checks = Revisiones de Destacados
 
 ## features/notifications/sync-progress/SyncProgressPanel.tsx
 notifications-sync-progress-panel-of = de { $companiesTotal }
@@ -405,3 +407,13 @@ notif-gone-quiet = Sin noticias de { $company } desde hace { $days } días
 notif-gone-quiet-body = { $title } ({ $stage }): es hora de hacer seguimiento o fijar un siguiente paso
 notif-coverage-waiting-title = Esperando para escanear { $company }
 notif-coverage-waiting-outage = Esperando para escanear { $count } empresas
+notif-top-pick = Nuevo destacado en { $company }
+notif-picks-late = Las revisiones de Destacados van con retraso
+notif-picks-last-check = La última revisión terminó el { $day }.
+notif-picks-never-ran = Todavía no se ha hecho ninguna revisión de Destacados
+notif-picks-stopped = La última revisión de Destacados se detuvo antes de terminar
+notif-picks-waiting = { $count ->
+    [one] { $count } puesto espera a ser leído.
+    [many] { $count } de puestos esperan a ser leídos.
+   *[other] { $count } puestos esperan a ser leídos.
+}

@@ -1,9 +1,10 @@
 """Materialize user-facing notifications from lifecycle events and run health.
 
 `events` classifies a tracked role's lifecycle, `run_result` a scan's start and
-end, and the digest, pursuit and coverage classifiers sit beside their
-generators (`digest`, `pursuit_due`, `coverage`). `render` formats, `store`
-persists/queries, `channels` names the delivery seam. This module re-exports the
+end, and the digest, pursuit, coverage and Top picks classifiers sit beside
+their generators (`digest`, `pursuit_due`, `coverage`, `top_picks`). `render`
+formats, `store` persists/queries, `channels` names the delivery seam, and
+`desktop` posts a banner once its row commits. This module re-exports the
 public surface, so callers import from `tracker.notifications`.
 """
 
@@ -36,6 +37,7 @@ from tracker.notifications.store import (
     generate_sync_started_notification,
     update_sync_progress,
 )
+from tracker.notifications.top_picks import generate_top_pick_notifications, reconcile_picks_stalled
 from tracker.notifications.tracked import tracked_job_ids
 
 __all__ = [
@@ -57,8 +59,10 @@ __all__ = [
     "generate_notifications",
     "generate_pursuit_due_notifications",
     "overdue_pursuit_clause",
+    "reconcile_picks_stalled",
     "generate_sync_result_notification",
     "generate_sync_started_notification",
+    "generate_top_pick_notifications",
     "run_diagnostics",
     "tracked_job_ids",
     "update_sync_progress",

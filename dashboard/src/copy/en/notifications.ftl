@@ -394,6 +394,10 @@ notifications-category-long-open = Long-open
 notifications-category-changed = Changed
 # kind=label wording=as-is same-as=notifications-notif-diagnostics-closed
 notifications-category-closed = Closed
+# kind=label note="The filter for notifications about roles the person's assistant picked"
+notifications-category-top-picks = Top picks
+# kind=label note="The filter for notifications that the Top picks checks fell behind"
+notifications-category-picks-checks = Top picks checks
 
 ## features/notifications/diagnostics/NotifDiagnostics.tsx
 
@@ -613,6 +617,21 @@ notif-unfinished-uc = Scan ran out of time before { $unreached } and only partly
 notif-unfinished-oc = Scan lost its internet connection at { $offline } and only partly covered { $cut } more
 # kind=notification
 notif-unfinished-uoc = Scan ran out of time before { $unreached }, lost its internet connection at { $offline } and only partly covered { $cut } more
+# kind=notification note="The person's assistant picked a role at $company; the role's title follows as the body"
+notif-top-pick = New top pick at { $company }
+# kind=notification note="The checks for top picks have not finished in a day and a half while roles wait"
+notif-picks-late = Top picks checks are late
+# kind=notification note="After the late title: $day is the day a check last finished"
+notif-picks-last-check = The last check finished on { $day }.
+# kind=notification note="Top picks was turned on, roles have waited a day and a half, and no check has finished"
+notif-picks-never-ran = No top picks check has run yet
+# kind=notification note="The newest check for top picks ended before it read everything"
+notif-picks-stopped = The last top picks check stopped early
+# kind=notification note="After a stalled-checks title: $count is how many roles wait for the checks"
+notif-picks-waiting = { $count ->
+    [one] { $count } role is waiting to be read.
+   *[other] { $count } roles are waiting to be read.
+}
 
 ## A notification's priority code on its badge.
 # kind=label wording=as-is

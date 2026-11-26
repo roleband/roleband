@@ -201,8 +201,9 @@ seconds, and the person can sign out without waiting; then the engine stops as
 Windows ends it, and PostgreSQL recovers on the next start, as after a power cut.
 
 The engine's desktop alerts (`tracker/osnotify.py`: a failed scan, a health
-condition that starts firing, a finished re-ranking) reach the screen through the
-app. On macOS the engine posts them itself. On Windows the app names a folder in
+condition that starts firing, a finished re-ranking, a top pick, Top picks checks
+that fell behind) reach the screen through the app. On macOS the engine posts
+them itself. On Windows the app names a folder in
 the engine's environment (`ROLEBAND_ALERTS_DIR`, `alerts` in the state folder);
 each engine process writes one JSON file there per alert, whole and in order, and
 the app takes them on its own one-second clock, deletes them and shows each as a

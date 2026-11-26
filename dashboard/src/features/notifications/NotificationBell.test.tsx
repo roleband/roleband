@@ -9,7 +9,7 @@
 import { msg } from "../../test/msg";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, type Notification, type NotificationList } from "../../api";
 import { activate } from "../../copy/activate";
@@ -179,5 +179,26 @@ describe("NotificationBell", () => {
     await waitFor(() => expect(api.markNotificationRead).toHaveBeenCalledWith(3, true));
     expect(nav.openJob).not.toHaveBeenCalled();
     expect(document.querySelector(".notif-popover")).not.toBeNull();
+  });
+
+  it("opens Top picks for a pick, not the posting it names, and closes the panel", async () => {
+    vi.mocked(api.notifications).mockImplementation(async () => ({
+      ...feed(),
+      items: [row({ id: 4, category: "top_pick", source_type: "pick", title: "New top pick at Stripe", job_id: 303, company: "stripe" })],
+    }));
+    vi.mocked(api.markNotificationRead).mockImplementation(async (id) => row({ id, read_at: "2026-07-13T02:00:00Z" }));
+    const Where = () => <output data-testid="where">{useLocation().pathname}</output>;
+    const user = userEvent.setup();
+    render(
+      <ToastProvider>
+        <MemoryRouter initialEntries={["/radar"]}><NotificationBell /><Where /></MemoryRouter>
+      </ToastProvider>,
+    );
+    await user.click(screen.getByRole("button", { name: /^Notifications/ }));
+    await user.click(await screen.findByRole("button", { name: /New top pick at Stripe/ }));
+    expect(screen.getByTestId("where")).toHaveTextContent("/top-picks");
+    expect(nav.openJob).not.toHaveBeenCalled();
+    await waitFor(() => expect(document.querySelector(".notif-popover")).toBeNull());
+    expect(api.markNotificationRead).toHaveBeenCalledWith(4, true);
   });
 });
