@@ -432,7 +432,6 @@ ai-top-picks-card-pause-failed = No se pudieron pausar las revisiones. Inténtal
 ai-top-picks-card-brief = Lo que buscas
 ai-top-picks-card-brief-none = Tu asistente aún no lo ha anotado.
 ai-top-picks-card-sentence = actualiza mis destacados
-ai-top-picks-card-copy-sentence = Copiar «{ $sentence }» para decírselo a tu asistente
 ai-top-picks-card-limit = Máximo de { -role(num: "other") } leídos al día
 ai-top-picks-card-limit-note = Limita cuánto de tu plan puede usar un día de lectura. Tu asistente también puede cambiarlo.
 ai-top-picks-card-limit-range = Escribe un número entero del 1 al { $max }.

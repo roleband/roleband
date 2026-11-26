@@ -76,7 +76,7 @@ test("once set up the card sits after Assistant apps, with its five parts", asyn
   await expect(card.getByRole("checkbox", { name: msg("ai-top-picks-card-check") })).toBeChecked();
   await expect(card.getByText(BRIEF)).toBeVisible();
   const copy = card.getByRole("button", {
-    name: msg("ai-top-picks-card-copy-sentence", { sentence: msg("ai-top-picks-card-sentence") }),
+    name: msg("shared-copy-text", { text: msg("ai-top-picks-card-sentence") }),
   });
   await expect(copy).toBeVisible();
   // The sentence can be selected inside its button, for a refused clipboard.
@@ -178,7 +178,7 @@ for (const width of [1440, 2000]) {
     const widths = await card.evaluate((el) => ({ scroll: el.scrollWidth, client: el.clientWidth }));
     expect(widths.scroll).toBeLessThanOrEqual(widths.client);
     for (const control of [
-      card.getByRole("button", { name: msg("ai-top-picks-card-copy-sentence", { sentence: msg("ai-top-picks-card-sentence") }) }),
+      card.getByRole("button", { name: msg("shared-copy-text", { text: msg("ai-top-picks-card-sentence") }) }),
       card.getByLabel(msg("ai-top-picks-card-limit")),
       card.getByRole("button", { name: msg("ai-top-picks-card-remove") }),
     ]) {
@@ -187,7 +187,7 @@ for (const width of [1440, 2000]) {
       await expectFullyVisible(control, "a control of the card");
     }
     // Each row's words against each control: the words never run under one.
-    expect(overlapping(await laidOut(card, ".intel-picks-row-copy, .intel-picks-limit, .ui-btn"))).toEqual([]);
+    expect(overlapping(await laidOut(card, ".intel-picks-row-copy, .intel-picks-limit, .ui-btn, .ui-copy-field"))).toEqual([]);
   });
 }
 
@@ -205,7 +205,7 @@ for (const theme of ["light", "dark"] as const) {
     const field = card.getByLabel(msg("ai-top-picks-card-limit"));
     const stops = [
       toggle,
-      card.getByRole("button", { name: msg("ai-top-picks-card-copy-sentence", { sentence: msg("ai-top-picks-card-sentence") }) }),
+      card.getByRole("button", { name: msg("shared-copy-text", { text: msg("ai-top-picks-card-sentence") }) }),
       field,
       card.getByRole("button", { name: msg("ai-top-picks-card-remove") }),
     ];
