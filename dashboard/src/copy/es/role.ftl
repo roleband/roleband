@@ -51,11 +51,6 @@ role-job-detail-next-apply-title = Postularme en el sitio de { $company }
 role-job-detail-tailor-heading = Adapta tu CV a este puesto
 role-job-detail-tailor-say = Dile esto a Claude Code o Codex. Lee la oferta y tu trayectoria, y redacta el CV.
 role-job-detail-tailor-sentence = Usa el comando roleband para adaptar mi CV al puesto { $id }: { $title } en { $company }.
-role-job-detail-tailor-copy = { $choice ->
-    [yes] Copiado
-   *[no] Copiar
-}
-role-job-detail-tailor-copy-blocked = El navegador bloqueó la copia. Selecciona la frase y cópiala tú.
 role-job-detail-tailor-connect = Conecta primero Claude Code o Codex. Lee la oferta y tu trayectoria, y redacta el CV.
 role-job-detail-tailor-connect-link = Conectar un asistente
 role-job-detail-postings = { $lineage_size } ofertas

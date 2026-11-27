@@ -1862,8 +1862,9 @@ test("Tailor CV saves the role and hands the person's assistant one sentence tha
   await expect(handOff).toContainText(sentence);
   await expect.poll(() => writes, { message: "the role is saved" }).toBe(1);
 
-  await handOff.getByRole("button", { name: msg("role-job-detail-tailor-copy", { choice: "no" }) }).click();
-  await expect(handOff.getByRole("button", { name: msg("role-job-detail-tailor-copy", { choice: "yes" }) })).toBeVisible();
+  const copy = handOff.getByRole("button", { name: msg("shared-copy-text", { text: sentence }) });
+  await copy.click();
+  await expect(copy).toContainText(msg("shared-copied"));
   expect(await page.evaluate(() => (window as unknown as { copied: string[] }).copied)).toEqual([sentence]);
   await page.keyboard.press("Escape");
   await expect(handOff).toHaveCount(0);
@@ -1882,7 +1883,19 @@ test("with no assistant set up, Tailor CV offers to connect one instead of a sen
   const handOff = page.getByRole("dialog", { name: msg("role-job-detail-tailor-heading") });
   await expect(handOff.getByRole("link", { name: msg("role-job-detail-tailor-connect-link") })).toHaveAttribute("href", "/settings/intelligence");
   await expect(handOff).not.toContainText("roleband");
-  await expect(handOff.getByRole("button", { name: msg("role-job-detail-tailor-copy", { choice: "no" }) })).toHaveCount(0);
+  await expect(handOff.locator(".ui-copy-field")).toHaveCount(0);
+});
+
+test("when the engine cannot say whether an assistant is set up, Tailor CV offers both the sentence and the way to connect one", async ({ page }) => {
+  await mockGet(page, "/api/intelligence/agents", (route) => route.fulfill({ status: 500, json: { detail: "down" } }));
+  await mockGet(page, "/api/jobs/101", (route) => route.fulfill({ json: { ...jobFixture, is_favorite: true } }));
+  await page.goto("/company/openai/job/101");
+  await detail(page).locator(".cover-bar").getByRole("button", { name: msg("role-job-detail-tailor-cv") }).click();
+  const handOff = page.getByRole("dialog", { name: msg("role-job-detail-tailor-heading") });
+  const sentence = msg("role-job-detail-tailor-sentence", { id: 101, title: jobFixture.title, company: "OpenAI" });
+  await expect(handOff.getByRole("button", { name: msg("shared-copy-text", { text: sentence }) })).toBeVisible();
+  await expect(handOff.getByRole("link", { name: msg("role-job-detail-tailor-connect-link") })).toHaveAttribute("href", "/settings/intelligence");
+  await expect(handOff, "unknown is not 'none': the connect sentence stays out").not.toContainText(msg("role-job-detail-tailor-connect"));
 });
 
 test("an applied role ends on nothing, and the bar keeps only its tools", async ({ page }) => {

@@ -888,7 +888,7 @@ li.jd-next .jd-next-title:focus-visible {
 }
 
 /* ---- Tailor CV ------------------------------------------------------------
-   The hand-off: one sentence for the person's assistant, with Copy. */
+   The hand-off: one sentence for the person's assistant, in the copy control. */
 .jd-tailor-pop .ui-popover-inner {
   display: grid;
   gap: var(--app-space-3);
@@ -904,26 +904,11 @@ li.jd-next .jd-next-title:focus-visible {
   font-weight: var(--app-weight-name);
 }
 
-.jd-tailor-pop p {
+.jd-tailor-pop .ui-popover-inner > p {
   margin: 0;
   color: var(--app-text-muted);
   font-size: var(--app-type-meta);
   line-height: 1.45;
-}
-
-.jd-tailor-say {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: var(--app-space-2);
-  padding: var(--app-space-3);
-  border: 1px solid var(--app-border);
-  border-radius: var(--app-radius-md);
-  background: var(--app-surface-subtle);
-  color: var(--app-text);
-  font-size: var(--app-type-body);
-  line-height: 1.45;
-  overflow-wrap: anywhere;
 }
 
 /* ---- the bar --------------------------------------------------------------

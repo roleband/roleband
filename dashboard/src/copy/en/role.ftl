@@ -114,13 +114,6 @@ role-job-detail-tailor-heading = Tailor your CV for this role
 role-job-detail-tailor-say = Say this to Claude Code or Codex. It reads the posting and your background, and drafts the CV.
 # kind=sentence note="Copied and said to the person's assistant; the role's number lets it read this posting through the roleband command"
 role-job-detail-tailor-sentence = Use the roleband command to tailor my CV for role { $id }: { $title } at { $company }.
-# kind=button
-role-job-detail-tailor-copy = { $choice ->
-    [yes] Copied
-   *[no] Copy
-}
-# kind=sentence
-role-job-detail-tailor-copy-blocked = The browser blocked copying. Select the sentence and copy it yourself.
 # kind=sentence note="Shown in place of the sentence when no assistant is set up"
 role-job-detail-tailor-connect = Connect Claude Code or Codex first. It reads the posting and your background, and drafts the CV.
 # kind=link note="Opens Settings, AI, where an assistant is connected"

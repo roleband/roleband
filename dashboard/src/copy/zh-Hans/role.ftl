@@ -51,11 +51,6 @@ role-job-detail-next-apply-title = 在 { $company } 的网站上申请
 role-job-detail-tailor-heading = 为该职位定制简历
 role-job-detail-tailor-say = 把这句话告诉 Claude Code 或 Codex。它会阅读职位信息和你的背景，并起草简历。
 role-job-detail-tailor-sentence = 用 roleband 命令为职位 { $id } 定制我的简历：{ $company } 的 { $title }。
-role-job-detail-tailor-copy = { $choice ->
-    [yes] 已复制
-   *[no] 复制
-}
-role-job-detail-tailor-copy-blocked = 浏览器阻止了复制。请选中这句话并自行复制。
 role-job-detail-tailor-connect = 请先连接 Claude Code 或 Codex。它会阅读职位信息和你的背景，并起草简历。
 role-job-detail-tailor-connect-link = 连接助手
 role-job-detail-postings = { $lineage_size } 条招聘信息
