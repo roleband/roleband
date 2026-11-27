@@ -32,14 +32,25 @@ vi.mock("../../context/SyncState", async (importOriginal) => ({
 }));
 vi.mock("../../context/JobWorkspace", () => ({ useJobWorkspace: () => app, useJobActions: () => app }));
 
-const picksOn = (unseen_pick: boolean) => picksStateFixture({
+/** The state after the check that closed at `hour` (o'clock today). */
+const picksOn = (unseen_pick: boolean, hour = 8) => picksStateFixture({
   state: "on", health: "healthy", routine_host: "claude-code", routine_host_connection: "connected", unseen_pick,
+  last_check: { host: "claude-code", finished_at: `2026-11-27T${String(hour).padStart(2, "0")}:00:00Z`, outcome: "finished", note: null },
 });
 const job = (id: number, title: string) => ({ ...jobFixture, id, title });
 const firstPick = job(1, "Staff Platform Engineer");
 const newPick = job(2, "Principal Engineer");
 const onePick = { ...jobListFixture, items: [firstPick], total: 1 };
 const twoPicks = { ...jobListFixture, items: [newPick, firstPick], total: 2 };
+const laterPick = job(3, "Head of Data Platform");
+const threePicks = { ...jobListFixture, items: [laterPick, newPick, firstPick], total: 3 };
+
+/** A promise the test settles when it chooses. */
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((res) => { resolve = res; });
+  return { promise, resolve };
+}
 const listCalls = () => vi.mocked(api.jobs).mock.calls.filter(([params]) => params.limit !== 1).length;
 
 /* The rail, as far as this needs it: the dot and the read behind it. A new key
@@ -59,12 +70,15 @@ function mount(screenUnderTest: ReactElement) {
   render(<MemoryRouter><ToastProvider><Rail />{screenUnderTest}</ToastProvider></MemoryRouter>);
 }
 
-/** A check finishes and makes a pick: the next read of the state says so. */
-async function aCheckMakesAPick() {
-  vi.mocked(api.picksState).mockResolvedValue(picksOn(true));
+/** A check finishes at `hour` and makes a pick: the next read of the state says so. */
+async function aCheckMakesAPick(hour = 9) {
+  vi.mocked(api.picksState).mockResolvedValue(picksOn(true, hour));
+  const reads = vi.mocked(api.picksState).mock.calls.length;
   act(() => readAgain());
+  await waitFor(() => expect(vi.mocked(api.picksState).mock.calls.length).toBeGreaterThan(reads));
   await waitFor(() => expect(screen.getByTestId("dot")).toHaveTextContent("lit"));
 }
+const offerLine = (count: number) => screen.findByText(msg("picks-fresh-more", { count }), { exact: false });
 
 beforeEach(() => {
   epoch.runVersion = 0;
@@ -111,6 +125,57 @@ describe("a check that makes a pick while Top picks is open", () => {
     // The list was read again, found unchanged, and nothing is offered.
     await waitFor(() => expect(listCalls()).toBeGreaterThan(before));
     expect(screen.queryByRole("button", { name: msg("radar-board-fresh-show") })).toBeNull();
+  });
+});
+
+describe("picks that arrive close together", () => {
+  it("a second check that makes a pick while the first is still offered widens the offer", async () => {
+    const user = userEvent.setup();
+    mount(<TopPicksScreen />);
+    await screen.findByText("Staff Platform Engineer");
+
+    vi.mocked(api.jobs).mockResolvedValue(twoPicks);
+    await aCheckMakesAPick(9);
+    await offerLine(1);
+
+    // The dot is already lit; the later check is what says another pick may have come.
+    vi.mocked(api.jobs).mockResolvedValue(threePicks);
+    await aCheckMakesAPick(10);
+    await offerLine(2);
+
+    await user.click(screen.getByRole("button", { name: msg("radar-board-fresh-show") }));
+    expect(await screen.findByText("Head of Data Platform")).toBeVisible();
+    expect(screen.getByText("Principal Engineer")).toBeVisible();
+  });
+
+  it("a pick that arrives before the first list is on screen is offered once it is", async () => {
+    const first = deferred<typeof onePick>();
+    vi.mocked(api.jobs).mockImplementationOnce(() => first.promise).mockResolvedValue(twoPicks);
+    mount(<TopPicksScreen />);
+    await waitFor(() => expect(listCalls()).toBe(1));
+
+    await aCheckMakesAPick(9);
+    // The first list answers with what was read before the pick was made.
+    await act(async () => first.resolve(onePick));
+    expect(await screen.findByText("Staff Platform Engineer")).toBeVisible();
+
+    await offerLine(1);
+    expect(screen.queryByText("Principal Engineer")).toBeNull();
+  });
+
+  it("an older background read that answers last does not replace the newer offer", async () => {
+    mount(<TopPicksScreen />);
+    await screen.findByText("Staff Platform Engineer");
+    const older = deferred<typeof twoPicks>();
+    vi.mocked(api.jobs).mockImplementationOnce(() => older.promise).mockResolvedValueOnce(threePicks);
+
+    await aCheckMakesAPick(9);
+    await aCheckMakesAPick(10);
+    await offerLine(2);
+
+    await act(async () => older.resolve(twoPicks));
+    expect(screen.getByText(msg("picks-fresh-more", { count: 2 }), { exact: false })).toBeVisible();
+    expect(screen.queryByText(msg("picks-fresh-more", { count: 1 }), { exact: false })).toBeNull();
   });
 });
 

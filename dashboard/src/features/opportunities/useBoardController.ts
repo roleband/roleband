@@ -260,12 +260,17 @@ export function useBoardController({
   const [fresh, setFresh] = useState<{ list: JobListData; more: number } | null>(null);
   const asked = useRef({ filters, lenses: { newSignalsOnly, repostsOnly }, list });
   asked.current = { filters, lenses: { newSignalsOnly, repostsOnly }, list };
+  // Only the newest background read may set the offer: two triggers (a scan's
+  // end, a pick's arrival) can overlap, and the older answer can land last.
+  const freshRead = useRef(0);
   const readFresh = useCallback(async () => {
     void refreshFacets({ preserveData: true });
     const { filters: shown, lenses, list: current } = asked.current;
     if (!current) return;
+    const mine = ++freshRead.current;
     try {
       const next = await api.jobs(boardRequestFilters(shown, lenses));
+      if (mine !== freshRead.current) return;
       if (asked.current.filters !== shown || asked.current.list !== current) return;
       setFresh(sameRows(current, next) ? null : { list: next, more: Math.max(0, next.total - current.total) });
     } catch {
@@ -274,9 +279,21 @@ export function useBoardController({
   }, [refreshFacets]);
   useRefetchOn(runVersion, readFresh);
   // On Top picks a finished check that made a pick is offered the same way:
-  // the rail's read sees the pick arrive while the list is open.
+  // the rail's read sees the pick arrive while the list is open. One that
+  // arrives before the first list is on screen waits for it, since that list
+  // may have been read before the pick was made.
   const arrivals = usePickArrivals();
-  useRefetchOn(topPicks ? arrivals : 0, readFresh);
+  const arrivedEarly = useRef(false);
+  const readArrival = useCallback(async () => {
+    if (asked.current.list) return readFresh();
+    arrivedEarly.current = true;
+  }, [readFresh]);
+  useRefetchOn(topPicks ? arrivals : 0, readArrival);
+  useEffect(() => {
+    if (!list || !arrivedEarly.current) return;
+    arrivedEarly.current = false;
+    void readFresh();
+  }, [list, readFresh]);
   /* The first scan's re-read (FirstScanReread): an empty board takes the new
      list at once, since no row can move under the reader; a list on screen
      is offered it, as at a scan's end. */
