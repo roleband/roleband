@@ -20,6 +20,27 @@
   color: var(--row-ink, var(--app-text));
 }
 
+/* A pick marked Not for me: the assistant's reasons, then what the person
+   said and the way back, as one block in the reasons' place, voice and ink. */
+.pick-removed {
+  margin: -6px 0 0;
+  display: grid;
+  gap: 2px;
+}
+
+.pick-removed > .pick-reasons {
+  margin: 0;
+}
+
+.pick-said {
+  margin: 0;
+  font-size: var(--app-type-body);
+  font-weight: var(--app-weight-body);
+  line-height: 1.5;
+  color: var(--row-ink-2, var(--app-text-muted));
+  overflow-wrap: anywhere;
+}
+
 /* The notes above the list, one under another, in the Radar's note pattern.
    They end where the rows end, short of the ledger margin, as the toolbar
    does: padding, since a page child is the page's full measure
@@ -70,15 +91,6 @@
 
 .passed-section {
   margin-bottom: var(--app-space-5);
-}
-
-/* What the person said, under the row in the reasons' voice and ink. */
-.passed-said {
-  margin: -6px 0 0;
-  font-size: var(--app-type-body);
-  font-weight: var(--app-weight-body);
-  line-height: 1.5;
-  color: var(--row-ink-2, var(--app-text-muted));
 }
 
 .passed-more {

@@ -965,11 +965,11 @@ async def test_not_for_me_on_a_pick_removes_it_keeps_the_reason_and_can_be_put_b
     assert {key: listed["picks"][0]["reaction"][key] for key in ("kind", "reason", "reason_text")} == {
         "kind": "not_for_me", "reason": "pay_too_low", "reason_text": "The base is under what I hold.",
     }
-    app = (await api_client.get("/api/picks/removed")).json()["picks"]
-    assert [(row["job_id"], row["company"], row["reason"], row["reason_text"]) for row in app] == [
-        (jobs["staff"], "Google", "pay_too_low", "The base is under what I hold."),
+    app = (await _radar(api_client, top_picks=True, dismissed_only=True, status=""))["items"]
+    assert [(row["id"], row["company"], row["dismiss_reason"], row["dismiss_reason_text"]) for row in app] == [
+        (jobs["staff"], "google", "pay_too_low", "The base is under what I hold."),
     ]
-    assert app[0]["reasons"][0] == {"opening": "Staff level", "rest": ", one step above your Senior role today."}
+    assert app[0]["pick_reasons"][0] == {"opening": "Staff level", "rest": ", one step above your Senior role today."}
     board = (await api_client.get("/api/jobs", params={"status": "open"})).json()
     assert jobs["staff"] not in {row["id"] for row in board["items"]}, "the role left the Radar with the pick"
 
@@ -985,7 +985,7 @@ async def test_not_for_me_on_a_pick_removes_it_keeps_the_reason_and_can_be_put_b
         jobs["staff"], jobs["principal"],
     }
     assert _data(*await _read(api_client, "/picks", view="removed"))["picks"] == []
-    assert (await api_client.get("/api/picks/removed")).json() == {"picks": []}
+    assert (await _radar(api_client, top_picks=True, dismissed_only=True, status=""))["total"] == 0
     board = (await api_client.get("/api/jobs", params={"status": "open"})).json()
     assert jobs["staff"] in {row["id"] for row in board["items"]}, "put back on the Radar as well"
     assert len(await _verdicts(db_session)) == 2, "removing and putting back never touched a verdict"
@@ -1530,7 +1530,7 @@ async def test_remove_deletes_the_cv_the_reading_and_the_brief_and_nothing_else(
     assert [row.subject for row in logged] == [{"topic": "background.document_added", "document": added["document"]["id"]}]
     assert "Dana" not in str([(row.subject, row.changes) for row in logged])
     assert _data(*await _read(api_client, "/picks"))["picks"] == [], "a pick with nothing left to say is no pick"
-    assert (await api_client.get("/api/picks/removed")).json() == {"picks": []}
+    assert (await _radar(api_client, top_picks=True, dismissed_only=True, status=""))["total"] == 0
     assert (left_open.outcome, left_open.note) == ("abandoned", "Top picks was removed.")
     board = (await api_client.get("/api/jobs", params={"status": "open"})).json()
     assert {row["id"] for row in board["items"]} == {jobs["staff"], jobs["principal"], jobs["underpaid"]}
@@ -1741,6 +1741,51 @@ async def test_removed_picks_read_newest_removal_first_not_newest_pick_first(api
     removed = await _radar(api_client, top_picks=True, dismissed_only=True)
 
     assert [row["id"] for row in removed["items"]] == [jobs["staff"], jobs["principal"]]
+
+
+async def test_picks_marked_not_for_me_list_with_the_assistants_reasons_and_the_persons_own(
+    api_client, db_session, workspace,
+):
+    jobs = workspace["jobs"]
+    await _judged(api_client, workspace)
+    await api_client.put(f"/api/jobs/{jobs['staff']}/feedback", json={
+        "verdict": "dismissed", "reason": "pay_too_low", "reason_text": "Under what I hold.",
+    })
+    await api_client.put(f"/api/jobs/{jobs['principal']}/feedback", json={"verdict": "dismissed"})
+    # A role the person dismissed that no assistant picked is not a removed pick.
+    await api_client.put(f"/api/jobs/{jobs['lead']}/feedback", json={"verdict": "dismissed", "reason": "wrong_role"})
+    # Not for me carries no status: a removed pick whose posting closed stays listed.
+    async with _fresh(db_session) as session:
+        await session.execute(update(Job).where(Job.id == jobs["principal"]).values(status="closed"))
+        await session.commit()
+
+    removed = await _radar(api_client, top_picks=True, dismissed_only=True, status="")
+
+    by_id = {row["id"]: row for row in removed["items"]}
+    assert set(by_id) == {jobs["staff"], jobs["principal"]}
+    assert by_id[jobs["staff"]]["pick_reasons"][0] == {
+        "opening": "Staff level", "rest": ", one step above your Senior role today.",
+    }
+    assert (by_id[jobs["staff"]]["dismiss_reason"], by_id[jobs["staff"]]["dismiss_reason_text"]) == (
+        "pay_too_low", "Under what I hold.",
+    )
+    assert (by_id[jobs["principal"]]["dismiss_reason"], by_id[jobs["principal"]]["dismiss_reason_text"]) == (
+        None, None,
+    ), "removed without a reason"
+    radar = await _radar(api_client, dismissed_only=True, status="")
+    assert {row["id"] for row in radar["items"]} == {jobs["staff"], jobs["principal"], jobs["lead"]}
+    assert not any("dismiss_reason" in row for row in radar["items"]), "the Radar's own rows are unchanged"
+    picks = await _radar(api_client, top_picks=True)
+    assert picks["total"] == 0 and removed["total"] == 2
+
+    await api_client.delete(f"/api/jobs/{jobs['staff']}/feedback")
+
+    assert [row["id"] for row in (await _radar(api_client, top_picks=True, dismissed_only=True, status=""))["items"]] == [
+        jobs["principal"],
+    ]
+    put_back = (await _radar(api_client, top_picks=True))["items"]
+    assert [row["id"] for row in put_back] == [jobs["staff"]]
+    assert "dismiss_reason" not in put_back[0], "a pick that stands carries no reason for removing it"
 
 
 async def test_a_role_the_radar_would_not_show_is_never_listed_as_a_pick(api_client, db_session, workspace):

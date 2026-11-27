@@ -42,6 +42,23 @@ picks-end-passed-only = { $passed }。
 picks-end-passed = { $count ->
    *[other] 本周略过了 { $count } 个{ -role }
 }
+picks-end-passed-none = 本周没有略过任何{ -role }。
+
+## 显示“不适合我”：你移除的首选
+picks-removed-said = { $reason ->
+    [pay_too_low] 你说薪资太低。
+    [wrong_level] 你说级别不合适。
+    [wrong_role] 你说工作不对口。
+    [company] 你说不考虑这家公司。
+    [wrong_place] 你说地点不合适。
+    [wrong_domain] 你说领域不对。
+   *[other] 你说是其他原因。
+}
+picks-removed-words = 你的原话：“{ $words }”。
+picks-removed-put-back = 恢复
+picks-removed-put-back-name = 恢复：{ $title }
+picks-removed-empty-title = 没有标记为“不适合我”的首选
+picks-removed-empty = 你标记为不适合我的首选会连同你的原因保留在这里，以防你改变主意。
 
 ## 首选上的“不适合我”：提问
 picks-why-title = 为什么不适合你？
@@ -64,22 +81,9 @@ picks-passed-summary = { $count ->
    *[other] 本周略过了 { $count } 个{ -role }
 }
 picks-passed-back = 返回首选
-picks-passed-removed = 你移除的（{ $count }）
 picks-passed-close = 差一点（{ $count }）
 picks-passed-read = 已阅读并略过（{ $count }）
 picks-passed-ruled = 阅读前被硬性规则排除（{ $count }）
-picks-passed-said = { $reason ->
-    [pay_too_low] 你说薪资太低。
-    [wrong_level] 你说级别不合适。
-    [wrong_role] 你说工作不对口。
-    [company] 你说不考虑这家公司。
-    [wrong_place] 你说地点不合适。
-    [wrong_domain] 你说领域不对。
-   *[other] 你说是其他原因。
-}
-picks-passed-words = 你的原话：“{ $words }”。
-picks-passed-put-back = 恢复
-picks-passed-put-back-failed = 无法恢复“{ $title }”。请重试。
 picks-passed-show-all = 查看全部 { $count } 个
 picks-pass-hard-rule = 违反一条硬性规则
 picks-pass-hard-rule-named = 硬性规则：{ $rules }

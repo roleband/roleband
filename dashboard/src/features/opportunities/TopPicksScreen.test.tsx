@@ -193,9 +193,9 @@ describe("PicksEnd", () => {
     expect(link.textContent).not.toMatch(/\.$/);
   });
 
-  it("says nothing of what was passed over when nothing was, and links nowhere", () => {
+  it("says plainly that nothing was passed over in a week with none, in the same place, and links nowhere", () => {
     renderEnd(picksStateFixture({ state: "on", passed_this_week: 0, last_check: lastCheck() }));
-    expect(screen.getByRole("note").textContent).toBe(checked(2));
+    expect(screen.getByRole("note").textContent).toBe(`${checked(2)} ${msg("picks-end-passed-none")}`);
     expect(screen.queryByRole("link")).toBeNull();
   });
 
@@ -211,7 +211,7 @@ describe("PicksEnd", () => {
 
   it("names no waiting roles while the checks keep up", () => {
     renderEnd(picksStateFixture({ state: "on", health: "healthy", waiting: 14, passed_this_week: 0, last_check: lastCheck() }));
-    expect(screen.getByRole("note").textContent).toBe(checked(2));
+    expect(screen.getByRole("note").textContent).toBe(`${checked(2)} ${msg("picks-end-passed-none")}`);
   });
 
   it("gives why the last check stopped in the assistant's words, ending the sentence once", () => {
@@ -220,7 +220,9 @@ describe("PicksEnd", () => {
       last_check: lastCheck({ outcome: "stopped", note: "plan limit reached." }),
     }));
     const line = screen.getByRole("note").textContent;
-    expect(line).toBe(`${checked(2)} ${msg("picks-end-stopped", { reason: "plan limit reached" })}`);
+    expect(line).toBe(
+      `${checked(2)} ${msg("picks-end-stopped", { reason: "plan limit reached" })} ${msg("picks-end-passed-none")}`,
+    );
     expect(line).not.toContain("..");
     // The assistant's words sit in the sentence as content; the sentence around them is copy.
     expect(screen.getByText("plan limit reached")).toHaveAttribute("data-copy", "content");
@@ -234,8 +236,8 @@ describe("PicksEnd", () => {
     expect(screen.getByRole("note")).toHaveTextContent(msg("picks-end-stopped-plain"));
   });
 
-  it("says nothing before any check has run or passed a role over", () => {
+  it("keeps the passed-over sentence before any check has run, so the line never comes and goes", () => {
     renderEnd(picksStateFixture({ state: "on", passed_this_week: 0, last_check: null }));
-    expect(screen.queryByRole("note")).toBeNull();
+    expect(screen.getByRole("note").textContent).toBe(msg("picks-end-passed-none"));
   });
 });

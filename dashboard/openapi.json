@@ -19843,6 +19843,30 @@
       "title": "Discloses Pay",
       "type": "boolean"
      },
+     "dismiss_reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Dismiss Reason",
+      "x-text": "code"
+     },
+     "dismiss_reason_text": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Dismiss Reason Text",
+      "x-text": "record"
+     },
      "domains": {
       "items": {
        "type": "string"
@@ -27274,7 +27298,7 @@
    },
    "PassedOverResponse": {
     "additionalProperties": false,
-    "description": "`GET /api/picks/passed`: what the assistant read in the last seven days\nand did not pick, and what the hard rules ruled out before any reading.\nThe picks the person removed are `GET /api/picks/removed`.",
+    "description": "`GET /api/picks/passed`: what the assistant read in the last seven days\nand did not pick, and what the hard rules ruled out before any reading.\nThe picks the person removed are\n`GET /api/jobs?top_picks=true&dismissed_only=true&status=`.",
     "properties": {
      "judged_rules": {
       "items": {
@@ -34711,107 +34735,6 @@
      "notes"
     ],
     "title": "ReleaseNotesResponse",
-    "type": "object"
-   },
-   "RemovedPick": {
-    "additionalProperties": false,
-    "properties": {
-     "company": {
-      "title": "Company",
-      "type": "string",
-      "x-text": "content"
-     },
-     "company_slug": {
-      "title": "Company Slug",
-      "type": "string",
-      "x-text": "identifier"
-     },
-     "is_open": {
-      "title": "Is Open",
-      "type": "boolean"
-     },
-     "job_id": {
-      "title": "Job Id",
-      "type": "integer"
-     },
-     "judged_at": {
-      "format": "date-time",
-      "title": "Judged At",
-      "type": "string"
-     },
-     "reason": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Reason",
-      "x-text": "code"
-     },
-     "reason_text": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Reason Text",
-      "x-text": "record"
-     },
-     "reasons": {
-      "items": {
-       "$ref": "#/components/schemas/PickReason"
-      },
-      "title": "Reasons",
-      "type": "array"
-     },
-     "removed_at": {
-      "format": "date-time",
-      "title": "Removed At",
-      "type": "string"
-     },
-     "title": {
-      "title": "Title",
-      "type": "string",
-      "x-text": "content"
-     }
-    },
-    "required": [
-     "job_id",
-     "title",
-     "company",
-     "company_slug",
-     "is_open",
-     "reasons",
-     "reason",
-     "reason_text",
-     "removed_at",
-     "judged_at"
-    ],
-    "title": "RemovedPick",
-    "type": "object"
-   },
-   "RemovedPicksResponse": {
-    "additionalProperties": false,
-    "description": "`GET /api/picks/removed`: the picks the person marked Not for me,\nnewest verdict first. `DELETE /api/jobs/{job_id}/feedback` puts one back.",
-    "properties": {
-     "picks": {
-      "items": {
-       "$ref": "#/components/schemas/RemovedPick"
-      },
-      "title": "Picks",
-      "type": "array"
-     }
-    },
-    "required": [
-     "picks"
-    ],
-    "title": "RemovedPicksResponse",
     "type": "object"
    },
    "RepostDeck": {
@@ -53481,28 +53404,6 @@
      }
     },
     "summary": "Passed Over",
-    "tags": [
-     "picks"
-    ]
-   }
-  },
-  "/api/picks/removed": {
-   "get": {
-    "description": "The picks the person marked Not for me, each with the reason they gave.\n\nRemoving a pick is the Board's own dismissal, so the role left Top picks\nand the Radar together, and clearing that dismissal\n(`DELETE /api/jobs/{job_id}/feedback`) puts it back in both.",
-    "operationId": "removed_picks_api_picks_removed_get",
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/RemovedPicksResponse"
-        }
-       }
-      },
-      "description": "Successful Response"
-     }
-    },
-    "summary": "Removed Picks",
     "tags": [
      "picks"
     ]

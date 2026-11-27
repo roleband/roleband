@@ -3,13 +3,14 @@
    the reasons take the row's ink, so a read pick quietens them with its title;
    the rail's dot goes out when the screen opens. */
 
+import AxeBuilder from "@axe-core/playwright";
 import type { Locator, Page } from "@playwright/test";
 import { relative } from "../../src/copy/format";
 import { statusFixture } from "../../src/test/fixtures";
 import { msg } from "../../src/test/msg";
 import { expect, mockApi, mockGet, test } from "./fixtures";
 import { laidOut, overlapping } from "./geometry";
-import { healthyState, installTopPicksRoutes, pickFixture, picksList } from "./topPicksHarness";
+import { healthyState, installTopPicksRoutes, pickFixture, picksList, removedPickFixture } from "./topPicksHarness";
 
 const railItem = (page: Page) => page.locator('.nav-rail a[href="/top-picks"]');
 /** The end line's first sentence for the harness's last check, two hours ago by Claude Code. */
@@ -392,3 +393,138 @@ test("a note that asks for an action stays above the list while the checks are a
   await expect(page.locator(".search-truncation-note").getByRole("link", { name: msg("picks-note-fix") })).toBeVisible();
   await expect(page.locator(".board-list-end")).toContainText(msg("picks-end-waiting", { count: 14 }));
 });
+
+/* Showing: the picks, or the picks the person marked Not for me, each with
+   the assistant's reasons, what the person said and the way back. */
+
+/** Showing, at the foot of the filter column. */
+async function showing(page: Page) {
+  const group = page.getByRole("group", { name: msg("radar-filter-showing") });
+  if (!(await group.isVisible())) await page.getByRole("button", { name: msg("radar-filter-more") }).first().click();
+  await expect(group).toBeVisible();
+  return group;
+}
+const said = (reason: string, words: string) =>
+  `${msg("picks-removed-said", { reason })} ${msg("picks-removed-words", { words })} ${msg("picks-removed-put-back")}`;
+
+test("Showing sits last in the filter column; Not for me lists the removed picks with both voices, nothing above the list", async ({ page }) => {
+  await installTopPicksRoutes(page);
+  await page.goto("/top-picks");
+  const firstRow = (await page.locator(".job-row").first().boundingBox())!;
+  const group = await showing(page);
+  await expect(group.getByRole("button")).toHaveText([msg("shell-nav-top-picks"), msg("shared-not-for-me")]);
+  const groups = page.locator(".board-filters [role=group]");
+  expect(await groups.last().getAttribute("aria-label")).toBe(msg("radar-filter-showing"));
+
+  await group.getByRole("button", { name: msg("shared-not-for-me") }).click();
+  await expect(page).toHaveURL(/\/top-picks\?show=not-for-me$/);
+  const row = page.locator(".job-row").filter({ hasText: "Principal Product Manager, Payments" });
+  await expect(row.locator(".pick-reasons li")).toHaveCount(3);
+  // The words' own full stop gives way to the sentence's.
+  await expect(row.locator(".pick-said")).toHaveText(said("pay_too_low", "The base is under what I hold today"));
+  await expect(page.locator(".results-count")).toHaveText(
+    new RegExp(`${msg("radar-count-not-for-me")}\\s*·\\s*${msg("radar-show-all")}$`),
+  );
+  await expect(page.locator(".board-list-end")).toHaveCount(0);
+  // A different list in the same place: its first row starts where the picks' did.
+  expect(Math.round((await row.boundingBox())!.y)).toBe(Math.round(firstRow.y));
+
+  await page.locator(".results-count").getByRole("button", { name: msg("radar-show-all") }).click();
+  await expect(page).toHaveURL(/\/top-picks$/);
+  await expect(page.locator(".job-row").first()).toContainText("Staff Product Manager, API");
+});
+
+test("Put it back clears Not for me, takes the row off the list and opens nothing", async ({ page }) => {
+  await installTopPicksRoutes(page);
+  const calls: { method: string; id: number }[] = [];
+  await mockApi(page, ["PUT", "DELETE"], "/api/jobs/*/feedback", (route) => {
+    const id = Number(route.request().url().match(/jobs\/(\d+)\/feedback/)![1]);
+    calls.push({ method: route.request().method(), id });
+    return route.fulfill({ json: { job_id: id, is_dismissed: false, reason: null, company: "openai", department: null, team: null } });
+  });
+  await page.goto("/top-picks?show=not-for-me");
+  const row = page.locator(".job-row").filter({ hasText: "Principal Product Manager, Payments" });
+  // The link is the one way back here: the row carries no Restore, even under the pointer.
+  await row.hover();
+  await expect(row.getByRole("button", { name: msg("jobs-restore") })).toHaveCount(0);
+  const putBack = row.getByRole("button", { name: msg("picks-removed-put-back-name", { title: "Principal Product Manager, Payments" }), exact: true });
+  await putBack.focus();
+  await page.keyboard.press("Enter");
+  await expect(row).toHaveCount(0);
+  expect(calls).toEqual([{ method: "DELETE", id: 701 }]);
+  await expect(page).toHaveURL(/\/top-picks\?show=not-for-me$/);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("nothing marked Not for me: the house empty box says so, and Show all goes back to the picks", async ({ page }) => {
+  await installTopPicksRoutes(page, { removed: picksList([]) });
+  await page.goto("/top-picks?show=not-for-me");
+  const box = page.locator(".empty");
+  await expect(box).toContainText(msg("picks-removed-empty-title"));
+  await expect(box).toContainText(msg("picks-removed-empty"));
+  await box.getByRole("button", { name: msg("radar-show-all") }).click();
+  await expect(page).toHaveURL(/\/top-picks$/);
+});
+
+const LONG_WORDS = `Not now: ${UNSPACED.slice(0, 120)} and the team is on call every other weekend`;
+
+for (const width of [1440, 2000]) {
+  test(`a removed pick's long reasons and the person's long words stay inside the row at ${width}`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const reasons = [
+      { opening: "Staff level", rest: " at a company that pays at the top of your band, with equity refreshed every year and a bonus." },
+      { opening: UNSPACED, rest: " is the team's own name for the work." },
+    ];
+    await installTopPicksRoutes(page, {
+      removed: picksList([removedPickFixture({ title: LONG_TITLE, pick_reasons: reasons, dismiss_reason: "wrong_role", dismiss_reason_text: LONG_WORDS })]),
+    });
+    await page.goto("/top-picks?show=not-for-me");
+    const row = page.locator(".job-row").first();
+    await expect(row.locator(".pick-said")).toHaveText(said("wrong_role", LONG_WORDS));
+
+    expect(overlapping(await laidOut(row, ".jr-role, .jr-loc, .jr-comp, .jr-actions, .job-under"))).toEqual([]);
+    const rowBox = (await row.boundingBox())!;
+    for (const line of await laidOut(row, ".pick-reasons li, .pick-said")) {
+      expect(line.right, line.what).toBeLessThanOrEqual(rowBox.x + rowBox.width + 0.5);
+    }
+    // Put it back's focus ring stays inside the row.
+    const putBack = row.getByRole("button", { name: msg("picks-removed-put-back") });
+    await putBack.focus();
+    await page.keyboard.press("Shift+Tab");
+    await page.keyboard.press("Tab");
+    await expect(putBack).toBeFocused();
+    const ring = await putBack.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      const r = el.getBoundingClientRect();
+      const grow = parseFloat(cs.outlineOffset) + parseFloat(cs.outlineWidth);
+      return { style: cs.outlineStyle, left: r.left - grow, right: r.right + grow, top: r.top - grow, bottom: r.bottom + grow };
+    });
+    expect(ring.style).not.toBe("none");
+    expect(ring.left).toBeGreaterThanOrEqual(rowBox.x);
+    expect(ring.right).toBeLessThanOrEqual(rowBox.x + rowBox.width);
+    expect(ring.bottom).toBeLessThanOrEqual(rowBox.y + rowBox.height);
+    const sideways = await page.locator(".main").evaluate((main) => main.scrollWidth - main.clientWidth);
+    expect(sideways).toBeLessThanOrEqual(0);
+  });
+}
+
+test("a week with nothing passed over keeps the sentence where the link stands, as plain text", async ({ page }) => {
+  await installTopPicksRoutes(page, { state: healthyState({ passed_this_week: 0 }) });
+  await page.goto("/top-picks");
+  const end = page.locator(".board-list-end");
+  await expect(end).toHaveText(`${checked()} ${msg("picks-end-passed-none")}`);
+  await expect(end.getByRole("link")).toHaveCount(0);
+});
+
+for (const theme of ["light", "dark"] as const) {
+  test(`Not for me on Top picks: accessible contrast and names (${theme})`, async ({ page }) => {
+    await installTopPicksRoutes(page);
+    await page.addInitScript((value) => localStorage.setItem("theme", value), theme);
+    await page.goto("/top-picks?show=not-for-me");
+    await expect(page.locator(".pick-said")).toBeVisible();
+    const violations = (await new AxeBuilder({ page }).analyze()).violations
+      .filter((v) => v.impact === "serious" || v.impact === "critical")
+      .map((v) => `${v.id}: ${v.nodes.map((n) => n.html).join("; ")}`);
+    expect(violations).toEqual([]);
+  });
+}

@@ -21,27 +21,6 @@ class PickReason(Built):
     rest: str = Field(json_schema_extra=text("record"))
 
 
-class RemovedPick(Built):
-    job_id: int
-    title: str = Field(json_schema_extra=text("content"))
-    company: str = Field(json_schema_extra=text("content"))
-    company_slug: str = Field(json_schema_extra=text("identifier"))
-    is_open: bool
-    reasons: list[PickReason]
-    #: Why the person removed it: a reason code, their own words, both or neither.
-    reason: str | None = Field(json_schema_extra=text("code"))
-    reason_text: str | None = Field(json_schema_extra=text("record"))
-    removed_at: datetime
-    judged_at: datetime
-
-
-class RemovedPicksResponse(Built):
-    """`GET /api/picks/removed`: the picks the person marked Not for me,
-    newest verdict first. `DELETE /api/jobs/{job_id}/feedback` puts one back."""
-
-    picks: list[RemovedPick]
-
-
 class NearMiss(Built):
     job_id: int
     #: The one thing that failed, read as `opening` then `rest`.
@@ -64,7 +43,8 @@ class RuleCount(Built):
 class PassedOverResponse(Built):
     """`GET /api/picks/passed`: what the assistant read in the last seven days
     and did not pick, and what the hard rules ruled out before any reading.
-    The picks the person removed are `GET /api/picks/removed`."""
+    The picks the person removed are
+    `GET /api/jobs?top_picks=true&dismissed_only=true&status=`."""
 
     passed_this_week: int
     #: Near misses that stand, newest first, without the ones marked Not for me.

@@ -72,6 +72,30 @@ picks-end-passed = { $count ->
     [one] { $count } { -role(num: "one") } passed over this week
    *[other] { $count } { -role(num: "other") } passed over this week
 }
+# kind=sentence note="Last on the line in a week the assistant passed over nothing; it stands where the link to Passed over stands in other weeks"
+picks-end-passed-none = Nothing passed over this week.
+
+## Showing Not for me: the picks the person removed (features/opportunities/TopPicksScreen.tsx)
+# kind=sentence note="Under a removed pick, after the assistant's reasons: the reason the person gave, by its code"
+picks-removed-said = { $reason ->
+    [pay_too_low] You said the pay is too low.
+    [wrong_level] You said the level is wrong.
+    [wrong_role] You said it's not your work.
+    [company] You said not this company.
+    [wrong_place] You said it's the wrong place.
+    [wrong_domain] You said it's the wrong world.
+   *[other] You said it's something else.
+}
+# kind=sentence note="Under a removed pick: the person's own words, quoted"
+picks-removed-words = In your words: “{ $words }”.
+# kind=link note="Clears Not for me, so the role is a top pick and on the Radar again"
+picks-removed-put-back = Put it back
+# kind=aria note="The link's accessible name: its visible words, then the role it puts back"
+picks-removed-put-back-name = Put it back: { $title }
+# kind=heading note="Showing Not for me, and no pick is marked"
+picks-removed-empty-title = No top picks marked “Not for me”
+# kind=empty note="Under the title; the link Show all follows it and goes back to the picks"
+picks-removed-empty = A top pick you mark Not for me waits here with your reason, in case you change your mind.
 
 ## Not for me on a pick: the question (features/opportunities/PickFeedbackDialog.tsx)
 # kind=heading
@@ -111,30 +135,12 @@ picks-passed-summary = { $count ->
 }
 # kind=link note="After the first line; opens Top picks"
 picks-passed-back = Back to top picks
-# kind=heading note="The picks the person marked Not for me; $count is how many"
-picks-passed-removed = Removed by you ({ $count })
 # kind=heading note="Near misses: roles that failed on one thing; $count is how many this week"
 picks-passed-close = Came close ({ $count })
 # kind=heading note="Roles the assistant read and passed, grouped by why; $count is how many"
 picks-passed-read = Read and passed ({ $count })
 # kind=heading note="Roles a hard rule ruled out before the assistant read them, by rule; $count is how many"
 picks-passed-ruled = Ruled out by a hard rule before reading ({ $count })
-# kind=sentence note="Under a removed pick: the reason the person gave, by its code"
-picks-passed-said = { $reason ->
-    [pay_too_low] You said the pay is too low.
-    [wrong_level] You said the level is wrong.
-    [wrong_role] You said it's not your work.
-    [company] You said not this company.
-    [wrong_place] You said it's the wrong place.
-    [wrong_domain] You said it's the wrong world.
-   *[other] You said it's something else.
-}
-# kind=sentence note="Under a removed pick: the person's own words, quoted"
-picks-passed-words = In your words: “{ $words }”.
-# kind=link note="Clears Not for me, so the role is a top pick and on the Radar again"
-picks-passed-put-back = Put it back
-# kind=toast
-picks-passed-put-back-failed = Couldn't put “{ $title }” back. Try again.
 # kind=link note="Under the first near misses; $count is how many there are"
 picks-passed-show-all = Show all { $count }
 # kind=label note="Why a role was passed, when the brief has no rule only reading can check"

@@ -22,15 +22,11 @@ from tracker.api.schemas.picks import (
     PicksSetup,
     PicksSetupStep,
     PicksStateResponse,
-    RemovedPick,
-    RemovedPicksResponse,
     RuleCount,
 )
-from tracker.db.queries.companies import display_names
 from tracker.notifications import reconcile_picks_stalled
 from tracker.picks import brief as briefs
 from tracker.picks import mode, queue, runs, setup, verdicts
-from tracker.picks.brief import BriefBody
 from tracker.platform import agent_hosts
 from tracker.settings_store import DAILY_CAP_MAX, get_top_picks_settings
 
@@ -41,27 +37,6 @@ router = APIRouter(tags=["picks"])
 PERSONAL_WRITES = frozenset({
     "background.set", "background.add_document", "brief.patch", "picks.begin", "picks.finish",
 })
-
-
-@router.get("/api/picks/removed", response_model=RemovedPicksResponse)
-async def removed_picks(session: SessionDep) -> RemovedPicksResponse:
-    """The picks the person marked Not for me, each with the reason they gave.
-
-    Removing a pick is the Board's own dismissal, so the role left Top picks
-    and the Radar together, and clearing that dismissal
-    (`DELETE /api/jobs/{job_id}/feedback`) puts it back in both."""
-    rows = await verdicts.listed(session, "removed", body=BriefBody())
-    names = await display_names(session) if rows else {}
-    return RemovedPicksResponse(picks=[
-        RemovedPick(
-            job_id=item.job.id, title=item.job.title, company=names.get(item.job.company, item.job.company),
-            company_slug=item.job.company, is_open=item.job.status == "open",
-            reasons=[PickReason(opening=reason.get("opening"), rest=reason["rest"]) for reason in item.verdict.reasons],
-            reason=item.reaction.reason, reason_text=item.reaction.reason_text, removed_at=item.reaction.at,
-            judged_at=item.verdict.created_at,
-        )
-        for item in rows if item.reaction is not None
-    ])
 
 
 @router.get("/api/picks/passed", response_model=PassedOverResponse)

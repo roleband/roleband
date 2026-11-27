@@ -54,6 +54,23 @@ picks-end-passed = { $count ->
     [many] { $count } de { -role(num: "other") } descartados esta semana
    *[other] { $count } { -role(num: "other") } descartados esta semana
 }
+picks-end-passed-none = Nada descartado esta semana.
+
+## Mostrando No es para mí: los destacados que quitaste
+picks-removed-said = { $reason ->
+    [pay_too_low] Dijiste que el sueldo es bajo.
+    [wrong_level] Dijiste que el nivel no encaja.
+    [wrong_role] Dijiste que el trabajo es distinto.
+    [company] Dijiste que no esta empresa.
+    [wrong_place] Dijiste que el lugar no es el adecuado.
+    [wrong_domain] Dijiste que no es tu ámbito.
+   *[other] Dijiste que es por otro motivo.
+}
+picks-removed-words = En tus palabras: «{ $words }».
+picks-removed-put-back = Recuperarlo
+picks-removed-put-back-name = Recuperarlo: { $title }
+picks-removed-empty-title = Ningún destacado marcado como «No es para mí»
+picks-removed-empty = Un destacado que marques como No es para mí espera aquí con tu motivo, por si cambias de opinión.
 
 ## Descartar una selección: la pregunta
 picks-why-title = ¿Por qué no es para ti?
@@ -78,22 +95,9 @@ picks-passed-summary = { $count ->
    *[other] { $count } { -role(num: "other") } descartados esta semana
 }
 picks-passed-back = Volver a Destacados
-picks-passed-removed = Quitados por ti ({ $count })
 picks-passed-close = Casi ({ $count })
 picks-passed-read = Leídos y descartados ({ $count })
 picks-passed-ruled = Excluidos por una regla estricta antes de leerlos ({ $count })
-picks-passed-said = { $reason ->
-    [pay_too_low] Dijiste que el sueldo es bajo.
-    [wrong_level] Dijiste que el nivel no encaja.
-    [wrong_role] Dijiste que el trabajo es distinto.
-    [company] Dijiste que no esta empresa.
-    [wrong_place] Dijiste que el lugar no es el adecuado.
-    [wrong_domain] Dijiste que no es tu ámbito.
-   *[other] Dijiste que es por otro motivo.
-}
-picks-passed-words = En tus palabras: «{ $words }».
-picks-passed-put-back = Recuperarlo
-picks-passed-put-back-failed = No se pudo recuperar «{ $title }». Inténtalo de nuevo.
 picks-passed-show-all = Ver los { $count }
 picks-pass-hard-rule = Incumple una regla estricta
 picks-pass-hard-rule-named = Regla estricta: { $rules }

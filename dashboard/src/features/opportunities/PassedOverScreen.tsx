@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { DEFAULT_FILTERS, api, type Job, type PassCode, type PassedOver, type RemovedPicks } from "../../api";
+import { DEFAULT_FILTERS, api, type Job, type PassCode, type PassedOver } from "../../api";
 import {
   picksPassBelowLevel,
   picksPassHardRule,
@@ -16,15 +16,10 @@ import {
   picksPassedHeading,
   picksPassedLoadFailed,
   picksPassedLoading,
-  picksPassedPutBack,
-  picksPassedPutBackFailed,
   picksPassedRead,
-  picksPassedRemoved,
   picksPassedRuled,
-  picksPassedSaid,
   picksPassedShowAll,
   picksPassedSummary,
-  picksPassedWords,
 } from "../../copy/gen/picks";
 import { number } from "../../copy/format";
 import { list as joined } from "../../copy/format/display";
@@ -56,44 +51,40 @@ const PASS_LABEL: Record<Exclude<PassCode, "hard_rule">, () => string> = {
 
 interface PassedOverData {
   passed: PassedOver;
-  removed: RemovedPicks["picks"];
-  /** The rows of the removed picks and the near misses, by id. */
+  /** The rows of the near misses, by id. */
   rows: Map<number, Job>;
 }
 
 async function load(signal: AbortSignal): Promise<PassedOverData> {
-  const [passed, removed] = await Promise.all([api.picksPassed(signal), api.picksRemoved(signal)]);
-  // By id, a role is listed whatever its status and whether or not the person
-  // marked it Not for me, so the removed picks come back with the near misses.
-  const ids = [...new Set([...removed.picks.map((pick) => pick.job_id), ...passed.near_misses.map((miss) => miss.job_id)])];
+  const passed = await api.picksPassed(signal);
+  // By id, a role is listed whatever its status.
+  const ids = [...new Set(passed.near_misses.map((miss) => miss.job_id))];
   const rows = ids.length === 0
     ? []
     : (await api.jobs({ ...DEFAULT_FILTERS, ids, status: "", sort: "first_seen", limit: Math.min(ids.length, 500) }, signal)).items;
-  return { passed, removed: removed.picks, rows: new Map(rows.map((row) => [row.id, row])) };
+  return { passed, rows: new Map(rows.map((row) => [row.id, row])) };
 }
 
-/* Passed over: what the person's assistant read this week and did not pick,
-   and what the person removed. The picks they removed come first, each with
-   why and a way back; then the near misses, each with the one thing that
-   failed; then the passes by why, and what the hard rules ruled out before
-   any reading. It is a page of Top picks: the rail keeps Top picks marked and
-   the top bar names the page. */
+/* Passed over: what the person's assistant read this week and did not pick.
+   The near misses come first, each with the one thing that failed; then the
+   passes by why, and what the hard rules ruled out before any reading. The
+   picks the person removed are not here: they are Top picks' Not for me. It
+   is a page of Top picks: the rail keeps Top picks marked and the top bar
+   names the page. */
 export function PassedOverScreen() {
   const data = useAsyncResource(load, []);
   return (
     <main className="main passed-over job-margin-page" data-design-system="app">
       <PageHeader title={picksPassedHeading()} offScreen />
       <AsyncBoundary resource={data} loading={picksPassedLoading()} failed={picksPassedLoadFailed()}>
-        {(loaded) => <PassedOverPage data={loaded} onPutBack={(jobId) => data.mutate((current) => current && {
-          ...current, removed: current.removed.filter((pick) => pick.job_id !== jobId),
-        })} />}
+        {(loaded) => <PassedOverPage data={loaded} />}
       </AsyncBoundary>
     </main>
   );
 }
 
-function PassedOverPage({ data, onPutBack }: { data: PassedOverData; onPutBack: (jobId: number) => void }) {
-  const { passed, removed, rows } = data;
+function PassedOverPage({ data }: { data: PassedOverData }) {
+  const { passed, rows } = data;
   const [allNear, setAllNear] = useState(false);
   const { toast } = useToast();
   const { viewedIds, compareIds, compareFull, compareCap } = useJobWorkspace();
@@ -115,16 +106,6 @@ function PassedOverPage({ data, onPutBack }: { data: PassedOverData; onPutBack: 
     }));
   }, [saved, saveRole, toast]);
 
-  const putBack = useCallback((job: Job) => {
-    api.undismissJob(job.id)
-      .then(() => onPutBack(job.id))
-      .catch(() => toast({
-        key: "passed-over",
-        text: <Msg of={picksPassedPutBackFailed} elems={{ title: <Content text={job.title} /> }} />,
-        tone: "error",
-      }));
-  }, [onPutBack, toast]);
-
   const row = (job: Job, under: React.ReactNode) => (
     <JobCard
       key={job.id}
@@ -141,10 +122,6 @@ function PassedOverPage({ data, onPutBack }: { data: PassedOverData; onPutBack: 
     />
   );
 
-  const removedRows = removed.flatMap((pick) => {
-    const job = rows.get(pick.job_id);
-    return job ? [{ pick, job }] : [];
-  });
   const nearRows = passed.near_misses.flatMap((miss) => {
     const job = rows.get(miss.job_id);
     return job ? [{ miss, job }] : [];
@@ -159,7 +136,7 @@ function PassedOverPage({ data, onPutBack }: { data: PassedOverData; onPutBack: 
     : PASS_LABEL[code]();
 
   const back = <RouterLink variant="link" to={TOP_PICKS_PATH}>{picksPassedBack()}</RouterLink>;
-  const nothing = removedRows.length === 0 && nearRows.length === 0 && readAndPassed === 0 && passed.ruled_out === 0;
+  const nothing = nearRows.length === 0 && readAndPassed === 0 && passed.ruled_out === 0;
 
   return (
     <>
@@ -170,27 +147,6 @@ function PassedOverPage({ data, onPutBack }: { data: PassedOverData; onPutBack: 
           {passed.passed_this_week > 0 && <span>{picksPassedSummary({ count: passed.passed_this_week })}</span>}
           {back}
         </p>
-      )}
-
-      {removedRows.length > 0 && (
-        <section className="passed-section" aria-labelledby="passed-removed">
-          <h2 id="passed-removed" className="search-section-head">{picksPassedRemoved({ count: removedRows.length })}</h2>
-          <JobList columns={false}>
-            {removedRows.map(({ pick, job }) => row(job, (
-              <p className="passed-said">
-                {pick.reason && pick.reason !== "other" && <>{picksPassedSaid({ reason: pick.reason })}{" "}</>}
-                {pick.reason_text && <><Msg of={picksPassedWords} elems={{ words: <Content text={pick.reason_text} /> }} />{" "}</>}
-                <Button
-                  variant="link"
-                  onClick={(event) => { event.stopPropagation(); putBack(job); }}
-                  onKeyDown={(event) => event.stopPropagation()}
-                >
-                  {picksPassedPutBack()}
-                </Button>
-              </p>
-            )))}
-          </JobList>
-        </section>
       )}
 
       {nearRows.length > 0 && (

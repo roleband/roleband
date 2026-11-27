@@ -752,7 +752,13 @@ from the palette and from every link to it. The only mark on the side bar is
 Top picks' dot; a count lit most days says nothing. On Top picks itself, a
 pick that arrives while the list is open is offered as the list's update, as a
 scan's end is on the Radar, and never moves a row under the reader; taking it
-counts as opening Top picks and puts the dot out. The side bar opens
+counts as opening Top picks and puts the dot out. Top picks keeps the Radar's
+Showing control at the foot of its filters, with two positions: its picks, and
+the picks the person marked Not for me, each with the assistant's reasons,
+what the person said and Put it back, its one way back: the row itself
+carries no Restore there, as it does in the Radar's Not for me. Passed over lists only what the
+assistant passed over, and the line where the picks end leads to it every
+week, as plain text in a week with nothing passed over. The side bar opens
 expanded or collapsed as the person last left it, a view choice too
 (`sidebar.expanded`).
 
@@ -1483,6 +1489,7 @@ Unit gates (`npm run test:unit`) are under `dashboard/src/`; UX specs
 | A posting that opened with no text reads it once and says so under a running line, offers the posting when the site is slow and Try again when the read failed, and asks nothing when nothing can read it; text that came in leaves its held headings' ground on the page's own pixels | `job-detail.spec.ts`, `features/job-detail/postingText.test.tsx` |
 | First-run setup | `routing/setupMode.test.tsx`, `features/scope/walk/Walk.test.tsx`, `features/companies/SetupCompanies.test.tsx`, `welcome.spec.ts` |
 | Top picks offers a pick that arrives while it is open as the list's update, and taking it puts the dot out; the Radar is not offered it | `features/opportunities/picksUpdate.test.tsx` |
+| Top picks' Showing: its picks or the picks marked Not for me, each with both voices and Put it back, counted as a list of its own; Passed over lists only the assistant's passes; the end line names Passed over every week; long words, rings and contrast at 1440 and 2000 | `features/opportunities/topPicksNotForMe.test.tsx`, `features/opportunities/TopPicksScreen.test.tsx`, `top-picks.spec.ts`, `passed-over.spec.ts` |
 | Onboarding: the copy control; Top picks' onboarding follows the setup conversation and gives way to the list | `ui/CopyField.test.tsx`, `features/opportunities/TopPicksOnboarding.test.tsx`, `top-picks-onboarding.spec.ts` |
 | First-run setup magnification: the factor, window units, placed pop-ups, the planet's pointer | `features/scope/setupZoom.test.ts`, `features/scope/welcome/globeDrag.test.ts`, `setup-magnification.spec.ts`, `setup-magnification-webkit.spec.ts`, `setup-magnification-unhinted.spec.ts` |
 | The board during and after the first scan | `board-first-scan.spec.ts` |

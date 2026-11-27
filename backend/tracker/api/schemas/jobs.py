@@ -207,6 +207,11 @@ class JobListItem(JobRow):
     # each reason as its opening fact and the rest of its sentence, and when.
     pick_reasons: list[PickReasonText] | SkipJsonSchema[None] = None
     picked_at: datetime | SkipJsonSchema[None] = None
+    # Top picks rows the person marked Not for me (`top_picks=true` with
+    # `dismissed_only=true`): the reason code they chose and their own words,
+    # each null when not given.
+    dismiss_reason: str | None = Field(default=None, json_schema_extra=text("code"))
+    dismiss_reason_text: str | None = Field(default=None, json_schema_extra=text("record"))
     # Relevance rows only: membership evidence, "exact" first on exact rows.
     matched_via: list[str] | SkipJsonSchema[None] = None
     match_class: MatchClass | SkipJsonSchema[None] = None
