@@ -2,7 +2,7 @@
 name: roleband-top-picks
 description: Set up, run and change RoleBand top picks, the few open roles worth the person's attention, chosen against what they want. Use when the person says "set up my top picks" or "update my top picks" in any language (such as "configura mis destacados" or "设置我的首选"), asks why a role was or was not picked, or when a scheduled task says to run the RoleBand top picks check.
 ---
-<!-- roleband-top-picks skill, version 1. `roleband connect` installed these files and `roleband picks status` keeps unedited ones current; once you edit a file, neither changes it. -->
+<!-- roleband-top-picks skill, version 2. `roleband connect` installed these files and `roleband picks status` keeps unedited ones current; once you edit a file, neither changes it. -->
 
 # RoleBand top picks
 
@@ -47,16 +47,16 @@ the run with a note; the app tells them.
    says, with `roleband brief patch --run RUN ...`. Never change a hard rule
    in a run. Do this even when the batch is empty: the next run is handed
    only the reactions that come after this one.
-3. If `data.batch` is empty, go to step 6.
+3. If `data.batch` is empty, go to step 5.
 4. Judge every posting in the batch as `judging.md` says. Do the second look
-   before any pick.
-5. Send the batch's verdicts in one call:
+   before any pick. Send the batch's verdicts in one call:
    `echo '{"run": "RUN", "brief_version": N, "verdicts": [...]}' | roleband picks decide --input - --idempotency-key KEY --json`.
-   Read each item's outcome. Then look at `data.next_cursor` in the answer
+   Read each item's outcome.
+5. Look at `data.next_cursor` in the answer
    that handed you this batch (`picks begin` or `picks next`; `picks decide`
-   has none). While it is set, read the next batch with
-   `roleband picks next --run RUN --cursor CURSOR --json`, that number as
-   `CURSOR`, and repeat from step 4.
+   has none). If it is set, read the next batch with
+   `roleband picks next --run RUN --cursor CURSOR --json`, using that number
+   as `CURSOR`, and repeat from step 3. If it is null, go to step 6.
 6. Close the run:
    `roleband picks finish --run RUN --outcome finished --idempotency-key KEY --json`.
    If you had to stop early (a limit, an error you could not get past), use

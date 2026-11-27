@@ -1357,8 +1357,11 @@ posting's id and content hash) and the active brief's version, and answers
 what the judge needs in one call: the brief, this month's picks, the person's
 reactions since the last run and the first postings. `picks.next` reads a
 further batch, `picks.decide` records up to 50 verdicts and `picks.finish`
-closes the run, `finished` or `stopped` with a note. The engine treats a run
-as abandoned after two hours and closes it when the same assistant starts
+closes the run, `finished` or `stopped` with a note. Batch reads, including
+first-batch replays, and new verdicts recheck the queue under the run's brief.
+A batch keeps the original queue order and ranks. The cursor advances across
+each original window, even when no postings in it still qualify. The engine
+treats a run as abandoned after two hours and closes it when the same assistant starts
 another. A closed run refuses batch reads, including a replay of the first
 batch, and accepts no new writes. Routine runs share a limit for each local
 day (1,000 by default, 1 to 5,000). A trial counts apart. A verdict
@@ -1367,9 +1370,10 @@ the person's baseline), a `near_miss` (the one reason it failed) or a `pass`
 (a code); a reason is plain text of at most 140 characters, its `opening` fact
 apart from the `rest`, naming the brief item it rests on. Each verdict is
 checked and saved in its own savepoint, so one refused item (`not_in_run`,
-`posting_changed`, `brief_changed`, or out of form) leaves the batch's others
-saved. A posting is judged once per text, brief version and trial
-(`uq_pick_verdict_case`); a verdict on a new case supersedes the one before.
+`posting_changed`, `brief_changed`, `already_judged`, `posting_ineligible`, or
+out of form) leaves the batch's others saved. A posting is judged once per
+text, brief version and trial (`uq_pick_verdict_case`); a verdict on a new case
+supersedes the one before.
 `picks/health.py` reads the stored runs: `off`, `stopped_early` when the run
 that ended last in the current enabled period stopped or was abandoned,
 `never_ran`, and `late` when a role has waited over 36 hours and no run
