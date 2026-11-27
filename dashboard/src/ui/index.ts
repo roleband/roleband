@@ -54,6 +54,8 @@ export { Icon } from "./Icon";
 export type { IconName } from "./Icon";
 export { CompanyIcon } from "./CompanyIcon";
 export type { CompanyIconProps } from "./CompanyIcon";
+export { AssistantMark } from "./AssistantMark";
+export type { AssistantApp, AssistantMarkProps } from "./AssistantMark";
 export { brandInk, contrast } from "./brandColor";
 export { resolveBrandIcon, hasBrandIcon, loadBrandIcon } from "./brandIcons";
 export type { BrandIcon } from "./brandIcons";
