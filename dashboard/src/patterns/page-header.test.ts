@@ -11,10 +11,12 @@ import { ROUTE_COMPONENTS } from "../routeRegistry";
  * in the browser (`tests/ux/page-header.spec.ts`). A new tab lands here
  * unlisted and fails by name.
  *
- * Three tabs lead with a row of their own and leave their name to the top bar
- * and the rail: the Radar and Top picks with their toolbar, the Pipeline with
- * its views and their tools. Each still renders the shared header, titled the
- * same, and says so with `offScreen`. No other tab may.
+ * A tab shows its title unless its first row is its own views: only the
+ * Pipeline's is, and it leaves its name to the top bar and the rail. It still
+ * renders the shared header, titled the same, and says so with `offScreen`.
+ * Top picks draws its title as the Radar does, but before setup its onboarding
+ * leads with a headline of its own, so there, and only there, its title is off
+ * screen too. No other tab may.
  */
 
 const src = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -34,7 +36,9 @@ const PAGE_HEADER: Record<string, string> = {
 };
 
 /** The tabs whose title is the page's heading and is not drawn. */
-const OFF_SCREEN = new Set(["/", "/top-picks", "/pipeline"]);
+const OFF_SCREEN = new Set(["/pipeline"]);
+/** The tabs whose title is off screen in one state only, which they compute. */
+const OFF_SCREEN_SOMETIMES = new Set(["/top-picks"]);
 
 describe("PageHeader adoption", () => {
   it("accounts for every tab in the route table, and only those", () => {
@@ -53,7 +57,8 @@ describe("PageHeader adoption", () => {
     // No second head of its own, and no title only a screen reader could see,
     // but for the tabs named above, which ask the shared header for it.
     expect(source).not.toMatch(/settings-head|<h1 className="sr-only"/);
-    expect(/<PageHeader\b[^>]*\boffScreen\b/.test(source), `${file} draws its title`).toBe(OFF_SCREEN.has(path));
+    expect(/<PageHeader\b[^>]*\boffScreen(?!=)/.test(source), `${file} never draws its title`).toBe(OFF_SCREEN.has(path));
+    expect(/<PageHeader\b[^>]*\boffScreen=\{/.test(source), `${file} draws its title but in one state`).toBe(OFF_SCREEN_SOMETIMES.has(path));
   });
 
   it("an off-screen title is still the page's one heading, by the same name", () => {

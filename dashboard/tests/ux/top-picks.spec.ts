@@ -163,14 +163,55 @@ test("nothing starts under the docked bar, and the filter column stands level on
   expect(picks.rail).toBe(radar.rail);
 });
 
-test("the first pick starts within 150px of the top at 900 tall, with no title above it", async ({ page }) => {
-  await installTopPicksRoutes(page);
-  await page.goto("/top-picks");
-  await expect(page.locator(".job-row").first()).toBeVisible();
-  const top = (await page.locator(".job-row").first().boundingBox())!.y;
-  expect(top).toBeLessThanOrEqual(150);
-  await expect(page.locator(".page-hero")).toHaveCount(0);
+/** Where the title, the toolbar, the filter column, the content and its first row start. */
+const lines = (page: Page) => page.evaluate(() => {
+  const top = (selector: string) => {
+    const box = document.querySelector(selector)?.getBoundingClientRect();
+    return box ? Math.round(box.top) : null;
+  };
+  return {
+    title: top(".page-hero h1"),
+    toolbar: top(".board-toolbar"),
+    rail: top(".rail-shell-rail"),
+    content: top(".board-content"),
+    row: top(".job-row"),
+  };
 });
+
+/* The Radar and Top picks are one screen twice: the same title in the same
+   place, then the toolbar, the filter column and the list, each on one line on
+   both, whatever Top picks shows (its picks, none, or those marked Not for me). */
+for (const width of [1440, 2000]) {
+  test(`the Radar and Top picks draw their title and start their lists on one line at ${width}`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await installTopPicksRoutes(page);
+    await page.goto("/");
+    await expect(page.locator(".page-hero").getByRole("heading", { level: 1, name: msg("shell-nav-radar") })).toBeVisible();
+    await expect(page.locator(".job-row").first()).toBeVisible();
+    const radar = await lines(page);
+
+    await page.goto("/top-picks");
+    await expect(page.locator(".page-hero").getByRole("heading", { level: 1, name: msg("shell-nav-top-picks") })).toBeVisible();
+    await expect(page.locator(".job-row .pick-reasons").first()).toBeVisible();
+    const picks = await lines(page);
+
+    await page.goto("/top-picks?show=not-for-me");
+    await expect(page.locator(".job-row").first()).toBeVisible();
+    const notForMe = await lines(page);
+
+    await mockGet(page, "/api/jobs?**", (route) => route.fulfill({ json: picksList([]) }));
+    await page.goto("/top-picks");
+    await expect(page.getByText(msg("picks-empty-title"))).toBeVisible();
+    const empty = await lines(page);
+
+    expect(radar.title, "the Radar draws its title").not.toBeNull();
+    for (const [name, at] of [["Top picks", picks], ["Not for me", notForMe], ["Top picks, empty", empty]] as const) {
+      expect({ ...at, row: undefined }, name).toEqual({ ...radar, row: undefined });
+    }
+    expect(picks.row, "the first pick").toBe(radar.row);
+    expect(notForMe.row, "the first marked pick").toBe(radar.row);
+  });
+}
 
 const LONG_TITLE = "Senior Staff Product Manager, Developer Platform and Infrastructure for Enterprise Machine Learning Workloads across North America and Europe";
 const UNSPACED = "Kubernetes-operator-observability-reliability-platform-engineering-leadership-".repeat(3);
@@ -407,10 +448,15 @@ async function showing(page: Page) {
 const said = (reason: string, words: string) =>
   `${msg("picks-removed-said", { reason })} ${msg("picks-removed-words", { words })} ${msg("picks-removed-put-back")}`;
 
+/** Where `locator` starts on the page, wherever the page is scrolled: a click
+ *  on a control low in the filter column scrolls the title away. */
+const pageTop = (locator: Locator) => locator.evaluate((el) =>
+  Math.round(el.getBoundingClientRect().top + document.querySelector(".main")!.scrollTop));
+
 test("Showing sits last in the filter column; Not for me lists the removed picks with both voices, nothing above the list", async ({ page }) => {
   await installTopPicksRoutes(page);
   await page.goto("/top-picks");
-  const firstRow = (await page.locator(".job-row").first().boundingBox())!;
+  const firstRow = await pageTop(page.locator(".job-row").first());
   const group = await showing(page);
   await expect(group.getByRole("button")).toHaveText([msg("shell-nav-top-picks"), msg("shared-not-for-me")]);
   const groups = page.locator(".board-filters [role=group]");
@@ -427,7 +473,7 @@ test("Showing sits last in the filter column; Not for me lists the removed picks
   );
   await expect(page.locator(".board-list-end")).toHaveCount(0);
   // A different list in the same place: its first row starts where the picks' did.
-  expect(Math.round((await row.boundingBox())!.y)).toBe(Math.round(firstRow.y));
+  expect(await pageTop(row)).toBe(firstRow);
 
   await page.locator(".results-count").getByRole("button", { name: msg("radar-show-all") }).click();
   await expect(page).toHaveURL(/\/top-picks$/);

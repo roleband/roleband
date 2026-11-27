@@ -97,8 +97,9 @@ const TOP_PICKS_MODE_PARAMS = TOP_PICKS_MODES.map((mode) => MODE_PARAM[mode]);
    marked Not for me, each with the reason they gave and the way back. Before
    setup it is the onboarding (TopPicksOnboarding), which gives way to the
    list once the checks are set up. Opening it puts out the rail's dot.
-   Its one heading is off screen, as the Radar's is: the toolbar row leads,
-   and the top bar and the rail name the place. */
+   Its title stands where the Radar's does, so the two screens' toolbars and
+   lists start on one line. The onboarding leads with its own headline, so
+   there the title stays the page's heading off screen. */
 export function TopPicksScreen() {
   useEffect(() => {
     picksOpened();
@@ -109,7 +110,7 @@ export function TopPicksScreen() {
   const rootRef = useRef<HTMLElement>(null);
   return (
     <main className="main board-main job-margin-page" data-design-system="app" ref={rootRef}>
-      <PageHeader title={shellNavTopPicks()} offScreen />
+      <PageHeader title={shellNavTopPicks()} offScreen={state.data?.state === "never_set_up"} />
       <AsyncBoundary resource={state} loading={picksLoading()} failed={picksLoadFailed()}>
         {(picks) => picks.state === "never_set_up"
           ? <TopPicksOnboarding picks={picks} onPicksChange={onPicksChange} />

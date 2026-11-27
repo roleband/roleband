@@ -720,12 +720,14 @@ The nav rail is `--app-nav-width` (72px), or `--app-nav-width-expanded`
 (204px) when expanded. Below 860px it becomes a bottom dock that scrolls
 horizontally. Each rail tab renders `patterns/PageHeader` with its rail label
 as the `h1` (`patterns/page-header.test.ts`, `tests/ux/page-header.spec.ts`).
-Three tabs do not draw that title, and the top bar and the rail name the place:
-the Radar and Top picks, which lead with their toolbar row (search, the count,
-Sort) under a hairline, and the Pipeline, which leads with one row of its views
-and the tools of the view on screen. Their `PageHeader` is `offScreen`, so each
-page keeps its one heading for assistive technology. The Radar and Top picks
-stay identical in this: neither draws a title the other does not.
+A tab shows its title unless its first row is its own views, which only the
+Pipeline has: it leads with one row of its views and the tools of the view on
+screen, and the top bar and the rail name the place. Its `PageHeader` is
+`offScreen`, so the page keeps its one heading for assistive technology. The
+Radar and Top picks draw their title over their toolbar row (search, the count,
+Sort) and stay identical in this: the title, the toolbar, the filter column and
+the list start on one line on both. Top picks' onboarding leads with its own
+headline, so there its title is off screen too.
 A page under a tab (Settings › AI › Activity, Top picks › Passed over) keeps
 its tab chosen on the rail; the top bar adds the page's name after the tab's,
 and the segment before it becomes the way back (`App.tsx`, `headerLeaf`).
@@ -1476,7 +1478,7 @@ Unit gates (`npm run test:unit`) are under `dashboard/src/`; UX specs
 | Every class selector is rendered somewhere | `design/dead-rules.test.ts` |
 | A selector lives in one sheet; keyframes defined once and reachable | `design/one-definition.test.ts` |
 | Filter register type grammar | `design/filter-grammar.test.ts` |
-| Every tab wears `PageHeader`; the Radar's, Top picks' and the Pipeline's are off screen | `patterns/page-header.test.ts`, `page-header.spec.ts` |
+| Every tab wears `PageHeader`; the Pipeline's is off screen, and Top picks' only in its onboarding; the Radar and Top picks start their title, toolbar and list on one line | `patterns/page-header.test.ts`, `page-header.spec.ts`, `top-picks.spec.ts` |
 | The Pipeline's star opens Considering and is chosen with the view on screen; elsewhere its views drop out of it on a resting pointer and push the rail down | `shell/NavRail.test.tsx`, `pipeline-rail.spec.ts` |
 | Rail boundary named once | `patterns/rail-shell.test.ts` |
 | Sticky offsets derived, container queries kept | `features/companies/register.test.ts`, `features/opportunities/board-shell.test.ts` |
