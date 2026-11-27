@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Filters, JobList, PassedOver, RemovedPicks } from "../../api";
+import type { Filters, JobList, PassedOver } from "../../api";
 import { number } from "../../copy/format";
 import { jobFixture } from "../../test/fixtures";
 import { msg } from "../../test/msg";
@@ -10,17 +10,13 @@ import { ToastProvider } from "../../ui";
 import { PassedOverScreen } from "./PassedOverScreen";
 
 const picksPassed = vi.fn<() => Promise<PassedOver>>();
-const picksRemoved = vi.fn<() => Promise<RemovedPicks>>();
 const jobs = vi.fn<(filters: Filters) => Promise<JobList>>();
-const undismissJob = vi.fn<(id: number) => Promise<unknown>>();
 const setFavorite = vi.fn<(id: number, on: boolean) => Promise<unknown>>();
 vi.mock("../../api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../api")>()),
   api: {
     picksPassed: () => picksPassed(),
-    picksRemoved: () => picksRemoved(),
     jobs: (filters: Filters) => jobs(filters),
-    undismissJob: (id: number) => undismissJob(id),
     setFavorite: (id: number, on: boolean) => setFavorite(id, on),
   },
 }));
@@ -33,18 +29,11 @@ vi.mock("../../context/JobWorkspace", () => ({
 
 const role = (id: number, title: string, company = "stripe"): JobList["items"][number] => ({ ...jobFixture, id, title, company, viewed_at: null });
 const ROLES = [
-  role(1, "Principal Product Manager, Platform", "linear"),
-  role(2, "Staff Product Manager, Search"),
   role(11, "Group Product Manager, Enterprise", "notion"),
   role(12, "Staff Product Manager, Observability", "datadog"),
   role(13, "Principal Product Manager, AI", "notion"),
   role(14, "Staff Product Manager, Issues", "linear"),
 ];
-
-const removedPick = (job_id: number, reason: string | null, reason_text: string | null = null): RemovedPicks["picks"][number] => ({
-  job_id, title: ROLES.find((r) => r.id === job_id)!.title, company: "Linear", company_slug: "linear", is_open: true,
-  reasons: [], reason, reason_text, removed_at: "2026-11-25T10:00:00Z", judged_at: "2026-11-25T08:00:00Z",
-});
 
 const nearMiss = (job_id: number, opening: string, rest: string) => ({
   job_id, reason: { opening, rest }, judged_at: "2026-11-25T08:00:00Z",
@@ -69,12 +58,10 @@ function passedOver(over: Partial<PassedOver> = {}): PassedOver {
 
 beforeEach(() => {
   picksPassed.mockReset().mockResolvedValue(passedOver());
-  picksRemoved.mockReset().mockResolvedValue({ picks: [] });
   jobs.mockReset().mockImplementation(async (filters) => {
     const items = ROLES.filter((r) => filters.ids?.includes(r.id));
     return { total: items.length, limit: 25, offset: 0, items };
   });
-  undismissJob.mockReset().mockResolvedValue({});
   setFavorite.mockReset().mockResolvedValue({});
   openJob.mockReset();
 });
@@ -103,61 +90,27 @@ describe("PassedOverScreen", () => {
     expect(screen.getByRole("link", { name: msg("picks-passed-back") })).toHaveAttribute("href", "/top-picks");
   });
 
-  it("reads the removed picks and the near misses by id, whatever their status", async () => {
-    picksRemoved.mockResolvedValue({ picks: [removedPick(1, "pay_too_low")] });
+  it("reads the near misses by id, whatever their status", async () => {
     renderPage();
     await screen.findByText(msg("picks-passed-summary", { count: 8 }));
     expect(jobs).toHaveBeenCalledOnce();
     const filters = jobs.mock.calls[0][0];
-    expect(filters.ids).toEqual([1, 11, 12, 13, 14]);
+    expect(filters.ids).toEqual([11, 12, 13, 14]);
     expect(filters.status).toBe("");
   });
 
-  it("lists what the person removed first, then what came close, then the tallies", async () => {
-    picksRemoved.mockResolvedValue({ picks: [removedPick(1, "pay_too_low")] });
+  it("lists what came close, then the tallies, and nothing the person removed", async () => {
     renderPage();
     await screen.findByText(msg("picks-passed-summary", { count: 8 }));
     expect(headings()).toEqual([
-      msg("picks-passed-removed", { count: 1 }),
       msg("picks-passed-close", { count: 4 }),
       msg("picks-passed-read", { count: 4 }),
       msg("picks-passed-ruled", { count: 2 }),
     ]);
+    // The picks the person removed live on Top picks' Not for me: no way back is offered here.
+    expect(screen.queryByRole("button", { name: msg("picks-removed-put-back") })).toBeNull();
     // Short lists under their own heads: no column head over the rows.
     expect(document.querySelector(".list-head")).toBeNull();
-  });
-
-  it("says why the person removed each pick, in their words when they gave them", async () => {
-    picksRemoved.mockResolvedValue({ picks: [
-      removedPick(1, "pay_too_low", "Below what I make now"),
-      removedPick(2, "other"),
-    ] });
-    renderPage();
-    const removed = await screen.findByRole("region", { name: msg("picks-passed-removed", { count: 2 }) });
-    const [first, second] = removed.querySelectorAll(".passed-said");
-    expect(first).toHaveTextContent(
-      `${msg("picks-passed-said", { reason: "pay_too_low" })} ${msg("picks-passed-words", { words: "Below what I make now" })} ${msg("picks-passed-put-back")}`,
-    );
-    // Something else with no words says nothing but the way back.
-    expect(second.textContent).toBe(msg("picks-passed-put-back"));
-    // The person's words are theirs: content, never translated.
-    expect(within(first as HTMLElement).getByText("Below what I make now")).toHaveAttribute("data-copy", "content");
-  });
-
-  it("names every reason code a dismissal can store in words of its own, none of them the catch-all", () => {
-    const codes = ["pay_too_low", "wrong_level", "wrong_role", "company", "wrong_place", "wrong_domain"];
-    const said = codes.map((reason) => msg("picks-passed-said", { reason }));
-    expect(new Set(said).size).toBe(codes.length);
-    expect(said).not.toContain(msg("picks-passed-said", { reason: "unknown" }));
-  });
-
-  it("says a reason given elsewhere than the question in its own words", async () => {
-    picksRemoved.mockResolvedValue({ picks: [removedPick(1, "wrong_domain")] });
-    renderPage();
-    const removed = await screen.findByRole("region", { name: msg("picks-passed-removed", { count: 1 }) });
-    expect(removed.querySelector(".passed-said")?.textContent).toBe(
-      `${msg("picks-passed-said", { reason: "wrong_domain" })} ${msg("picks-passed-put-back")}`,
-    );
   });
 
   it("saves a role from the page, and puts the star back and says so when the save fails", async () => {
@@ -192,30 +145,6 @@ describe("PassedOverScreen", () => {
       msg("radar-unsave-failed", { title: "Group Product Manager, Enterprise" }),
     );
     expect(star).toHaveAttribute("aria-pressed", "false");
-  });
-
-  it("puts a removed pick back, and takes it off the page", async () => {
-    picksRemoved.mockResolvedValue({ picks: [removedPick(1, "wrong_level")] });
-    renderPage();
-    const removed = await screen.findByRole("region", { name: msg("picks-passed-removed", { count: 1 }) });
-    await userEvent.click(within(removed).getByRole("button", { name: msg("picks-passed-put-back") }));
-    expect(undismissJob).toHaveBeenCalledExactlyOnceWith(1);
-    await vi.waitFor(() => expect(screen.queryByRole("region", { name: msg("picks-passed-removed", { count: 1 }) })).toBeNull());
-    // Putting it back does not open the role.
-    expect(openJob).not.toHaveBeenCalled();
-  });
-
-  it("keeps a pick that could not be put back, and says so", async () => {
-    undismissJob.mockRejectedValue(new Error("engine away"));
-    picksRemoved.mockResolvedValue({ picks: [removedPick(1, "wrong_level")] });
-    renderPage();
-    const removed = await screen.findByRole("region", { name: msg("picks-passed-removed", { count: 1 }) });
-    await userEvent.click(within(removed).getByRole("button", { name: msg("picks-passed-put-back") }));
-    const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent(msg("picks-passed-put-back-failed", { title: "Principal Product Manager, Platform" }));
-    // The role's title is the employer's: content inside the sentence.
-    expect(within(alert).getByText("Principal Product Manager, Platform")).toHaveAttribute("data-copy", "content");
-    expect(rowTitles(removed)).toEqual(["Principal Product Manager, Platform"]);
   });
 
   it("shows the first three near misses, each with what failed, and the rest on Show all", async () => {

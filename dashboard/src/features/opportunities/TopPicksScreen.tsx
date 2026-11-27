@@ -7,6 +7,7 @@ import {
   picksEmptyTitle,
   picksEndChecked,
   picksEndPassed,
+  picksEndPassedNone,
   picksEndPassedOnly,
   picksEndStopped,
   picksEndStoppedPlain,
@@ -21,9 +22,16 @@ import {
   picksNoteFix,
   picksNotePaused,
   picksRefreshFailed,
+  picksRemovedEmpty,
+  picksRemovedEmptyTitle,
+  picksRemovedPutBack,
+  picksRemovedPutBackName,
+  picksRemovedSaid,
+  picksRemovedWords,
   picksResume,
   picksResumeFailed,
 } from "../../copy/gen/picks";
+import { sharedNotForMe } from "../../copy/gen/shared";
 import {
   radarBoardFreshChanged,
   radarBoardFreshShow,
@@ -32,6 +40,7 @@ import {
   radarLoading,
   radarOtherHead,
   radarReset,
+  radarShowAll,
   radarShowOther,
 } from "../../copy/gen/radar";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
@@ -49,6 +58,7 @@ import { CompareBeacon } from "../../patterns/jobs/CompareBeacon";
 import { DismissBeacon } from "../../patterns/jobs/DismissBeacon";
 import { JobCard } from "../../patterns/jobs/JobCard";
 import { JobList } from "../../patterns/jobs/JobList";
+import { useSearchParam } from "../../routing/useSearchParam";
 import { useSearchParamList } from "../../routing/useSearchParamList";
 import { AsyncBoundary, Button, Content, EmptyState, Msg, RAIL_QUERY, RouterLink, useToast } from "../../ui";
 import { RowSkeleton } from "../../ui/RowSkeleton";
@@ -57,7 +67,15 @@ import { PickFeedbackDialog, type PickFeedbackReason } from "./PickFeedbackDialo
 import { TopPicksOnboarding } from "./TopPicksOnboarding";
 import { BoardFilters } from "./BoardFilters";
 import { BoardToolbar } from "./BoardToolbar";
-import { NO_LENSES, RESET_FILTERS, TOP_PICKS_MEMORY_SCOPE, countNarrowingFilters } from "./filters";
+import {
+  MODE_PARAM,
+  NO_LENSES,
+  RESET_FILTERS,
+  TOP_PICKS_MEMORY_SCOPE,
+  countNarrowingFilters,
+  modeFromParam,
+  type BoardMode,
+} from "./filters";
 import { useBoardController, type BoardSurface } from "./useBoardController";
 import "../../patterns/jobs/job-page.css";
 import "./board-shell.css";
@@ -65,13 +83,20 @@ import "./top-picks.css";
 
 /** Settings › AI: where an assistant is connected, and its connection fixed. */
 const SETTINGS_AI_PATH = "/settings/intelligence";
-const ignoreMode = () => {};
+// Top picks reads with the Radar's lenses off, so there is none to clear.
+const nothingToClear = () => {};
+/** Showing's positions on Top picks: the picks, and the picks the person
+ *  marked Not for me. `?show=not-for-me` is the second, as on the Radar. */
+const TOP_PICKS_MODES = ["open", "dismissed"] as const satisfies readonly BoardMode[];
+const TOP_PICKS_MODE_PARAMS = TOP_PICKS_MODES.map((mode) => MODE_PARAM[mode]);
 
 /* Top picks: the few roles the person's assistant judged worth a move. It is
    the Radar's list, toolbar, filter column and row, narrowed to the picks,
    with each pick's reasons under its row. Its filters and its search are its
-   own. Before setup it is the onboarding (TopPicksOnboarding), which gives way
-   to the list once the checks are set up. Opening it puts out the rail's dot.
+   own. Showing, at the foot of the filters, switches to the picks the person
+   marked Not for me, each with the reason they gave and the way back. Before
+   setup it is the onboarding (TopPicksOnboarding), which gives way to the
+   list once the checks are set up. Opening it puts out the rail's dot.
    Its one heading is off screen, as the Radar's is: the toolbar row leads,
    and the top bar and the rail name the place. */
 export function TopPicksScreen() {
@@ -102,11 +127,21 @@ function TopPicksList({ picks, rootRef, onPicksChange }: {
   const [companyParam, onCompanyParamChange] = useSearchParamList("company");
   const [search, setSearch] = useState("");
   const surface: BoardSurface = { topPicks: true, search };
+  const [showParam, onShowParamChange] = useSearchParam("show", {
+    options: TOP_PICKS_MODE_PARAMS,
+    fallback: MODE_PARAM.open,
+  });
+  const mode = modeFromParam(showParam);
+  // Stable: the controller mirrors the mode from an effect.
+  const onModeChange = useCallback(
+    (next: BoardMode) => onShowParamChange(MODE_PARAM[next]),
+    [onShowParamChange],
+  );
   const {
     filters, facets, facetsError, retryFacets, list, listError, listRefreshError, retryList, refreshList, baseline,
     total, isDirect, relatedTotal, expanded, pageableTotal,
     update, updateFilters, onSort, toggleFav, dismiss, dismissal, undoDismiss, fresh, showFresh,
-  } = useBoardController({ companyParam, onCompanyParamChange, mode: "open", onModeChange: ignoreMode }, surface);
+  } = useBoardController({ companyParam, onCompanyParamChange, mode, onModeChange }, surface);
   const takeFresh = useCallback(() => {
     showFresh();
     picksOpened();
@@ -121,6 +156,8 @@ function TopPicksList({ picks, rootRef, onPicksChange }: {
   const { viewedIds, compareIds, compareFull, compareCap } = useJobWorkspace();
   const { openJob, toggleCompare } = useJobActions();
   const narrowed = countNarrowingFilters(filters, NO_LENSES) > 0;
+  // The picks marked Not for me: a different list, not a narrowing of this one.
+  const inLens = filters.dismissed_only;
   const resetAll = useCallback(() => updateFilters(RESET_FILTERS), [updateFilters]);
   const railMode = useMediaQuery(RAIL_QUERY);
   const toolbarRef = useRef<HTMLDivElement>(null);
@@ -136,15 +173,19 @@ function TopPicksList({ picks, rootRef, onPicksChange }: {
         viewed={job.viewed_at != null || viewedIds.has(job.id)}
         onOpen={() => openJob(job.id, job.company)}
         onToggleFav={() => toggleFav(job)}
-        onDismiss={() => setAsking(job)}
-        under={job.pick_reasons && job.pick_reasons.length > 0 && <PickReasons reasons={job.pick_reasons} />}
+        // A removed pick's button puts it back, as on the Radar's Not for me.
+        /* A marked pick goes back by the link under it, the one way back on this list. */
+        onDismiss={job.is_dismissed ? undefined : () => setAsking(job)}
+        under={job.is_dismissed
+          ? <RemovedPickUnder job={job} onPutBack={() => dismiss(job)} />
+          : job.pick_reasons && job.pick_reasons.length > 0 && <PickReasons reasons={job.pick_reasons} />}
         compareOn={compareIds.has(job.id)}
         onToggleCompare={() => toggleCompare(job.id)}
         compareDisabled={compareFull}
         compareCap={compareCap}
       />
     ),
-    [compareCap, compareFull, compareIds, openJob, toggleCompare, toggleFav, viewedIds],
+    [compareCap, compareFull, compareIds, dismiss, openJob, toggleCompare, toggleFav, viewedIds],
   );
 
   /* The dismissed row's seam, where the way back sits level in the margin
@@ -169,13 +210,21 @@ function TopPicksList({ picks, rootRef, onPicksChange }: {
       onRetryFacets={retryFacets}
       filters={filters}
       update={updateFilters}
-      mode="open"
+      mode={mode}
+      onModeChange={onModeChange}
+      modes={TOP_PICKS_MODES.map((value) => ({ value, label: value === "open" ? shellNavTopPicks() : sharedNotForMe() }))}
       memoryScope={TOP_PICKS_MEMORY_SCOPE}
     />
   );
 
   const hidden = baseline.total ?? 0;
-  const empty = filters.q.trim() ? (
+  // As on the Radar, the lens's empty teaches it and leads back to the picks.
+  const empty = inLens ? (
+    <EmptyState title={picksRemovedEmptyTitle()}>
+      {picksRemovedEmpty()}{" "}
+      <Button variant="link" onClick={() => onModeChange("open")}>{radarShowAll()}</Button>
+    </EmptyState>
+  ) : filters.q.trim() ? (
     <EmptyState title={picksEmptySearchTitle()} />
   ) : narrowed && hidden > 0 ? (
     <EmptyState title={picksEmptyFilteredTitle()}>
@@ -228,7 +277,7 @@ function TopPicksList({ picks, rootRef, onPicksChange }: {
             )}
             <Pager total={pageableTotal} pageSize={filters.limit} offset={filters.offset}
               onOffsetChange={(offset) => update({ offset })} />
-            {!isDirect && filters.offset + list!.items.length >= total && <PicksEnd picks={picks} />}
+            {!isDirect && !inLens && filters.offset + list!.items.length >= total && <PicksEnd picks={picks} />}
           </>
         )}
       </AsyncBoundary>
@@ -258,12 +307,12 @@ function TopPicksList({ picks, rootRef, onPicksChange }: {
         baseTotal={baseline.total}
         baselineError={baseline.error}
         onRetryBaseline={baseline.retry}
-        onModeChange={ignoreMode}
+        onModeChange={onModeChange}
         railMode={railMode}
         newSignalsOnly={false}
-        clearNewSignals={ignoreMode}
+        clearNewSignals={nothingToClear}
         repostsOnly={false}
-        clearReposts={ignoreMode}
+        clearReposts={nothingToClear}
         query={{ search, setSearch }}
         noun="pick"
       />
@@ -300,6 +349,33 @@ export function PickReasons({ reasons }: { reasons: NonNullable<Job["pick_reason
         </li>
       ))}
     </ul>
+  );
+}
+
+/** Under a pick the person marked Not for me: the assistant's reasons, then
+ *  what the person said (the reason they chose, their own words) and the way
+ *  back, which clears Not for me so the role is a pick and on the Radar
+ *  again. Their words are content, never translated. */
+function RemovedPickUnder({ job, onPutBack }: { job: Job; onPutBack: () => void }) {
+  const said = job.dismiss_reason && job.dismiss_reason !== "other" ? job.dismiss_reason : null;
+  // The sentence around the words ends them, so their own full stop goes.
+  const words = job.dismiss_reason_text?.trim().replace(/[.。]+$/u, "");
+  return (
+    <div className="pick-removed">
+      {job.pick_reasons && job.pick_reasons.length > 0 && <PickReasons reasons={job.pick_reasons} />}
+      <p className="pick-said">
+        {said && <>{picksRemovedSaid({ reason: said })}{" "}</>}
+        {words && <><Msg of={picksRemovedWords} elems={{ words: <Content text={words} /> }} />{" "}</>}
+        <Button
+          variant="link"
+          aria-label={picksRemovedPutBackName({ title: job.title })}
+          onClick={(event) => { event.stopPropagation(); onPutBack(); }}
+          onKeyDown={(event) => event.stopPropagation()}
+        >
+          {picksRemovedPutBack()}
+        </Button>
+      </p>
+    </div>
   );
 }
 
@@ -348,7 +424,9 @@ export function PicksNotes({ picks, onPicksChange }: { picks: PicksState; onPick
 
 /** Where the list ends, in its quiet ink: who checked last and when, what of
  *  the checks needs no action (roles waiting while they are late, why the last
- *  one stopped early), and the way to what was passed over this week. */
+ *  one stopped early), and the way to what was passed over this week. That
+ *  last sentence is there every week, plain text in a week with nothing
+ *  passed over, so the way to Passed over never moves. */
 export function PicksEnd({ picks }: { picks: PicksState }) {
   const check = picks.last_check;
   const sentences: React.ReactNode[] = [];
@@ -364,8 +442,9 @@ export function PicksEnd({ picks }: { picks: PicksState }) {
   if (picks.passed_this_week > 0) {
     const passed = <RouterLink variant="link" to={PASSED_OVER_ROUTE}>{picksEndPassed({ count: picks.passed_this_week })}</RouterLink>;
     sentences.push(<Msg of={picksEndPassedOnly} elems={{ passed }} />);
+  } else {
+    sentences.push(picksEndPassedNone());
   }
-  if (sentences.length === 0) return null;
   return (
     <p className="board-list-end" role="note">
       {sentences.map((sentence, i) => <Fragment key={i}>{i > 0 && " "}{sentence}</Fragment>)}

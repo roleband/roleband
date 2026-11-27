@@ -195,6 +195,21 @@ describe("the board filter register", () => {
     expect(update).not.toHaveBeenCalled();
   });
 
+  it("offers only the positions a screen names, in its order and with its names, still through the route", async () => {
+    const user = userEvent.setup();
+    const { update, onModeChange } = renderFilters({
+      modes: [{ value: "open", label: "Top picks" }, { value: "dismissed", label: "Not for me" }],
+    });
+    await user.click(screen.getByRole("button", { name: "More filters" }));
+    const showing = screen.getByRole("group", { name: "Showing" });
+    expect(within(showing).getAllByRole("button").map((b) => b.textContent)).toEqual(["Top picks", "Not for me"]);
+    expect(within(showing).getByRole("button", { name: "Top picks" })).toHaveAttribute("aria-pressed", "true");
+
+    await user.click(within(showing).getByRole("button", { name: "Not for me" }));
+    expect(onModeChange).toHaveBeenCalledExactlyOnceWith("dismissed");
+    expect(update).not.toHaveBeenCalled();
+  });
+
   it("opens the drawer on its own when the reader is not on the open board", () => {
     // The state-never-hides rule, applied to the mode: a closed door reading
     // "More filters · 1" over a list of closed roles explains nothing.

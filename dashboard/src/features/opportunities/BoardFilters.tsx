@@ -111,6 +111,7 @@ export function BoardFilters({
   update,
   mode,
   onModeChange,
+  modes,
   memoryScope = BOARD_MEMORY_SCOPE,
 }: {
   facets: Facets | null;
@@ -124,8 +125,11 @@ export function BoardFilters({
   /** The mode is URL state, so the register ASKS for it rather than patching
    *  `filters`: one writer, no loop. */
   mode: BoardMode;
-  /** Absent on a list that is one population only (Top picks): no Showing group. */
-  onModeChange?: (mode: BoardMode) => void;
+  onModeChange: (mode: BoardMode) => void;
+  /** The positions of Showing, in order, each with its name: the Radar's
+   *  three populations by default. Top picks offers its picks and the picks
+   *  marked Not for me. */
+  modes?: readonly { value: BoardMode; label: string }[];
   /** Where the register remembers which groups were left open. */
   memoryScope?: string;
 }) {
@@ -402,19 +406,17 @@ export function BoardFilters({
             Closed and Not-for-me are somewhere a reader goes on purpose,
             rarely, so a strip above every list would be three permanent
             controls for a decision almost nobody is making.
-            Exclusive by construction: one segmented control, three positions,
-            and the modes are a partition rather than three flags that can
-            disagree. */}
-        {onModeChange && (
-          <FilterGroup title={radarFilterShowing()}>
-            <Segmented
-              label={radarFilterShowing()}
-              value={mode}
-              onChange={(next) => onModeChange(next as BoardMode)}
-              options={BOARD_MODES.map((m) => ({ value: m, label: MODE_LABEL[m] }))}
-            />
-          </FilterGroup>
-        )}
+            Exclusive by construction: one segmented control, a position per
+            population, and the modes are a partition rather than flags that
+            can disagree. */}
+        <FilterGroup title={radarFilterShowing()}>
+          <Segmented
+            label={radarFilterShowing()}
+            value={mode}
+            onChange={(next) => onModeChange(next as BoardMode)}
+            options={modes ?? BOARD_MODES.map((m) => ({ value: m, label: MODE_LABEL[m] }))}
+          />
+        </FilterGroup>
       </FilterDrawer>
     </FilterRegister>
   );

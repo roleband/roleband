@@ -1413,9 +1413,11 @@ which `POST /api/picks/opened` resets), the routine assistant's connection
 as its own files state it, and how far the setup conversation has come
 (`setup`: the stages saved, the next one and those that wait for roles, read
 through the same reader as the assistant's `picks.status`). `GET /api/picks/passed` lists the last seven days'
-near misses, passes by code and what the rules ruled out before any reading;
-`GET /api/picks/removed` lists the picks marked Not for me. Not for me is the
-Board's own dismissal (`PUT /api/jobs/{job_id}/feedback`), which keeps a
+near misses, passes by code and what the rules ruled out before any reading.
+The picks marked Not for me are `GET /api/jobs?top_picks=true&dismissed_only=true`,
+whatever their postings' status and newest mark first; each of those rows also
+carries the reason the person gave (`dismiss_reason`, `dismiss_reason_text`).
+Not for me is the Board's own dismissal (`PUT /api/jobs/{job_id}/feedback`), which keeps a
 reason code and up to 200 characters of the person's words
 (`job_feedback.reason_text`) for the assistant to read back; clearing it puts
 a pick back on both screens. These routes are the app's: the agent switches do

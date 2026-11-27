@@ -3005,30 +3005,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/picks/removed": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Removed Picks
-         * @description The picks the person marked Not for me, each with the reason they gave.
-         *
-         *     Removing a pick is the Board's own dismissal, so the role left Top picks
-         *     and the Radar together, and clearing that dismissal
-         *     (`DELETE /api/jobs/{job_id}/feedback`) puts it back in both.
-         */
-        get: operations["removed_picks_api_picks_removed_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/picks/setup": {
         parameters: {
             query?: never;
@@ -10490,6 +10466,10 @@ export interface components {
             department: string | null;
             /** Discloses Pay */
             discloses_pay: boolean;
+            /** Dismiss Reason */
+            dismiss_reason?: string | null;
+            /** Dismiss Reason Text */
+            dismiss_reason_text?: string | null;
             /** Domains */
             domains: string[];
             /** Family */
@@ -12847,7 +12827,8 @@ export interface components {
          * PassedOverResponse
          * @description `GET /api/picks/passed`: what the assistant read in the last seven days
          *     and did not pick, and what the hard rules ruled out before any reading.
-         *     The picks the person removed are `GET /api/picks/removed`.
+         *     The picks the person removed are
+         *     `GET /api/jobs?top_picks=true&dismissed_only=true`.
          */
         PassedOverResponse: {
             /** Judged Rules */
@@ -15166,44 +15147,6 @@ export interface components {
             notes: string | null;
             /** Version */
             version: string;
-        };
-        /** RemovedPick */
-        RemovedPick: {
-            /** Company */
-            company: string;
-            /** Company Slug */
-            company_slug: string;
-            /** Is Open */
-            is_open: boolean;
-            /** Job Id */
-            job_id: number;
-            /**
-             * Judged At
-             * Format: date-time
-             */
-            judged_at: string;
-            /** Reason */
-            reason: string | null;
-            /** Reason Text */
-            reason_text: string | null;
-            /** Reasons */
-            reasons: components["schemas"]["PickReason"][];
-            /**
-             * Removed At
-             * Format: date-time
-             */
-            removed_at: string;
-            /** Title */
-            title: string;
-        };
-        /**
-         * RemovedPicksResponse
-         * @description `GET /api/picks/removed`: the picks the person marked Not for me,
-         *     newest verdict first. `DELETE /api/jobs/{job_id}/feedback` puts one back.
-         */
-        RemovedPicksResponse: {
-            /** Picks */
-            picks: components["schemas"]["RemovedPick"][];
         };
         /**
          * RepostDeck
@@ -23594,26 +23537,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PassedOverResponse"];
-                };
-            };
-        };
-    };
-    removed_picks_api_picks_removed_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RemovedPicksResponse"];
                 };
             };
         };

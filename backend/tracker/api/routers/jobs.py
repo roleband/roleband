@@ -157,13 +157,23 @@ async def list_jobs(
         dismissed_only=dismissed_only, discloses_pay=discloses_pay, viewed=viewed, ids=ids, sort=sort, order=order,
         include_related=include_related, top_picks=top_picks, limit=limit, offset=offset,
     )
-    return await _with_pick_reasons(session, listed) if top_picks else listed
+    return await _with_pick_reasons(session, listed, removed=dismissed_only) if top_picks else listed
 
 
-async def _with_pick_reasons(session: AsyncSession, listed: dict) -> dict:
-    """The rows of a Top picks list, each with why it was picked and when."""
+async def _with_pick_reasons(session: AsyncSession, listed: dict, *, removed: bool) -> dict:
+    """The rows of a Top picks list, each with why it was picked and when.
+    On the picks the person marked Not for me (`removed`), each also carries
+    the reason they gave: a code, their own words, both or neither."""
     rows = [*listed["items"], *(listed.get("related_items") or [])]
-    picks = await pick_verdicts.standing_picks_of(session, [row["id"] for row in rows])
+    ids = [row["id"] for row in rows]
+    picks = await pick_verdicts.standing_picks_of(session, ids)
+    if removed:
+        reactions = await pick_verdicts.reactions_of(session, ids)
+        for row in rows:
+            reaction = reactions.get(row["id"])
+            said = reaction if reaction is not None and reaction.kind == "not_for_me" else None
+            row["dismiss_reason"] = said.reason if said else None
+            row["dismiss_reason_text"] = said.reason_text if said else None
     for row in rows:
         pick = picks.get(row["id"])
         if pick is not None:

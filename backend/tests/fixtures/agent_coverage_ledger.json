@@ -398,11 +398,6 @@
   },
   {
    "method": "GET",
-   "path": "/api/picks/removed",
-   "operation": "picks.list"
-  },
-  {
-   "method": "GET",
    "path": "/api/picks/state",
    "operation": "picks.status"
   },

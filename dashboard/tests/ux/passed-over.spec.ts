@@ -1,5 +1,6 @@
 /* Not for me on a pick asks why, and Passed over lists what the assistant read
-   and did not pick, with what the person removed. The rows there are the
+   and did not pick; what the person removed is Top picks' own Not for me
+   (top-picks.spec.ts). The rows on Passed over are the
    Radar's rows; the page is one of Top picks, so the rail keeps Top picks
    marked and the top bar names the page with Top picks as the way back. */
 
@@ -116,16 +117,14 @@ test("the end line's count opens Passed over, a page of Top picks", async ({ pag
   await expect(railItem(page)).toHaveAttribute("aria-current", "page");
 });
 
-test("Passed over lists the removed pick, what came close and the tallies, with the Radar's rows", async ({ page }) => {
+test("Passed over lists what came close and the tallies, with the Radar's rows, and nothing the person removed", async ({ page }) => {
   await installPassedOverRoutes(page);
   await page.goto("/top-picks/passed");
 
-  const removed = page.getByRole("region", { name: msg("picks-passed-removed", { count: 1 }) });
   const close = page.getByRole("region", { name: msg("picks-passed-close", { count: 4 }) });
-  await expect(removed.locator(".passed-said")).toHaveText(
-    `${msg("picks-passed-said", { reason: "pay_too_low" })} ${msg("picks-passed-put-back")}`,
-  );
   await expect(close.locator(".job-row")).toHaveCount(3);
+  await expect(page.locator(".passed-section")).toHaveCount(3);
+  await expect(page.getByRole("button", { name: msg("picks-removed-put-back") })).toHaveCount(0);
   await expect(close.locator(".pick-reason-opening").first()).toHaveText("Mostly people management");
   // Short lists under their own heads: no column head.
   await expect(page.locator(".list-head")).toHaveCount(0);
@@ -144,17 +143,6 @@ test("Passed over lists the removed pick, what came close and the tallies, with 
   ]);
   await expect(page.getByRole("region", { name: msg("picks-passed-ruled", { count: 12 }) }).getByRole("listitem"))
     .toHaveText(["Base under 200,00012"]);
-});
-
-test("Put it back clears the dismissal, takes the role off the page and opens nothing", async ({ page }) => {
-  await installPassedOverRoutes(page);
-  const calls = await recordFeedback(page);
-  await page.goto("/top-picks/passed");
-  const removed = page.getByRole("region", { name: msg("picks-passed-removed", { count: 1 }) });
-  await removed.getByRole("button", { name: msg("picks-passed-put-back") }).click();
-  await expect(removed).toHaveCount(0);
-  expect(calls.map(({ method, id }) => ({ method, id }))).toEqual([{ method: "DELETE", id: 601 }]);
-  await expect(page).toHaveURL(/\/top-picks\/passed$/);
 });
 
 test("Passed over's blocks start where the rows start and end where they end", async ({ page }) => {
@@ -177,7 +165,6 @@ test("Passed over's blocks start where the rows start and end where they end", a
 test("an empty week says so, with the way back and no count", async ({ page }) => {
   await installPassedOverRoutes(page, {
     passed: passedOverFixture({ passed_this_week: 0, near_misses: [], passes: [], ruled_out: 0, ruled_out_by_rule: [] }),
-    removed: [],
   });
   await page.goto("/top-picks/passed");
   await expect(page.getByText(msg("picks-passed-empty-title"))).toBeVisible();
