@@ -99,6 +99,28 @@ beforeEach(() => {
 });
 afterEach(() => vi.restoreAllMocks());
 
+/** The page's one h1, drawn in the page header as the Radar's is. */
+function drawnTitle() {
+  const title = screen.getByRole("heading", { level: 1, name: msg("shell-nav-top-picks") });
+  expect(title).not.toHaveClass("sr-only");
+  expect(title.closest(".page-hero")).not.toBeNull();
+  expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+}
+
+describe("the title once Top picks is set up", () => {
+  it("stands over the picks, as the Radar's does", async () => {
+    mount();
+    expect(await screen.findByText("Staff Platform Engineer")).toBeVisible();
+    drawnTitle();
+  });
+
+  it("stands over the picks marked Not for me too", async () => {
+    mount("/top-picks?show=not-for-me");
+    expect(await screen.findByText("Principal Engineer, Payments")).toBeVisible();
+    drawnTitle();
+  });
+});
+
 describe("Showing on Top picks", () => {
   it("offers the picks and the picks marked Not for me, with no count on either", async () => {
     mount();

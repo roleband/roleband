@@ -64,16 +64,6 @@ describe("TopPicksScreen", () => {
     expect(picksOpened).toHaveBeenCalledOnce();
   });
 
-  it("draws its title as the Radar does once it is set up", async () => {
-    picksState.mockResolvedValue(picksStateFixture({ state: "on" }));
-    const { container } = renderScreen();
-    await vi.waitFor(() => expect(container.querySelector(".page-hero")).not.toBeNull());
-    const title = screen.getByRole("heading", { level: 1, name: msg("shell-nav-top-picks") });
-    expect(title).not.toHaveClass("sr-only");
-    expect(container.querySelector(".page-hero")).toContainElement(title);
-    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
-  });
-
   it("keeps the title off screen in the onboarding, whose headline leads", async () => {
     picksState.mockResolvedValue(picksStateFixture());
     const { container } = renderScreen();
