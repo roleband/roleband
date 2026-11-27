@@ -12828,7 +12828,7 @@ export interface components {
          * @description `GET /api/picks/passed`: what the assistant read in the last seven days
          *     and did not pick, and what the hard rules ruled out before any reading.
          *     The picks the person removed are
-         *     `GET /api/jobs?top_picks=true&dismissed_only=true`.
+         *     `GET /api/jobs?top_picks=true&dismissed_only=true&status=`.
          */
         PassedOverResponse: {
             /** Judged Rules */

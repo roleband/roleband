@@ -1414,8 +1414,9 @@ as its own files state it, and how far the setup conversation has come
 (`setup`: the stages saved, the next one and those that wait for roles, read
 through the same reader as the assistant's `picks.status`). `GET /api/picks/passed` lists the last seven days'
 near misses, passes by code and what the rules ruled out before any reading.
-The picks marked Not for me are `GET /api/jobs?top_picks=true&dismissed_only=true`,
-whatever their postings' status and newest mark first; each of those rows also
+The picks marked Not for me are `GET /api/jobs?top_picks=true&dismissed_only=true&status=`,
+newest mark first: `status` defaults to `open`, and the empty value keeps the
+marked picks whose postings have closed, as the Radar's own Not for me does. Each of those rows also
 carries the reason the person gave (`dismiss_reason`, `dismiss_reason_text`).
 Not for me is the Board's own dismissal (`PUT /api/jobs/{job_id}/feedback`), which keeps a
 reason code and up to 200 characters of the person's words

@@ -218,20 +218,22 @@ function TopPicksList({ picks, rootRef, onPicksChange }: {
   );
 
   const hidden = baseline.total ?? 0;
-  // As on the Radar, the lens's empty teaches it and leads back to the picks.
-  const empty = inLens ? (
+  // As on the Radar, the lens's empty teaches it and leads back to the picks;
+  // under a search or filter the marked picks exist, so the restriction speaks.
+  // The hidden count is the open picks' baseline, so the lens shows none.
+  const empty = inLens && !filters.q.trim() && !narrowed ? (
     <EmptyState title={picksRemovedEmptyTitle()}>
       {picksRemovedEmpty()}{" "}
       <Button variant="link" onClick={() => onModeChange("open")}>{radarShowAll()}</Button>
     </EmptyState>
   ) : filters.q.trim() ? (
     <EmptyState title={picksEmptySearchTitle()} />
-  ) : narrowed && hidden > 0 ? (
+  ) : narrowed && hidden > 0 && !inLens ? (
     <EmptyState title={picksEmptyFilteredTitle()}>
       {picksEmptyFiltered({ count: hidden })}{" "}
       <Button variant="link" onClick={resetAll}>{radarReset()}</Button>
     </EmptyState>
-  ) : narrowed && baseline.total === null ? (
+  ) : narrowed && (inLens || baseline.total === null) ? (
     <EmptyState title={picksEmptyFilteredTitle()}>
       <Button variant="link" onClick={resetAll}>{radarReset()}</Button>
     </EmptyState>

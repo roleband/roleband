@@ -44,7 +44,7 @@ class PassedOverResponse(Built):
     """`GET /api/picks/passed`: what the assistant read in the last seven days
     and did not pick, and what the hard rules ruled out before any reading.
     The picks the person removed are
-    `GET /api/jobs?top_picks=true&dismissed_only=true`."""
+    `GET /api/jobs?top_picks=true&dismissed_only=true&status=`."""
 
     passed_this_week: int
     #: Near misses that stand, newest first, without the ones marked Not for me.

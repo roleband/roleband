@@ -27298,7 +27298,7 @@
    },
    "PassedOverResponse": {
     "additionalProperties": false,
-    "description": "`GET /api/picks/passed`: what the assistant read in the last seven days\nand did not pick, and what the hard rules ruled out before any reading.\nThe picks the person removed are\n`GET /api/jobs?top_picks=true&dismissed_only=true`.",
+    "description": "`GET /api/picks/passed`: what the assistant read in the last seven days\nand did not pick, and what the hard rules ruled out before any reading.\nThe picks the person removed are\n`GET /api/jobs?top_picks=true&dismissed_only=true&status=`.",
     "properties": {
      "judged_rules": {
       "items": {

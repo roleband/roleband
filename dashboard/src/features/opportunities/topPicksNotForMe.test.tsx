@@ -250,6 +250,26 @@ describe("the Not for me list's edges", () => {
     await waitFor(() => expect(address).toBe("/top-picks"));
   });
 
+  it("says a filter emptied it, not that nothing is marked, and Reset all clears the filter on this list", async () => {
+    serve([]);
+    mount("/top-picks?show=not-for-me&company=stripe");
+    const title = await screen.findByText(msg("picks-empty-filtered-title"));
+    expect(screen.queryByText(msg("picks-removed-empty-title"))).toBeNull();
+    await userEvent.click(within(title.closest<HTMLElement>(".empty")!).getByRole("button", { name: msg("radar-reset") }));
+    await waitFor(() => expect(lastRead().company ?? []).toEqual([]));
+    expect(lastRead().dismissed_only).toBe(true);
+    expect(address).toMatch(/show=not-for-me/);
+  });
+
+  it("says the search found nothing, not that nothing is marked", async () => {
+    serve([]);
+    mount("/top-picks?show=not-for-me");
+    await screen.findByText(msg("picks-removed-empty-title"));
+    await userEvent.type(screen.getByRole("searchbox"), "ledger");
+    expect(await screen.findByText(msg("picks-empty-search-title"))).toBeVisible();
+    expect(screen.queryByText(msg("picks-removed-empty-title"))).toBeNull();
+  });
+
   it("ends without the picks' end line, which is about the checks", async () => {
     mount("/top-picks?show=not-for-me");
     await screen.findByText("Principal Engineer, Payments");
