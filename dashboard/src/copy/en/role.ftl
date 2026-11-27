@@ -96,6 +96,28 @@ role-job-detail-1-in-compare-pick-one = 1 in compare · pick one more
 role-job-detail-compare-roles = Compare { $compareCount } roles
 # kind=link note="Opens the employer's site to apply; shown until the person has applied"
 role-job-detail-view-apply = Apply
+# kind=button note="In the posting's bar, before Apply: hands the role to the person's assistant to tailor their CV"
+role-job-detail-tailor-cv = Tailor CV
+# kind=heading note="Over the two steps at the end of a posting"
+role-job-detail-next-kicker = Next steps
+# kind=status note="Beside Next steps and in the Tailor CV popover, while the role is not saved: either step saves it"
+role-job-detail-next-saves = Saves the role to your pipeline
+# kind=link note="Step 1 at the end of a posting: opens the Tailor CV popover"
+role-job-detail-next-tailor-title = Tailor your CV for this role
+# kind=sentence note="Under step 1 at the end of a posting"
+role-job-detail-next-tailor-meta = Your assistant drafts it from your background and this posting.
+# kind=link note="Step 2 at the end of a posting: opens the employer's form in a new tab and saves the role"
+role-job-detail-next-apply-title = Apply on { $company }'s site
+# kind=heading
+role-job-detail-tailor-heading = Tailor your CV for this role
+# kind=sentence
+role-job-detail-tailor-say = Say this to Claude Code or Codex. It reads the posting and your background, and drafts the CV.
+# kind=sentence note="Copied and said to the person's assistant; the role's number lets it read this posting through the roleband command"
+role-job-detail-tailor-sentence = Use the roleband command to tailor my CV for role { $id }: { $title } at { $company }.
+# kind=sentence note="Shown in place of the sentence when no assistant is set up"
+role-job-detail-tailor-connect = Connect Claude Code or Codex first. It reads the posting and your background, and drafts the CV.
+# kind=link note="Opens Settings, AI, where an assistant is connected"
+role-job-detail-tailor-connect-link = Connect an assistant
 # kind=label wording=as-is
 role-job-detail-postings = { $lineage_size } postings
 # kind=label wording=as-is
@@ -138,15 +160,6 @@ role-job-detail-tabs = Posting and workspace
 role-job-detail-tab-posting = Posting
 # kind=label
 role-job-detail-tab-workspace = Workspace
-# kind=label note="Kicker over the suggestion to apply, at the end of a posting"
-role-job-detail-apply-kicker = Next step
-# kind=label note="Link at the end of a posting: saves the role and opens the pipeline list in a new tab"
-role-job-detail-apply-title = Apply for this role
-# kind=label note="Under the suggestion to apply: yes when the role is already saved"
-role-job-detail-apply-meta = { $choice ->
-    [yes] Already in your pipeline
-   *[no] Saves to your pipeline
-}
 # kind=tooltip
 role-job-detail-compare-is-full-max = Compare is full: { $compareCap } at most
 # kind=label wording=as-is

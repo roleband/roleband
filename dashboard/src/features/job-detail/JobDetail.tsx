@@ -28,15 +28,15 @@ import { unfollowedSentence } from "../../patterns/jobs/unfollowed";
 import { applyAsk } from "./applyAsk";
 import { PlaceSetSection } from "./PlaceSetSection";
 import { TwinDeck } from "./TwinDeck";
+import { TailorCvPopover } from "./TailorCv";
 import { readSimilarFolded, writeSimilarFolded } from "./similarFold";
 import { Icon } from "../../ui/Icon";
 import { CompanyChip } from "../../patterns/companies/CompanyChip";
-import { BandBadge, LocBadge } from "../../patterns/jobs/JobBadges";
+import { BandBadge } from "../../patterns/jobs/JobBadges";
 import "./job-detail.css";
 import { JobLinkRow } from "../../patterns/jobs/JobLinkRow";
 import { Cover } from "../../patterns/Cover";
 import { postingPlaces } from "../../patterns/jobs/location";
-import { placeGroupsBeyond } from "../../patterns/jobs/placeGroups";
 import {
   roleJobDetail1InComparePickOne,
   roleJobDetailBack,
@@ -45,9 +45,12 @@ import {
   roleJobDetailTabPosting,
   roleJobDetailTabWorkspace,
   roleJobDetailTabs,
-  roleJobDetailApplyKicker,
-  roleJobDetailApplyMeta,
-  roleJobDetailApplyTitle,
+  roleJobDetailNextApplyTitle,
+  roleJobDetailNextKicker,
+  roleJobDetailNextSaves,
+  roleJobDetailNextTailorMeta,
+  roleJobDetailNextTailorTitle,
+  roleJobDetailTailorCv,
   roleJobDetailCompare,
   roleJobDetailCompareIsFullMax,
   roleJobDetailCompareRoles,
@@ -83,7 +86,6 @@ const stated = (job: Job): boolean => job.level_basis !== "none" && job.level_ba
 /** Similar positions shown per category (same company / other companies). */
 const SIMILAR_PER_CATEGORY = 3;
 /** Where applying is tracked. */
-const PIPELINE_LIST = "/pipeline/list";
 
 /** The pipeline's part of the posting, which the route composes in (a feature
  *  never imports another): the bar's control for the role's place in the
@@ -259,28 +261,23 @@ export function JobDetail({
         return false;
       });
   };
-  /** The way on at the end of the read: save the role, then show the
-   *  pipeline list in a new tab. The tab opens at the click, so no popup
-   *  blocker stands in the way, and goes to the list only once the save has
-   *  landed, so the list it loads holds the role. A middle click opens the
-   *  link without a click event, so it comes here through `auxclick`. */
-  const applyOnward = (event: ReactMouseEvent<HTMLAnchorElement>) => {
+  /** Tailor CV, from the bar or the end of the read: hands the role to the
+   *  person's assistant in a popover under the control that asked. Like
+   *  Apply, it saves the role first. */
+  const [tailorAt, setTailorAt] = useState<HTMLElement | null>(null);
+  // A popover asked for on one posting does not follow to the next.
+  const shownId = job?.id;
+  useEffect(() => setTailorAt(null), [shownId]);
+  const startTailor = (at: HTMLElement) => {
+    if (job && !job.is_favorite) void saveFav();
+    setTailorAt(at);
+  };
+  /** Apply, in the bar or at the end: the employer's form opens at the click,
+   *  in a new tab, and the role is saved behind it, so the pipeline holds what
+   *  the person applied to. */
+  const applyAndSave = (event: ReactMouseEvent<HTMLAnchorElement>) => {
     if (event.type === "auxclick" && event.button !== 1) return;
-    if (!job || job.is_favorite) return;
-    event.preventDefault();
-    const tab = window.open("", "_blank");
-    void saveFav().then((done) => {
-      if (!done) {
-        tab?.close();
-        return;
-      }
-      if (!tab) {
-        window.open(PIPELINE_LIST, "_blank", "noopener");
-        return;
-      }
-      tab.opener = null;
-      tab.location.href = PIPELINE_LIST;
-    });
+    if (job && !job.is_favorite) void saveFav();
   };
 
   /** Another tab. Held under the bar, the tabs stay held and the other tab
@@ -384,11 +381,10 @@ export function JobDetail({
   // leaves the dependencies unchanged.
   const formReadable = job != null && "application_form_readable" in job && job.application_form_readable;
   const jobIdLoaded = job?.id;
-  // The header's place line: the first few places, which its tags must not
-  // repeat. The server's tidied list (one label an office, countries in
-  // words); the source's own when it names nothing that list can hold.
+  // The header's place line: the first few places, as the posting names them.
+  // The server's tidied list (one label an office, countries in words); the
+  // source's own when it names nothing that list can hold.
   const places = job ? (job.places?.length ? job.places : postingPlaces(job.locations)).slice(0, 4) : [];
-  const groupsBeyond = job ? placeGroupsBeyond(job.location_groups, places) : [];
   // One ask per posting per open, whatever the detail says afterwards: the
   // refresh below reads the flag again, and a server that kept saying
   // "readable" must not turn that into a loop.
@@ -496,21 +492,24 @@ export function JobDetail({
             <Msg of={roleJobDetailCompareRoles} elems={{ compareCount: compareCount }} /> <Icon name="arrowRight" size={13} />
           </Button>
         )}
+        {/* Two groups: the tools, Compare and the star, as icons, the Radar
+            row's own pair; then the path to applying, in the order it is
+            done, with Apply the one filled button. Once applied, the path
+            leaves and the tools stay. */}
         {job && (
-          /* Visible text IS the accessible name, and `aria-pressed` carries the
-             state — the row's icon-only twin has to spell both into a label,
-             but here there is room to say it once. */
           <>
             {/* Full: still focusable, with the reason as its description. */}
             <Button
+              variant="icon"
+              size="sm"
               onClick={() => { if (!compareFull) onToggleCompare(); }}
               aria-pressed={compareOn}
               aria-disabled={compareFull || undefined}
               aria-describedby={compareFull ? fullReasonId : undefined}
-              title={compareFull ? roleJobDetailCompareIsFullMax({ compareCap: compareCap }) : undefined}
+              aria-label={roleJobDetailCompare({ choice: compareOn ? "yes" : "no" })}
+              title={compareFull ? roleJobDetailCompareIsFullMax({ compareCap: compareCap }) : roleJobDetailCompare({ choice: compareOn ? "yes" : "no" })}
             >
-              <Icon name={compareOn ? "check" : "compare"} size={15} />{" "}
-              {roleJobDetailCompare({ choice: (compareOn) ? "yes" : "no" })}
+              <Icon name={compareOn ? "check" : "compare"} size={16} />
             </Button>
             {compareFull && (
               <span id={fullReasonId} className="sr-only">{roleJobDetailCompareIsFullMax({ compareCap: compareCap })}</span>
@@ -518,13 +517,19 @@ export function JobDetail({
           </>
         )}
         {pipeline.control}
-        {/* Apply opens the employer's site; the person moves the stage once
-            they have applied, and from then on the bar offers nothing here. */}
         {job && !applied && (
-          <a className="ui-btn ui-btn-primary ui-btn-md" href={job.url} target="_blank" rel="noreferrer">
-            {roleJobDetailViewApply()} <Icon name="external" size={15} />
-          </a>
+          <>
+            <Button className="jd-tailor" aria-expanded={tailorAt != null} aria-haspopup="dialog"
+                    onClick={(event) => startTailor(event.currentTarget)}>
+              <Icon name="sparkle" size={15} /> {roleJobDetailTailorCv()}
+            </Button>
+            <a className="ui-btn ui-btn-primary ui-btn-md" href={job.url} target="_blank" rel="noreferrer"
+               onClick={applyAndSave} onAuxClick={applyAndSave}>
+              {roleJobDetailViewApply()} <Icon name="external" size={15} />
+            </a>
+          </>
         )}
+        {job && <TailorCvPopover job={job} anchor={tailorAt} onClose={() => setTailorAt(null)} />}
         </div>
         {/* The next posting is still on its way: a line along the bar's foot,
             drawn only once the wait outlasts a quick load. */}
@@ -567,15 +572,12 @@ export function JobDetail({
                     <Badge shape="tag" variant="tint" tone="warning"><Msg of={roleJobDetailReposted} elems={{ repost_count: job.repost_count }} /></Badge>
                   )
                 )}
-                {(places.length > 0 || groupsBeyond.length > 0) && (
+                {places.length > 0 && (
                   <div className="job-meta">
                     {places.map((l, i) => (
                       <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                         {i === 0 && <Icon name="pin" size={13} />} <Content text={l} />
                       </span>
-                    ))}
-                    {groupsBeyond.map((g) => (
-                      <LocBadge key={g} slug={g} />
                     ))}
                   </div>
                 )}
@@ -655,19 +657,42 @@ export function JobDetail({
                   postingUrl={job.url}
                 />
 
-                {/* The read ends on the way on: applying, which starts in
-                    the pipeline. Once applied there is nothing to suggest. */}
+                {/* The read ends on the way on: two steps in the order they
+                    are done, each a raised row the whole of which is its one
+                    control (docs/ui.md, a clickable card). Once applied there
+                    is nothing to suggest. */}
                 {!applied && (
                   <footer className="jd-end">
-                    <a className="jd-next" href={PIPELINE_LIST} target="_blank" rel="noopener"
-                       onClick={applyOnward} onAuxClick={applyOnward}>
-                      <span className="jd-next-kicker">{roleJobDetailApplyKicker()}</span>
-                      <span className="jd-next-title">{roleJobDetailApplyTitle()}</span>
-                      <span className="jd-next-meta">
-                        {roleJobDetailApplyMeta({ choice: job.is_favorite ? "yes" : "no" })}
-                      </span>
-                      <Icon name="external" size={16} />
-                    </a>
+                    <div className="jd-next-head">
+                      <h2 className="jd-next-kicker">{roleJobDetailNextKicker()}</h2>
+                      {!job.is_favorite && <span className="jd-next-note">{roleJobDetailNextSaves()}</span>}
+                    </div>
+                    <ol className="jd-next-steps">
+                      <li className="jd-next" data-next="">
+                        <span className="jd-next-mark" aria-hidden="true">1</span>
+                        <span className="jd-next-text">
+                          <Button variant="link" className="jd-next-title" aria-haspopup="dialog"
+                                  onClick={(event) => startTailor(event.currentTarget.closest("li") ?? event.currentTarget)}>
+                            {roleJobDetailNextTailorTitle()}
+                          </Button>
+                          <span className="jd-next-meta">{roleJobDetailNextTailorMeta()}</span>
+                        </span>
+                        <span className="jd-next-go" aria-hidden="true"><Icon name="arrowRight" size={17} /></span>
+                      </li>
+                      <li className="jd-next">
+                        <span className="jd-next-mark" aria-hidden="true">2</span>
+                        <span className="jd-next-text">
+                          <a className="jd-next-title" href={job.url} target="_blank" rel="noreferrer"
+                             onClick={applyAndSave} onAuxClick={applyAndSave}>
+                            {roleJobDetailNextApplyTitle({ company: companyName(job.company) })}
+                          </a>
+                          {"application_form" in job && job.application_form && (
+                            <span className="jd-next-meta">{applyAsk(job.application_form)}</span>
+                          )}
+                        </span>
+                        <span className="jd-next-go" aria-hidden="true"><Icon name="external" size={17} /></span>
+                      </li>
+                    </ol>
                   </footer>
                 )}
                 </>)}

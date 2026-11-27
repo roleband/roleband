@@ -90,11 +90,14 @@ function readStep(page: Page) {
   });
 }
 
-/** The bar's controls as drawn: size, distance from the window's nearer edge, type. */
+/** The bar's controls as drawn: size, type, and distance from the edge each
+ *  keeps: Back the window's, the actions the text's right edge. */
 function readBar(page: Page) {
   return page.evaluate(() => {
     const bar = document.querySelector<HTMLElement>(".cover-bar")!;
     const width = window.innerWidth;
+    const frame = document.querySelector<HTMLElement>(".jd-container")!;
+    const textEnd = frame.getBoundingClientRect().right - parseFloat(getComputedStyle(frame).paddingRight);
     return {
       height: Math.round(bar.getBoundingClientRect().height),
       controls: Array.from(bar.querySelectorAll<HTMLElement>(".ui-btn, a"), (el) => {
@@ -103,7 +106,7 @@ function readBar(page: Page) {
           name: el.getAttribute("aria-label") ?? el.textContent?.trim() ?? "",
           width: Math.round(b.width),
           height: Math.round(b.height),
-          fromEdge: Math.round(b.left < width / 2 ? b.left : width - b.right),
+          fromEdge: Math.round(b.left < width / 2 ? b.left : textEnd - b.right),
           font: getComputedStyle(el).fontSize,
         };
       }),
@@ -204,7 +207,7 @@ test.describe("posting steps", () => {
 
   test("the stage menu opens under its button at its own size on a wide step", async ({ page }) => {
     const menuWidth = async () => {
-      await detail(page).getByRole("button", { name: msg("taxonomy-stage-applied"), exact: true }).click();
+      await detail(page).getByRole("button", { name: msg("applications-stage-star", { stage: msg("taxonomy-stage-applied") }), exact: true }).click();
       const menu = page.getByRole("dialog", {
         name: msg("applications-stage-menu-label", { title: READING.title }),
       });

@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { BandBadge, LocBadge, MatchBadge } from "./JobBadges";
+import { BandBadge, MatchBadge } from "./JobBadges";
 import { msg } from "../../test/msg";
 
 /* The job row's read-only chip vocabulary. Each one carries a decision that
@@ -58,16 +58,6 @@ describe("BandBadge", () => {
 
     rerender(<BandBadge band="senior" />);
     expect(screen.queryByText("level unconfirmed")).not.toBeInTheDocument();
-  });
-});
-
-describe("LocBadge", () => {
-  it("names the group, and falls back to the slug for one it does not know", () => {
-    render(<LocBadge slug="silicon_valley" />);
-    expect(screen.getByText("Silicon Valley")).toBeInTheDocument();
-
-    render(<LocBadge slug="antarctica-hq" />);
-    expect(screen.getByText("antarctica-hq")).toBeInTheDocument();
   });
 });
 

@@ -6,7 +6,7 @@ export { fmtComp, fmtCompIn, fmtRange } from "./money";
    `LOC_LABEL` pulling all of locations.gen.ts); a re-export does not, because
    the package declares its modules side-effect-free. Only what the shell itself
    calls is defined in this file; `npm run build` names anything else. */
-export { BAND_LABEL, BAND_ORDER, LOC_LABEL, WORKPLACE_LABEL, flagEmoji, isMetro, relDays } from "./labels";
+export { BAND_LABEL, BAND_ORDER, LOC_LABEL, WORKPLACE_LABEL, flagEmoji, relDays } from "./labels";
 import {
   shellFreshnessChecked,
   shellFreshnessMarket,

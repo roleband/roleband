@@ -385,11 +385,9 @@
   color: var(--app-chosen-text);
 }
 
-/* Location: the city on line one, its region on line two — no pin, no
-   plate, no middot (on one line, at the widths this screen is used at, the
-   city loses the contest for the width every time). The city is a decision fact (where would I live?), so
-   it sits at the fact floor level with the numeral, one ink down; the region
-   is the aside and stays micro, level with the facts. */
+/* Location: the city on line one, as the posting names it, with no pin and
+   no plate. The city is a decision fact (where would I live?), so it sits at
+   the fact floor level with the numeral, one ink down. */
 .jr-loc {
   min-width: 0;
   display: flex;
@@ -411,15 +409,6 @@
    it follows, and the whole list is the cell's tooltip. */
 .jr-loc .job-loc-more {
   color: var(--row-ink-3, var(--app-text-faint));
-}
-
-.jr-loc .job-loc-group {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--row-ink-3, var(--app-text-faint));
-  font-size: var(--app-type-micro);
-  line-height: var(--row-line-2);
 }
 
 /* The numeral on line one, the age under it on line two: a value and its
@@ -552,8 +541,7 @@
     padding: var(--app-space-3) var(--app-space-3) var(--app-space-3) var(--app-space-4);
   }
 
-  /* The card reads top to bottom, so the facts may take a second line here
-     and the city and its region share one. */
+  /* The card reads top to bottom, so the facts may take a second line here. */
   .job-meta {
     flex-wrap: wrap;
     gap: 2px var(--app-space-2);
@@ -564,14 +552,6 @@
 
   .job-row .jr-loc {
     display: flex;
-    flex-direction: row;
-    align-items: baseline;
-    gap: var(--app-space-2);
-  }
-
-  .jr-loc .job-loc-group::before {
-    content: "·";
-    margin-right: var(--app-space-2);
   }
 
   /* The numeral leads its line and the age closes it. */

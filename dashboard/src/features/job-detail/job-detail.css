@@ -11,7 +11,7 @@
  * ground-painter.
  *
  * Shared components rendered here keep their own paint: CompanyChip (.chip)
- * and BandBadge/LocBadge (.badge-*), the board's chip vocabulary.
+ * and BandBadge (.badge-*), the board's chip vocabulary.
  * `.job-row.is-stacked` stays in styles.css: it decorates BOARD rows.
  */
 
@@ -706,10 +706,13 @@
 }
 
 /* ---- the end of the read --------------------------------------------------
-   The text ends on the way on: the suggestion to apply, which saves the
-   role and opens the pipeline in a new tab, under a rule across the column. The whole block is the control; its
-   ground shows only under the pointer, reaching out past the text's edges so
-   its words stay on the column's line. */
+   The text ends on the way on: two numbered steps in the order they are
+   done, Tailor CV then Apply, under a rule across the column. Each step is a
+   raised row with a round go target at the end of its line, so it reads as
+   something to press before a pointer finds it; the whole row is its title's
+   control (docs/ui.md, a clickable card). The next step is lit in the action
+   colour; the target fills under the pointer. None is a filled button: the
+   bar's Apply stays the one primary. */
 .jd-end {
   margin-top: var(--app-space-6);
   padding-top: var(--app-space-4);
@@ -717,41 +720,16 @@
   font-size: var(--app-type-read);
 }
 
-.jd-next {
-  appearance: none;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  column-gap: var(--app-space-4);
-  row-gap: var(--app-space-1);
-  width: calc(100% + 2 * var(--app-space-3));
-  margin: 0 calc(-1 * var(--app-space-3));
-  padding: var(--app-space-3);
-  border: 0;
-  border-radius: var(--app-radius-lg);
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: start;
-  text-decoration: none;
-  cursor: pointer;
-  transition: background-color var(--app-duration-fast) var(--app-ease);
-}
-
-.jd-next:hover {
-  background-color: var(--app-surface-hover);
-}
-
-.jd-next:focus-visible {
-  outline: var(--app-ring-width) solid var(--app-action);
-  outline-offset: calc(-1 * var(--app-ring-offset));
-}
-
-.jd-next > span {
-  grid-column: 1;
+.jd-next-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--app-space-3);
+  margin-bottom: var(--app-space-3);
 }
 
 .jd-next-kicker {
+  margin: 0;
   color: var(--app-action-text);
   font-family: var(--app-font-mono);
   font-size: var(--app-type-whisper);
@@ -760,57 +738,209 @@
   text-transform: uppercase;
 }
 
-.jd-next-title {
-  margin-top: var(--app-space-1);
+.jd-next-note {
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+}
+
+.jd-next-steps {
+  display: grid;
+  gap: var(--app-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.jd-next {
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 40px;
+  align-items: center;
+  column-gap: var(--app-space-4);
+  padding: var(--app-space-4);
+  border: 1px solid var(--app-border-strong);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface-raised);
+  box-shadow: var(--app-shadow);
+  transition: border-color var(--app-duration-fast) var(--app-ease);
+}
+
+.jd-next-mark {
+  display: inline-grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  border: 1.5px solid var(--app-border-strong);
+  border-radius: 50%;
+  color: var(--app-text-muted);
+  font-family: var(--app-font-mono);
+  font-size: var(--app-type-meta);
+  line-height: 1;
+}
+
+.jd-next-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* The title is the step's one control; its target stretches over the row.
+   Step 1's is the house link button, so its rank's colour and underline give
+   way here (`li` outweighs the link rank): the title reads as the row's
+   heading, and the row shows the press. */
+li.jd-next .jd-next-title {
+  justify-self: start;
   color: var(--app-text);
+  font-size: var(--app-type-title);
   font-weight: var(--app-weight-name);
-  line-height: 1.35;
+  line-height: 1.3;
+  text-align: start;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.jd-next-title::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--app-radius-lg);
+}
+
+li.jd-next .jd-next-title:focus-visible {
+  outline: none;
+}
+
+.jd-next:has(.jd-next-title:focus-visible) {
+  outline: var(--app-ring-width) solid var(--app-action);
+  outline-offset: calc(-1 * var(--app-ring-offset));
 }
 
 .jd-next-meta {
   color: var(--app-text-muted);
   font-size: var(--app-type-meta);
+  line-height: 1.45;
 }
 
-.jd-next > svg {
-  grid-column: 2;
-  grid-row: 1 / span 3;
-  color: var(--app-text-muted);
-  transition: transform var(--app-duration-fast) var(--app-ease), color var(--app-duration-fast) var(--app-ease);
-}
-
-.jd-next:hover > svg {
+/* A picture of the press, not a control: the arrow's hover nudge is a
+   transform, which paints it above the title's stretched target, so the
+   circle lets the press through to the step's one control. */
+.jd-next-go {
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--app-border-strong);
+  border-radius: 50%;
+  background: var(--app-surface-subtle);
   color: var(--app-text);
-  transform: translate(2px, -2px);
+  transition:
+    background-color var(--app-duration-fast) var(--app-ease),
+    border-color var(--app-duration-fast) var(--app-ease),
+    color var(--app-duration-fast) var(--app-ease);
+}
+
+.jd-next-go svg {
+  transition: transform var(--app-duration-medium) var(--app-ease);
+}
+
+.jd-next[data-next] {
+  border-color: var(--app-action-edge);
+}
+
+.jd-next[data-next] .jd-next-mark {
+  border-color: var(--app-action);
+  color: var(--app-action-text);
+}
+
+.jd-next[data-next] .jd-next-go {
+  border-color: var(--app-action-line);
+  background: var(--app-action-soft);
+  color: var(--app-action-text);
+}
+
+.jd-next:hover {
+  border-color: var(--app-action-edge);
+}
+
+.jd-next:hover .jd-next-go {
+  border-color: var(--app-action);
+  background: var(--app-action);
+  color: var(--app-action-ink);
+}
+
+.jd-next:hover .jd-next-go svg {
+  transform: translateX(2px);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .jd-next,
-  .jd-next > svg {
+  .jd-next-go,
+  .jd-next-go svg {
     transition: none;
   }
 
-  .jd-next:hover > svg {
+  .jd-next:hover .jd-next-go svg {
     transform: none;
   }
 }
 
-/* ---- stage (bar) + pipeline rows (aside) --------------------------------- */
-
-.jd-stage {
-  flex: 0 0 auto;
+/* ---- Tailor CV ------------------------------------------------------------
+   The hand-off: one sentence for the person's assistant, in the copy control. */
+.jd-tailor-pop .ui-popover-inner {
+  display: grid;
+  gap: var(--app-space-3);
+  box-sizing: border-box;
+  width: 380px;
+  padding: var(--app-space-4);
 }
 
-/* The saved star keeps the radar row's colour through every stage: an ended
-   application quiets its words, never the star, so the star means saved
-   wherever the role is seen. */
+.jd-tailor-pop h2 {
+  margin: 0;
+  color: var(--app-text);
+  font-size: var(--app-type-body);
+  font-weight: var(--app-weight-name);
+}
+
+.jd-tailor-pop .ui-popover-inner > p {
+  margin: 0;
+  color: var(--app-text-muted);
+  font-size: var(--app-type-meta);
+  line-height: 1.45;
+}
+
+/* ---- the bar --------------------------------------------------------------
+   Its actions end on the text's right edge (`readingChrome.ts` measures it),
+   while Back keeps the window's edge. Two groups: the tools as icons, then
+   the path, set apart by space alone. */
+.cover.job-detail > .cover-bar {
+  padding-inline-end: var(--jd-bar-end, var(--app-space-5));
+}
+
+.jd-tailor {
+  margin-inline-start: var(--app-space-4);
+}
+
+/* ---- stage (bar) + pipeline rows (aside) --------------------------------- */
+
+/* The saved star with its menu's arrow: the star's own size, room for the
+   arrow. The star keeps the radar row's colour through every stage: an ended
+   application quiets nothing here, so the star means saved wherever the role
+   is seen. */
+.ui-btn-icon.ui-btn-sm.jd-stage {
+  width: auto;
+  gap: 2px;
+  padding: 0 var(--app-space-1);
+}
+
 .jd-stage-star {
   display: inline-flex;
   color: var(--app-chosen-mark);
 }
 
-/* An ended application has nothing left to do: its stage reads quietly. */
-.jd-stage[data-ended] {
+.jd-stage > svg {
   color: var(--app-text-muted);
 }
 

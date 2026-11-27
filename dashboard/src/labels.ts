@@ -93,12 +93,6 @@ export const LOC_LABEL: Record<string, string> = Object.defineProperties(
   { ...Object.getOwnPropertyDescriptors(METRO_LABEL), ...Object.getOwnPropertyDescriptors(GROUP_LABEL) },
 );
 
-/* A metro area: the one kind of place group a posting's own place text does
-   not already state, since its country and region are read from that text. */
-export function isMetro(slug: string): boolean {
-  return Object.prototype.hasOwnProperty.call(METRO_LABEL, slug);
-}
-
 /* A country slug as a flag glyph. The two regional-indicator codepoints ARE the
    flag, so all 196 countries cost no image assets and no icon dependency.
    Returns "" for a slug with no alpha-2 (an unmapped city, a metro, a region) —

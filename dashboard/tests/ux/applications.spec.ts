@@ -508,7 +508,8 @@ test("a role's posting moves its stage from the keyboard: M opens the menu, a nu
   const { stageWrites } = await installPipeline(page);
   await page.goto("/company/stripe/job/202?tab=workspace");
   const bar = posting(page).locator(".cover-bar");
-  const stage = (name: string) => bar.getByRole("button", { name, exact: true });
+  // The saved star carries the stage in its label.
+  const stage = (name: string) => bar.getByRole("button", { name: msg("applications-stage-star", { stage: name }), exact: true });
   await expect(stage("Applied")).toBeVisible();
 
   await page.keyboard.press("m");

@@ -329,6 +329,7 @@ applications-month-failed = No se pudo cargar el calendario
 
 
 applications-stage-menu-label = Cambiar la etapa de { $title }
+applications-stage-star = { $stage }: cambiar la etapa
 
 applications-change-failed = No se pudo guardar ese cambio en { $title }. Inténtalo de nuevo.
 

@@ -42,12 +42,11 @@ import { useId, type ReactNode } from "react";
 import { Badge, Content, Icon } from "../../ui";
 import { Button } from "../../ui/Button";
 import { Job } from "../../api";
-import { BAND_LABEL, LOC_LABEL, fmtDate, relDays } from "../../format";
+import { BAND_LABEL, fmtDate, relDays } from "../../format";
 import { primaryLocation } from "./location";
 import { CompanyChip } from "../companies/CompanyChip";
 import { StarButton } from "./JobControls";
 import "./job-row.css";
-import { placeGroups } from "./placeGroups";
 import { MatchBadge, isStanding, standingSigns } from "./JobBadges";
 import { unfollowedSentence } from "./unfollowed";
 import { list } from "../../copy/format";
@@ -284,10 +283,10 @@ export function JobCard({
         </div>
         {foot && <div className="job-foot">{foot}</div>}
       </div>
-      {/* The city on line one, the region under it. A posting that lists
-          several cities shows the first and counts the rest; the whole list
-          is the cell's tooltip and, for assistive tech, text after the count
-          (a tooltip is never read out). */}
+      {/* The city, as the posting names it, on line one. A posting that
+          lists several cities shows the first and counts the rest; the whole
+          list is the cell's tooltip and, for assistive tech, text after the
+          count (a tooltip is never read out). */}
       <div
         className="jr-loc"
         title={where.others.length > 0 ? [where.city, ...where.others].join(" · ") : undefined}
@@ -301,11 +300,6 @@ export function JobCard({
             </span>
           )}
         </span>
-        {placeGroups(job.location_groups).slice(0, 1).map((g) => (
-          <span key={g} className="job-loc-group">
-            {LOC_LABEL[g] ?? g}
-          </span>
-        ))}
       </div>
       {/* The numeral on line one and its age on line two: one cell, so the
           age needs no column of its own. A base nobody knows leaves line one

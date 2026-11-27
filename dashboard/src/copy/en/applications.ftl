@@ -337,6 +337,8 @@ applications-month-failed = Couldn't load the calendar
 ## One application's page
 # kind=aria
 applications-stage-menu-label = Change the stage of { $title }
+# kind=aria note="The saved star in a posting's bar, which opens the stage menu"
+applications-stage-star = { $stage }: change the stage
 # kind=toast
 applications-change-failed = Couldn't save that change to { $title }. Try again.
 

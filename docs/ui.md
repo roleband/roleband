@@ -583,9 +583,9 @@ Modifier classes on top of a variant:
 `Button` defaults to `type="button"`; a form's submit passes `type="submit"`.
 
 **Primary means scarce, not "commits state".** One primary per surface, and it
-is what the surface is for (View & apply on Job detail). A surface whose purpose
-is done loses its primary: once the person has applied, Job detail's link reads
-View posting, a strong ghost, and the posting has none. Many screens have
+is what the surface is for (Apply on Job detail). A surface whose purpose
+is done loses its primary: once the person has applied, Job detail's Apply
+leaves and the posting has none. Many screens have
 none: a list you scan has no single action. A verb repeated on every row is
 never primary; it is a `link` or `ghost`. A dialog's primary is its purpose.
 `tests/ux/job-detail.spec.ts` and `tests/ux/profile.spec.ts` count the visible
@@ -610,14 +610,16 @@ after its words), never a bare `<a target="_blank">`.
   border to meaning.
 - Clickable means focusable: no `<div onClick>`.
 - **A clickable card is a container with one control inside**: a `<div>` card,
-  one button on its title, and that button's `::after` stretched over the card.
+  one button on its title, and that button's `::after` stretched over the card
+  (the numbered next steps at a posting's end, whose title is a link button or
+  a link, and whose row wears the focus ring).
   Other controls in it stay siblings, so nothing nests. Test the whole-card
   click with `page.mouse`; Playwright refuses a locator click on a covered
   element.
 - **A whole-row target** (a notification row, a review option, the posting's
-  folding More like this heading, the suggestion to apply at a posting's end) is a
-  bare `<button>` or link carrying layout and no button chrome. It still owns hover,
-  focus and disabled, and its ring is drawn inside.
+  folding More like this heading) is a bare `<button>` or link carrying layout
+  and no button chrome. It still owns hover, focus and disabled, and its ring
+  is drawn inside.
 - **A field that opens a picker** (a next step's day) is a bare `<button>`
   drawn as the field box around it, so a click anywhere on it opens the
   picker. It owns hover and focus, rings inside its edge as a field does, and
@@ -1147,7 +1149,8 @@ it opens from. Job detail and Compare use it.
   most one primary. It wraps instead of using a breakpoint.
 
 **Job detail** (`features/job-detail/`) is the screen for reading a posting;
-its primary is View & apply, an anchor wearing the primary classes.
+its primary is Apply, an anchor wearing the primary classes, after an edged
+Tailor CV; Compare and the save star come first, as icons.
 
 - **The pay panel leads the main column**, and the employer's text follows it
   directly. The role requirements panel is off the screen
@@ -1243,11 +1246,13 @@ its primary is View & apply, an anchor wearing the primary classes.
   list it covers in history state, so the bar has no way to step to the rows
   around it and `j` / `k` do nothing on it; the way to another role is Back
   to the list, or a link on the posting.
-- **A posting ends on applying** (`.jd-end`), under the employer's text,
-  however it was opened. The step saves the role, then opens the pipeline
-  list in a new tab once the save has landed; a click and a middle click do
-  the same. A role already saved opens the list with no second write, and a
-  role already applied ends on nothing.
+- **A posting ends on its next steps** (`.jd-end`), under the employer's
+  text, however it was opened: 1 Tailor your CV, which opens the hand-off to
+  the person's assistant, then 2 Apply on the company's site, which opens the
+  posting there. Each is a clickable card. Both save the role first, and
+  *Saves the role to your pipeline* shows while it is unsaved; a role already
+  saved takes no second write. A role already applied ends on nothing, and the
+  bar's Tailor CV and Apply leave with the steps.
 - **A posting that opened with no text reads it** from the employer's site
   once the page is shown (`postingText.ts`), when the detail says it can
   (`description_readable`); the open never waits on the site. Under the
@@ -1473,7 +1478,7 @@ Unit gates (`npm run test:unit`) are under `dashboard/src/`; UX specs
 | Axe in both themes | `a11y.spec.ts` |
 | Pay split bar: hatch strength, gaps, forced colours; the split label's help mark | `pay-split-bar.spec.ts` |
 | Visible primaries counted | `job-detail.spec.ts`, `profile.spec.ts` |
-| The posting's side column stays in view with no scroll of its own and keeps its first rows, folds More like this, and follows the description in one column; the pay panel's small copy grows with the scroll; a section's heading sticks; the bar carries the role; a posting opened from a list has no way to step to another row; the posting ends on applying, which saves the role and opens the pipeline list in a new tab; the next posting turns in place, in one cover, with no loading line | `job-detail.spec.ts` |
+| The posting's side column stays in view with no scroll of its own and keeps its first rows, folds More like this, and follows the description in one column; the pay panel's small copy grows with the scroll; a section's heading sticks; the bar carries the role; a posting opened from a list has no way to step to another row; the posting ends on two numbered next steps, Tailor your CV then Apply, which save the role first and leave once it is applied; Tailor CV hands over one sentence in the copy control, offers to connect an assistant when none is set up, and offers both when the engine cannot say; the bar's actions end on the text's right edge on a wide window; the next posting turns in place, in one cover, with no loading line | `job-detail.spec.ts` |
 | A posting steps by its box's width alone: frame, columns and type together, the text across its column, the bar, menus and pop-ups at their size, nothing zoomed | `job-detail-steps.spec.ts` |
 | A posting that opened with no text reads it once and says so under a running line, offers the posting when the site is slow and Try again when the read failed, and asks nothing when nothing can read it | `job-detail.spec.ts`, `features/job-detail/postingText.test.tsx` |
 | First-run setup | `routing/setupMode.test.tsx`, `features/scope/walk/Walk.test.tsx`, `features/companies/SetupCompanies.test.tsx`, `welcome.spec.ts` |

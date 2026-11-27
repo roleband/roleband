@@ -5,7 +5,8 @@ import { useEffect, useRef, type RefObject } from "react";
  * - The role in the bar. Once the posting's heading has left the scroll box,
  *   the bar's middle carries the title, the company and the level, starting
  *   at the heading's own left edge so it reads as the heading risen into the
- *   bar.
+ *   bar. The bar's actions end on the text's right edge, so on a wide
+ *   window they stay beside the text they act on.
  * - The pay panel's small copy. The panel leads the page; as its last part
  *   leaves, the copy grows at the top of the side column and its figure comes
  *   down from the panel's size. The copy follows the scroll, forward and
@@ -55,6 +56,16 @@ export function useReadingChrome(
         role.style.paddingLeft = `${Math.max(0, gap).toFixed(2)}px`;
         // A heading with no box yet has not left: it has not arrived.
         role.toggleAttribute("data-shown", heading.height > 0 && heading.bottom <= top);
+        // The bar spans the window while the text stops at its width step: the
+        // bar's actions end where the text ends, and Back keeps the window's
+        // edge, so the title above still rises onto the heading's line.
+        const bar = role.closest<HTMLElement>(".cover-bar");
+        const frame = scroller.querySelector<HTMLElement>(".jd-container");
+        if (bar && frame) {
+          const textEnd = frame.getBoundingClientRect().right - parseFloat(getComputedStyle(frame).paddingRight);
+          const end = bar.getBoundingClientRect().right - textEnd;
+          bar.style.setProperty("--jd-bar-end", `${Math.max(0, end).toFixed(2)}px`);
+        }
       }
 
       if (dock) {

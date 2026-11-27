@@ -142,7 +142,8 @@ function renderPosting(job: JobDetail, asked: RoleTab | null = null, other?: Job
 const bar = () => screen.getByRole("navigation", { name: "Posting bar" });
 const column = () => screen.getByRole("complementary", { name: "Side column" });
 const main = () => screen.getByRole("main", { name: "Main column" });
-const stageNamed = (stage: string) => new RegExp(`^${stage}$`);
+/** The saved star in the bar: it carries the stage in its label alone. */
+const stageNamed = (stage: string) => msg("applications-stage-star", { stage });
 const menuOf = () => screen.findByRole("dialog", { name: msg("applications-stage-menu-label", { title: TITLE }) });
 
 /** The Pipeline section's value for `term`, or undefined when the row is not shown. */
@@ -213,15 +214,16 @@ describe("a posting off the board", () => {
 });
 
 describe("a posting on the board", () => {
-  it("names the stage alone in the bar, and its days in the section", async () => {
+  it("names the stage in the star's label alone, and its days in the section", async () => {
     detail = applicationDetailFixture({
       application: applicationCardFixture({ pursuit_id: 10, stage: "applied", stage_since: daysAgo(12) }),
     });
     renderPosting(posting({ is_favorite: true, pursuit: pursuit("applied") }));
     const days = await findRow(msg("applications-fact-days"));
     expect(days).toHaveTextContent(/^12 days/);
-    expect(within(bar()).getByRole("button", { name: "Applied" }), "the bar holds the stage, never its age")
-      .toHaveTextContent(/^Applied$/);
+    expect(within(bar()).getByRole("button", { name: stageNamed("Applied") }), "the bar holds controls, not the stage's word")
+      .toHaveTextContent("");
+    expect(within(bar()).queryByText("Applied")).toBeNull();
     expect(within(bar()).queryByText(/\d+d\b|days/)).toBeNull();
     expect(screen.getByText("View posting")).toBeInTheDocument();
   });
@@ -433,7 +435,7 @@ describe("a posting on the board", () => {
     });
     renderPosting(posting({ is_favorite: true, pursuit: pursuit("rejected") }));
     const ended = msg("applications-card-ended", { ending: "Rejected", stage: "Applied" });
-    expect(await within(bar()).findByRole("button", { name: ended })).toBeInTheDocument();
+    expect(await within(bar()).findByRole("button", { name: stageNamed(ended) })).toBeInTheDocument();
     expect(await findRow(msg("applications-posting-stage"))).toHaveTextContent(ended);
     const when = await findRow(msg("applications-posting-ended"));
     expect(when).toHaveTextContent(/Nov 3/);

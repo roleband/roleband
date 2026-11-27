@@ -77,6 +77,7 @@ const CARRIERS: [string, string][] = [
   [".filter-search-row input", ".filter-search-row"],
   [".ui-timefield-framed input", ".ui-timefield-framed"],
   [".palette-input input", ".palette-item.is-cursor"],
+  [".jd-next-title", ".jd-next"],
 ];
 
 /** The one stop that wears no ring: a role's notes are the page itself, with
