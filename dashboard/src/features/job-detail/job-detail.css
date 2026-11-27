@@ -691,10 +691,12 @@
 }
 
 /* Text that landed while the posting was open comes in, rather than standing
-   there as if it always had. */
+   there as if it always had. The fill is backwards only: a transform held past
+   the end, even an identity one, makes the text a box of its own, and a held
+   heading inside it then pins its wash to that box instead of the window. */
 @media (prefers-reduced-motion: no-preference) {
   .jd-arrived {
-    animation: jd-text-arrives var(--app-duration-slow) var(--app-ease) both;
+    animation: jd-text-arrives var(--app-duration-slow) var(--app-ease) backwards;
   }
 
   @keyframes jd-text-arrives {
