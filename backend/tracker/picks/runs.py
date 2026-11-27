@@ -2,8 +2,8 @@
 
 A run is opened with the postings it may judge, each with the content hash it
 had then, and closed by the assistant (`finished`, or `stopped` with a note)
-or by the engine (`abandoned`: left open past `health.ABANDONED_AFTER`, or
-still open when the same assistant begins another).
+or by the engine (`abandoned`: expired, replaced by another run from the
+same assistant, or closed when the routine is paused or removed).
 
 A day's runs of the routine together are handed at most the daily cap; a
 trial is counted apart, against its own cap.
@@ -14,7 +14,7 @@ Nothing here commits: the caller owns the transaction.
 from __future__ import annotations
 
 import secrets
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import func, select, update
@@ -24,6 +24,7 @@ from tracker.db.models import PickRun
 from tracker.picks.health import ABANDONED_AFTER, RunFact
 from tracker.picks.lock import lock_picks
 from tracker.platform.util import local_day_start_utc
+from tracker.settings_store import get_top_picks_settings
 
 
 class RunError(Exception):
@@ -63,10 +64,13 @@ async def close_abandoned(session: AsyncSession, now: datetime, *, host: str | N
     return closed
 
 
-async def close_open(session: AsyncSession, now: datetime, *, note: str) -> int:
-    """Close every open run as `abandoned`, with `note` saying why."""
+async def close_open(session: AsyncSession, now: datetime, *, note: str, routine_only: bool = False) -> int:
+    """Close open runs as `abandoned`, with `note` saying why."""
     await lock_picks(session)
-    open_runs = (await session.scalars(select(PickRun).where(PickRun.outcome.is_(None)).with_for_update())).all()
+    query = select(PickRun).where(PickRun.outcome.is_(None))
+    if routine_only:
+        query = query.where(PickRun.trial.is_(False))
+    open_runs = (await session.scalars(query.with_for_update())).all()
     for run in open_runs:
         run.outcome, run.finished_at, run.note = "abandoned", now, run.note or note
     await session.flush()
@@ -101,20 +105,26 @@ async def begin(
     return run
 
 
-async def open_run(session: AsyncSession, run_id: str, now: datetime) -> PickRun:
-    """The run, locked, for a write that needs it open. A run open past
-    `ABANDONED_AFTER` reads as abandoned, so no write lands on it."""
-    run = await session.scalar(select(PickRun).where(PickRun.id == run_id).with_for_update())
+async def open_run(
+    session: AsyncSession, run_id: str, now: datetime | None = None, *, for_write: bool = True,
+) -> PickRun:
+    """A run that can still serve work, locked through the caller's transaction."""
+    # A shared row lock lets batch reads run together and orders them against
+    # a pause, which closes the run under an exclusive lock.
+    run = await session.scalar(
+        select(PickRun)
+        .where(PickRun.id == run_id)
+        .execution_options(populate_existing=True)
+        .with_for_update(read=not for_write)
+    )
     if run is None:
         raise RunError("unknown_run", "There is no run by that id. Begin a run to get one.")
-    outcome = as_fact(run, now).outcome
+    outcome = as_fact(run, now or datetime.now(UTC)).outcome
+    if outcome is None and not run.trial and (await get_top_picks_settings(session)).state != "on":
+        outcome = "abandoned"
     if outcome is not None:
         raise RunError("run_closed", f"This run is closed ({outcome}). Begin a new run.")
     return run
-
-
-async def get(session: AsyncSession, run_id: str) -> PickRun | None:
-    return await session.get(PickRun, run_id)
 
 
 async def finish(

@@ -1357,10 +1357,11 @@ posting's id and content hash) and the active brief's version, and answers
 what the judge needs in one call: the brief, this month's picks, the person's
 reactions since the last run and the first postings. `picks.next` reads a
 further batch, `picks.decide` records up to 50 verdicts and `picks.finish`
-closes the run, `finished` or `stopped` with a note. The engine closes a run as
-`abandoned` when it stays open past two hours or when the same assistant
-begins another. A day's routine runs, by the local day, are handed at most the
-daily limit (1,000 by default, 1 to 5,000); a trial counts apart. A verdict
+closes the run, `finished` or `stopped` with a note. The engine treats a run
+as abandoned after two hours and closes it when the same assistant starts
+another. A closed run refuses batch reads, including a replay of the first
+batch, and accepts no new writes. Routine runs share a limit for each local
+day (1,000 by default, 1 to 5,000). A trial counts apart. A verdict
 (`picks/verdicts.py`) is a `pick` (two to four reasons, never `weaker` than
 the person's baseline), a `near_miss` (the one reason it failed) or a `pass`
 (a code); a reason is plain text of at most 140 characters, its `opening` fact
@@ -1370,13 +1371,16 @@ checked and saved in its own savepoint, so one refused item (`not_in_run`,
 saved. A posting is judged once per text, brief version and trial
 (`uq_pick_verdict_case`); a verdict on a new case supersedes the one before.
 `picks/health.py` reads the stored runs: `off`, `stopped_early` when the run
-that ended last stopped or was abandoned, `never_ran`, `late` when a role has
-waited over 36 hours and no run finished in that time, else `healthy`.
+that ended last in the current enabled period stopped or was abandoned,
+`never_ran`, and `late` when a role has waited over 36 hours and no run
+finished in that time. Otherwise health is `healthy`.
 
-**The mode and Remove.** Off pauses the checks: `picks.begin` answers
-`mode_off`, except for a trial, and everything saved stays. On needs an
-active brief (`brief_required`). The assistant changes the mode and the daily
-limit with `picks.switch`; the app with `PUT /api/picks/mode`.
+**The mode and Remove.** Off pauses the checks. It closes open routine runs
+as abandoned in the same transaction as the switch. New routine runs answer
+`mode_off` while paused. Setup trials can still start and continue, and
+saved verdicts stay. On needs an active brief (`brief_required`). The
+assistant uses `picks.switch` to change the mode and daily limit. The app
+uses `PUT /api/picks/mode`.
 `DELETE /api/picks/setup`, the app's Remove, has no operation: under the picks
 lock it deletes every file in the `documents` directory, every reading and
 document row and every version of the brief; clears the reasons and notes of

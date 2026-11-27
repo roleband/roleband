@@ -888,8 +888,8 @@ async def begin(
     write commits the run, the receipt and the Activity entry together."""
     if "public_posting" in withheld:
         raise category_disabled("public_posting")
-    now = now or datetime.now(UTC)
     await lock_picks(session)
+    now = now or datetime.now(UTC)
     settings = await get_top_picks_settings(session)
     active = await briefs.active(session)
     if active is None:
@@ -953,18 +953,26 @@ def shown_begin(result: RunStart, withheld: Collection[DataClass]) -> RunStart:
     return shown
 
 
+async def _read_open_run(session: AsyncSession, run_id: str, now: datetime | None = None) -> PickRun:
+    try:
+        return await runs.open_run(session, run_id, now, for_write=False)
+    except RunError as error:
+        raise _run_refusal(error) from None
+
+
+async def replayed_begin(session: AsyncSession, result: RunStart, withheld: Collection[DataClass]) -> RunStart:
+    """Reading the first batch again requires a run that can still serve it."""
+    if "public_posting" in withheld:
+        raise category_disabled("public_posting")
+    await _read_open_run(session, result.run)
+    return result
+
+
 async def next_batch(
     session: AsyncSession, params: NextInput, *, withheld: Collection[DataClass], now: datetime | None = None,
 ) -> Batch:
+    run = await _read_open_run(session, params.run, now)
     now = now or datetime.now(UTC)
-    try:
-        run = await runs.get(session, params.run)
-        if run is None:
-            raise RunError("unknown_run", "There is no run by that id. Begin a run to get one.")
-        if run.outcome is not None:
-            raise RunError("run_closed", f"This run is closed ({run.outcome}). Begin a new run.")
-    except RunError as error:
-        raise _run_refusal(error) from None
     ids = [int(job_id) for job_id, _ in run.queue]
     handed = runs.queue_of(run)
     window = ids[params.cursor : params.cursor + params.limit]
@@ -1093,7 +1101,6 @@ def _mode(settings: TopPicksSettings) -> ModeState:
 async def switch(session: AsyncSession, params: SwitchInput, *, now: datetime | None = None) -> ModeState:
     """Turn the mode on or off, or change its settings. Turning it off pauses
     the checks and deletes nothing; what arrived meanwhile is read once it is on again."""
-    now = now or datetime.now(UTC)
     changes: dict[str, Any] = {}
     if params.routine_host is not None:
         changes["routine_host"] = params.routine_host
