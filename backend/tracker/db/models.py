@@ -1916,9 +1916,8 @@ class PickBrief(Base):
 class PickRun(Base):
     """One run of the judge: the routine's, or the trial at the end of setup.
 
-    `queue` is what the run was handed, each posting with the content hash it
-    had then, so a verdict on a posting outside it, or on text that changed
-    since, is refused. A run with no `outcome` is still open.
+    `queue` holds the posting ids and content hashes in rank order. A run
+    with no `outcome` is still open.
     """
 
     __tablename__ = "pick_run"
@@ -1936,6 +1935,8 @@ class PickRun(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     outcome: Mapped[str | None] = mapped_column(String(16), nullable=True)
     queue: Mapped[list] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    #: Distinguishes a tracked run with no deliveries from a queue with unknown deliveries.
+    tracks_delivery: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     counts: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
     tokens: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     #: Why the run stopped, when it did.
@@ -1948,6 +1949,17 @@ class PickRun(Base):
         CheckConstraint("(outcome IS NULL) = (finished_at IS NULL)", name="ck_pick_run_closed"),
         Index("ix_pick_run_started", "started_at"),
     )
+
+
+class PickDelivery(Base):
+    """The first handoff of a posting in a run, on the engine's local day."""
+
+    __tablename__ = "pick_delivery"
+
+    run_id: Mapped[str] = mapped_column(ForeignKey("pick_run.id"), primary_key=True)
+    #: A posting can leave the Board without refunding its handoff.
+    job_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    local_day: Mapped[date] = mapped_column(Date, nullable=False, index=True)
 
 
 class PickVerdict(Base):

@@ -38,7 +38,7 @@ from tracker.db.models import Favorite, Job, JobFeedback, PickRun, PickVerdict, 
 from tracker.picks import queue
 from tracker.picks.brief import BriefBody, item_ids
 from tracker.picks.rules import ruled_out
-from tracker.picks.runs import queue_of
+from tracker.picks.runs import delivered_queue
 
 VerdictKind = Literal["pick", "near_miss", "pass"]
 AgainstBaseline = Literal["better", "comparable", "weaker", "unknown"]
@@ -149,8 +149,8 @@ async def save(
 ) -> list[Saved]:
     """Save each verdict of an open run the engine accepts, each in its own
     savepoint, and count them on the run. The caller holds the picks lock."""
-    handed = queue_of(run)
-    ids = [item.job for item in items if item.job in handed]
+    handed = await delivered_queue(session, run, [item.job for item in items])
+    ids = list(handed)
     eligible = (await queue.eligible_in_run(session, run, ids, body=body, now=now)).with_only_columns(Job.id)
     jobs = {
         job_id: (content_hash, is_eligible)

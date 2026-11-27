@@ -63,8 +63,11 @@ the run with a note; the app tells them.
    `--outcome stopped --note "why"`.
 7. End with one line: how many roles you read and how many you picked.
 
-A run reads at most the person's daily limit of roles, 1,000 a day unless they
-changed it; the rest wait for the next day. The first checks after setup read
+Routine checks share the person's daily limit, 1,000 a day unless they
+changed it. A role uses one slot when its batch is handed out, even if you
+stop before judging it. You can retry a cursor after a lost reply. A later
+run can read roles the earlier run never received, and can receive an
+unjudged role again if there is room that day. The first checks after setup read
 the roles already open, best fit first, so they are the longest. Zero picks is
 the usual result and a good one. Never lower the bar to produce one.
 

@@ -1286,14 +1286,16 @@ profile as its first data class, so keeping that category from assistants
 refuses it as `category_disabled`; `picks.next` and `picks.samples` answer
 postings only.
 
-**Storage and ownership.** Five tables, each claimed `user` and `authored` in
-`db/ownership.py`, since nothing upstream can rebuild them, and each written
-only by its module in `tracker/picks/`: `candidate_document` (the file the
+**Storage and ownership.** The picks tables are claimed by `user` in
+`db/ownership.py` and written by their owners in `tracker/picks/`.
+The authored tables are `candidate_document` (the file the
 person gave, by name, type, size and SHA-256), `candidate_background` (each
 reading of the person's background, the newest standing), `pick_brief` (one
 row per version of the brief), `pick_run` (each run of the judge, written by
 `runs.py` and by `verdicts.py`, which counts a run's verdicts on its row) and
-`pick_verdict`. A stored file's bytes are not in the database: they sit in the
+`pick_verdict`. The append-only `pick_delivery` table records first handoffs
+from `runs.py` ([0031](decisions/0031-top-picks-charges-for-delivery.md)).
+A stored file's bytes are not in the database: they sit in the
 data folder's `documents` directory under a name the engine makes, readable by
 this account only, never parsed and never returned by any route
 ([0030](decisions/0030-an-operation-may-read-a-file-the-person-names.md)).
@@ -1331,7 +1333,8 @@ and only its top: a band with no top rules nothing out, and an estimate is
 never read. A places rule with remote accepted keeps a posting that states no
 work mode.
 
-**The queue is a query.** Nothing stores it (`picks/queue.py`). It starts
+**The queue is a query.** Each run takes its own ranked slice
+(`picks/queue.py`). The query starts
 from the Board's own visible set (`apply_job_filters` with the open roles and
 the hidden companies: in scope, at a followed company, not marked Not for me,
 one row per place set), so the judge never reads a posting the Board would
@@ -1355,25 +1358,40 @@ for the expected daily volume and the share each rule removes.
 **Runs and verdicts.** `picks.begin` opens a run with its queue (each
 posting's id and content hash) and the active brief's version, and answers
 what the judge needs in one call: the brief, this month's picks, the person's
-reactions since the last run and the first postings. `picks.next` reads a
-further batch, `picks.decide` records up to 50 verdicts and `picks.finish`
-closes the run, `finished` or `stopped` with a note. Batch reads, including
+reactions since the last run and the first postings. `picks.next` hands out
+a further batch, `picks.decide` records up to 50 verdicts and `picks.finish`
+closes the run, `finished` or `stopped` with a note. Batch answers, including
 first-batch replays, and new verdicts recheck the queue under the run's brief.
-A batch keeps the original queue order and ranks. The cursor advances across
-each original window, even when no postings in it still qualify. The engine
-treats a run as abandoned after two hours and closes it when the same assistant starts
-another. A closed run refuses batch reads, including a replay of the first
+The engine treats a run as abandoned after two hours and closes it when the
+same assistant starts another. A closed run refuses batches, including a replay of the first
 batch, and accepts no new writes. Routine runs share a limit for each local
-day (1,000 by default, 1 to 5,000). A trial counts apart. A verdict
-(`picks/verdicts.py`) is a `pick` (two to four reasons, never `weaker` than
-the person's baseline), a `near_miss` (the one reason it failed) or a `pass`
+day (1,000 by default, 1 to 5,000). The queue is ranked at begin, up to the
+remaining allowance, and uses none of it. The engine records a handoff when
+it commits an answer that first includes that posting in that run. The
+engine's local calendar date sampled under the lock at the start of the
+batch transaction owns the charge, even when the run began yesterday. A lost
+reply can be retried, and repeated or overlapping pages reuse the same
+handoff. Reissuing a posting in another run uses a new
+slot, even if it is still unjudged. Closing a run leaves unused allowance
+available. A trial uses its own run limit. Older runs without handoff
+tracking count their whole queue on the local day they started and retain
+verdict admission for that queue.
+
+Begin and paging serialize under the picks lock. Paging checks the current
+limit, including any reduction. Previously delivered entries keep their
+charge and can be shown again while eligible. A page keeps its queue positions
+and original ranks when it omits an entry for eligibility or capacity. Retry
+the same cursor to check that window again. `counts.handed` describes the
+first delivery and `counts.held_back` describes candidates beyond the run's
+queue limit at begin. A verdict on an entry needs a recorded handoff for that
+run. A verdict (`picks/verdicts.py`) is a `pick` (two to four reasons, never
+`weaker` than the person's baseline), a `near_miss` (the one reason it failed) or a `pass`
 (a code); a reason is plain text of at most 140 characters, its `opening` fact
 apart from the `rest`, naming the brief item it rests on. Each verdict is
 checked and saved in its own savepoint, so one refused item (`not_in_run`,
 `posting_changed`, `brief_changed`, `already_judged`, `posting_ineligible`, or
-out of form) leaves the batch's others saved. A posting is judged once per
-text, brief version and trial (`uq_pick_verdict_case`); a verdict on a new case
-supersedes the one before.
+out of form) leaves the batch's others saved. A posting is judged once per text, brief version and trial
+(`uq_pick_verdict_case`); a verdict on a new case supersedes the one before.
 `picks/health.py` reads the stored runs: `off`, `stopped_early` when the run
 that ended last in the current enabled period stopped or was abandoned,
 `never_ran`, and `late` when a role has waited over 36 hours and no run
@@ -1530,13 +1548,16 @@ class is off, and names for each later class the test that shows its part left
 out; a class declared without one fails it.
 `workspace_identity` holds the workspace's durable id, which these answers
 carry; it outlives engine restarts and updates, unlike the engine session id.
-A write route takes a JSON body and an idempotency key header, and runs through
-`OperationContext.write` (`backend/tracker/api/agent_operations.py`): the key is
+A write route takes a JSON body and runs through
+`OperationContext.write` (`backend/tracker/api/agent_operations.py`). For a
+keyed write, the caller sends an idempotency key header. The key is
 serialized and its receipt (`command_receipts`, `tracker/agents/receipts.py`)
 looked up before anything else, so an identical retry replays the committed
 result and another request under the key is `idempotency_conflict`; only a
 new execution checks the revision the caller read (`revision_conflict`), and
-the write, its event and the receipt commit together. `pursuits.revision`
+the write, its event and the receipt commit together. A natural-key write
+commits its domain change and event together and checks its own durable
+identity on every call. `pursuits.revision`
 counts every write of a pursuit, the dashboard's included; the mapper advances
 it. The actor of an agent write comes from its principal, never its input.
 Duplicate verdict retries and receipt reads check whether both postings of
