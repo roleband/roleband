@@ -610,14 +610,16 @@ after its words), never a bare `<a target="_blank">`.
   border to meaning.
 - Clickable means focusable: no `<div onClick>`.
 - **A clickable card is a container with one control inside**: a `<div>` card,
-  one button on its title, and that button's `::after` stretched over the card.
+  one button on its title, and that button's `::after` stretched over the card
+  (the numbered next steps at a posting's end, whose title is a link button or
+  a link, and whose row wears the focus ring).
   Other controls in it stay siblings, so nothing nests. Test the whole-card
   click with `page.mouse`; Playwright refuses a locator click on a covered
   element.
 - **A whole-row target** (a notification row, a review option, the posting's
-  folding More like this heading, the suggestion to apply at a posting's end) is a
-  bare `<button>` or link carrying layout and no button chrome. It still owns hover,
-  focus and disabled, and its ring is drawn inside.
+  folding More like this heading) is a bare `<button>` or link carrying layout
+  and no button chrome. It still owns hover, focus and disabled, and its ring
+  is drawn inside.
 - **A field that opens a picker** (a next step's day) is a bare `<button>`
   drawn as the field box around it, so a click anywhere on it opens the
   picker. It owns hover and focus, rings inside its edge as a field does, and

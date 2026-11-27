@@ -308,7 +308,7 @@ test("the row is two aligned lines, the city is not truncated, and the verbs res
         // A fact, not the line's box: the line carries a 3px pad/margin pair
         // for the company chip's focus ring, so its box sits 3px proud.
         meta: box(".job-meta .job-band")!,
-        group: box(".job-loc-group")!,
+        group: row.querySelectorAll(".job-loc-group").length,
         age: box(".jr-age")!,
         // Minus the hairline: every row but the first carries a 1px border-top.
         height: Math.round(row.getBoundingClientRect().height - parseFloat(getComputedStyle(row).borderTopWidth)),
@@ -324,12 +324,12 @@ test("the row is two aligned lines, the city is not truncated, and the verbs res
   expect(rows[0].city).toMatch(/^New York City, NY \+1/);
   for (const row of rows) expect(row.loc.truncated, row.city).toBe(false);
 
-  // Line one: title, city and numeral start on the same line. Line two: facts,
-  // region and age. Every row the same height.
+  // Line one: title, city and numeral start on the same line. Line two: facts
+  // and age, and no area the app files the city under. Every row the same height.
   for (const row of rows) {
     expect(Math.abs(row.loc.top - row.title.top)).toBeLessThanOrEqual(1);
     expect(Math.abs(row.comp.top - row.title.top)).toBeLessThanOrEqual(1);
-    expect(Math.abs(row.group.top - row.meta.top)).toBeLessThanOrEqual(1);
+    expect(row.group, row.city).toBe(0);
     expect(Math.abs(row.age.top - row.meta.top)).toBeLessThanOrEqual(1);
     expect(row.age.top).toBeGreaterThanOrEqual(row.comp.bottom - 1);
   }

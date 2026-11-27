@@ -15,6 +15,8 @@ import { expectOnTop, pointAndClick, strangersOver } from "./paint";
 const STAGE_APPLIED = new RegExp(`^${msg("taxonomy-stage-applied")}\\b`);
 const STAGE_MENU = new RegExp(`^${msg("applications-stage-menu-label", { title: "" }).trimEnd()}`);
 const VIEW_APPLY = new RegExp(`^${msg("role-job-detail-view-apply")}$`, "i");
+/** The saved star in the bar, named by the stage it opens. */
+const stageStar = (stage: string) => msg("applications-stage-star", { stage });
 
 test.beforeEach(async ({ page }) => {
   await installBoardRoutes(page);
@@ -83,21 +85,24 @@ test("a posting that names a city twice lists each place once", async ({ page })
   await expect(meta).not.toContainText("|");
 });
 
-// The place line already says the country, and the region follows from it:
-// only the metro area is news.
-test("the place tags add only what the place line does not say", async ({ page }) => {
+// The place line names the posting's own places and nothing the app adds:
+// no metro area, country or region tag, even where a place lies in one.
+test("the place line shows the posting's places and no area tags", async ({ page }) => {
   await mockGet(page, "/api/jobs/101", (route) => route.fulfill({ json: {
     ...jobFixture,
-    locations: ["Sunnyvale, CA, USA"],
-    location_groups: ["silicon_valley", "united_states", "north_america", "city_5400075"],
+    locations: ["Mountain View, CA, USA", "Redmond, WA, USA"],
+    location_groups: ["silicon_valley", "pacific_northwest", "united_states", "north_america", "city_5375480"],
+    places: ["Mountain View, CA", "Redmond, WA"],
   } }));
   await page.goto("/job/101");
 
   const meta = detail(page).locator(".job-meta");
-  await expect(meta.getByText("Sunnyvale, CA, USA", { exact: true })).toBeVisible();
-  await expect(meta.getByText("Silicon Valley", { exact: true })).toBeVisible();
-  await expect(meta.getByText("United States", { exact: true })).toHaveCount(0);
-  await expect(meta.getByText("North America", { exact: true })).toHaveCount(0);
+  await expect(meta.getByText("Mountain View, CA", { exact: true })).toBeVisible();
+  await expect(meta.getByText("Redmond, WA", { exact: true })).toBeVisible();
+  for (const area of ["Silicon Valley", "Pacific Northwest", "United States", "North America"]) {
+    await expect(detail(page).locator(".jd-hero").getByText(area, { exact: true })).toHaveCount(0);
+  }
+  await expect(meta.locator(".ui-badge")).toHaveCount(0);
 });
 
 // A board writes one office several ways beside bare countries; the server
@@ -435,7 +440,7 @@ test("a save that fails reads the posting back, and shows the stage the role rea
   const bar = detail(page).locator(".cover-bar");
   await bar.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: "Couldn't save this role" })).toBeVisible();
-  await expect(bar.getByRole("button", { name: "Applied", exact: true }), "where the role stands now").toBeVisible();
+  await expect(bar.getByRole("button", { name: stageStar("Applied"), exact: true }), "where the role stands now").toBeVisible();
   await expect(bar.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
 });
 
@@ -461,7 +466,7 @@ test("a role off the pipeline shows the star alone, and saving turns it into the
 
   await panel.getByRole("button", { name: msg("jobs-save"), pressed: false }).click();
   // Saved just now: the stage alone, with no count of days.
-  await expect(panel.getByRole("button", { name: "Considering", exact: true })).toBeVisible();
+  await expect(panel.getByRole("button", { name: stageStar("Considering"), exact: true })).toBeVisible();
   await expect(panel.getByRole("button", { name: msg("jobs-save") }), "the stage takes the star's place").toHaveCount(0);
   const facts = panel.locator("dl.jd-pipeline-facts");
   await expect(facts.locator("dd").first()).toHaveText(msg("taxonomy-stage-saved"));
@@ -485,7 +490,7 @@ test("an applied role names its stage in the bar, and its days and what is due i
   const panel = detail(page);
   const bar = panel.locator(".cover-bar");
 
-  await expect(bar.getByRole("button", { name: "Applied", exact: true })).toBeVisible();
+  await expect(bar.getByRole("button", { name: stageStar("Applied"), exact: true })).toBeVisible();
   await expect(bar.getByText(/\d+d\b|days/), "the bar holds the stage, never its age").toHaveCount(0);
   const due = msg("applications-posting-due-day", { offset: 1, date: "" });
   // Applied, the employer's page is no longer the action: the bar offers no link.
@@ -602,7 +607,7 @@ test("each side-column section after the first opens with a hairline and room ab
   }
 });
 
-test("the stage button's star is the radar's saved gold, at a live stage and after an ending", async ({ page }) => {
+test("the saved star opens the stage menu, names the stage only in its label, and stays the radar's gold after an ending", async ({ page }) => {
   let ended = false;
   await mockGet(page, "/api/jobs/101", (route) => route.fulfill({ json: { ...jobFixture, is_favorite: true, pursuit: appliedPursuit } }));
   await mockGet(page, "/api/applications/101", (route) => route.fulfill({ json: applicationDetailFixture({
@@ -611,8 +616,13 @@ test("the stage button's star is the radar's saved gold, at a live stage and aft
       : { pursuit_id: 10, stage: "applied", stage_since: new Date(Date.now() - 12 * DAY).toISOString() }),
   }) }));
   await page.goto("/company/openai/job/101");
-  const stage = detail(page).locator(".cover-bar .jd-stage");
-  await expect(stage).toContainText("Applied");
+  const bar = detail(page).locator(".cover-bar");
+  const stage = bar.locator(".jd-stage");
+  await expect(stage).toHaveAccessibleName(stageStar("Applied"));
+  // The bar holds controls: the stage's word is read in the side column.
+  await expect(stage).toHaveText("");
+  await expect(bar.getByText("Applied", { exact: true })).toHaveCount(0);
+  await expect(detail(page).locator("dl.jd-pipeline-facts")).toContainText(msg("taxonomy-stage-applied"));
   // The colour the radar paints a saved star, resolved in this theme.
   const gold = await page.evaluate(() => {
     const probe = document.createElement("span");
@@ -622,21 +632,17 @@ test("the stage button's star is the radar's saved gold, at a live stage and aft
     probe.remove();
     return colour;
   });
-  const colours = () => stage.evaluate((button) => ({
-    star: getComputedStyle(button.querySelector("svg")!).color,
-    words: getComputedStyle(button).color,
-  }));
+  const star = () => stage.locator(".jd-stage-star svg").evaluate((svg) => getComputedStyle(svg).color);
+  expect(await star()).toBe(gold);
 
-  const live = await colours();
-  expect(live.star).toBe(gold);
-  expect(live.words, "only the star is gold; the stage's words keep the bar's ink").not.toBe(gold);
+  await stage.click();
+  await expect(page.getByRole("dialog", { name: msg("applications-stage-menu-label", { title: jobFixture.title }) })).toBeVisible();
+  await page.keyboard.press("Escape");
 
   ended = true;
   await page.reload();
   await expect(stage).toHaveAttribute("data-ended", "");
-  // The button's colour eases to the ending's, so its words are read once settled.
-  await expect.poll(async () => (await colours()).words, "an ending quiets the words").not.toBe(live.words);
-  expect((await colours()).star, "never the star").toBe(gold);
+  expect(await star(), "an ending never quiets the star").toBe(gold);
 });
 
 /* The side column stays in view while the description scrolls: where the
@@ -1730,109 +1736,180 @@ test("a posting opened from the board has no way to step to another row, and Bac
   await expect(panel).toHaveCount(0);
 });
 
-/* The read ends on the way on: under the employer's text, a suggestion to
-   apply. Following it saves the role, then shows the pipeline list in a new
-   tab once the save has landed, so the list it loads holds the role. */
-const APPLY = msg("role-job-detail-apply-title");
+/* The read ends on the way on: two steps in the order they are done, Tailor
+   your CV, then Apply on the employer's site. Each is a raised row whose whole
+   area is its one control; neither is a filled button, so the bar's Apply
+   stays the page's one primary. */
+const TAILOR = msg("role-job-detail-next-tailor-title");
+const APPLY_ON = msg("role-job-detail-next-apply-title", { company: "OpenAI" });
 
-/** Serves the new tab a stand-in for the pipeline list, so the tab's own app
- *  never boots, and calls `seen` when the tab asks for it. */
-async function standInList(page: Page, seen: () => void = () => {}) {
-  await page.context().route("**/pipeline/list", (route) => {
+/** Serves a new tab a stand-in for the employer's page, so nothing leaves the
+ *  test, and calls `seen` when the tab asks for it. */
+async function standInEmployer(page: Page, seen: () => void = () => {}) {
+  await page.context().route("https://example.test/**", (route) => {
     seen();
-    return route.fulfill({ contentType: "text/html", body: "<!doctype html><title>list</title>" });
+    return route.fulfill({ contentType: "text/html", body: "<!doctype html><title>employer</title>" });
   });
 }
 
-test("a posting ends on applying: the link saves the role, then opens the pipeline list in a new tab", async ({ page }) => {
-  const order: string[] = [];
-  await mockApi(page, "PUT", "/api/jobs/101/favorite", async (route) => {
-    // Slower than a tab opening, so a tab sent to the list at the click fails.
-    await new Promise((settle) => setTimeout(settle, 400));
-    order.push("saved");
-    await route.fulfill({ json: { job_id: 101, is_favorite: true } });
+/** Keeps what the page copies, for any browser: the clipboard asks no permission here. */
+async function keepCopies(page: Page) {
+  await page.addInitScript(() => {
+    const kept: string[] = [];
+    (window as unknown as { copied: string[] }).copied = kept;
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: (text: string) => { kept.push(text); return Promise.resolve(); } },
+    });
   });
+}
+
+/** The person's assistant as the engine reports it. */
+async function assistant(page: Page, connected: boolean) {
+  await mockGet(page, "/api/intelligence/agents", (route) => route.fulfill({ json: {
+    enabled: connected, allow_writes: true, categories: {}, groups: {}, connect: [],
+    apps: [
+      { app: "claude-code", connection: connected ? "connected" : null, last_call_at: null },
+      { app: "codex", connection: null, last_call_at: null },
+      { app: "other", connection: null, last_call_at: null },
+    ],
+  } }));
+}
+
+test("a posting ends on two numbered steps, Tailor your CV then Apply on the employer's site", async ({ page }) => {
   await page.goto("/company/openai/job/101");
   const panel = detail(page);
   const end = panel.locator(".jd-end");
-  const onward = end.getByRole("link", { name: new RegExp(APPLY) });
-  await expect(onward).toContainText(msg("role-job-detail-apply-kicker"));
-  await expect(onward).toContainText(msg("role-job-detail-apply-meta", { choice: "no" }));
-  const text = (await panel.locator(".jd-main > .jd-sections, .jd-main > .jd, .jd-main > .jd-empty").last().boundingBox())!;
-  expect((await end.boundingBox())!.y, "after the employer's text").toBeGreaterThan(text.y + text.height);
-
-  await standInList(page, () => order.push("list"));
-  const popupOpened = page.waitForEvent("popup");
-  await onward.click();
-  const tab = await popupOpened;
-  await tab.waitForURL(/\/pipeline\/list$/);
-  expect(order, "the list loads only once the save landed").toEqual(["saved", "list"]);
-  expect(await tab.evaluate(() => window.opener), "the new tab has no hold on this one").toBeNull();
-  await expect(page, "the posting stays open here").toHaveURL(/\/job\/101$/);
-  await expect(panel.getByRole("button", { name: msg("jobs-save") }), "the role is saved").toHaveCount(0);
-  await expect(onward).toContainText(msg("role-job-detail-apply-meta", { choice: "yes" }));
-  await tab.close();
-});
-
-test("a failed save keeps the person on the posting: the new tab closes and the failure is said", async ({ page }) => {
-  await mockApi(page, "PUT", "/api/jobs/101/favorite", (route) => route.fulfill({ status: 500, json: { detail: "unavailable" } }));
-  await page.goto("/company/openai/job/101");
-  const popupOpened = page.waitForEvent("popup");
-  await detail(page).locator(".jd-end").getByRole("link", { name: new RegExp(APPLY) }).click();
-  const tab = await popupOpened;
-  await expect.poll(() => tab.isClosed(), { message: "the blank tab goes away" }).toBe(true);
-  await expect(page.getByRole("status").filter({
-    hasText: msg("role-job-detail-could-not-unsave-this-role", { choice: "yes" }),
-  })).toBeVisible();
-});
-
-test("a middle click on the onward link saves the role before the list opens, as a click does", async ({ page }) => {
-  const order: string[] = [];
-  await mockApi(page, "PUT", "/api/jobs/101/favorite", async (route) => {
-    await new Promise((settle) => setTimeout(settle, 400));
-    order.push("saved");
-    await route.fulfill({ json: { job_id: 101, is_favorite: true } });
+  await expect(end.getByRole("heading", { name: msg("role-job-detail-next-kicker") })).toBeVisible();
+  await expect(end).toContainText(msg("role-job-detail-next-saves"));
+  const steps = end.getByRole("listitem");
+  await expect(steps).toHaveCount(2);
+  await expect(steps.nth(0).getByRole("button", { name: TAILOR })).toBeVisible();
+  const apply = steps.nth(1).getByRole("link", { name: APPLY_ON });
+  await expect(apply).toHaveAttribute("href", jobFixture.url);
+  await expect(apply).toHaveAttribute("target", "_blank");
+  // The step to take next is lit; neither is the page's primary.
+  await expect(steps.nth(0)).toHaveAttribute("data-next", "");
+  await expect(steps.nth(1)).not.toHaveAttribute("data-next", "");
+  await expect(panel.locator(".ui-btn-primary")).toHaveCount(1);
+  await expect(end.locator(".ui-btn-primary")).toHaveCount(0);
+  // A ground and an edge at rest, not only under a pointer.
+  const ground = await steps.nth(1).evaluate((row) => {
+    const style = getComputedStyle(row);
+    return { border: style.borderTopWidth, background: style.backgroundColor };
   });
-  await page.goto("/company/openai/job/101");
-  const panel = detail(page);
-  const onward = panel.locator(".jd-end").getByRole("link", { name: new RegExp(APPLY) });
-  await standInList(page, () => order.push("list"));
-  const popupOpened = page.waitForEvent("popup");
-  await onward.click({ button: "middle" });
-  const tab = await popupOpened;
-  await tab.waitForURL(/\/pipeline\/list$/);
-  expect(order, "the list loads only once the save landed").toEqual(["saved", "list"]);
-  await expect(page, "the posting stays open here").toHaveURL(/\/job\/101$/);
-  await expect(onward).toContainText(msg("role-job-detail-apply-meta", { choice: "yes" }));
-  await tab.close();
+  expect(ground.border).not.toBe("0px");
+  expect(ground.background).not.toBe("rgba(0, 0, 0, 0)");
+  const after = await end.evaluate((footer) => {
+    const text = footer.previousElementSibling!.getBoundingClientRect();
+    return { last: footer.parentElement!.lastElementChild === footer, gap: footer.getBoundingClientRect().top - text.bottom };
+  });
+  expect(after.last, "the read ends on it").toBe(true);
+  expect(after.gap, "after the employer's text").toBeGreaterThanOrEqual(0);
 });
 
-test("a saved role's link opens the list without writing again; an applied role ends on nothing", async ({ page }) => {
+test("Apply opens the employer's form at the click and saves the role behind it, from the bar and from the end", async ({ page }) => {
   let writes = 0;
   await mockApi(page, "PUT", "/api/jobs/101/favorite", (route) => {
     writes += 1;
     return route.fulfill({ json: { job_id: 101, is_favorite: true } });
   });
-  let pursuit: typeof appliedPursuit | null = null;
-  await mockGet(page, "/api/jobs/101", (route) => route.fulfill({ json: { ...jobFixture, is_favorite: true, pursuit } }));
+  let asked = 0;
+  await standInEmployer(page, () => { asked += 1; });
   await page.goto("/company/openai/job/101");
   const panel = detail(page);
-  const onward = panel.locator(".jd-end").getByRole("link", { name: new RegExp(APPLY) });
-  await expect(onward).toContainText(msg("role-job-detail-apply-meta", { choice: "yes" }));
-  await expect(onward).toHaveAttribute("href", "/pipeline/list");
-  await expect(onward).toHaveAttribute("target", "_blank");
-  const popupOpened = page.waitForEvent("popup");
-  await standInList(page);
-  await onward.click();
-  const tab = await popupOpened;
-  await tab.waitForURL(/\/pipeline\/list$/);
-  expect(writes, "already saved: no second write").toBe(0);
+
+  // The end's step: a press on its go target, at the row's far end, is the step's.
+  const step = panel.locator(".jd-end").getByRole("listitem").nth(1);
+  await step.scrollIntoViewIfNeeded();
+  const at = await step.evaluate((row) => {
+    const own = row.getBoundingClientRect();
+    const go = row.querySelector(".jd-next-go")!.getBoundingClientRect();
+    return { x: go.left - own.left + go.width / 2, y: go.top - own.top + go.height / 2 };
+  });
+  const fromEnd = page.waitForEvent("popup");
+  // A click on the row lands on the link's stretched target: the row is the step.
+  await step.click({ position: at });
+  const tab = await fromEnd;
+  await tab.waitForURL(jobFixture.url);
+  expect(asked).toBe(1);
+  await expect.poll(() => writes, { message: "the role is saved" }).toBe(1);
+  await expect(page, "the posting stays open here").toHaveURL(/\/job\/101$/);
+  await expect(panel.locator(".jd-end")).not.toContainText(msg("role-job-detail-next-saves"));
   await tab.close();
 
-  pursuit = appliedPursuit;
-  await page.goto("/job/101");
+  // Saved now: the bar's Apply opens the form without writing again.
+  const fromBar = page.waitForEvent("popup");
+  await panel.locator(".cover-bar").getByRole("link", { name: VIEW_APPLY }).click();
+  await (await fromBar).close();
+  expect(writes, "already saved: no second write").toBe(1);
+});
+
+test("Tailor CV saves the role and hands the person's assistant one sentence that names this role", async ({ page }) => {
+  let writes = 0;
+  await mockApi(page, "PUT", "/api/jobs/101/favorite", (route) => {
+    writes += 1;
+    return route.fulfill({ json: { job_id: 101, is_favorite: true } });
+  });
+  await keepCopies(page);
+  await assistant(page, true);
+  await page.goto("/company/openai/job/101");
+  const panel = detail(page);
+  await panel.locator(".cover-bar").getByRole("button", { name: msg("role-job-detail-tailor-cv") }).click();
+  const handOff = page.getByRole("dialog", { name: msg("role-job-detail-tailor-heading") });
+  await expect(handOff).toBeVisible();
+  const sentence = msg("role-job-detail-tailor-sentence", { id: 101, title: jobFixture.title, company: "OpenAI" });
+  await expect(handOff).toContainText(sentence);
+  await expect.poll(() => writes, { message: "the role is saved" }).toBe(1);
+
+  await handOff.getByRole("button", { name: msg("role-job-detail-tailor-copy", { choice: "no" }) }).click();
+  await expect(handOff.getByRole("button", { name: msg("role-job-detail-tailor-copy", { choice: "yes" }) })).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as { copied: string[] }).copied)).toEqual([sentence]);
+  await page.keyboard.press("Escape");
+  await expect(handOff).toHaveCount(0);
+
+  // The end's first step opens the same hand-off, and writes nothing again.
+  await panel.locator(".jd-end").getByRole("button", { name: TAILOR }).click();
+  await expect(handOff).toBeVisible();
+  expect(writes, "already saved: no second write").toBe(1);
+});
+
+test("with no assistant set up, Tailor CV offers to connect one instead of a sentence", async ({ page }) => {
+  await assistant(page, false);
+  await mockGet(page, "/api/jobs/101", (route) => route.fulfill({ json: { ...jobFixture, is_favorite: true } }));
+  await page.goto("/company/openai/job/101");
+  await detail(page).locator(".cover-bar").getByRole("button", { name: msg("role-job-detail-tailor-cv") }).click();
+  const handOff = page.getByRole("dialog", { name: msg("role-job-detail-tailor-heading") });
+  await expect(handOff.getByRole("link", { name: msg("role-job-detail-tailor-connect-link") })).toHaveAttribute("href", "/settings/intelligence");
+  await expect(handOff).not.toContainText("roleband");
+  await expect(handOff.getByRole("button", { name: msg("role-job-detail-tailor-copy", { choice: "no" }) })).toHaveCount(0);
+});
+
+test("an applied role ends on nothing, and the bar keeps only its tools", async ({ page }) => {
+  await mockGet(page, "/api/jobs/101", (route) => route.fulfill({ json: { ...jobFixture, is_favorite: true, pursuit: appliedPursuit } }));
+  await page.goto("/company/openai/job/101");
+  const panel = detail(page);
   await expect(panel.locator(".jd-hero h1")).toHaveText(jobFixture.title);
   await expect(panel.locator(".jd-end"), "applied: nothing to suggest").toHaveCount(0);
+  const bar = panel.locator(".cover-bar");
+  await expect(bar.getByRole("link", { name: VIEW_APPLY })).toHaveCount(0);
+  await expect(bar.getByRole("button", { name: msg("role-job-detail-tailor-cv") })).toHaveCount(0);
+  await expect(bar.getByRole("button", { name: "Compare", exact: true })).toBeVisible();
+});
+
+/* On a wide window the bar spans the window while the text stops at its width
+   step: the bar's actions end on the text's right edge, and Back keeps the
+   window's edge, so the title still rises into the bar on the heading's line. */
+test("on a wide window the bar's actions end on the text's edge and Back keeps the window's", async ({ page }) => {
+  await page.setViewportSize({ width: 2000, height: 1000 });
+  await page.goto("/company/openai/job/101");
+  const panel = detail(page);
+  const apply = (await panel.locator(".cover-bar").getByRole("link", { name: VIEW_APPLY }).boundingBox())!;
+  const textEnd = await panel.locator(".jd-container").evaluate((frame) =>
+    frame.getBoundingClientRect().right - parseFloat(getComputedStyle(frame).paddingRight));
+  expect(apply.x + apply.width, "Apply ends where the text ends").toBeCloseTo(textEnd, 0);
+  const back = (await panel.getByRole("button", { name: new RegExp(`^${msg("role-job-detail-back-2")}`) }).first().boundingBox())!;
+  expect(back.x, "Back stays at the window's edge").toBeLessThan(40);
 });
 
 /** The roles the posting `id` lists under More like this: just `to`. */

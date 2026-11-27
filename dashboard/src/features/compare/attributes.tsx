@@ -1,9 +1,8 @@
 import { ReactNode } from "react";
 import { Job } from "../../api";
 import { WORKPLACE_LABEL, relDays } from "../../format";
-import { BandBadge, LocBadge } from "../../patterns/jobs/JobBadges";
+import { BandBadge } from "../../patterns/jobs/JobBadges";
 import { postingPlaces } from "../../patterns/jobs/location";
-import { placeGroups } from "../../patterns/jobs/placeGroups";
 import type { PayCover } from "../../payCoverage";
 import { payShown } from "../../payShown";
 import { type LedgerRow, rowDiffers } from "../../patterns/ledger";
@@ -12,7 +11,6 @@ import {
   compareAttributesLevel,
   compareAttributesListedFor,
   compareAttributesLocations,
-  compareAttributesRegions,
   compareAttributesReposts,
   compareAttributesStatus,
   compareAttributesWorkplace,
@@ -62,12 +60,6 @@ export const ATTRIBUTES: Attr[] = [
     get label() { return compareAttributesLocations(); },
     render: (j) => postingPlaces(j.locations).slice(0, 3).join(", ") || "—",
     diff: (j) => postingPlaces(j.locations).join("|"),
-  },
-  {
-    key: "regions",
-    get label() { return compareAttributesRegions(); },
-    render: (j) => (placeGroups(j.location_groups).length ? placeGroups(j.location_groups).map((g) => <LocBadge key={g} slug={g} />) : "—"),
-    diff: (j) => j.location_groups.join("|"),
   },
   {
     key: "workplace",

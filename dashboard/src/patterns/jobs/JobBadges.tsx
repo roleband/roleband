@@ -18,7 +18,7 @@ import {
   jobsViaKeywordInline,
 } from "../../copy/gen/jobs";
 import type { JobDetail } from "../../api";
-import { BAND_LABEL, LOC_LABEL } from "../../format";
+import { BAND_LABEL } from "../../format";
 import { list } from "../../copy/format";
 import { LEVEL_NOT_MAPPED, LEVEL_NOT_STATED } from "../../copy/vocabulary";
 import { Badge, type BadgeTone } from "../../ui/Badge";
@@ -71,10 +71,6 @@ export function BandBadge(
       )}
     </span>
   );
-}
-
-export function LocBadge({ slug }: { slug: string }) {
-  return <Badge shape="tag" variant="outline">{LOC_LABEL[slug] ?? slug}</Badge>;
 }
 
 // Subtle indicator of *why* a row matched on the Best-match path. Shows which

@@ -52,7 +52,6 @@ compare-screen-load-failed = 无法加载对比
 compare-attributes-level = 级别
 compare-attributes-est-comp = 估算总薪酬
 compare-attributes-locations = 地点
-compare-attributes-regions = 地区
 compare-attributes-workplace = 办公方式
 compare-attributes-listed-for = 发布时长
 compare-attributes-status = 状态

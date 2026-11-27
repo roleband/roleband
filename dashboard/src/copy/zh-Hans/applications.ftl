@@ -313,6 +313,7 @@ applications-month-failed = 无法加载日历
 
 
 applications-stage-menu-label = 更改 { $title } 的阶段
+applications-stage-star = { $stage }：更改阶段
 
 applications-change-failed = 无法保存对 { $title } 的更改。请重试。
 

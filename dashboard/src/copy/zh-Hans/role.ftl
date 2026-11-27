@@ -42,6 +42,22 @@ role-job-detail-back = 返回
 role-job-detail-1-in-compare-pick-one = 对比中 1 个 · 再选一个
 role-job-detail-compare-roles = 对比 { $compareCount } 个职位
 role-job-detail-view-apply = 申请
+role-job-detail-tailor-cv = 定制简历
+role-job-detail-next-kicker = 后续步骤
+role-job-detail-next-saves = 会将该职位保存到你的管道
+role-job-detail-next-tailor-title = 为该职位定制简历
+role-job-detail-next-tailor-meta = 你的助手会根据你的背景和这则职位信息起草。
+role-job-detail-next-apply-title = 在 { $company } 的网站上申请
+role-job-detail-tailor-heading = 为该职位定制简历
+role-job-detail-tailor-say = 把这句话告诉 Claude Code 或 Codex。它会阅读职位信息和你的背景，并起草简历。
+role-job-detail-tailor-sentence = 用 roleband 命令为职位 { $id } 定制我的简历：{ $company } 的 { $title }。
+role-job-detail-tailor-copy = { $choice ->
+    [yes] 已复制
+   *[no] 复制
+}
+role-job-detail-tailor-copy-blocked = 浏览器阻止了复制。请选中这句话并自行复制。
+role-job-detail-tailor-connect = 请先连接 Claude Code 或 Codex。它会阅读职位信息和你的背景，并起草简历。
+role-job-detail-tailor-connect-link = 连接助手
 role-job-detail-postings = { $lineage_size } 条招聘信息
 role-job-detail-reposted = 重新发布 ×{ $repost_count }
 role-job-detail-description = 职位描述

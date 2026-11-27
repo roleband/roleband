@@ -61,7 +61,7 @@ describe("row grammar", () => {
   });
 
   /* The row is a two-line grid: the position, the city and the
-     numeral on line one; the facts, the region and the age on line two. The
+     numeral on line one; the facts and the age on line two. The
      lines align across cells because every cell states them from the same
      two tokens, and the grid starts its cells at the top rather than
      centring them into the seam between the lines. The age has no column of
@@ -77,7 +77,7 @@ describe("row grammar", () => {
     for (const first of [".jr-loc .job-location", ".comp"]) {
       expect(rule(board, first), first).toMatch(/line-height:\s*var\(--row-line-1\)/);
     }
-    for (const second of [".job-meta", ".jr-loc .job-loc-group", ".jr-age"]) {
+    for (const second of [".job-meta", ".jr-age"]) {
       expect(rule(board, second), second).toMatch(/line-height:\s*var\(--row-line-2\)/);
     }
     expect(rule(board, ".jr-comp")).toMatch(/flex-direction:\s*column/);
@@ -170,12 +170,9 @@ describe("row grammar", () => {
     expect(board).not.toMatch(/\.job-row\.is-viewed[^{]*\{[^}]*background/);
   });
 
-  it("location is the city over its region on the grid, no middot and no pin; the card joins them on one line", () => {
-    expect(rule(board, ".jr-loc")).toMatch(/flex-direction:\s*column/);
+  it("location is the city alone: no pin, and no area line under it", () => {
     expect(board).not.toMatch(/\.jr-loc \.job-location svg/);
-    // The middot exists only in the card arm, where the two share a line.
-    const middot = board.indexOf(".jr-loc .job-loc-group::before {");
-    expect(middot).toBeGreaterThan(board.indexOf("@media (max-width: 860px)"));
+    expect(board).not.toMatch(/\.job-loc-group/);
     // A posting's other cities are a count in the aside ink, never a second line.
     expect(rule(board, ".jr-loc .job-loc-more")).toMatch(/color:\s*var\(--row-ink-3, /);
   });
@@ -226,9 +223,8 @@ describe("row grammar", () => {
     expect(loaded, `the .comp fallback asks for ${fallback}`).toContain(fallback);
   });
 
-  it("the city is a decision fact at the fact floor; the group is the aside", () => {
+  it("the city is a decision fact at the fact floor", () => {
     expect(rule(board, ".jr-loc")).toMatch(/font-size:\s*var\(--app-type-meta\)/);
-    expect(rule(board, ".jr-loc .job-loc-group")).toMatch(/font-size:\s*var\(--app-type-micro\)/);
   });
 
   it("the title and its meta line are separated by a space token, not a literal pinch", () => {

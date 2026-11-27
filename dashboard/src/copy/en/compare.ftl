@@ -91,8 +91,6 @@ compare-attributes-est-comp = Est. TC
 # kind=label wording=as-is
 compare-attributes-locations = Locations
 # kind=label wording=as-is
-compare-attributes-regions = Regions
-# kind=label wording=as-is
 compare-attributes-workplace = Workplace
 # kind=label wording=as-is
 compare-attributes-listed-for = Listed for

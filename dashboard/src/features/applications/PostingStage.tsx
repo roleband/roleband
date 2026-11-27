@@ -6,6 +6,7 @@ import { Button, Icon, MenuItem } from "../../ui";
 import {
   applicationsMenuRemove,
   applicationsStageMenuLabel,
+  applicationsStageStar,
 } from "../../copy/gen/applications";
 import { StageMenu } from "./StageMenu";
 import { stageName } from "./StageLabel";
@@ -16,10 +17,12 @@ const InterviewDialog = lazy(() => import("./InterviewDialogLazy"));
 /**
  * The posting bar's one control for where the person stands with the role.
  * Off the board it is the star, the way in. On it, the star becomes the
- * pipeline's stage button in the same place: the same words, the same menu,
- * and the same rule for leaving (only from Considering; past it the way out
- * is Withdrawn). The bar holds controls only: how long the role has stood
- * in its stage, and what waits, are read in the posting's Pipeline section.
+ * filled star with a small arrow in the same place, which opens the
+ * pipeline's stage menu, with the same rule for leaving (only from
+ * Considering; past it the way out is Withdrawn). The stage's word is read in
+ * the posting's Pipeline section and its tabs, so the bar names it only in the
+ * star's label and tooltip; how long the role has stood in its stage, and
+ * what waits, are read there too.
  */
 export function PostingStage({
   application,
@@ -56,25 +59,28 @@ export function PostingStage({
     return moved;
   };
 
+  const named = applicationsStageStar({ stage: label });
   return (
     <>
       <Button
         ref={setAnchor}
-        variant="ghost"
-        className="ui-btn-strong jd-stage"
+        variant="icon"
+        size="sm"
+        className="star-btn jd-stage"
         data-ended={ending ? "" : undefined}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-keyshortcuts="m"
+        aria-label={named}
+        title={named}
         onClick={() => setOpen(!open)}
       >
         {/* The saved star, as the radar row draws it: the role is in the
             pipeline because it is saved, at every stage and after an ending. */}
         <span className="jd-stage-star">
-          <Icon name="star" size={15} filled />
+          <Icon name="star" size={20} filled />
         </span>
-        {label}
-        <Icon name="chevronDown" size={14} />
+        <Icon name="chevronDown" size={12} />
       </Button>
       <StageMenu
         current={card.stage}

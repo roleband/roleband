@@ -52,8 +52,8 @@ describe("JobCard", () => {
     expect(cell.querySelector(".job-location")).toHaveTextContent(/^San Francisco, CA \+2/);
     expect(cell).toHaveAttribute("title", "San Francisco, CA · New York City, NY · Seattle, WA");
     expect(cell.querySelector(".job-loc-more .sr-only")).toHaveTextContent(msg("jobs-loc-more", { places: "New York City, NY and Seattle, WA" }));
-    // The region sits in the same cell, under the city, not beside it as a fact.
-    expect(cell.querySelector(".job-loc-group")).toHaveTextContent("Silicon Valley");
+    // The cell names the posting's places and nothing the app files them under.
+    expect(cell).not.toHaveTextContent("Silicon Valley");
 
     rerender(
       <JobCard job={jobFixture} onOpen={vi.fn()} onToggleFav={vi.fn()} compareOn={false} onToggleCompare={vi.fn()} />
@@ -196,7 +196,8 @@ describe("JobCard", () => {
     expect(screen.getByText("OpenAI")).toBeInTheDocument();
     expect(screen.getByText("Staff")).toBeInTheDocument();
     expect(screen.getByText("Product & Program")).toBeInTheDocument();
-    expect(screen.getByText("Silicon Valley")).toBeInTheDocument();
+    expect(screen.getByText(/San Francisco/)).toBeInTheDocument();
+    expect(screen.queryByText("Silicon Valley")).toBeNull();
     expect(screen.getByText("$400K")).toBeInTheDocument();
     expect(screen.queryByText(/\$650K|\$735K|\$820K/)).toBeNull();
     expect(screen.getByText("1 day")).toBeInTheDocument();
@@ -278,8 +279,8 @@ describe("JobCard", () => {
     expect(row.querySelector(".ui-badge-tag")).toBeNull();
     expect(row.querySelector(".ui-badge-accent")).toBeNull();
     expect(row.querySelector(".comp-bar")).toBeNull();
-    expect(row.querySelector(".jr-loc")).toHaveTextContent("San Francisco");
-    expect(screen.getByText("Silicon Valley")).toHaveClass("job-loc-group");
+    expect(row.querySelector(".jr-loc")).toHaveTextContent(/^San Francisco, CA$/);
+    expect(row).not.toHaveTextContent("Silicon Valley");
   });
 
   it("keeps card open, favorite, and compare actions independent", async () => {

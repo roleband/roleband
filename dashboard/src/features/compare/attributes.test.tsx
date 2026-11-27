@@ -44,9 +44,17 @@ describe("comparison attributes", () => {
     expect(ATTRIBUTES[0].label).toBe("Level");
   });
 
+  it("names where each role is as its posting does, and no area the app files it under", () => {
+    const sunnyvale = job({ locations: ["Sunnyvale, CA, USA"], location_groups: ["silicon_valley", "united_states", "north_america"] });
+    const { container } = render(<>{ATTRIBUTES.map((a) => <div key={a.key}>{a.label}: {a.render(sunnyvale)}</div>)}</>);
+    expect(container).toHaveTextContent("Sunnyvale, CA, USA");
+    for (const area of ["Silicon Valley", "United States", "North America", "Regions"]) {
+      expect(container, area).not.toHaveTextContent(area);
+    }
+  });
+
   it.each([
     ["locations", { locations: ["San Francisco, CA"] }, { locations: ["London, UK"] }],
-    ["regions", { location_groups: ["silicon_valley"] }, { location_groups: ["uk"] }],
     ["comp", { comp_median: 735000 }, { comp_median: 512000 }],
     ["band", { level_band: "staff" }, { level_band: "principal" }],
     ["listed", { listed_days: 1 }, { listed_days: 90 }],

@@ -62,7 +62,6 @@ compare-screen-load-failed = No se pudo cargar la comparación
 compare-attributes-level = Nivel
 compare-attributes-est-comp = CT est.
 compare-attributes-locations = Ubicaciones
-compare-attributes-regions = Regiones
 compare-attributes-workplace = Modalidad
 compare-attributes-listed-for = Antigüedad
 compare-attributes-status = Estado
