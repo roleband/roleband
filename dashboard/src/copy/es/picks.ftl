@@ -4,6 +4,11 @@
 picks-loading = Cargando tus destacados…
 picks-load-failed = No se pudieron cargar tus destacados
 picks-refresh-failed = No se pudieron actualizar tus destacados. Se muestra el último resultado.
+picks-fresh-more = { $count ->
+    [one] { $count } destacado nuevo desde que se cargó esta lista.
+    [many] { $count } de destacados nuevos desde que se cargó esta lista.
+   *[other] { $count } destacados nuevos desde que se cargó esta lista.
+}
 picks-host = { $host ->
     [claude-code] Claude Code
     [codex] Codex

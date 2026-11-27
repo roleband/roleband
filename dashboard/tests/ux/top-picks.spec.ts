@@ -257,7 +257,7 @@ test("a scan that ends while Top picks is open offers the new list, and moves no
   list = picksList([pickFixture({ id: 503, title: "Group Product Manager, Payments" }), ...picksList().items]);
   running = false;
 
-  const offer = page.getByRole("status").filter({ hasText: msg("radar-board-fresh-more", { count: 1 }) });
+  const offer = page.getByRole("status").filter({ hasText: msg("picks-fresh-more", { count: 1 }) });
   // The scan's end is seen on the next status read, three seconds apart while a scan runs.
   await expect(offer).toBeVisible({ timeout: 10_000 });
   await expect(rows).toHaveCount(2);
@@ -265,6 +265,46 @@ test("a scan that ends while Top picks is open offers the new list, and moves no
   await expect(rows).toHaveCount(3);
   await expect(rows.first()).toContainText("Group Product Manager, Payments");
   await expect(offer).toHaveCount(0);
+});
+
+/** The person leaves the tab and comes back to it: the page reads what it polls at once. */
+async function leaveAndComeBack(page: Page) {
+  for (const state of ["hidden", "visible"]) {
+    await page.evaluate((visibility) => {
+      Object.defineProperty(document, "visibilityState", { value: visibility, configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    }, state);
+  }
+}
+
+test("a check that makes a pick while Top picks sits open offers it when the person comes back, and taking it puts the dot out", async ({ page }) => {
+  const seen = await installTopPicksRoutes(page);
+  let state = healthyState({ unseen_pick: false });
+  let list = picksList();
+  await mockGet(page, "/api/picks/state", (route) => route.fulfill({ json: state }));
+  await mockGet(page, "/api/jobs?**", (route) =>
+    new URL(route.request().url()).searchParams.get("top_picks") === "true" ? route.fulfill({ json: list }) : route.fallback());
+  await page.goto("/top-picks");
+  const rows = page.getByRole("main").getByRole("article");
+  await expect(rows).toHaveCount(2);
+  await expect.poll(() => seen.opened).toBe(1);
+
+  // The assistant's check makes a pick while the tab sits in the background.
+  list = picksList([pickFixture({ id: 504, title: "Director of Engineering, Ledger" }), ...picksList().items]);
+  state = healthyState({ unseen_pick: true });
+  await leaveAndComeBack(page);
+
+  const offer = page.getByRole("status").filter({ hasText: msg("picks-fresh-more", { count: 1 }) });
+  await expect(offer).toBeVisible();
+  await expect(railItem(page).locator(".rail-badge-dot")).toBeVisible();
+  await expect(rows).toHaveCount(2);
+
+  await offer.getByRole("button", { name: msg("radar-board-fresh-show") }).click();
+  await expect(rows).toHaveCount(3);
+  await expect(rows.first()).toContainText("Director of Engineering, Ledger");
+  await expect(offer).toHaveCount(0);
+  await expect.poll(() => seen.opened).toBe(2);
+  await expect(railItem(page).locator(".rail-badge-dot")).toHaveCount(0);
 });
 
 test("a Radar lens lit when Top picks opens again narrows none of its reads", async ({ page }) => {

@@ -11,6 +11,7 @@ import {
   picksEndStopped,
   picksEndStoppedPlain,
   picksEndWaiting,
+  picksFreshMore,
   picksHost,
   picksLoadFailed,
   picksLoading,
@@ -25,7 +26,6 @@ import {
 } from "../../copy/gen/picks";
 import {
   radarBoardFreshChanged,
-  radarBoardFreshMore,
   radarBoardFreshShow,
   radarExactHead,
   radarLoadFailed,
@@ -107,6 +107,10 @@ function TopPicksList({ picks, rootRef, onPicksChange }: {
     total, isDirect, relatedTotal, expanded, pageableTotal,
     update, updateFilters, onSort, toggleFav, dismiss, dismissal, undoDismiss, fresh, showFresh,
   } = useBoardController({ companyParam, onCompanyParamChange, mode: "open", onModeChange: ignoreMode }, surface);
+  const takeFresh = useCallback(() => {
+    showFresh();
+    picksOpened();
+  }, [showFresh]);
   // The pick whose Not for me is asking why, before anything is removed.
   const [asking, setAsking] = useState<Job | null>(null);
   const keep = useCallback(() => setAsking(null), []);
@@ -264,12 +268,13 @@ function TopPicksList({ picks, rootRef, onPicksChange }: {
         noun="pick"
       />
       <PicksNotes picks={picks} onPicksChange={onPicksChange} />
-      {/* A scan ended while the list was open: as on the Radar, the update
-          waits for the reader, so no row moves under them mid-read. */}
+      {/* A check made a pick, or a scan ended, while the list was open: as on
+          the Radar, the update waits for the reader, so no row moves under
+          them mid-read. Taking it is opening Top picks, so the dot goes out. */}
       {fresh && (
         <div className="empty-hint" role="status">
-          {fresh.more > 0 ? radarBoardFreshMore({ count: fresh.more }) : radarBoardFreshChanged()}{" "}
-          <Button variant="ghost" size="sm" onClick={showFresh}>
+          {fresh.more > 0 ? picksFreshMore({ count: fresh.more }) : radarBoardFreshChanged()}{" "}
+          <Button variant="ghost" size="sm" onClick={takeFresh}>
             {radarBoardFreshShow()}
           </Button>
         </div>

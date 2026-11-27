@@ -7,6 +7,11 @@ picks-loading = Loading your top picks…
 picks-load-failed = Couldn't load your top picks
 # kind=sentence
 picks-refresh-failed = Couldn't update your top picks. Showing the last result.
+# kind=status note="A check made picks while the list was open; $count is how many new picks the list on screen lacks. The button Show the update follows it"
+picks-fresh-more = { $count ->
+    [one] { $count } new top pick since this list loaded.
+   *[other] { $count } new top picks since this list loaded.
+}
 # kind=label note="The assistant that runs the checks, by its code: claude-code or codex"
 picks-host = { $host ->
     [claude-code] Claude Code

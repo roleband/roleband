@@ -13,11 +13,15 @@ import { useVisibleInterval } from "./useVisibleInterval";
 
 let unseen = false;
 let generation = 0;
+// Counts the times the dot lit: each is a pick that arrived since the last
+// opening, which an open Top picks screen offers as an update.
+let arrivals = 0;
 const listeners = new Set<() => void>();
 
 function publish(next: boolean, mine: number): void {
   if (mine !== generation || next === unseen) return;
   unseen = next;
+  if (next) arrivals += 1;
   listeners.forEach((listener) => listener());
 }
 
@@ -38,6 +42,12 @@ function read(): void {
 export function usePicksDot(): boolean {
   useVisibleInterval(read, 60_000);
   return useSyncExternalStore(subscribe, () => unseen);
+}
+
+/** A number that grows each time a pick arrives after the last opening, as the
+ *  rail's read sees it; Top picks re-reads its list when it changes. */
+export function usePickArrivals(): number {
+  return useSyncExternalStore(subscribe, () => arrivals);
 }
 
 /** Top picks is on screen: the dot goes out at once, and the engine's answer

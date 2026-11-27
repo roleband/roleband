@@ -12,6 +12,7 @@ import { useJobWorkspace } from "../../context/JobWorkspace";
 import { useBoardQuery, useMissionActions, useMissionState } from "../../context/MissionState";
 import { useToast } from "../../ui";
 import { useAsyncResource, useRefetchOn } from "../../hooks/useAsyncResource";
+import { usePickArrivals } from "../../hooks/picksDot";
 import { useRoleSaves } from "../../hooks/useRoleSaves";
 import { useRememberedState } from "../../hooks/useFilterMemory";
 import { useBoardBaseline } from "./useBoardBaseline";
@@ -272,6 +273,10 @@ export function useBoardController({
     }
   }, [refreshFacets]);
   useRefetchOn(runVersion, readFresh);
+  // On Top picks a finished check that made a pick is offered the same way:
+  // the rail's read sees the pick arrive while the list is open.
+  const arrivals = usePickArrivals();
+  useRefetchOn(topPicks ? arrivals : 0, readFresh);
   /* The first scan's re-read (FirstScanReread): an empty board takes the new
      list at once, since no row can move under the reader; a list on screen
      is offered it, as at a scan's end. */

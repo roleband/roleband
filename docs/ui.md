@@ -747,7 +747,10 @@ unlisted. Notifications is not listed: the top bar's bell holds the same list
 and count, its View all opens the page, and on that page the bell is the
 chosen place (`aria-current`). A place the side bar does not list still opens
 from the palette and from every link to it. The only mark on the side bar is
-Top picks' dot; a count lit most days says nothing. The side bar opens
+Top picks' dot; a count lit most days says nothing. On Top picks itself, a
+pick that arrives while the list is open is offered as the list's update, as a
+scan's end is on the Radar, and never moves a row under the reader; taking it
+counts as opening Top picks and puts the dot out. The side bar opens
 expanded or collapsed as the person last left it, a view choice too
 (`sidebar.expanded`).
 
@@ -1474,6 +1477,7 @@ Unit gates (`npm run test:unit`) are under `dashboard/src/`; UX specs
 | A posting steps by its box's width alone: frame, columns and type together, the text across its column, the bar, menus and pop-ups at their size, nothing zoomed | `job-detail-steps.spec.ts` |
 | A posting that opened with no text reads it once and says so under a running line, offers the posting when the site is slow and Try again when the read failed, and asks nothing when nothing can read it | `job-detail.spec.ts`, `features/job-detail/postingText.test.tsx` |
 | First-run setup | `routing/setupMode.test.tsx`, `features/scope/walk/Walk.test.tsx`, `features/companies/SetupCompanies.test.tsx`, `welcome.spec.ts` |
+| Top picks offers a pick that arrives while it is open as the list's update, and taking it puts the dot out; the Radar is not offered it | `features/opportunities/picksUpdate.test.tsx` |
 | Onboarding: the copy control; Top picks' onboarding follows the setup conversation and gives way to the list | `ui/CopyField.test.tsx`, `features/opportunities/TopPicksOnboarding.test.tsx`, `top-picks-onboarding.spec.ts` |
 | First-run setup magnification: the factor, window units, placed pop-ups, the planet's pointer | `features/scope/setupZoom.test.ts`, `features/scope/welcome/globeDrag.test.ts`, `setup-magnification.spec.ts`, `setup-magnification-webkit.spec.ts`, `setup-magnification-unhinted.spec.ts` |
 | The board during and after the first scan | `board-first-scan.spec.ts` |
