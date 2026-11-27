@@ -64,9 +64,10 @@ describe("TopPicksScreen", () => {
     expect(picksOpened).toHaveBeenCalledOnce();
   });
 
-  it("names the page in one heading that takes no room, and draws no title block", async () => {
+  it("keeps the title off screen in the onboarding, whose headline leads", async () => {
     picksState.mockResolvedValue(picksStateFixture());
     const { container } = renderScreen();
+    await onboardingHeadline();
     const title = screen.getByRole("heading", { level: 1, name: msg("shell-nav-top-picks") });
     expect(title).toHaveClass("sr-only");
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);

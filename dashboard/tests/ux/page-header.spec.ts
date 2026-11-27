@@ -1,16 +1,19 @@
+import { facetsFixture, picksStateFixture } from "../../src/test/fixtures";
 import { msg } from "../../src/test/msg";
-import { expect, test } from "./fixtures";
+import { expect, mockGet, test } from "./fixtures";
 import { installEveryRoute } from "./routesHarness";
+import { healthyState, picksList } from "./topPicksHarness";
 
 /* ONE PAGE HEADER. Every tab of the rail names itself with the same h1, at the
    same height and the same left edge, so switching tabs moves nothing but the
    content. Measured through the rail, the way a jump is seen.
 
-   Three tabs lead with a row of their own and leave their name to the top bar
-   and the rail: the Radar and Top picks with their toolbar, the Pipeline with
-   its views and their tools. Their h1 is still the page's one heading, by the
-   same name, and is not drawn. */
-const OFF_SCREEN = new Set([msg("shell-nav-radar"), msg("shell-nav-top-picks"), msg("shell-nav-pipeline")]);
+   A tab shows its title unless its first row is its own views: only the
+   Pipeline's is, and it leaves its name to the top bar and the rail. Its h1
+   is still the page's one heading, by the same name, and is not drawn. Top
+   picks is measured set up, as the Radar's twin; its onboarding has a test of
+   its own. */
+const OFF_SCREEN = new Set([msg("shell-nav-pipeline")]);
 
 const TABS = [
   { rail: msg("shell-nav-radar"), path: "/" },
@@ -26,6 +29,29 @@ const TABS = [
 
 test.beforeEach(async ({ page }) => {
   await installEveryRoute(page);
+  await mockGet(page, "/api/picks/state", (route) => route.fulfill({ json: healthyState() }));
+  // Set up, Top picks reads its own list and facets.
+  const picks = (url: string) => new URL(url).searchParams.get("top_picks") === "true";
+  await mockGet(page, "/api/jobs?**", (route) =>
+    picks(route.request().url()) ? route.fulfill({ json: picksList() }) : route.fallback());
+  await mockGet(page, "/api/facets?**", (route) =>
+    picks(route.request().url()) ? route.fulfill({ json: facetsFixture }) : route.fallback());
+});
+
+/* Before setup, Top picks is its onboarding, which leads with a headline of
+   its own: the tab's title stays the page's one h1 and is not drawn, so the
+   screen shows one title, not two. */
+test("Top picks' onboarding shows its own headline and keeps the title off screen", async ({ page }) => {
+  await mockGet(page, "/api/picks/state", (route) => route.fulfill({ json: picksStateFixture() }));
+  await page.goto("/top-picks");
+  const main = page.getByRole("main").first();
+  await expect(main.getByRole("heading", { level: 2, name: msg("picks-onboard-headline") })).toBeVisible();
+  const title = main.getByRole("heading", { level: 1 });
+  await expect(title).toHaveText(msg("shell-nav-top-picks"));
+  await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+  const box = (await title.boundingBox())!;
+  expect(box.width * box.height, "the title takes no room").toBeLessThanOrEqual(1);
+  await expect(main.locator(".page-hero"), "no title block").toHaveCount(0);
 });
 
 test("every tab's title is its rail label, in one place, at one size", async ({ page, isMobile }) => {
