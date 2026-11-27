@@ -2372,6 +2372,39 @@ test("a posting that opened with no text reads it once, says so meanwhile, then 
   expect(textReads.started).toBe(1);
 });
 
+/* Text that came in keeps its headings' ground on the page's pixels: once it
+   has come in, nothing between a heading and the cover is a transformed box,
+   which would pin the held heading's wash to that box instead of the window. */
+test("text that came in leaves its headings' ground pinned to the window", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  let stored = false;
+  await mockApi(page, "POST", "/api/jobs/101/description", (route) => {
+    stored = true;
+    return route.fulfill({ json: { outcome: "read", ...READ_TEXT } });
+  });
+  await mockGet(page, "/api/jobs/101", (route) => route.fulfill({ json: stored
+    ? { ...jobFixture, ...READ_TEXT, description_readable: false }
+    : NO_TEXT }));
+  await page.goto("/company/openai/job/101");
+
+  const heading = detail(page).getByRole("heading", { name: "About the role" });
+  await expect(heading).toBeVisible();
+  await expect(detail(page).locator(".jd-sections")).toHaveClass(/jd-arrived/);
+  const boxes = await heading.evaluate(async (el) => {
+    // It came in: the arrival applies, and once it has run it is over.
+    const text = el.closest(".jd-sections")!;
+    if (getComputedStyle(text).animationName !== "jd-text-arrives") return ["no arrival applies"];
+    await Promise.all(text.getAnimations().map((animation) => animation.finished));
+    const out: string[] = [];
+    for (let at = el.parentElement; at && !at.classList.contains("cover"); at = at.parentElement) {
+      const style = getComputedStyle(at);
+      if (style.transform !== "none" || style.filter !== "none") out.push(`${at.className}: ${style.transform} ${style.filter}`);
+    }
+    return out;
+  });
+  expect(boxes, "no transformed or filtered box between the heading and the cover").toEqual([]);
+});
+
 test("a slow site is said with the posting; a failed read offers Try again, which asks again", async ({ page }) => {
   await page.clock.install();
   const asked: string[] = [];
