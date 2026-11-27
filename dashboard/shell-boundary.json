@@ -89,9 +89,10 @@
     {
       "module": "src/hooks/picksDot.ts",
       "exports": [
-        "picksOpened"
+        "picksOpened",
+        "usePickArrivals"
       ],
-      "why": "the rail's dot is one store the shell reads; the Top picks screen puts it out through that store, so the dot goes out the moment the screen opens and no later read relights it."
+      "why": "the rail's dot is one store the shell reads; the Top picks screen puts it out through that store, so the dot goes out the moment the screen opens and no later read relights it, and offers its list's update when that store sees a pick arrive."
     }
   ],
   "debt": [

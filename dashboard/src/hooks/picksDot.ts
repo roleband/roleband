@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { shellApi } from "../api/shell";
+import { shellApi, type PicksState } from "../api/shell";
 import { useVisibleInterval } from "./useVisibleInterval";
 
 /* The Top picks rail dot: lit while a pick has arrived since the person last
@@ -13,11 +13,23 @@ import { useVisibleInterval } from "./useVisibleInterval";
 
 let unseen = false;
 let generation = 0;
+// Counts the picks that arrived since the last opening, as the reads see them,
+// which an open Top picks screen offers as an update: the dot lighting is one;
+// while it stays lit, a check that closed after the last read is another, since
+// it may have made a pick the offer on screen lacks.
+let arrivals = 0;
+let lastCheck: string | null = null;
 const listeners = new Set<() => void>();
 
-function publish(next: boolean, mine: number): void {
-  if (mine !== generation || next === unseen) return;
+function publish(state: Pick<PicksState, "unseen_pick" | "last_check"> | false, mine: number): void {
+  if (mine !== generation) return;
+  const next = state ? state.unseen_pick : false;
+  const check = state ? state.last_check?.finished_at ?? null : lastCheck;
+  const arrived = next && (!unseen || check !== lastCheck);
+  lastCheck = check;
+  if (!arrived && next === unseen) return;
   unseen = next;
+  if (arrived) arrivals += 1;
   listeners.forEach((listener) => listener());
 }
 
@@ -29,7 +41,7 @@ function subscribe(listener: () => void): () => void {
 function read(): void {
   const mine = ++generation;
   shellApi.picksState()
-    .then((state) => publish(state.unseen_pick, mine))
+    .then((state) => publish(state, mine))
     .catch(() => {});
 }
 
@@ -40,6 +52,12 @@ export function usePicksDot(): boolean {
   return useSyncExternalStore(subscribe, () => unseen);
 }
 
+/** A number that grows each time a pick arrives after the last opening, as the
+ *  rail's read sees it; Top picks re-reads its list when it changes. */
+export function usePickArrivals(): number {
+  return useSyncExternalStore(subscribe, () => arrivals);
+}
+
 /** Top picks is on screen: the dot goes out at once, and the engine's answer
  *  to the opening is what stands after it. A failed opening leaves the next
  *  read to light the dot again, since nothing was recorded. */
@@ -47,7 +65,7 @@ export function picksOpened(): void {
   const mine = ++generation;
   publish(false, mine);
   shellApi.picksOpened()
-    .then((state) => publish(state.unseen_pick, mine))
+    .then((state) => publish(state, mine))
     .catch(() => {});
 }
 
@@ -55,4 +73,5 @@ export function picksOpened(): void {
 export function forgetPicksDot(): void {
   generation += 1;
   unseen = false;
+  lastCheck = null;
 }
