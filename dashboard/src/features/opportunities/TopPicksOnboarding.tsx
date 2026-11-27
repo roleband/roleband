@@ -39,7 +39,7 @@ import { errorText } from "../../api/errorText";
 import { useMissionStats } from "../../context/MissionState";
 import { useVisibleInterval } from "../../hooks/useVisibleInterval";
 import { Onboarding } from "../../patterns/onboarding/Onboarding";
-import { Button, CompanyIcon, CopyField, Icon, Msg, Select, Switch, useToast } from "../../ui";
+import { AssistantMark, Button, CopyField, Icon, Msg, Select, Switch, useToast } from "../../ui";
 import "./top-picks-onboarding.css";
 
 /** How often onboarding reads what the conversation has saved, and whether
@@ -188,8 +188,8 @@ function Invitation({ access, onAccess }: {
           <div className="picks-onboard-say">
             <span className="picks-onboard-label">{picksOnboardSay()}</span>
             <span className="picks-onboard-marks" role="img" aria-label={picksOnboardWorksWith()}>
-              <span aria-hidden="true"><CompanyIcon slug="claude" display={picksHost({ host: "claude-code" })} size={16} /></span>
-              <span aria-hidden="true"><CompanyIcon slug="codex" display={picksHost({ host: "codex" })} size={16} /></span>
+              <span aria-hidden="true"><AssistantMark app="claude-code" display={picksHost({ host: "claude-code" })} size={16} /></span>
+              <span aria-hidden="true"><AssistantMark app="codex" display={picksHost({ host: "codex" })} size={16} /></span>
             </span>
           </div>
           <CopyField key={sentence} text={sentence} />

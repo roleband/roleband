@@ -18,7 +18,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { type AgentAccessChoices, type AgentAccessState, api } from "../../api";
 import { ageLabel } from "../../format";
 import { list } from "../../copy/format";
-import { Button, CompanyIcon, Dialog, Icon, RouterLink, Switch } from "../../ui";
+import { AssistantMark, Button, Dialog, Icon, RouterLink, Switch, type AssistantApp } from "../../ui";
 import {
   AgentAccessDialog,
   CATEGORIES,
@@ -71,23 +71,23 @@ type App = "claude-code" | "codex" | "other";
 /** The hosts `roleband connect` sets up, each with the command the engine
  *  serves for it, plus the open door: any app that can run a command can call
  *  `roleband`, so a third tile asks it to start with `roleband capabilities`.
- *  `slug` is a company mark (Simple Icons); its absence means the tile wears a
- *  UI glyph instead: the two icon sets stay split by domain, and "any app" is
- *  not a company. */
+ *  `mark` names the app's own mark; its absence means the tile wears a UI glyph
+ *  instead: marks and glyphs stay split by domain, and "any app" is not a
+ *  product. */
 const APPS: Record<
   App,
-  { name: string; service: string; slug?: string; connect: string }
+  { name: string; service: string; mark?: AssistantApp; connect: string }
 > = {
   "claude-code": {
     get name() { return aiAssistantsCardAppClaudeCode(); },
     get service() { return aiAssistantsCardAnthropic(); },
-    slug: "claude",
+    mark: "claude-code",
     get connect() { return aiAssistantsCardConnectClaudeCode(); },
   },
   codex: {
     get name() { return aiAssistantsCardAppCodexApp(); },
     get service() { return aiAssistantsCardOpenai(); },
-    slug: "codex",
+    mark: "codex",
     get connect() { return aiAssistantsCardConnectTheCodexApp(); },
   },
   other: {
@@ -253,8 +253,8 @@ export function AssistantsCard() {
           return (
             <div key={app} className={`intel-tile${allowed ? "" : " is-waiting"}`} data-app={app}>
               <span className="intel-tile-mark">
-                {APPS[app].slug ? (
-                  <CompanyIcon slug={APPS[app].slug!} display={APPS[app].name} size={22} />
+                {APPS[app].mark ? (
+                  <AssistantMark app={APPS[app].mark!} display={APPS[app].name} size={22} />
                 ) : (
                   <Icon name="grid" size={20} />
                 )}
