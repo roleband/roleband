@@ -14,13 +14,14 @@ Nothing here commits: the caller owns the transaction.
 from __future__ import annotations
 
 import secrets
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tracker.db.models import PickRun
+from tracker.db.models import PickDelivery, PickRun
 from tracker.picks.health import ABANDONED_AFTER, RunFact
 from tracker.picks.lock import lock_picks
 from tracker.platform.util import local_day_start_utc
@@ -40,13 +41,44 @@ def new_run_id() -> str:
     return f"run_{secrets.token_hex(6)}"
 
 
-async def handed_today(session: AsyncSession, now: datetime) -> int:
-    """How many postings today's runs of the routine were handed, by the local day."""
-    return int(await session.scalar(
-        select(func.coalesce(func.sum(func.jsonb_array_length(PickRun.queue)), 0)).where(
-            PickRun.trial.is_(False), PickRun.started_at >= local_day_start_utc(now)
+async def handed_today(session: AsyncSession, now: datetime, *, zone: ZoneInfo) -> int:
+    """Routine handoffs on the local day, including conservatively counted queues."""
+    local_now = now.astimezone(zone)
+    start = local_day_start_utc(local_now, zone)
+    end = local_day_start_utc(local_now + timedelta(days=1), zone)
+    recorded = await session.scalar(
+        select(func.count()).select_from(PickDelivery).join(PickRun).where(
+            PickRun.trial.is_(False), PickDelivery.local_day == local_now.date(),
         )
-    ) or 0)
+    )
+    legacy = await session.scalar(
+        select(func.coalesce(func.sum(func.jsonb_array_length(PickRun.queue)), 0)).where(
+            PickRun.trial.is_(False), PickRun.tracks_delivery.is_(False),
+            PickRun.started_at >= start, PickRun.started_at < end,
+        )
+    )
+    return int(recorded or 0) + int(legacy or 0)
+
+
+async def _delivered_ids(session: AsyncSession, run: PickRun, job_ids: list[int]) -> set[int]:
+    return set((await session.scalars(
+        select(PickDelivery.job_id).where(PickDelivery.run_id == run.id, PickDelivery.job_id.in_(job_ids))
+    )).all())
+
+
+async def hand_off(
+    session: AsyncSession, run: PickRun, job_ids: list[int], *, room: int, day: date,
+) -> set[int]:
+    """Admit eligible entries in rank order. The caller holds the picks lock
+    from before it reads the available room until it commits the batch."""
+    if not run.tracks_delivery or not job_ids:
+        return set(job_ids)
+    delivered = await _delivered_ids(session, run, job_ids)
+    fresh = [job_id for job_id in job_ids if job_id not in delivered]
+    if not run.trial:
+        fresh = fresh[:room]
+    session.add_all([PickDelivery(run_id=run.id, job_id=job_id, local_day=day) for job_id in fresh])
+    return delivered.union(fresh)
 
 
 async def close_abandoned(session: AsyncSession, now: datetime, *, host: str | None = None) -> int:
@@ -98,7 +130,7 @@ async def begin(
     await lock_picks(session)
     run = PickRun(
         id=new_run_id(), host=host, model=model, trial=trial, brief_version=brief_version, started_at=now,
-        queue=[[job_id, content_hash] for job_id, content_hash in queue], counts=counts,
+        queue=[[job_id, content_hash] for job_id, content_hash in queue], counts=counts, tracks_delivery=True,
     )
     session.add(run)
     await session.flush()
@@ -138,8 +170,15 @@ async def finish(
 
 
 def queue_of(run: PickRun) -> dict[int, str]:
-    """The content hash each posting of the run's queue had when it was handed."""
+    """The content hash each posting of the run's queue had when ranked."""
     return {int(job_id): str(content_hash) for job_id, content_hash in run.queue}
+
+
+async def delivered_queue(session: AsyncSession, run: PickRun, job_ids: list[int]) -> dict[int, str]:
+    queued = queue_of(run)
+    if not run.tracks_delivery:
+        return {job_id: queued[job_id] for job_id in job_ids if job_id in queued}
+    return {job_id: queued[job_id] for job_id in await _delivered_ids(session, run, job_ids)}
 
 
 def as_fact(run: PickRun, now: datetime) -> RunFact:

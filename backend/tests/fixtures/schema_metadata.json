@@ -1,7 +1,7 @@
 {
  "_why": "The schema as the models declare it, frozen so a change to a column, index, constraint or default cannot land without showing up in a reviewer's diff. `alembic check` already answers 'do the models and the migrations agree?', but only against a live cluster and only in a CI log; this fixture answers 'did the models change at all?' with no database, in the pull request itself. The two claims are independent: a model edit WITH a matching migration keeps `check` green and still belongs in review, which is what this catches. Regenerate deliberately, in the same change as the migration: `.venv/bin/python -m scripts.freeze_schema_metadata`.",
  "embedding_dim": 768,
- "table_count": 83,
+ "table_count": 84,
  "classes": {
   "AgentActivity": "agent_activity",
   "AiTaskLog": "ai_task_log",
@@ -51,6 +51,7 @@
   "MachineAwakeSample": "machine_awake_samples",
   "Notification": "notifications",
   "PickBrief": "pick_brief",
+  "PickDelivery": "pick_delivery",
   "PickRun": "pick_run",
   "PickVerdict": "pick_verdict",
   "PluginCoverage": "plugin_coverage",
@@ -1579,6 +1580,24 @@
    "comment": null,
    "column_comments": {}
   },
+  "pick_delivery": {
+   "create": [
+    "CREATE TABLE pick_delivery (",
+    "    run_id VARCHAR(24) NOT NULL,",
+    "    job_id INTEGER NOT NULL,",
+    "    local_day DATE NOT NULL,",
+    "    PRIMARY KEY (run_id, job_id),",
+    "    FOREIGN KEY(run_id) REFERENCES pick_run (id)",
+    ")"
+   ],
+   "indexes": [
+    "CREATE INDEX ix_pick_delivery_local_day ON pick_delivery (local_day)"
+   ],
+   "python_defaults": {},
+   "python_onupdate": {},
+   "comment": null,
+   "column_comments": {}
+  },
   "pick_run": {
    "create": [
     "CREATE TABLE pick_run (",
@@ -1591,6 +1610,7 @@
     "    finished_at TIMESTAMP WITH TIME ZONE,",
     "    outcome VARCHAR(16),",
     "    queue JSONB DEFAULT '[]'::jsonb NOT NULL,",
+    "    tracks_delivery BOOLEAN DEFAULT false NOT NULL,",
     "    counts JSONB DEFAULT '{}'::jsonb NOT NULL,",
     "    tokens BIGINT,",
     "    note TEXT,",

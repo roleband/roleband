@@ -744,10 +744,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Picks Next */
-        get: operations["picks_next_api_agent_v1_picks_runs_next_get"];
+        get?: never;
         put?: never;
-        post?: never;
+        /** Picks Next */
+        post: operations["picks_next_api_agent_v1_picks_runs_next_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19489,20 +19489,34 @@ export interface operations {
             };
         };
     };
-    picks_next_api_agent_v1_picks_runs_next_get: {
+    picks_next_api_agent_v1_picks_runs_next_post: {
         parameters: {
-            query: {
-                /** @description The run, as picks.begin named it. */
-                run: string;
-                /** @description The next_cursor of the batch before. */
-                cursor: number;
-                limit?: number;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Cursor
+                     * @description The next_cursor of the batch before.
+                     */
+                    cursor: number;
+                    /**
+                     * Limit
+                     * @default 50
+                     */
+                    limit?: number;
+                    /**
+                     * Run
+                     * @description The run, as picks.begin named it.
+                     */
+                    run: string;
+                };
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

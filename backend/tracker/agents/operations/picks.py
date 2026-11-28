@@ -13,7 +13,7 @@ A routine run is three calls:
    refused verdict leaves the others alone.
 3. `picks.finish` closes the run.
 
-`picks.next` reads a further batch when a run holds more than one. The trial
+`picks.next` hands out a further batch when a run holds more than one. The trial
 at the end of setup is the same run with `trial`: it takes every open role
 the hard rules leave, its verdicts are kept apart, and it does not need the
 mode on.
@@ -315,9 +315,9 @@ class RunCounts(Shape):
     #: Postings waiting for a judgment, before the day's cap.
     waiting: int
     ruled_out_by_rules: int
-    #: Postings this run may judge.
+    #: Postings handed out in the first batch.
     handed: int
-    #: Postings the day's cap holds for a later day.
+    #: Waiting postings beyond the run's queue limit at begin.
     held_back: int
 
 
@@ -547,12 +547,13 @@ PICKS_BEGIN = OperationDescriptor(
 
 PICKS_NEXT = OperationDescriptor(
     id="picks.next",
-    summary="Read the next batch of an open run.",
+    summary="Get the next batch of an open run and record each posting's first handoff.",
     input=NextInput,
     result=Batch,
-    access="read",
-    idempotency="read",
-    engine_effects=EngineEffects(),
+    access="write",
+    action_group="tuning_radar",
+    idempotency="natural_key",
+    engine_effects=EngineEffects(state_write=True),
     tool_tiers=_TIERS,
     data_classes=("public_posting", "market_statistic"),
 )
@@ -903,10 +904,14 @@ async def begin(
         active_version=active.version, now=now,
     )
     counted = await queue.counts(session, stmt, body)
-    room = queue.TRIAL_CAP if params.trial else max(settings.daily_cap - await runs.handed_today(session, now), 0)
+    zone = local_zone()
+    room = (
+        queue.TRIAL_CAP if params.trial
+        else max(settings.daily_cap - await runs.handed_today(session, now, zone=zone), 0)
+    )
     jobs = await queue.best_first(session, stmt, body, limit=room)
     counts = RunCounts(
-        waiting=counted.waiting, ruled_out_by_rules=counted.ruled_out_by_rules, handed=len(jobs),
+        waiting=counted.waiting, ruled_out_by_rules=counted.ruled_out_by_rules, handed=0,
         held_back=max(counted.waiting - len(jobs), 0),
     )
     last = await runs.last_finished(session)
@@ -914,11 +919,14 @@ async def begin(
         session, host=host, model=params.model, trial=params.trial, brief_version=active.version,
         queue=[(job.id, job.content_hash or "") for job in jobs], counts=counts.model_dump(), now=now,
     )
+    first = await _batch_at(
+        session, run, cursor=0, limit=params.limit, room=room, now=now, day=now.astimezone(zone).date(), estimates=True,
+    )
+    counts.handed = first.count
+    run.counts = counts.model_dump()
     names = await display_names(session)
     month = await verdicts.picks_since(session, _month_start(now))
     reacted = await verdicts.reacted_since(session, last.started_at if last is not None else None)
-    first = jobs[: params.limit]
-    more = len(jobs) > len(first)
     return RunStart(
         run=run.id, trial=run.trial, brief=_brief_packet(active, body),
         budget=RunBudget(
@@ -926,12 +934,8 @@ async def begin(
             picks=[_row(item, names) for item in month],
         ),
         reactions=[_row(item, names) for item in reacted],
-        counts=counts, count=len(first),
-        batch=await _postings(session, first, first_rank=1, now=now, estimates=True),
-        next_cursor=len(first) if more else None,
-        continue_with=[NextAction(
-            operation=PICKS_NEXT.id, arguments={"run": run.id, "cursor": len(first)},
-        )] if more else [],
+        counts=counts, count=first.count, batch=first.batch,
+        next_cursor=first.next_cursor, continue_with=first.continue_with,
     )
 
 
@@ -966,11 +970,11 @@ async def _eligible_run_postings(
     if not ids:
         return {}
     body = briefs.body_of(await briefs.version(session, run.brief_version))
-    stmt = await queue.eligible_in_run(session, run, ids, body=body, now=now)
-    handed = runs.queue_of(run)
+    stmt = (await queue.eligible_in_run(session, run, ids, body=body, now=now)).execution_options(populate_existing=True)
+    queued = runs.queue_of(run)
     return {
         job.id: job for job in (await session.scalars(stmt)).all()
-        if (job.content_hash or "") == handed.get(job.id)
+        if (job.content_hash or "") == queued.get(job.id)
     }
 
 
@@ -981,25 +985,46 @@ async def replayed_begin(session: AsyncSession, result: RunStart, withheld: Coll
     run = await _read_open_run(session, result.run)
     eligible = await _eligible_run_postings(session, run, [posting.job for posting in result.batch], datetime.now(UTC))
     batch = [posting for posting in result.batch if posting.job in eligible]
-    return result.model_copy(update={"batch": batch, "count": len(batch)})
+    counts = result.counts if run.tracks_delivery else result.counts.model_copy(update={"handed": result.count})
+    return result.model_copy(update={"batch": batch, "count": len(batch), "counts": counts})
 
 
 async def next_batch(
     session: AsyncSession, params: NextInput, *, withheld: Collection[DataClass], now: datetime | None = None,
 ) -> Batch:
-    run = await _read_open_run(session, params.run, now)
+    await lock_picks(session)
     now = now or datetime.now(UTC)
+    try:
+        run = await runs.open_run(session, params.run, now)
+    except RunError as error:
+        raise _run_refusal(error) from None
+    zone = local_zone()
+    room = 0
+    if run.tracks_delivery and not run.trial:
+        settings = await get_top_picks_settings(session)
+        room = max(settings.daily_cap - await runs.handed_today(session, now, zone=zone), 0)
+    return await _batch_at(
+        session, run, cursor=params.cursor, limit=params.limit, room=room, now=now, day=now.astimezone(zone).date(),
+        estimates="market_statistic" not in withheld,
+    )
+
+
+async def _batch_at(
+    session: AsyncSession, run: PickRun, *, cursor: int, limit: int, room: int, now: datetime, day: date, estimates: bool,
+) -> Batch:
     ids = [int(job_id) for job_id, _ in run.queue]
-    window = ids[params.cursor : params.cursor + params.limit]
+    window = ids[cursor : cursor + limit]
     found = await _eligible_run_postings(session, run, window, now)
     kept = [
-        (params.cursor + offset + 1, found[job_id]) for offset, job_id in enumerate(window) if job_id in found
+        (cursor + offset + 1, found[job_id]) for offset, job_id in enumerate(window) if job_id in found
     ]
-    end = params.cursor + len(window)
+    delivered = await runs.hand_off(session, run, [job.id for _, job in kept], room=room, day=day)
+    kept = [(rank, job) for rank, job in kept if job.id in delivered]
+    end = cursor + len(window)
     more = end < len(ids)
     postings = await _postings(
-        session, [job for _, job in kept], first_rank=params.cursor + 1, now=now,
-        estimates="market_statistic" not in withheld, ranks=[rank for rank, _ in kept],
+        session, [job for _, job in kept], first_rank=cursor + 1, now=now,
+        estimates=estimates, ranks=[rank for rank, _ in kept],
     )
     return Batch(
         run=run.id, count=len(postings), batch=postings, next_cursor=end if more else None,

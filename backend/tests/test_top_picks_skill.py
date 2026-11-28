@@ -116,6 +116,14 @@ def test_a_command_named_in_a_sentence_exists():
         assert _operation_of(span.split()[1:]) is not None, (file, span)
 
 
+def test_the_paging_command_sends_a_post_body_with_no_client_key():
+    args = build_parser().parse_args(["picks", "next", "--run", "run_123", "--cursor", "50", "--json"])
+    command = args.generated
+    path, body = commands.request(command, commands.payload(command, args))
+    assert command.method == "POST" and command.access == "write" and not command.keyed
+    assert path == "/api/agent/v1/picks/runs/next" and body == {"run": "run_123", "cursor": 50}
+
+
 def _filled(line: str) -> list[str]:
     words = shlex.split(line)
     return [PLACEHOLDERS.get(word, word) for word in words if word != "..."]

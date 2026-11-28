@@ -47187,45 +47187,47 @@
    }
   },
   "/api/agent/v1/picks/runs/next": {
-   "get": {
-    "operationId": "picks_next_api_agent_v1_picks_runs_next_get",
-    "parameters": [
-     {
-      "description": "The run, as picks.begin named it.",
-      "in": "query",
-      "name": "run",
-      "required": true,
-      "schema": {
-       "maxLength": 24,
-       "minLength": 1,
-       "title": "Run",
-       "type": "string"
+   "post": {
+    "operationId": "picks_next_api_agent_v1_picks_runs_next_post",
+    "parameters": [],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": false,
+        "properties": {
+         "cursor": {
+          "description": "The next_cursor of the batch before.",
+          "minimum": 0.0,
+          "title": "Cursor",
+          "type": "integer"
+         },
+         "limit": {
+          "default": 50,
+          "maximum": 50.0,
+          "minimum": 1.0,
+          "title": "Limit",
+          "type": "integer"
+         },
+         "run": {
+          "description": "The run, as picks.begin named it.",
+          "maxLength": 24,
+          "minLength": 1,
+          "title": "Run",
+          "type": "string"
+         }
+        },
+        "required": [
+         "run",
+         "cursor"
+        ],
+        "title": "NextInput",
+        "type": "object"
+       }
       }
      },
-     {
-      "description": "The next_cursor of the batch before.",
-      "in": "query",
-      "name": "cursor",
-      "required": true,
-      "schema": {
-       "minimum": 0,
-       "title": "Cursor",
-       "type": "integer"
-      }
-     },
-     {
-      "in": "query",
-      "name": "limit",
-      "required": false,
-      "schema": {
-       "default": 50,
-       "maximum": 50,
-       "minimum": 1,
-       "title": "Limit",
-       "type": "integer"
-      }
-     }
-    ],
+     "required": true
+    },
     "responses": {
      "200": {
       "content": {

@@ -1059,7 +1059,7 @@ async def picks_begin(
     )
 
 
-@router.get(
+@router.post(
     f"{PREFIX}/picks/runs/next",
     response_model=Envelope[picks.Batch],
     openapi_extra=operation_route(picks.PICKS_NEXT),
@@ -1067,7 +1067,7 @@ async def picks_begin(
 async def picks_next(
     op: Annotated[OperationContext, Depends(admitted(picks.PICKS_NEXT))],
 ) -> Envelope[Any]:
-    return op.ok(await picks.next_batch(
+    return await op.write(lambda: picks.next_batch(
         op.session, op.input_as(picks.NextInput), withheld=withheld(picks.PICKS_NEXT, op.switches),
     ))
 

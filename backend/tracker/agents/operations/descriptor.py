@@ -109,7 +109,7 @@ class OperationDescriptor:
         if self.access == "read" and self.idempotency != "read":
             raise ValueError(f"{self.id}: a read is idempotent as a read")
         if self.access == "write" and self.idempotency == "read":
-            raise ValueError(f"{self.id}: a write declares its idempotency key")
+            raise ValueError(f"{self.id}: a write declares how it is idempotent")
         if (self.access == "write") != (self.action_group is not None):
             raise ValueError(f"{self.id}: a write belongs to one action group, and a read to none")
         if self.input.model_config.get("extra") != "forbid":

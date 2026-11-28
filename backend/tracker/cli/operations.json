@@ -19077,7 +19077,7 @@
    ]
   },
   {
-   "access": "read",
+   "access": "write",
    "availability": {
     "reason": "offline",
     "state": "unknown"
@@ -19092,10 +19092,10 @@
     "external_action": false,
     "model_egress": false,
     "outbound_network": false,
-    "state_write": false
+    "state_write": true
    },
    "examples": [],
-   "idempotency": "read",
+   "idempotency": "natural_key",
    "input_schema": {
     "additionalProperties": false,
     "properties": {
@@ -19447,9 +19447,10 @@
    },
    "output_schema_ref": "#/output_schema",
    "required_scopes": [
-    "agent_access.enabled"
+    "agent_access.enabled",
+    "agent_access.allow_writes"
    ],
-   "summary": "Read the next batch of an open run.",
+   "summary": "Get the next batch of an open run and record each posting's first handoff.",
    "supports_dry_run": false,
    "tool_tiers": [
     "standard",
@@ -24678,7 +24679,7 @@
    "path": "/api/agent/v1/picks"
   },
   "picks.next": {
-   "method": "GET",
+   "method": "POST",
    "path": "/api/agent/v1/picks/runs/next"
   },
   "picks.samples": {

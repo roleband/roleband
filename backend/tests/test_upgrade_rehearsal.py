@@ -171,6 +171,55 @@ def test_upgrading_a_populated_database_preserves_its_rows(baseline_database):
     assert "No new upgrade operations detected" in output, output[-2000:]
 
 
+def test_upgrading_top_picks_keeps_old_runs_and_accepts_new_handoffs(baseline_database):
+    env, dsn, bin_dir = baseline_database
+    result = run_alembic(env, "upgrade", "a7c3e9d1b4f6")
+    assert result.returncode == 0, result.stderr
+    _seed(dsn, bin_dir)
+    run_psql(dsn, bin_dir, """
+        insert into pick_brief (version, status, body, made_by)
+          values (1, 'active', '{}', 'person');
+        insert into pick_run (id, brief_version, queue, outcome, finished_at, note)
+          select 'run_closed', 1, jsonb_build_array(jsonb_build_array(id, 'h-first')),
+                 'stopped', now(), 'The check stopped.'
+          from jobs;
+        insert into pick_verdict (job_id, content_hash, brief_version, verdict, pass_code, run_id)
+          select id, 'h-first', 1, 'pass', 'not_better', 'run_closed' from jobs;
+        insert into pick_run (id, brief_version, queue)
+          select 'run_open', 1, jsonb_build_array(jsonb_build_array(id, 'h-second')) from jobs;
+    """)
+    old_rows = """
+        select r.id, r.brief_version, r.queue, r.outcome, r.finished_at, r.note, v.verdict, v.pass_code
+        from pick_run r left join pick_verdict v on v.run_id = r.id
+        where r.id in ('run_closed', 'run_open') order by r.id
+    """
+    before = run_psql(dsn, bin_dir, old_rows)
+    assert "stopped" in before and "not_better" in before and "h-second" in before
+
+    result = run_alembic(env, "upgrade", "head")
+    assert result.returncode == 0, result.stderr
+    assert run_psql(dsn, bin_dir, old_rows) == before
+    assert run_psql(dsn, bin_dir, "select tracks_delivery from pick_run order by id") == "f\nf"
+    assert run_psql(dsn, bin_dir, "select count(*) from pick_delivery") == "0"
+    run_psql(dsn, bin_dir, """
+        insert into pick_run (id, brief_version) values ('run_old_writer', 1);
+        insert into pick_run (id, brief_version, queue, tracks_delivery)
+          select 'run_new', 1, jsonb_build_array(jsonb_build_array(id, 'h-second')), true from jobs;
+        insert into pick_delivery (run_id, job_id, local_day)
+          select 'run_new', id, '2026-11-27' from jobs;
+    """)
+    assert run_psql(dsn, bin_dir, """
+        select id, tracks_delivery from pick_run where id in ('run_new', 'run_old_writer') order by id
+    """) == "run_new|t\nrun_old_writer|f"
+    assert run_psql(dsn, bin_dir, "select run_id, local_day from pick_delivery") == "run_new|2026-11-27"
+    result = run_alembic(env, "check")
+    assert result.returncode == 0 and "No new upgrade operations detected" in result.stdout, result.stderr
+    refused = run_alembic(env, "downgrade", "-1")
+    assert refused.returncode and "Top picks deliveries would be lost" in refused.stderr
+    assert run_psql(dsn, bin_dir, old_rows) == before
+    assert run_psql(dsn, bin_dir, "select count(*) from pick_delivery") == "1"
+
+
 def test_the_digest_notices_a_rewrite_of_each_seeded_column(baseline_database):
     """The negative control for the rehearsal: a column the digest missed would
     let a migration rewrite it while the upgrade test stays green."""

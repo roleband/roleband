@@ -280,11 +280,6 @@
   },
   {
    "method": "GET",
-   "path": "/api/agent/v1/picks/runs/next",
-   "response_schema": "Envelope[Batch]"
-  },
-  {
-   "method": "GET",
    "path": "/api/agent/v1/picks/samples",
    "response_schema": "Envelope[Samples]"
   },
@@ -807,6 +802,11 @@
    "method": "POST",
    "path": "/api/agent/v1/picks/runs/finish",
    "response_schema": "Envelope[RunSummary]"
+  },
+  {
+   "method": "POST",
+   "path": "/api/agent/v1/picks/runs/next",
+   "response_schema": "Envelope[Batch]"
   },
   {
    "method": "POST",

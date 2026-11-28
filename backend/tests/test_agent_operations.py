@@ -166,7 +166,7 @@ def test_a_well_formed_descriptor_is_accepted():
         ({"id": "widgets/list"}, "lowercase"),
         ({"engine_effects": EngineEffects(state_write=True)}, "needs write access"),
         ({"engine_effects": EngineEffects(external_action=True)}, "needs write access"),
-        ({"access": "write", "idempotency": "read", "action_group": "tracking_progress"}, "declares its idempotency key"),
+        ({"access": "write", "idempotency": "read", "action_group": "tracking_progress"}, "declares how it is idempotent"),
         ({"access": "write", "idempotency": "required_key"}, "belongs to one action group"),
         ({"action_group": "tracking_progress"}, "belongs to one action group"),
         ({"idempotency": "required_key"}, "idempotent as a read"),

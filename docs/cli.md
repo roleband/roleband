@@ -105,6 +105,13 @@ Any agent that can run a command can use `roleband` without `connect`.
 Someone who builds their own agent gets the operations as tool definitions
 from `roleband tools export`.
 
+Top picks paging uses `roleband picks next --run RUN --cursor CURSOR --json`.
+The client sends a JSON body with `POST /api/agent/v1/picks/runs/next`, under
+the same write permission as `picks begin`. Each run and posting is its own
+idempotency key. A client can repeat a cursor after a lost reply. The former
+GET endpoint answers HTTP 404. Use a matching app and CLI when updating a
+standalone client or direct HTTP integration.
+
 **What the card shows for each app.** The engine reads each host's own files
 (`backend/tracker/platform/agent_hosts.py`, shared with `connect` so the two
 agree): connected when the skills and what `connect` writes are all there, an

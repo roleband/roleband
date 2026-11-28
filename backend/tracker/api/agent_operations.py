@@ -12,9 +12,8 @@ failure as an envelope with the code's HTTP status: a refusal, invalid input,
 an `OperationError` from the handler, or an unexpected exception. No route
 dispatches by name; each operation keeps its own reviewed route.
 
-A write route takes its input from a JSON body and its idempotency key from
-the `X-RoleBand-Idempotency-Key` header, and runs its domain write through
-`OperationContext.write`:
+A write route takes a JSON body and runs through `OperationContext.write`.
+A keyed write also takes the `X-RoleBand-Idempotency-Key` header:
 
     async def handler(op: Annotated[OperationContext, Depends(admitted(DESCRIPTOR))]) -> ...:
         payload = op.input_as(Patch)
@@ -23,9 +22,9 @@ the `X-RoleBand-Idempotency-Key` header, and runs its domain write through
             return Result(...)
         return await op.write(apply)
 
-`write` replays the committed receipt of an identical earlier request, refuses
-another request under the same key, and otherwise runs `apply` and commits
-the write, its audit event and its receipt together (`tracker/agents/receipts.py`).
+`write` commits the write and its audit event together. Keyed writes also
+commit a receipt and replay it on retries (`tracker/agents/receipts.py`).
+With a natural key the domain write itself prevents duplicate effects.
 The actor a write records comes from the principal, never from the input.
 
 Every operation is listed for the person (`tracker/agents/activity.py`): a
@@ -71,6 +70,7 @@ from tracker.agents.operations.policy import admit, shared
 from tracker.agents.operations.workspace import get_workspace_id
 from tracker.agents.receipts import (
     LEGACY_AGENT_PRINCIPAL,
+    Executed,
     IdempotencyConflict,
     ReceiptKey,
     RevisionConflict,
@@ -207,7 +207,7 @@ class OperationContext:
         on_replay: Callable[[Any], Awaitable[BaseModel]] | None = None,
         described: activity.WriteActivity | None = None,
     ) -> Envelope[Any]:
-        """Run one keyed write, or replay its receipt, and commit.
+        """Run an idempotent write, or replay its keyed receipt, and commit.
 
         The key is serialized and its receipt looked up first, so an identical
         retry replays the committed result even after the resource has moved
@@ -221,15 +221,12 @@ class OperationContext:
         A new execution also lists its change on the Activity screen, in the
         same transaction: `described` says what changed (the fields before
         and after); without it the row names the operation only. A replay
-        changed nothing and lists nothing.
+        changed nothing and lists nothing. A natural-key write runs under its
+        domain's own idempotency rules and records no receipt.
         """
         descriptor = self.descriptor
-        if descriptor.access != "write" or descriptor.idempotency != "required_key" or self.idempotency_key is None:
-            raise TypeError(f"{descriptor.id} is not a keyed write")
-        key = ReceiptKey(self.workspace_id, self.principal_id, descriptor.id, self.idempotency_key)
-        request_hash = input_hash(
-            descriptor.id, descriptor.version, self.input.model_dump(mode="json", exclude_unset=True)
-        )
+        if descriptor.access != "write":
+            raise TypeError(f"{descriptor.id} is not a write")
 
         async def run() -> dict[str, Any]:
             before = None if described is None else await described.before(self.session)
@@ -258,9 +255,18 @@ class OperationContext:
             return result.model_dump(mode="json")
 
         try:
-            executed = await execute_once(
-                self.session, key, request_hash=request_hash, contract_version=descriptor.version, write=run
-            )
+            if descriptor.idempotency == "natural_key":
+                executed = Executed(result=await run(), replayed=False)
+            else:
+                if self.idempotency_key is None:
+                    raise TypeError(f"{descriptor.id} is missing its idempotency key")
+                key = ReceiptKey(self.workspace_id, self.principal_id, descriptor.id, self.idempotency_key)
+                request_hash = input_hash(
+                    descriptor.id, descriptor.version, self.input.model_dump(mode="json", exclude_unset=True)
+                )
+                executed = await execute_once(
+                    self.session, key, request_hash=request_hash, contract_version=descriptor.version, write=run
+                )
             await self.session.commit()
         except IdempotencyConflict:
             await self.session.rollback()
