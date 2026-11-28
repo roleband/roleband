@@ -139,7 +139,7 @@ function TopPicksList({ picks, rootRef, onPicksChange }: {
     [onShowParamChange],
   );
   const {
-    filters, facets, facetsError, retryFacets, list, listError, listRefreshError, retryList, refreshList, baseline,
+    filters, facets, facetsError, retryFacets, list, listError, listRefreshError, retryList, retryListRefresh, baseline,
     total, isDirect, relatedTotal, expanded, pageableTotal,
     update, updateFilters, onSort, toggleFav, dismiss, dismissal, undoDismiss, fresh, showFresh,
   } = useBoardController({ companyParam, onCompanyParamChange, mode, onModeChange }, surface);
@@ -250,11 +250,17 @@ function TopPicksList({ picks, rootRef, onPicksChange }: {
       <AsyncBoundary
         resource={{
           data: list, error: list ? null : listError, loading: !list && !listError,
-          retry: retryList, refresh: refreshList, refreshError: listRefreshError,
+          retry: retryList, refresh: retryListRefresh, refreshError: listRefreshError,
         }}
         loading={radarLoading()}
         failed={radarLoadFailed()}
         refreshFailed={picksRefreshFailed()}
+        scrollContainer={rootRef}
+        updateOffer={fresh ? {
+          message: fresh.more > 0 ? picksFreshMore({ count: fresh.more }) : radarBoardFreshChanged(),
+          label: radarBoardFreshShow(),
+          apply: takeFresh,
+        } : undefined}
         skeleton={<JobList><RowSkeleton rows={4} /></JobList>}
       >
         {() => total === 0 && relatedTotal === 0 ? empty : (
@@ -320,17 +326,6 @@ function TopPicksList({ picks, rootRef, onPicksChange }: {
         noun="pick"
       />
       <PicksNotes picks={picks} onPicksChange={onPicksChange} />
-      {/* A check made a pick, or a scan ended, while the list was open: as on
-          the Radar, the update waits for the reader, so no row moves under
-          them mid-read. Taking it is opening Top picks, so the dot goes out. */}
-      {fresh && (
-        <div className="empty-hint" role="status">
-          {fresh.more > 0 ? picksFreshMore({ count: fresh.more }) : radarBoardFreshChanged()}{" "}
-          <Button variant="ghost" size="sm" onClick={takeFresh}>
-            {radarBoardFreshShow()}
-          </Button>
-        </div>
-      )}
       <RailShell railMode={railMode} register={register} className="board-shell">
         {content}
       </RailShell>

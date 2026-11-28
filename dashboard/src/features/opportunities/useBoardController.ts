@@ -5,7 +5,7 @@ import {
   radarSaveFailed,
   radarUnsaveFailed,
 } from "../../copy/gen/radar";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSyncEpoch } from "../../context/SyncState";
 import { DEFAULT_FILTERS, Facets, Filters, Job, JobList as JobListData, JobSort, api } from "../../api";
 import { useJobWorkspace } from "../../context/JobWorkspace";
@@ -236,6 +236,10 @@ export function useBoardController({
     return () => clearTimeout(t);
   }, [search, setFilters, defaultSort]);
 
+  const request = useMemo(
+    () => boardRequestFilters(filters, { newSignalsOnly, repostsOnly }),
+    [filters, newSignalsOnly, repostsOnly],
+  );
   const {
     data: list,
     error: listError,
@@ -244,8 +248,8 @@ export function useBoardController({
     retry: retryList,
     refresh: refreshList,
   } = useAsyncResource<JobListData>(
-    (signal) => api.jobs(boardRequestFilters(filters, { newSignalsOnly, repostsOnly }), signal),
-    [filters, newSignalsOnly, repostsOnly],
+    (signal) => api.jobs(request, signal),
+    [request],
   );
   // Estimates moved together, or a role was saved somewhere: re-read the page
   // in place, so the reader keeps their rows and their scroll.
@@ -253,31 +257,47 @@ export function useBoardController({
   useRefetchOn(referenceVersion, refreshList);
   useRefetchOn(favVersion, refreshList);
 
-  /* A scan that ends while the Board is open. The filter counts re-read in
-     place; the list is read again in the background and OFFERED (`fresh`),
-     never swapped in under the reader, whose rows would move mid-read.
-     `showFresh` takes it. An edit to the filters or a later read of the list
-     makes the offer stale, so either withdraws it. */
-  const [fresh, setFresh] = useState<{ list: JobListData; more: number } | null>(null);
-  const asked = useRef({ filters, lenses: { newSignalsOnly, repostsOnly }, list });
-  asked.current = { filters, lenses: { newSignalsOnly, repostsOnly }, list };
-  // Only the newest background read may set the offer: two triggers (a scan's
-  // end, a pick's arrival) can overlap, and the older answer can land last.
-  const freshRead = useRef(0);
-  const readFresh = useCallback(async () => {
-    void refreshFacets({ preserveData: true });
-    const { filters: shown, lenses, list: current } = asked.current;
+  // An offer answers for both the query and the rows on screen. The route
+  // params can change before the effects copy them into the request filters.
+  const target = useMemo(() => ({ request, list, mode, companyKey }), [request, list, mode, companyKey]);
+  const asked = useRef(target);
+  asked.current = target;
+  type Offer = { target: typeof target } & ({ list: JobListData; more: number } | { error: Error });
+  const [offerResult, setOfferResult] = useState<Offer | null>(null);
+  const offer = offerResult?.target === target ? offerResult : null;
+  const fresh = offer && "list" in offer ? offer : null;
+  const offerError = offer && "error" in offer ? offer.error : null;
+  const offerRead = useRef<{ target: typeof target; controller: AbortController } | null>(null);
+  useEffect(() => () => {
+    const pending = offerRead.current;
+    if (pending?.target === target) pending.controller.abort();
+  }, [target]);
+
+  const requestFresh = useCallback(async () => {
+    const target = asked.current;
+    const current = target.list;
     if (!current) return;
-    const mine = ++freshRead.current;
+    offerRead.current?.controller.abort();
+    const controller = new AbortController();
+    offerRead.current = { target, controller };
+    const isCurrent = () => asked.current === target && !controller.signal.aborted;
     try {
-      const next = await api.jobs(boardRequestFilters(shown, lenses));
-      if (mine !== freshRead.current) return;
-      if (asked.current.filters !== shown || asked.current.list !== current) return;
-      setFresh(sameRows(current, next) ? null : { list: next, more: Math.max(0, next.total - current.total) });
-    } catch {
-      // A background read that failed offers nothing; the list on screen stands.
+      const next = await api.jobs(target.request, controller.signal);
+      if (!isCurrent()) return;
+      setOfferResult(sameRows(current, next) ? null : {
+        target, list: next, more: Math.max(0, next.total - current.total),
+      });
+    } catch (error) {
+      if (!isCurrent()) return;
+      setOfferResult({ target, error: error instanceof Error ? error : new Error("Request failed") });
+    } finally {
+      if (offerRead.current?.controller === controller) offerRead.current = null;
     }
-  }, [refreshFacets]);
+  }, []);
+  const readFresh = useCallback(() => {
+    void refreshFacets({ preserveData: true });
+    return requestFresh();
+  }, [refreshFacets, requestFresh]);
   useRefetchOn(runVersion, readFresh);
   // On Top picks a finished check that made a pick is offered the same way:
   // the rail's read sees the pick arrive while the list is open. One that
@@ -303,10 +323,11 @@ export function useBoardController({
     if (current && current.total === 0 && (current.related_total ?? 0) === 0) void refreshList({ preserveData: true });
     else void readFresh();
   }, [readFresh, refreshList]);
-  useEffect(() => setFresh(null), [filters, list]);
   const showFresh = useCallback(() => {
-    if (fresh) mutateList(() => fresh.list);
-    setFresh(null);
+    if (!fresh || asked.current !== fresh.target) return;
+    offerRead.current?.controller.abort();
+    mutateList(() => fresh.list);
+    setOfferResult(null);
   }, [fresh, mutateList]);
 
   const update = useCallback((patch: Partial<Filters>) => {
@@ -507,7 +528,9 @@ export function useBoardController({
   const bestFitUnranked = filters.sort === "relevance" && !filters.q && list != null && list.ranked_by !== "intent";
 
   return {
-    filters, facets, list, listError, listRefreshError, retryList, refreshList, baseline, mode, onModeChange,
+    filters, facets, list, listError, retryList, baseline, mode, onModeChange,
+    listRefreshError: offerError ?? listRefreshError,
+    retryListRefresh: offerError ? requestFresh : refreshList,
     facetsError: facetsResource.error,
     retryFacets: facetsResource.retry,
     total, isDirect, relatedTotal, expanded, pageableTotal, bestFitUnranked,

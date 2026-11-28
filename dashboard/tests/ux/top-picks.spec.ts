@@ -319,13 +319,20 @@ async function leaveAndComeBack(page: Page) {
   }
 }
 
-test("a check that makes a pick while Top picks sits open offers it when the person comes back, and taking it puts the dot out", async ({ page }) => {
+test("a pick arrival's failed update is retryable, and taking the offer puts the dot out", async ({ page }) => {
   const seen = await installTopPicksRoutes(page);
   let state = healthyState({ unseen_pick: false });
   let list = picksList();
+  let failures = 0;
   await mockGet(page, "/api/picks/state", (route) => route.fulfill({ json: state }));
-  await mockGet(page, "/api/jobs?**", (route) =>
-    new URL(route.request().url()).searchParams.get("top_picks") === "true" ? route.fulfill({ json: list }) : route.fallback());
+  await mockGet(page, "/api/jobs?**", (route) => {
+    const { searchParams } = new URL(route.request().url());
+    if (searchParams.get("top_picks") !== "true") return route.fallback();
+    if (state.unseen_pick && searchParams.get("limit") !== "1" && ++failures <= 2) {
+      return route.fulfill({ status: 503, json: { detail: "engine away" } });
+    }
+    return route.fulfill({ json: list });
+  });
   await page.goto("/top-picks");
   const rows = page.getByRole("main").getByRole("article");
   await expect(rows).toHaveCount(2);
@@ -336,12 +343,23 @@ test("a check that makes a pick while Top picks sits open offers it when the per
   state = healthyState({ unseen_pick: true });
   await leaveAndComeBack(page);
 
+  const failure = page.getByRole("status").filter({ hasText: msg("picks-refresh-failed") });
+  const retry = failure.getByRole("button", { name: msg("common-try-again") });
+  await expect(retry).toBeVisible();
+  await retry.press("Enter");
+  await expect.poll(() => failures).toBe(2);
+  await expect(retry).toBeFocused();
+  await expect(rows).toHaveCount(2);
+  await retry.press("Enter");
+
   const offer = page.getByRole("status").filter({ hasText: msg("picks-fresh-more", { count: 1 }) });
   await expect(offer).toBeVisible();
   await expect(railItem(page).locator(".rail-badge-dot")).toBeVisible();
   await expect(rows).toHaveCount(2);
 
-  await offer.getByRole("button", { name: msg("radar-board-fresh-show") }).click();
+  const accept = offer.getByRole("button", { name: msg("radar-board-fresh-show") });
+  await expect(accept).toBeFocused();
+  await accept.press("Enter");
   await expect(rows).toHaveCount(3);
   await expect(rows.first()).toContainText("Director of Engineering, Ledger");
   await expect(offer).toHaveCount(0);

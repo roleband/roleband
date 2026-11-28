@@ -754,7 +754,9 @@ from the palette and from every link to it. The only mark on the side bar is
 Top picks' dot; a count lit most days says nothing. On Top picks itself, a
 pick that arrives while the list is open is offered as the list's update, as a
 scan's end is on the Radar, and never moves a row under the reader; taking it
-counts as opening Top picks and puts the dot out. Top picks keeps the Radar's
+counts as opening Top picks and puts the dot out. If the update read fails,
+Try again keeps the current list in place. The refreshed list waits for
+Show the update. Top picks keeps the Radar's
 Showing control at the foot of its filters, with two positions: its picks, and
 the picks the person marked Not for me, each with the assistant's reasons,
 what the person said and Put it back, its one way back: the row itself
