@@ -493,15 +493,16 @@ async def test_a_closed_or_unknown_run_takes_no_verdict(api_client, db_session, 
     assert status["routine"]["last_run"]["note"] == "The plan's limit was reached."
 
 
-async def test_a_run_open_past_the_bound_reads_as_abandoned_and_takes_no_write(api_client, db_session, workspace):
+async def test_a_run_open_past_the_bound_reads_as_abandoned_and_takes_no_work(api_client, db_session, workspace):
     jobs = workspace["jobs"]
-    run = await _begin(api_client)
+    run = await _begin(api_client, limit=1)
     await db_session.execute(update(PickRun).where(PickRun.id == run["run"]).values(
         started_at=datetime.now(UTC) - ABANDONED_AFTER - timedelta(minutes=1),
     ))
     await db_session.commit()
 
     for answer in (
+        await _read(api_client, "/picks/runs/next", run=run["run"], cursor=1),
         await _write(api_client, "POST", "/picks/runs/finish", {"run": run["run"], "outcome": "finished"}),
         await _decide(api_client, run, [_pick(jobs["staff"])]),
         await _write(api_client, "PATCH", "/brief", {
@@ -1439,6 +1440,87 @@ async def test_pausing_in_the_app_starts_no_run_and_keeps_everything_saved(api_c
     assert resumed.json()["state"] == "on"
     assert (await _begin(api_client))["run"].startswith("run_")
     assert (await api_client.put("/api/picks/mode", json={"state": "paused"})).status_code == 422
+
+
+@pytest.mark.parametrize("entry_point", ["app", "agent"])
+async def test_pause_closes_active_routine_work_but_keeps_trials_and_saved_verdicts(
+    api_client, db_session, workspace, entry_point,
+):
+    key = _key()
+    run = _data(*await _write(api_client, "POST", "/picks/runs", {"limit": 1}, key=key))
+    first = run["batch"][0]["job"]
+    await _outcomes(api_client, run, [{"job": first, "verdict": "pass", "pass_code": "not_better"}])
+    next_page = _data(*await _read(api_client, "/picks/runs/next", run=run["run"], cursor=1))
+    later = next_page["batch"][0]["job"]
+
+    trial_response = await api_client.post(
+        f"{PREFIX}/picks/runs", json={"limit": 1, "trial": True},
+        headers={IDEMPOTENCY_KEY_HEADER: _key(), "X-RoleBand-Host": "codex"},
+    )
+    trial = _data(trial_response, trial_response.json())
+
+    if entry_point == "app":
+        paused = await api_client.put("/api/picks/mode", json={"state": "off"})
+        assert paused.status_code == 200 and paused.json()["state"] == "off"
+    else:
+        assert _data(*await _write(api_client, "PUT", "/picks/mode", {"state": "off"}))["state"] == "off"
+
+    for response in (
+        await _read(api_client, "/picks/runs/next", run=run["run"], cursor=1),
+        await _decide(api_client, run, [_pick(later)]),
+        await _write(api_client, "POST", "/picks/runs/finish", {"run": run["run"], "outcome": "finished"}),
+        await _write(api_client, "POST", "/picks/runs", {"limit": 1}, key=key),
+        await _write(api_client, "PATCH", "/brief", {
+            "if_revision": 1, "reason": "A pull.", "run": run["run"], "pulls": [{"text": "Payments"}],
+        }),
+    ):
+        assert _refused(*response, "invalid_input")["details"]["reason"] == "run_closed"
+    saved = await _verdicts(db_session)
+    assert [(row.job_id, row.verdict) for row in saved] == [(first, "pass")]
+    async with _fresh(db_session) as session:
+        closed = await session.get(PickRun, run["run"])
+        assert (closed.outcome, closed.note) == ("abandoned", "Top picks was paused.")
+        assert closed.started_at <= closed.finished_at
+
+    trial_page = _data(*await _read(api_client, "/picks/runs/next", run=trial["run"], cursor=1))
+    assert trial_page["batch"]
+    trial_job = trial_page["batch"][0]["job"]
+    assert await _outcomes(api_client, trial, [
+        {"job": trial_job, "verdict": "pass", "pass_code": "not_better"},
+    ]) == {trial_job: None}
+
+    resumed = await api_client.put("/api/picks/mode", json={"state": "on"})
+    assert resumed.status_code == 200 and resumed.json()["health"] == "never_ran"
+    response = await _read(api_client, "/picks/runs/next", run=run["run"], cursor=1)
+    assert _refused(*response, "invalid_input")["details"]["reason"] == "run_closed"
+    assert (await _begin(api_client))["run"] != run["run"]
+
+
+async def test_a_verdict_waiting_on_a_pause_cannot_land_after_it(api_client, db_session, workspace):
+    run = await _begin(api_client)
+    async with _fresh(db_session) as holder:
+        await lock_picks(holder)
+        task = asyncio.create_task(_decide(api_client, run, [_pick(workspace["jobs"]["staff"])]))
+        await until_waiting(db_session.bind, task)
+        assert not task.done(), "the verdict waits for the picks lock"
+        await picks_mode.change(holder, state="off", now=datetime.now(UTC))
+        await holder.commit()
+
+    assert _refused(*await task, "invalid_input")["details"]["reason"] == "run_closed"
+    assert await _verdicts(db_session) == []
+
+
+async def test_a_run_left_open_in_an_already_paused_workspace_cannot_serve_work(api_client, db_session, workspace):
+    run = await _begin(api_client, limit=1)
+    await update_top_picks_settings(db_session, state="off")
+    await db_session.commit()
+
+    response = await _read(api_client, "/picks/runs/next", run=run["run"], cursor=1)
+    assert _refused(*response, "invalid_input")["details"]["reason"] == "run_closed"
+
+    assert (await api_client.put("/api/picks/mode", json={"state": "on"})).status_code == 200
+    response = await _read(api_client, "/picks/runs/next", run=run["run"], cursor=1)
+    assert _refused(*response, "invalid_input")["details"]["reason"] == "run_closed"
 
 
 async def test_the_app_cannot_switch_on_a_mode_that_was_never_set_up(api_client, db_session, scratch_scope):

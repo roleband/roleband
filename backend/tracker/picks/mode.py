@@ -1,9 +1,8 @@
 """The mode, as the person changes it in the app: on, off, opened, removed.
 
-Turning the mode off pauses the checks: no run of the routine begins, and
-everything saved is kept. Remove is the person taking back what they gave: the
-stored CV, every reading of it, the brief, and what past verdicts say, since a
-reason quotes their own facts. It leaves their saved roles, their Not for me
+Turning the mode off closes the routine's open runs and keeps saved verdicts.
+Remove clears the stored CV, every reading of it, the brief, and what past
+verdicts say about the person. It leaves their saved roles, their Not for me
 marks and the Board's own data where they are, and returns the mode to never
 set up.
 
@@ -13,7 +12,7 @@ Nothing here commits: the caller owns the transaction.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -45,21 +44,27 @@ class Removed:
 
 
 async def change(
-    session: AsyncSession, *, state: str | None = None, now: datetime, **also: object,
+    session: AsyncSession, *, state: str | None = None, now: datetime | None = None, **also: object,
 ) -> TopPicksSettings:
     """Change the mode's settings: `state` on or off, and any other part named
     (the daily limit, the routine's host and schedule). A part left out stays.
     Turning the mode on from any other state records when: a role open before
-    then has waited for a judgment only since then. Off deletes nothing. Raises `BriefRequired`
-    for on without an active brief and ValueError for a limit out of range."""
+    then has waited for a judgment only since then. Off closes open routine
+    runs and keeps their verdicts. Raises `BriefRequired` for on without an
+    active brief and ValueError for a limit out of range."""
     await lock_picks(session)
     before = await get_top_picks_settings(session)
     if state == "on" and await briefs.active(session) is None:
         raise BriefRequired
+    now = now or datetime.now(UTC)
+    restarting = state == "on" and before.state != "on"
+    if state == "off" or restarting:
+        # An open routine run cannot carry work across a paused interval.
+        await runs.close_open(session, now, note="Top picks was paused.", routine_only=True)
     changes: dict[str, object] = dict(also)
     if state is not None:
         changes["state"] = state
-    if state == "on" and before.state != "on":
+    if restarting:
         changes["enabled_at"] = now
     return await update_top_picks_settings(session, **changes) if changes else before
 
@@ -124,6 +129,8 @@ async def standing(
     if fact is not None and not (newest is not None and newest.outcome is None and fact.outcome is not None):
         closed = await runs.newest_closed_routine_run(session)
         fact = runs.as_fact(closed, now) if closed is not None else None
+    if fact is not None and settings.enabled_at is not None and fact.started_at < settings.enabled_at:
+        fact = None
     return Standing(
         health=health(
             state=settings.state,

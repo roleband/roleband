@@ -1054,6 +1054,7 @@ async def picks_begin(
     return await op.write(
         lambda: picks.begin(op.session, params, host=op.host, withheld=kept),
         shown=lambda result: picks.shown_begin(result, kept),
+        on_replay=lambda result: picks.replayed_begin(op.session, result, kept),
         described=picks.RunActivity(),
     )
 
