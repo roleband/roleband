@@ -33,7 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from tracker.company_store import off_board_company_slugs
-from tracker.db.models import Favorite, Job, JobFeedback, PickVerdict, Pursuit
+from tracker.db.models import Favorite, Job, JobFeedback, PickRun, PickVerdict, Pursuit
 from tracker.db.queries.jobs import apply_job_filters, listed_since
 from tracker.lineage.counts import is_new_job_clause, place_set_member_in
 from tracker.picks.brief import BriefBody, Rule, checkable_rules
@@ -127,6 +127,15 @@ def candidates(
     if trial:
         return stmt
     return stmt.where(not_(_case_closed(active_version, now)))
+
+
+async def eligible_in_run(
+    session: AsyncSession, run: PickRun, ids: list[int], *, body: BriefBody, now: datetime,
+) -> Select[Any]:
+    """Current queue eligibility for requested postings under the run's brief."""
+    stmt = candidates(await board_filters(session), trial=run.trial, active_version=run.brief_version, now=now)
+    # Explicit by-ID browse filters bypass visibility and place-set collapse.
+    return stmt.where(Job.id.in_(ids), not_(ruled_out(body)))
 
 
 @dataclass(frozen=True)

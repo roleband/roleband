@@ -33,6 +33,7 @@ from tracker.db.models import (
     Favorite,
     Job,
     JobFeedback,
+    JobLineage,
     JobPlaceSet,
     JobPlaceSetMember,
     PickBrief,
@@ -424,6 +425,8 @@ async def test_a_replay_under_the_same_key_saves_nothing_twice_and_a_new_key_is_
         )
     assert listed == 1, "a replay changed nothing and lists nothing"
 
+    page = _data(*await _read(api_client, "/picks/runs/next", run=run["run"], cursor=0))
+    assert jobs["staff"] not in {posting["job"] for posting in page["batch"]}
     assert await _outcomes(api_client, run, [_pick(jobs["staff"])]) == {jobs["staff"]: "already_judged"}
     assert len(await _verdicts(db_session)) == 1
     # The same key with another request is a conflict, never a second write.
@@ -441,6 +444,136 @@ async def test_beginning_again_under_the_same_key_answers_the_same_run(api_clien
         assert await session.scalar(select(func.count()).select_from(PickRun)) == 1
 
 
+@pytest.mark.parametrize("change", ["closed", "dismissed", "sibling_dismissed", "scope", "hidden", "hard_rule"])
+async def test_a_posting_that_leaves_the_live_queue_is_skipped_and_refused(api_client, db_session, workspace, change):
+    staff, lead, principal = (workspace["jobs"][name] for name in ("staff", "lead", "principal"))
+    now = workspace["now"]
+    await db_session.execute(update(Job).where(Job.id == lead).values(first_seen=now - timedelta(hours=1)))
+    await db_session.execute(update(Job).where(Job.id == staff).values(first_seen=now - timedelta(hours=2)))
+    dismissed = staff
+    if change == "sibling_dismissed":
+        sibling = make_job(
+            "staff-nyc", title="Staff Product Manager, Pricing", content_hash="h-staff-nyc",
+            first_seen=now - timedelta(hours=1), locations=["New York, NY, USA"], location_groups=["nyc"],
+        )
+        place_set = JobPlaceSet(company="google", title="staff product manager pricing", text_hash="0" * 32,
+                                size=2, places=["Mountain View, CA, USA", "New York, NY, USA"], rule_version="t1")
+        db_session.add_all([sibling, place_set])
+        await db_session.flush()
+        db_session.add_all([JobPlaceSetMember(job_id=job, set_id=place_set.id, status="auto")
+                            for job in (staff, sibling.id)])
+        dismissed = sibling.id
+    await db_session.commit()
+
+    run = await _begin(api_client, limit=1)
+    assert run["batch"][0]["job"] == lead and run["next_cursor"] == 1
+    page = {"run": run["run"], "cursor": run["next_cursor"]}
+    before = _data(*await _read(api_client, "/picks/runs/next", **page))
+    assert [(row["job"], row["fit_rank"]) for row in before["batch"]] == [(staff, 2), (principal, 3)]
+
+    if change in {"dismissed", "sibling_dismissed"}:
+        response = await api_client.put(f"/api/jobs/{dismissed}/feedback", json={"verdict": "dismissed"})
+        assert response.status_code == 200
+    else:
+        async with _fresh(db_session) as session:
+            if change == "hidden":
+                await session.execute(update(TrackedCompany).where(TrackedCompany.slug == "google").values(visible=False))
+            else:
+                metadata = {
+                    "closed": {"status": "closed"}, "scope": {"in_scope": False},
+                    "hard_rule": {"disclosed_base_min": 150_000, "disclosed_base_max": 190_000},
+                }
+                await session.execute(update(Job).where(Job.id == staff).values(**metadata[change]))
+            await session.commit()
+    async with _fresh(db_session) as session:
+        assert await session.scalar(select(Job.content_hash).where(Job.id == staff)) == "h-staff"
+
+    after = _data(*await _read(api_client, "/picks/runs/next", **page))
+    assert (after["batch"], after["count"], after["next_cursor"]) == ([before["batch"][1]], 1, None)
+    assert await _outcomes(api_client, run, [_pick(staff), _pick(principal)]) == {
+        staff: "posting_ineligible", principal: None,
+    }
+    assert [row.job_id for row in await _verdicts(db_session)] == [principal]
+
+
+async def test_an_empty_window_advances_and_a_begin_replay_keeps_its_original_cursor(api_client, db_session, workspace):
+    request, key = {"limit": 1}, _key()
+    first = _data(*await _write(api_client, "POST", "/picks/runs", request, key=key))
+    run, initial_cursor = first["run"], first["next_cursor"]
+    middle = _data(*await _read(api_client, "/picks/runs/next", run=run, cursor=initial_cursor, limit=1))
+    for posting in (first["batch"][0], middle["batch"][0]):
+        response = await api_client.put(f"/api/jobs/{posting['job']}/feedback", json={"verdict": "dismissed"})
+        assert response.status_code == 200
+
+    response, body = await _write(api_client, "POST", "/picks/runs", request, key=key)
+    assert body["meta"]["replayed"] is True
+    assert _data(response, body) == {**first, "batch": [], "count": 0}
+    async with _fresh(db_session) as session:
+        assert await session.scalar(select(func.count()).select_from(PickRun)) == 1
+        stored = await session.scalar(select(CommandReceipt.result).where(CommandReceipt.idempotency_key == key))
+        assert stored == first
+
+    skipped = _data(*await _read(api_client, "/picks/runs/next", run=run, cursor=initial_cursor, limit=1))
+    assert (skipped["batch"], skipped["count"], skipped["next_cursor"]) == ([], 0, 2)
+    assert skipped["continue_with"] == [{"operation": "picks.next", "arguments": {"run": run, "cursor": 2}}]
+    final = _data(*await _read(api_client, "/picks/runs/next", run=run, cursor=skipped["next_cursor"], limit=1))
+    assert (final["count"], final["batch"][0]["fit_rank"], final["next_cursor"]) == (1, 3, None)
+    still_eligible = final["batch"][0]["job"]
+    assert await _outcomes(api_client, first, [_pick(still_eligible)]) == {still_eligible: None}
+
+
+async def test_a_trial_still_takes_judged_roles_but_skips_roles_that_leave_the_radar(api_client, db_session, workspace):
+    staff, lead = (workspace["jobs"][name] for name in ("staff", "lead"))
+    routine = await _begin(api_client)
+    assert await _outcomes(api_client, routine, [_pick(staff)]) == {staff: None}
+    trial = await _begin(api_client, trial=True)
+    assert {staff, lead} <= {posting["job"] for posting in trial["batch"]}
+    response = await api_client.put(f"/api/jobs/{lead}/feedback", json={"verdict": "dismissed"})
+    assert response.status_code == 200
+
+    page = _data(*await _read(api_client, "/picks/runs/next", run=trial["run"], cursor=0))
+    assert page["batch"] == [posting for posting in trial["batch"] if posting["job"] != lead]
+    assert await _outcomes(api_client, trial, [_pick(staff), _pick(lead)]) == {staff: None, lead: "posting_ineligible"}
+    assert [(row.job_id, row.trial) for row in await _verdicts(db_session)] == [(staff, False), (staff, True)]
+
+
+@pytest.mark.parametrize("group", ["duplicate_stack", "place_set"])
+async def test_a_new_representative_outside_the_run_can_displace_a_queued_member(api_client, db_session, workspace, group):
+    staff = workspace["jobs"]["staff"]
+    run = await _begin(api_client)
+    assert staff in {posting["job"] for posting in run["batch"]}
+    async with _fresh(db_session) as session:
+        peer = make_job(
+            "staff-nyc", title="Staff Product Manager, Pricing", content_hash="h-staff-nyc",
+            first_seen=workspace["now"] - timedelta(days=1), locations=["New York, NY, USA"], location_groups=["nyc"],
+        )
+        session.add(peer)
+        await session.flush()
+        if group == "duplicate_stack":
+            lineage = JobLineage(company="google", root_job_id=staff, size=2, open_members=2,
+                                 first_seen=peer.first_seen, last_seen=workspace["now"])
+            session.add(lineage)
+            await session.flush()
+            peer.lineage_id, peer.lineage_seq, peer.lineage_role = lineage.id, 2, "duplicate"
+            await session.execute(update(Job).where(Job.id == staff).values(
+                lineage_id=lineage.id, lineage_seq=1, lineage_role="original",
+            ))
+        else:
+            place_set = JobPlaceSet(company="google", title="staff product manager pricing", text_hash="0" * 32,
+                                    size=2, places=["Mountain View, CA, USA", "New York, NY, USA"], rule_version="t1")
+            session.add(place_set)
+            await session.flush()
+            session.add_all([JobPlaceSetMember(job_id=job, set_id=place_set.id, status="auto")
+                             for job in (staff, peer.id)])
+        await session.commit()
+
+    page = _data(*await _read(api_client, "/picks/runs/next", run=run["run"], cursor=0))
+    assert page["batch"] == [posting for posting in run["batch"] if posting["job"] != staff]
+    assert await _outcomes(api_client, run, [_pick(staff), _pick(peer.id)]) == {
+        staff: "posting_ineligible", peer.id: "not_in_run",
+    }
+
+
 async def test_a_posting_outside_the_run_or_changed_since_it_began_is_refused(api_client, db_session, workspace):
     jobs = workspace["jobs"]
     run = await _begin(api_client)
@@ -448,6 +581,8 @@ async def test_a_posting_outside_the_run_or_changed_since_it_began_is_refused(ap
         await session.execute(update(Job).where(Job.id == jobs["staff"]).values(content_hash="h-staff-rewritten"))
         await session.commit()
 
+    page = _data(*await _read(api_client, "/picks/runs/next", run=run["run"], cursor=0))
+    assert page["batch"] == [posting for posting in run["batch"] if posting["job"] != jobs["staff"]]
     assert await _outcomes(api_client, run, [
         _pick(jobs["staff"]), _pick(jobs["underpaid"]), _pick(987_654), _pick(jobs["principal"]),
     ]) == {
@@ -1280,12 +1415,19 @@ async def test_a_batch_leaves_the_estimate_out_while_market_statistics_are_not_s
         return {posting["estimated_pay"]["base_median"] if posting["estimated_pay"] else None for posting in batch}
 
     # Two postings in the run's first answer and one read on: every way a batch is answered.
-    shared = await _begin(api_client, limit=2)
+    key = _key()
+    shared = _data(*await _write(api_client, "POST", "/picks/runs", {"limit": 2}, key=key))
     shared_rest = _data(*await _read(api_client, "/picks/runs/next", run=shared["run"], cursor=2))["batch"]
     assert bases(shared["batch"]) | bases(shared_rest) == estimates
     assert None not in bases(shared["batch"]) and None not in bases(shared_rest)
     # Samples are drawn from the whole Board: the fourth role has no estimate to show.
     assert bases(_data(*await _read(api_client, "/picks/samples"))["samples"]) == estimates | {None}
+
+    await _choose(db_session, market_statistic="not_shared")
+    replayed = _data(*await _write(api_client, "POST", "/picks/runs", {"limit": 2}, key=key))
+    assert replayed["run"] == shared["run"] and bases(replayed["batch"]) == {None}
+    await _choose(db_session, public_posting="not_shared")
+    _refused(*await _write(api_client, "POST", "/picks/runs", {"limit": 2}, key=key), "category_disabled")
 
     await _choose(db_session, market_statistic="not_shared")
     kept = await _begin(api_client, limit=2)

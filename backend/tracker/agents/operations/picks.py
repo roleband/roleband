@@ -428,7 +428,7 @@ class VerdictItem(Shape):
     verdict: VerdictKind = Field(json_schema_extra=_CODE)
     outcome: Literal["saved", "refused"] = Field(json_schema_extra=_CODE)
     #: Why an item was refused: `not_in_run`, `brief_changed`, `posting_changed`,
-    #: `already_judged`, `incomplete`, `too_many_reasons`, `too_long`,
+    #: `already_judged`, `posting_ineligible`, `incomplete`, `too_many_reasons`, `too_long`,
     #: `not_plain_text`, `unknown_brief_item`, `weaker_than_baseline` or `not_for_a_pass`.
     refusal: str | None = Field(default=None, json_schema_extra=_CODE)
 
@@ -960,12 +960,28 @@ async def _read_open_run(session: AsyncSession, run_id: str, now: datetime | Non
         raise _run_refusal(error) from None
 
 
+async def _eligible_run_postings(
+    session: AsyncSession, run: PickRun, ids: list[int], now: datetime,
+) -> dict[int, Job]:
+    if not ids:
+        return {}
+    body = briefs.body_of(await briefs.version(session, run.brief_version))
+    stmt = await queue.eligible_in_run(session, run, ids, body=body, now=now)
+    handed = runs.queue_of(run)
+    return {
+        job.id: job for job in (await session.scalars(stmt)).all()
+        if (job.content_hash or "") == handed.get(job.id)
+    }
+
+
 async def replayed_begin(session: AsyncSession, result: RunStart, withheld: Collection[DataClass]) -> RunStart:
     """Reading the first batch again requires a run that can still serve it."""
     if "public_posting" in withheld:
         raise category_disabled("public_posting")
-    await _read_open_run(session, result.run)
-    return result
+    run = await _read_open_run(session, result.run)
+    eligible = await _eligible_run_postings(session, run, [posting.job for posting in result.batch], datetime.now(UTC))
+    batch = [posting for posting in result.batch if posting.job in eligible]
+    return result.model_copy(update={"batch": batch, "count": len(batch)})
 
 
 async def next_batch(
@@ -974,14 +990,10 @@ async def next_batch(
     run = await _read_open_run(session, params.run, now)
     now = now or datetime.now(UTC)
     ids = [int(job_id) for job_id, _ in run.queue]
-    handed = runs.queue_of(run)
     window = ids[params.cursor : params.cursor + params.limit]
-    found = {job.id: job for job in (await session.scalars(select(Job).where(Job.id.in_(window)))).all()} if window else {}
-    # A posting whose text changed since the run began is left out: a verdict
-    # on its new text would be refused, and the next run hands it out again.
+    found = await _eligible_run_postings(session, run, window, now)
     kept = [
-        (params.cursor + offset + 1, found[job_id]) for offset, job_id in enumerate(window)
-        if job_id in found and (found[job_id].content_hash or "") == handed[job_id]
+        (params.cursor + offset + 1, found[job_id]) for offset, job_id in enumerate(window) if job_id in found
     ]
     end = params.cursor + len(window)
     more = end < len(ids)

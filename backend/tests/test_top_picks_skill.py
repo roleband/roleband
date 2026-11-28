@@ -395,16 +395,20 @@ def test_the_routine_reads_the_next_cursor_from_the_answer_that_handed_the_batch
     assert "(`picks begin` or `picks next`; `picks decide` has none)" in step
 
 
-def test_the_routine_applies_the_reactions_before_it_can_stop_for_an_empty_batch():
+def test_the_routine_applies_reactions_and_follows_the_cursor_on_an_empty_batch():
     """`picks begin` hands the reactions that came after the last finished
     run started, so a run that finishes without applying them loses them."""
     routine = _section(FILES["SKILL.md"], "## The routine")
     steps = re.split(r"^\d\. ", routine, flags=re.MULTILINE)[1:]
     reactions = next(number for number, step in enumerate(steps, 1) if "`data.reactions`" in step)
     empty = next(number for number, step in enumerate(steps, 1) if "`data.batch` is empty" in step)
-    assert reactions < empty
+    decide = next(number for number, step in enumerate(steps, 1) if "| roleband picks decide" in step)
+    paging = next(number for number, step in enumerate(steps, 1) if "`data.next_cursor`" in step)
     finish = next(number for number, step in enumerate(steps, 1) if "roleband picks finish" in step)
-    assert f"go to step {finish}" in steps[empty - 1]
+    assert reactions < empty < decide < paging < finish
+    assert f"go to step {paging}" in steps[empty - 1]
+    assert f"repeat from step {empty}" in steps[paging - 1]
+    assert f"If it is null, go to step {finish}" in steps[paging - 1]
 
 
 def test_the_scheduled_task_asks_for_the_writes_by_name():

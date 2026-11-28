@@ -116,6 +116,7 @@ Each item of `data.results` is `saved` or `refused`, with the code in
 | `already_judged` | It has a verdict for this text and brief already: leave it |
 | `not_in_run` | It was not handed to this run: leave it |
 | `posting_changed` | Its text changed since the run began: leave it; the next run hands it again |
+| `posting_ineligible` | It no longer qualifies for the queue. Leave it and continue |
 | `brief_changed` | The person changed the brief during the run: finish the run; the next run judges under the new brief |
 
 ## Hold to these
