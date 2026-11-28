@@ -6,7 +6,8 @@
 //
 // Setup starts on the Top picks screen, so a successful read before setup
 // leaves no card here.
-import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useCallback, useId, useState, type FormEvent } from "react";
+import { useAsyncResource } from "../../hooks/useAsyncResource";
 import { api, type PicksState } from "../../api";
 import { errorText } from "../../api/errorText";
 import { numberInput, parseNumber, relative } from "../../copy/format";
@@ -85,66 +86,41 @@ interface Failure {
 
 const failureText = ({ cause, fallback }: Failure) => errorText(cause, fallback());
 
-type CardState =
-  | { status: "loading" }
-  | { status: "failed"; error: Error }
-  | { status: "ready"; data: PicksState | null };
-
 export function TopPicksCard() {
-  const [result, setResult] = useState<CardState>({ status: "loading" });
+  // The hook's generations drop a read that a retry or a remount superseded.
+  // A save or Remove only runs once a read has settled, so its answer, put in
+  // with `mutate`, is never overwritten by a read still in flight.
+  const settings = useAsyncResource(() => api.picksState(), []);
+  const { mutate } = settings;
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<Failure | null>(null);
   const [removing, setRemoving] = useState(false);
   const headingId = useId();
 
-  // A read can predate a preference write or removal. Only a read that
-  // has not been superseded can publish its result.
-  const requests = useRef(0);
-  const load = useCallback(async () => {
-    const ticket = ++requests.current;
-    setResult({ status: "loading" });
-    try {
-      const next = await api.picksState();
-      if (requests.current === ticket) setResult({ status: "ready", data: next });
-    } catch (error) {
-      if (requests.current === ticket) {
-        setResult({ status: "failed", error: error instanceof Error ? error : new Error() });
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-    return () => { requests.current += 1; };
-  }, [load]);
-
   const save = useCallback(async (write: () => Promise<PicksState>, failed: () => string) => {
-    requests.current += 1;
     setSaving(true);
     setSaveError(null);
     try {
       const next = await write();
-      requests.current += 1;
-      setResult({ status: "ready", data: next });
+      mutate(() => next);
     } catch (e) {
       setSaveError({ cause: e, fallback: failed });
     } finally {
       setSaving(false);
     }
-  }, []);
+  }, [mutate]);
 
   const onRemoved = useCallback(() => {
-    requests.current += 1;
     setRemoving(false);
-    setResult({ status: "ready", data: null });
-  }, []);
+    mutate(() => null);
+  }, [mutate]);
 
-  if (result.status === "loading") return <ResourceLoadState error={null} />;
-  if (result.status === "failed") {
-    return <ResourceLoadState error={result.error} failed={aiTopPicksCardLoadFailed()} onRetry={() => void load()} />;
+  if (settings.loading) return <ResourceLoadState error={null} />;
+  if (settings.error) {
+    return <ResourceLoadState error={settings.error} failed={aiTopPicksCardLoadFailed()} onRetry={settings.retry} />;
   }
 
-  const state = result.data;
+  const state = settings.data;
   if (state == null || state.state === "never_set_up") return null;
 
   const on = state.state === "on";
