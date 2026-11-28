@@ -8,10 +8,16 @@ comes from the `baseline_database` fixture (`tests/upgrade_rehearsal.py`).
 
 from __future__ import annotations
 
+import json
 import re
 import sys
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
+from datetime import datetime
 from pathlib import Path
+from time import monotonic, sleep
 
+import psycopg2
 import pytest
 
 from tests import skip_policy
@@ -294,53 +300,193 @@ def test_a_downgrade_past_the_application_pipeline_refuses_what_it_would_lose(
     assert run_psql(dsn, bin_dir, "select version_num from alembic_version") == "a7d2f4c9e1b6"
 
 
+_STEPS_REVISION = "4597fa526e25"
+_STEPS_PARENT = "75621deaf209"
+_STEPS_TABLES = ("pursuits", "pursuit_steps", "notifications")
+_REVISION_QUERY = "select version_num from alembic_version"
+_ROWS_QUERY = "select coalesce(jsonb_agg(to_jsonb(t) order by id), '[]'::jsonb) from {table} t"
+_STEP_REMINDER = """
+insert into notifications
+  (created_at, priority, category, title, body, job_id, source_type, source_id, read_at, dismissed_at, meta)
+select '2026-06-02 09:00+00', 'high', 'pursuit_due', 'Follow up', 'Email the recruiter', job_id,
+  '{source_type}', {source_id}, '2026-06-02 10:00+00', '2026-06-02 11:00+00',
+  '{{"due_at": "2026-06-01T09:00:00+00:00", "days_overdue": 1}}'::jsonb
+from pursuits
+"""
+_LEGACY_COLLISION = """
+insert into notifications (created_at, priority, category, title, source_type, source_id, meta)
+select now(), 'normal', 'pursuit_due', 'Existing reminder', 'pursuit', id, '{}'::jsonb from pursuits
+"""
+
+
+def _rows(dsn, bin_dir, table):
+    return json.loads(run_psql(dsn, bin_dir, _ROWS_QUERY.format(table=table)))
+
+
+def _seed_open_step_with_reminder(baseline_database):
+    env, dsn, bin_dir = baseline_database
+    result = run_alembic(env, "upgrade", _STEPS_REVISION)
+    assert result.returncode == 0, (result.stderr + result.stdout)[-2000:]
+    _seed(dsn, bin_dir)
+    run_psql(dsn, bin_dir, """
+        insert into pursuit_steps (pursuit_id, text, due)
+        select id, 'Email the recruiter', '2026-06-01 09:00+00' from pursuits
+    """)
+    run_psql(dsn, bin_dir, _STEP_REMINDER.format(source_type="step", source_id="(select id from pursuit_steps)"))
+
+
 @pytest.mark.parametrize(
     ("write", "said"),
     [
         (
-            "insert into pursuit_steps (pursuit_id, text, done_at) select id, 'Sent', now() from pursuits",
+            "update pursuit_steps set done_at = now()",
             "ticked next steps would be lost",
         ),
         (
-            "insert into pursuit_steps (pursuit_id, text) select id, 'One' from pursuits;"
-            " insert into pursuit_steps (pursuit_id, text) select id, 'Two' from pursuits",
+            "insert into pursuit_steps (pursuit_id, text) select id, 'Second step' from pursuits",
             "pursuits with several next steps would be lost",
         ),
+        (
+            "insert into notifications (created_at, priority, category, title, source_type, source_id, meta)"
+            " values (now(), 'high', 'pursuit_due', 'Detached reminder', 'step', 999999, '{}'::jsonb)",
+            "orphaned step reminders",
+        ),
+        (_LEGACY_COLLISION, "legacy notification keys"),
     ],
-    ids=["ticked", "several"],
+    ids=["ticked", "several", "orphan", "collision"],
 )
-def test_a_downgrade_past_pursuit_steps_refuses_the_steps_it_would_drop(baseline_database, write, said):
-    """The old columns hold one step: a ticked step or a second one has no
-    place there, so the downgrade stops with every step in place."""
+def test_a_downgrade_past_pursuit_steps_preserves_rows_on_refusal(baseline_database, write, said):
     env, dsn, bin_dir = baseline_database
-    result = run_alembic(env, "upgrade", "4597fa526e25")
-    assert result.returncode == 0, (result.stderr + result.stdout)[-2000:]
-    _seed(dsn, bin_dir)
+    _seed_open_step_with_reminder(baseline_database)
     run_psql(dsn, bin_dir, write)
-    held = run_psql(dsn, bin_dir, "select count(*) from pursuit_steps")
+    held = [_rows(dsn, bin_dir, table) for table in _STEPS_TABLES]
 
     result = run_alembic(env, "downgrade", "-1")
 
     assert result.returncode != 0
-    assert said in result.stderr
-    assert run_psql(dsn, bin_dir, "select count(*) from pursuit_steps") == held
-    assert run_psql(dsn, bin_dir, "select version_num from alembic_version") == "4597fa526e25"
+    assert said in result.stderr, result.stderr
+    assert run_psql(dsn, bin_dir, _REVISION_QUERY) == _STEPS_REVISION
+    assert [_rows(dsn, bin_dir, table) for table in _STEPS_TABLES] == held
+
+
+def test_pursuit_steps_downgrade_refuses_a_fixed_transaction_snapshot(baseline_database):
+    env, dsn, bin_dir = baseline_database
+    _seed_open_step_with_reminder(baseline_database)
+    held = [_rows(dsn, bin_dir, table) for table in _STEPS_TABLES]
+    run_psql(dsn, bin_dir, """
+        do $$ begin
+            execute format('alter database %I set default_transaction_isolation to %L',
+                           current_database(), 'repeatable read');
+        end $$
+    """)
+
+    result = run_alembic(env, "downgrade", "-1")
+
+    assert result.returncode != 0
+    assert "requires READ COMMITTED isolation" in result.stderr, result.stderr
+    assert run_psql(dsn, bin_dir, _REVISION_QUERY) == _STEPS_REVISION
+    assert [_rows(dsn, bin_dir, table) for table in _STEPS_TABLES] == held
 
 
 def test_a_downgrade_past_pursuit_steps_runs_when_it_loses_nothing(baseline_database):
     env, dsn, bin_dir = baseline_database
-    result = run_alembic(env, "upgrade", "4597fa526e25")
+    result = run_alembic(env, "upgrade", _STEPS_PARENT)
     assert result.returncode == 0, (result.stderr + result.stdout)[-2000:]
+    run_psql(dsn, bin_dir, "select setval(pg_get_serial_sequence('pursuits', 'id'), 41, false)")
     _seed(dsn, bin_dir)
-    run_psql(dsn, bin_dir, "insert into pursuit_steps (pursuit_id, text) select id, 'Only' from pursuits")
+    run_psql(dsn, bin_dir, """
+        update pursuits set next_action = 'Email the recruiter', next_action_due = '2026-06-01 09:00+00';
+        insert into notifications (created_at, priority, category, title, source_type, source_id, meta)
+        select now(), 'normal', 'pursuit_due', 'Quiet pursuit', 'quiet', id, '{}'::jsonb from pursuits
+    """)
+    run_psql(dsn, bin_dir, _STEP_REMINDER.format(source_type="pursuit", source_id="id"))
+    quiet, reminder = _rows(dsn, bin_dir, "notifications")
+    assert reminder["read_at"] is not None and reminder["dismissed_at"] is not None
+
+    result = run_alembic(env, "upgrade", _STEPS_REVISION)
+    assert result.returncode == 0, (result.stderr + result.stdout)[-2000:]
+    (step,) = _rows(dsn, bin_dir, "pursuit_steps")
+    assert step["id"] != reminder["source_id"]
+    assert step["text"] == "Email the recruiter" and step["done_at"] is None
+    assert datetime.fromisoformat(step["due"]) == datetime.fromisoformat(reminder["meta"]["due_at"])
+    assert _rows(dsn, bin_dir, "notifications") == [
+        quiet, {**reminder, "source_type": "step", "source_id": step["id"]}
+    ]
+    run_psql(dsn, bin_dir, """
+        update pursuits set next_action = 'Stale mirror', next_action_due = null;
+        insert into notifications (created_at, priority, category, title, source_type, source_id, meta)
+        select now(), 'normal', 'other', 'Other category', 'pursuit', id, '{}'::jsonb from pursuits
+    """)
+    other = _rows(dsn, bin_dir, "notifications")[-1]
 
     result = run_alembic(env, "downgrade", "-1")
 
     assert result.returncode == 0, (result.stderr + result.stdout)[-2000:]
+    assert run_psql(dsn, bin_dir, _REVISION_QUERY) == _STEPS_PARENT
     assert run_psql(dsn, bin_dir, "select to_regclass('pursuit_steps') is null") == "t"
-    # The step, written without its columns, is in them once the table is gone.
-    assert run_psql(dsn, bin_dir, "select count(*) from pursuits where next_action is distinct from 'Only'") == "0"
-    assert run_psql(dsn, bin_dir, "select count(*) from pursuits") != "0"
+    (pursuit,) = _rows(dsn, bin_dir, "pursuits")
+    assert pursuit["next_action"] == "Email the recruiter"
+    assert pursuit["next_action_due"] == step["due"]
+    assert _rows(dsn, bin_dir, "notifications") == [quiet, reminder, other]
+
+
+@pytest.mark.parametrize(
+    ("table", "mode", "write", "said"),
+    [
+        (
+            "pursuits", "share row exclusive",
+            "insert into pursuit_steps (pursuit_id, text) select id, 'Concurrent step' from pursuits",
+            "pursuits with several next steps would be lost",
+        ),
+        (
+            "notifications", "row exclusive",
+            "select s.id from pursuit_steps s join pursuits p on p.id = s.pursuit_id;" + _LEGACY_COLLISION,
+            "legacy notification keys",
+        ),
+    ],
+    ids=["step-writer", "notification-first"],
+)
+def test_pursuit_steps_downgrade_sees_a_write_committed_at_the_lock_barrier(
+    baseline_database, table, mode, write, said
+):
+    env, dsn, bin_dir = baseline_database
+    _seed_open_step_with_reminder(baseline_database)
+    with (
+        ThreadPoolExecutor(max_workers=1) as pool,
+        closing(psycopg2.connect(dsn, options="-c statement_timeout=30s")) as writer,
+        writer.cursor() as cursor,
+    ):
+        cursor.execute(f"lock table {table} in {mode} mode")
+        downgrade = pool.submit(run_alembic, env, "downgrade", "-1")
+
+        # The writer observes the migration's lock request from the transaction blocking it.
+        deadline = monotonic() + 15
+        while True:
+            cursor.execute("""
+                select exists (
+                    select 1 from pg_locks
+                    where relation = %s::regclass and not granted
+                      and pg_backend_pid() = any(pg_blocking_pids(pid))
+                )
+            """, (table,))
+            if cursor.fetchone()[0]:
+                break
+            assert not downgrade.done(), downgrade.result().stderr
+            assert monotonic() < deadline, f"downgrade did not wait on {table}"
+            sleep(0.01)
+
+        cursor.execute(write)
+        held = []
+        for table_name in _STEPS_TABLES:
+            cursor.execute(_ROWS_QUERY.format(table=table_name))
+            held.append(cursor.fetchone()[0])
+        writer.commit()
+        result = downgrade.result(timeout=30)
+
+    assert result.returncode != 0
+    assert said in result.stderr, result.stderr
+    assert run_psql(dsn, bin_dir, _REVISION_QUERY) == _STEPS_REVISION
+    assert [_rows(dsn, bin_dir, table) for table in _STEPS_TABLES] == held
 
 
 def test_keep_scanning_starts_off_and_a_downgrade_keeps_the_choice_once_made(baseline_database):
