@@ -29,7 +29,8 @@ import { standsBeside, workspaceStage, type WorkspaceSection } from "./workspace
  *  place, so nothing moves when it arrives, and it arrives the moment it has
  *  loaded; a press on that text is a press into the notes, which the editor
  *  takes up with the caret at their end. */
-function Notes({ notes, onSave, loadVersions, tools }: {
+function Notes({ jobId, notes, onSave, loadVersions, tools }: {
+  jobId: number;
   notes: string | null;
   onSave: (notes: string, was: string, putBack?: boolean) => Promise<NotesSaved>;
   loadVersions: () => Promise<NotesVersion[]>;
@@ -73,7 +74,7 @@ function Notes({ notes, onSave, loadVersions, tools }: {
       </div>
     );
   }
-  return <Editor notes={notes} onSave={onSave} loadVersions={loadVersions} tools={tools} focusAtEnd={pressed.current} />;
+  return <Editor jobId={jobId} notes={notes} onSave={onSave} loadVersions={loadVersions} tools={tools} focusAtEnd={pressed.current} />;
 }
 
 export interface WorkspaceProps {
@@ -196,7 +197,10 @@ export function Workspace(props: WorkspaceProps) {
         onRemove={props.onRemoveStep}
       />
     ),
-    notes: () => <Notes notes={notes} onSave={props.onSaveNotes} loadVersions={props.onLoadNotesVersions} tools={notesTools} />,
+    notes: () => (
+      <Notes key={card.job_id} jobId={card.job_id} notes={notes} onSave={props.onSaveNotes}
+             loadVersions={props.onLoadNotesVersions} tools={notesTools} />
+    ),
     activity: () => (
       <ActivityFeed
         items={activity}
