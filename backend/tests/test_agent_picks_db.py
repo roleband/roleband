@@ -46,6 +46,7 @@ from tracker.db.models import (
 from tracker.picks import background as background_store
 from tracker.picks import brief as briefs
 from tracker.picks import mode as picks_mode
+from tracker.picks import runs as picks_runs
 from tracker.picks import setup as setup_store
 from tracker.picks.background import Reading
 from tracker.picks.brief import Patch
@@ -198,7 +199,10 @@ def picks_clock(monkeypatch):
             at = clock["now"]
             return at.replace(tzinfo=None) if tz is None else at.astimezone(tz)
 
-    monkeypatch.setattr(picks_operations, "datetime", _Clock)
+    # The app's mode switch and the run checks read the clock too, so a pause
+    # stamps the same day and hour the run began in.
+    for module in (picks_operations, picks_mode, picks_runs):
+        monkeypatch.setattr(module, "datetime", _Clock)
     return clock
 
 
@@ -1806,6 +1810,7 @@ async def test_pause_closes_active_routine_work_but_keeps_trials_and_saved_verdi
     )
     trial = _data(trial_response, trial_response.json())
 
+    picks_clock["now"] += timedelta(minutes=5)
     if entry_point == "app":
         paused = await api_client.put("/api/picks/mode", json={"state": "off"})
         assert paused.status_code == 200 and paused.json()["state"] == "off"
@@ -1827,7 +1832,7 @@ async def test_pause_closes_active_routine_work_but_keeps_trials_and_saved_verdi
     async with _fresh(db_session) as session:
         closed = await session.get(PickRun, run["run"])
         assert (closed.outcome, closed.note) == ("abandoned", "Top picks was paused.")
-        assert closed.started_at <= closed.finished_at
+        assert closed.started_at < closed.finished_at
 
     trial_page = _data(*await _next(api_client, run=trial["run"], cursor=1))
     assert trial_page["batch"]
@@ -1836,6 +1841,7 @@ async def test_pause_closes_active_routine_work_but_keeps_trials_and_saved_verdi
         {"job": trial_job, "verdict": "pass", "pass_code": "not_better"},
     ]) == {trial_job: None}
 
+    picks_clock["now"] += timedelta(minutes=5)
     resumed = await api_client.put("/api/picks/mode", json={"state": "on"})
     assert resumed.status_code == 200 and resumed.json()["health"] == "never_ran"
     response = await _next(api_client, run=run["run"], cursor=1)
