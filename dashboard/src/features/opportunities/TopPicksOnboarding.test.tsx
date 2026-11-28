@@ -110,6 +110,18 @@ describe("TopPicksOnboarding before the conversation saves anything", () => {
     expect(items[1]).not.toHaveAttribute("aria-current");
   });
 
+  it("names the apps it works with by their own marks, the Codex app's icon included, never a stand-in letter", async () => {
+    renderOnboarding();
+    await settle();
+    const marks = screen.getByRole("img", { name: msg("picks-onboard-works-with") });
+    expect(marks.querySelector("[data-letter]")).toBeNull();
+    expect(marks.querySelector(".ui-company-icon svg path")).not.toBeNull();
+    const codex = marks.querySelector("img");
+    expect(codex?.getAttribute("src")).toMatch(/codex-app\.png/);
+    // The marks are drawn for the eye; the group's name says it once.
+    expect(codex).toHaveAttribute("alt", "");
+  });
+
   it("never promises that nothing comes until new roles arrive", async () => {
     const { container } = renderOnboarding();
     await settle();
