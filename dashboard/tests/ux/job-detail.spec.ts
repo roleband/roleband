@@ -1361,6 +1361,46 @@ const answerNotesSaves = (page: Page) => mockApi(page, "PUT", "/api/jobs/303/pur
   json: { pursuit: { ...appliedPursuit, job_id: 303, notes: route.request().postDataJSON().notes } },
 }));
 
+test("the Workspace recovers notes when autosave fails after leaving the editor", async ({ page }) => {
+  let rejectFirstSave!: () => void;
+  const held = new Promise<void>((resolve) => { rejectFirstSave = resolve; });
+  let savedNotes: string | null = null;
+  const writes: Array<{ notes: string; notes_was: string }> = [];
+  await mockApi(page, "PUT", "/api/jobs/303/pursuit", async (route) => {
+    const { notes, notes_was } = route.request().postDataJSON();
+    writes.push({ notes, notes_was });
+    if (writes.length === 1) {
+      await held;
+      return route.fulfill({ status: 503, json: { detail: "Unavailable" } });
+    }
+    savedNotes = notes;
+    return route.fulfill({ json: { pursuit: { ...longPosting.pursuit, notes: savedNotes } } });
+  });
+
+  const { panel } = await openWorkspace(page, { card: { title: longPosting.title } });
+  await mockGet(page, "/api/jobs/303", (route) => route.fulfill({
+    json: { ...longPosting, pursuit: { ...longPosting.pursuit, notes: savedNotes } },
+  }));
+  const reads = watchReads(page, "GET", "/api/jobs/303");
+  const notes = panel.getByRole("textbox", { name: msg("applications-notes-label") });
+  const draft = "Ask the recruiter about the interview timeline";
+  await notes.click();
+  await page.keyboard.insertText(draft);
+  await panel.getByRole("tab", { name: msg("role-job-detail-tab-posting") }).click();
+  await expect(notes).toHaveCount(0);
+  rejectFirstSave();
+  await expect(page.getByText(msg("applications-change-failed", { title: longPosting.title }))).toBeVisible();
+  await expect.poll(() => reads.answered).toBeGreaterThan(0);
+
+  await panel.getByRole("tab", { name: msg("role-job-detail-tab-workspace") }).click();
+  await expect(notes).toHaveText(draft);
+  await expect.poll(() => savedNotes).toBe(draft);
+  expect(writes).toEqual([
+    { notes: draft, notes_was: "" },
+    { notes: draft, notes_was: "" },
+  ]);
+});
+
 test("the notes' headings step down in size from the first level to the third, all above the text", async ({ page }) => {
   await answerNotesSaves(page);
   const { panel } = await openWorkspace(page);

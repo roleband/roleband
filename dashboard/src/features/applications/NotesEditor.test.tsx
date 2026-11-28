@@ -479,6 +479,80 @@ describe("a save that fails", () => {
     expect(onSave.mock.calls[1][0]).toBe("Met Sam");
   });
 
+  it("recovers the latest unsaved draft for its role after a write fails on leaving", async () => {
+    let land!: (saved: NotesSaved) => void;
+    const onSave = vi.fn<(notes: string, was: string, putBack?: boolean) => Promise<NotesSaved>>()
+      .mockImplementationOnce(() => new Promise((resolve) => { land = resolve; }))
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce({ current: "Met Sam\n\nRemote follow-up" })
+      .mockResolvedValue(true);
+    const first = render(<NotesEditor jobId={101} notes="Met Sam" onSave={onSave} />);
+    await act(() => new Promise((done) => setTimeout(done, 0)));
+    const { editor } = page() as unknown as { editor: Editor };
+    const add = (text: string) => act(async () => {
+      page().focus();
+      editor.chain().focus("end").splitBlock().insertContent(text).run();
+    });
+
+    await add("Question for Pat");
+    await act(async () => page().blur());
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    await add("Check the timeline");
+    first.unmount();
+    await waitFor(() => expect(editor.isDestroyed).toBe(true));
+    await act(async () => land(false));
+
+    const otherSave = vi.fn(async () => true);
+    const other = render(<NotesEditor jobId={102} notes="Another role" onSave={otherSave} />);
+    expect(page()).toHaveTextContent("Another role");
+    expect(page()).not.toHaveTextContent("Check the timeline");
+    other.unmount();
+    expect(otherSave).not.toHaveBeenCalled();
+
+    const second = render(<NotesEditor jobId={101} notes="Met Sam" onSave={onSave} />);
+    expect(page()).toHaveTextContent("Question for Pat");
+    expect(page()).toHaveTextContent("Check the timeline");
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(2));
+    second.unmount();
+
+    const third = render(<NotesEditor jobId={101} notes="Met Sam" onSave={onSave} />);
+    const merged = "Met Sam\n\nQuestion for Pat\n\nCheck the timeline\n\nRemote follow-up";
+    await waitFor(() => expect(onSave.mock.lastCall?.slice(0, 2)).toEqual([merged, "Met Sam\n\nRemote follow-up"]));
+    expect(page()).toHaveTextContent("Remote follow-up");
+    expect(page()).toHaveTextContent("Check the timeline");
+    third.unmount();
+
+    render(<NotesEditor jobId={101} notes="Fresh server text" onSave={onSave} />);
+    expect(page()).toHaveTextContent("Fresh server text");
+    expect(page()).not.toHaveTextContent("Check the timeline");
+  });
+
+  it("waits for a role's in-flight save when its notes are reopened", async () => {
+    let land!: (saved: NotesSaved) => void;
+    const onSave = vi.fn<(notes: string, was: string, putBack?: boolean) => Promise<NotesSaved>>()
+      .mockImplementationOnce(() => new Promise((resolve) => { land = resolve; }))
+      .mockResolvedValue(true);
+    const first = render(<NotesEditor jobId={103} notes="Met Sam" onSave={onSave} />);
+    await act(() => new Promise((done) => setTimeout(done, 0)));
+    await act(async () => {
+      (page() as unknown as { editor: Editor }).editor.chain().focus("end").insertContent(" and Pat").run();
+    });
+    first.unmount();
+    expect(onSave).toHaveBeenCalledTimes(1);
+
+    render(<NotesEditor jobId={103} notes="Met Sam" onSave={onSave} />);
+    expect(page()).toHaveTextContent("Met Sam and Pat");
+    await act(async () => {
+      page().focus();
+      (page() as unknown as { editor: Editor }).editor.chain().focus("end").insertContent(" and Lee").run();
+    });
+    await act(async () => page().blur());
+    expect(onSave).toHaveBeenCalledTimes(1);
+
+    await act(async () => land(true));
+    await waitFor(() => expect(onSave.mock.lastCall?.slice(0, 2)).toEqual(["Met Sam and Pat and Lee", "Met Sam and Pat"]));
+  });
+
   it("says a page longer than can be kept is not saved, and saves it once it is short enough", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn(async (_notes: string) => true);

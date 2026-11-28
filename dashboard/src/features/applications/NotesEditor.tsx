@@ -75,6 +75,36 @@ const checklistFromBullet = Extension.create({
  *  when they changed since the text the save started from. */
 export type NotesSaved = boolean | { current: string };
 
+type SaveNotes = (notes: string, was: string, putBack?: boolean) => Promise<NotesSaved>;
+
+interface NotesDraft {
+  base: string;
+  sent: string;
+  pending: string | null;
+  saving: boolean;
+  puttingBack: number;
+  view: {
+    editor: Editor;
+    save: SaveNotes;
+    merged: () => void;
+    flush: () => void;
+    retry: () => void;
+  } | null;
+}
+
+// Unconfirmed notes belong to the role even while its editor is closed.
+// Keep them in the current tab until the server confirms them or the tab closes.
+const drafts = new Map<number, NotesDraft>();
+
+function retainDraft(jobId: number | undefined, draft: NotesDraft): void {
+  if (jobId === undefined) return;
+  if (draft.saving || draft.pending !== null) {
+    if (!draft.view) drafts.set(jobId, draft);
+  } else if (drafts.get(jobId) === draft) {
+    drafts.delete(jobId);
+  }
+}
+
 /** Markdown as this editor writes it: the same words the person's assistant
  *  or another window wrote, in the editor's own marks, so two versions are
  *  compared line by line on what they say. */
@@ -109,11 +139,12 @@ interface Slash {
  *  them too. Saved as it is typed: a pause or leaving the page saves it.
  *  While the page has focus, what the person types wins over a re-read
  *  that lands meanwhile. */
-export default function NotesEditor({ notes, onSave, loadVersions, tools, focusAtEnd = false }: {
+export default function NotesEditor({ jobId, notes, onSave, loadVersions, tools, focusAtEnd = false }: {
+  jobId?: number;
   notes: string | null;
   /** Saves the notes over `was`, the server's text this page last knew;
    *  `putBack` says they start with an earlier version put back. */
-  onSave: (notes: string, was: string, putBack?: boolean) => Promise<NotesSaved>;
+  onSave: SaveNotes;
   /** Reads the notes' earlier versions; without it the page offers none. */
   loadVersions?: () => Promise<NotesVersion[]>;
   /** Where the way to earlier versions is drawn: the head of the block the
@@ -133,25 +164,18 @@ export default function NotesEditor({ notes, onSave, loadVersions, tools, focusA
   const [leftOut, setLeftOut] = useState(0);
   const slashNow = useRef<Slash | null>(null);
   slashNow.current = slash;
-  // The text the server holds as far as this page knows: what it was given,
-  // or what a save confirmed. Text that differs from it is unsaved.
-  const sent = useRef(notes ?? "");
-  // The server's text itself, as it was given or saved, that a save is
-  // written over: the server refuses one whose notes have moved on since.
-  const base = useRef(notes ?? "");
-  // The notes were changed elsewhere while this page wrote: both are kept,
-  // which is said under the page until the next edit.
+  // The starting server text and the last text confirmed by the server
+  // can differ when the editor normalizes Markdown.
+  const [{ draft, recovering }] = useState(() => {
+    const retained = jobId === undefined ? undefined : drafts.get(jobId);
+    const original = notes ?? "";
+    const draft: NotesDraft = retained ?? {
+      base: original, sent: original, pending: null, saving: false, puttingBack: 0, view: null,
+    };
+    return { draft, recovering: retained !== undefined };
+  });
   const [merged, setMerged] = useState(false);
-  // When the version put back last was written, said until the next edit.
   const [putBack, setPutBack] = useState<string | null>(null);
-  const inFlight = useRef<string | null>(null);
-  // Saves go one at a time, each over the text the last one left: the latest
-  // text written while one is out waits here, and goes once it lands.
-  const waiting = useRef<string | null>(null);
-  // Earlier versions put back and not yet saved: every save starts a writing
-  // session of its own until one that carries them lands, a retry or a
-  // merged save included.
-  const puttingBack = useRef(0);
   const timer = useRef<number | null>(null);
   const save = useRef(onSave);
   save.current = onSave;
@@ -159,75 +183,73 @@ export default function NotesEditor({ notes, onSave, loadVersions, tools, focusA
   const barKeys = useRef<BarKeys | null>(null);
 
   const flush = useMemo(() => {
-    /** Saves `value` over the text the server last confirmed. A save refused
-     *  because the notes were written elsewhere is merged and saved again,
-     *  also once the page has closed, so nothing written on it is lost. */
-    const send = (editor: Editor, value: string) => {
-      inFlight.current = value;
-      const was = base.current;
-      const putBack = puttingBack.current;
-      void save.current(value, was, putBack > 0)
+    const send = (value: string) => {
+      draft.saving = true;
+      const was = draft.base;
+      const putBack = draft.puttingBack;
+      const saveNotes = draft.view?.save ?? save.current;
+      void saveNotes(value, was, putBack > 0)
         .catch((): NotesSaved => false)
         .then((saved) => {
-          inFlight.current = null;
-          const open = !editor.isDestroyed;
-          const next = waiting.current;
-          waiting.current = null;
+          draft.saving = false;
+          const view = draft.view;
           if (saved === true) {
-            puttingBack.current = Math.max(0, puttingBack.current - putBack);
-            sent.current = value;
-            base.current = value.trim() ? value : "";
-            if (next != null && next !== value) send(editor, next);
-            return;
-          }
-          if (saved !== false) {
-            // Written elsewhere meanwhile: what this page wrote since `was` and
-            // what was written there are put together, and that is saved.
-            const written = (text: string) => (open ? asWritten(editor, text) : text);
+            draft.puttingBack = Math.max(0, draft.puttingBack - putBack);
+            draft.sent = value;
+            draft.base = value.trim() ? value : "";
+            if (draft.pending === value) {
+              draft.pending = null;
+              draft.puttingBack = 0;
+            }
+          } else if (saved !== false) {
+            // During a conflict the latest keystrokes can still be waiting
+            // for the debounce. Once closed, the last snapshot holds them.
+            const editor = view?.editor;
+            const written = (text: string) => (editor ? asWritten(editor, text) : text);
             const theirs = written(saved.current);
-            const mine = open ? editor.getMarkdown() : next ?? value;
+            const mine = editor?.getMarkdown() ?? draft.pending ?? value;
             const both = mergeNotes(written(was), mine, theirs);
-            base.current = saved.current;
-            sent.current = theirs;
-            if (!open) {
-              if (both !== theirs) send(editor, both);
+            draft.base = saved.current;
+            draft.sent = theirs;
+            draft.pending = both === theirs ? null : both;
+            if (editor && view) {
+              if (both !== mine) {
+                const { from, to } = editor.state.selection;
+                editor.commands.setContent(both, { contentType: "markdown", emitUpdate: false });
+                const end = editor.state.doc.content.size;
+                editor.commands.setTextSelection({ from: Math.min(from, end), to: Math.min(to, end) });
+              }
+              view.merged();
+              view.flush();
               return;
             }
-            if (both !== mine) {
-              const { from, to } = editor.state.selection;
-              editor.commands.setContent(both, { contentType: "markdown", emitUpdate: false });
-              const end = editor.state.doc.content.size;
-              editor.commands.setTextSelection({ from: Math.min(from, end), to: Math.min(to, end) });
-            }
-            setMerged(true);
-            flush(editor);
+          } else {
+            view?.retry();
+            retainDraft(jobId, draft);
             return;
           }
-          if (next != null) waiting.current = next;
-          if (timer.current == null && open) {
-            timer.current = window.setTimeout(() => flush(editor), RETRY_AFTER_MS);
-          }
+
+          const next = draft.pending;
+          if (next !== null && next.length <= NOTES_MAX) send(next);
+          retainDraft(jobId, draft);
         });
     };
-    const flush = (editor: Editor) => {
+
+    return (editor: Editor) => {
       if (timer.current != null) window.clearTimeout(timer.current);
       timer.current = null;
       const value = editor.getMarkdown();
       setOver(Math.max(0, value.length - NOTES_MAX));
-      if (value.length > NOTES_MAX) return;
-      if (inFlight.current != null) {
-        // Text put back to the words in flight needs nothing more; anything
-        // else, the saved words included, goes once that save lands.
-        waiting.current = value === inFlight.current ? null : value;
-        if (waiting.current == null) puttingBack.current = 0;
-        return;
-      }
-      waiting.current = null;
-      if (value !== sent.current) send(editor, value);
-      else puttingBack.current = 0;
+
+      // An edit back to the last confirmed text still needs a write if a
+      // different value is in flight.
+      draft.pending = draft.saving || value !== draft.sent ? value : null;
+      if (draft.saving) return;
+      if (draft.pending === null) draft.puttingBack = 0;
+      else if (value.length <= NOTES_MAX) send(value);
+      retainDraft(jobId, draft);
     };
-    return flush;
-  }, []);
+  }, [draft, jobId]);
 
   // The "/" menu: the suggestion plugin finds the "/" and what follows it,
   // and hands its state to this component to draw.
@@ -319,7 +341,7 @@ export default function NotesEditor({ notes, onSave, loadVersions, tools, focusA
       slashMenu,
       barShortcuts,
     ],
-    content: notes ?? "",
+    content: draft.pending ?? notes ?? "",
     contentType: "markdown",
     autofocus: focusAtEnd ? "end" : false,
     injectCSS: false,
@@ -359,7 +381,7 @@ export default function NotesEditor({ notes, onSave, loadVersions, tools, focusA
     // The editor writes Markdown its own way, so what it holds at the start is
     // the page's baseline, whatever the stored text looked like.
     onCreate: ({ editor: made }) => {
-      sent.current = made.getMarkdown();
+      if (!recovering && !draft.saving && draft.pending === null) draft.sent = made.getMarkdown();
     },
     onUpdate: ({ editor: typed, transaction }) => {
       if (!transaction.getMeta("paste")) setLeftOut(0);
@@ -371,22 +393,43 @@ export default function NotesEditor({ notes, onSave, loadVersions, tools, focusA
     onBlur: ({ editor: left }) => flush(left),
   });
 
+  useEffect(() => {
+    if (!editor) return;
+    const view: NonNullable<NotesDraft["view"]> = {
+      editor,
+      save: (...args) => save.current(...args),
+      merged: () => setMerged(true),
+      flush: () => flush(editor),
+      retry: () => {
+        if (timer.current == null) timer.current = window.setTimeout(() => flush(editor), RETRY_AFTER_MS);
+      },
+    };
+    draft.view = view;
+    if (recovering) {
+      const latest = draft.pending ?? draft.sent;
+      if (editor.getMarkdown() !== latest) {
+        editor.commands.setContent(latest, { contentType: "markdown", emitUpdate: false });
+      }
+      flush(editor);
+    }
+    return () => {
+      if (timer.current != null) flush(editor);
+      if (draft.view === view) draft.view = null;
+      retainDraft(jobId, draft);
+    };
+  }, [editor, draft, flush, jobId, recovering]);
+
   // A re-read lands on the page only while the person is not writing in it
   // and everything they wrote has been saved.
   useEffect(() => {
     if (!editor || !pageOf(editor)) return;
     const written = editor.getMarkdown();
     const value = notes ?? "";
-    if (editor.isFocused || value === written || written !== sent.current || inFlight.current != null) return;
+    if (editor.isFocused || value === written || written !== draft.sent || draft.saving) return;
     editor.commands.setContent(value, { contentType: "markdown", emitUpdate: false });
-    sent.current = editor.getMarkdown();
-    base.current = value;
-  }, [editor, notes]);
-
-  // Leaving the page saves what is not saved yet.
-  useEffect(() => () => {
-    if (editor && timer.current != null) flush(editor);
-  }, [editor, flush]);
+    draft.sent = editor.getMarkdown();
+    draft.base = value;
+  }, [editor, notes, draft]);
 
   // The page says which block the keyboard is on while the menu is open.
   const chosenId = slash && slash.items.length > 0 ? `${menuId}-${slash.items[slash.chosen].key}` : null;
@@ -421,7 +464,7 @@ export default function NotesEditor({ notes, onSave, loadVersions, tools, focusA
                 // and undone with the editor's own undo.
                 editor.commands.setContent(text, { contentType: "markdown" });
                 setPutBack(when);
-                puttingBack.current += 1;
+                draft.puttingBack += 1;
                 flush(editor);
               }}
             />
