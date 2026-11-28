@@ -462,7 +462,13 @@ test("Showing sits last in the filter column; Not for me lists the removed picks
   const groups = page.locator(".board-filters [role=group]");
   expect(await groups.last().getAttribute("aria-label")).toBe(msg("radar-filter-showing"));
 
+  const markedFacets = page.waitForResponse((response) => {
+    const { pathname, searchParams } = new URL(response.url());
+    return pathname === "/api/facets" && searchParams.get("top_picks") === "true"
+      && searchParams.get("dismissed_only") === "true" && searchParams.get("status") === "";
+  });
   await group.getByRole("button", { name: msg("shared-not-for-me") }).click();
+  expect((await markedFacets).ok()).toBe(true);
   await expect(page).toHaveURL(/\/top-picks\?show=not-for-me$/);
   const row = page.locator(".job-row").filter({ hasText: "Principal Product Manager, Payments" });
   await expect(row.locator(".pick-reasons li")).toHaveCount(3);

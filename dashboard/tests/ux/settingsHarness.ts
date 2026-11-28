@@ -292,7 +292,7 @@ export async function installSettingsRoutes(page: Page) {
   await mockGet(page, "/api/plugins/example-pay", (route) =>
     route.fulfill({ json: pluginDetailFixture({ ...pluginFixture(), runs: [pluginFixture().last_run!] }) }));
   await mockGet(page, "/api/schedule?**", (route) => route.fulfill({ json: syncSchedule }));
-  await mockGet(page, "/api/facets", (route) => route.fulfill({ json: facetsFixture }));
+  await mockGet(page, "/api/facets?**", (route) => route.fulfill({ json: facetsFixture }));
   await mockGet(page, "/api/notifications**", (route) => route.fulfill({ json: notificationsFixture }));
   await mockGet(page, "/api/jobs/101", (route) => route.fulfill({ json: jobFixture }));
   await mockGet(page, "/api/jobs/*/similar**", (route) => route.fulfill({ json: { scope: "cross", items: [] } }));

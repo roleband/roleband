@@ -13743,7 +13743,7 @@
    },
    "FacetCounts": {
     "additionalProperties": false,
-    "description": "Open, in-scope, visible roles per value; a null column value is never a key.",
+    "description": "Visible list rows per value; a null column value is never a key.",
     "properties": {
      "company": {
       "additionalProperties": {
@@ -13833,7 +13833,7 @@
    },
    "FacetsResponse": {
     "additionalProperties": false,
-    "description": "`GET /api/facets`: the board's filter options and their counts.\n\nFamilies and tracks list the whole taxonomy; locations only tracked groups with\nroles; worlds only those with roles, plus `unclassified` when some roles name none.",
+    "description": "`GET /api/facets`: the board's filter options and their counts.\n\nOn Radar, families and tracks list the whole taxonomy. Locations are tracked\ngroups with rows; worlds are those with rows, including `unclassified` when some name none.",
     "properties": {
      "companies": {
       "additionalProperties": {
@@ -50164,7 +50164,7 @@
   },
   "/api/facets": {
    "get": {
-    "description": "Filter-sidebar options with open-job counts. With `top_picks`, the\noptions and counts of the Top picks list: only what the picks contain.",
+    "description": "Filter options and counts for a list's Showing mode.",
     "operationId": "facets_api_facets_get",
     "parameters": [
      {
@@ -50174,6 +50174,32 @@
       "schema": {
        "default": false,
        "title": "Top Picks",
+       "type": "boolean"
+      }
+     },
+     {
+      "in": "query",
+      "name": "status",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Status"
+      }
+     },
+     {
+      "in": "query",
+      "name": "dismissed_only",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Dismissed Only",
        "type": "boolean"
       }
      }

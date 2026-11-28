@@ -60,7 +60,7 @@ export type ParsedQuery = Schemas["ParsedQueryEcho"];
  *  the field descriptions live on the Pydantic model. */
 export type JobList = Schemas["JobListResponse"];
 
-/** `GET /api/facets`: the board's filter options and open-role counts. A location's
+/** `GET /api/facets`: the board's filter options and counts. A location's
  *  `parent` can name a group that is not offered, so an orphan renders at the top
  *  level; a value counting `total` roles narrows nothing. */
 export type Facets = Schemas["FacetsResponse"];
@@ -205,9 +205,8 @@ export const jobsApi = {
   readPostingText: (id: number, retry = false) =>
     postJSON<PostingTextResult>(`/api/jobs/${id}/description${retry ? "?retry=true" : ""}`),
   jobHistory: (id: number, signal?: AbortSignal) => getJSON<ListingHistory>(`/api/jobs/${id}/history`, signal),
-  /** With `topPicks`, only what the picks themselves contain. */
-  facets: (signal?: AbortSignal, topPicks = false) =>
-    getJSON<Facets>(topPicks ? "/api/facets?top_picks=true" : "/api/facets", signal),
+  facets: (signal?: AbortSignal, showing?: Pick<Filters, "top_picks" | "status" | "dismissed_only">) =>
+    getJSON<Facets>(showing ? `/api/facets?${qs(showing, JOBS_MEANINGFUL_EMPTY)}` : "/api/facets", signal),
   similar: (id: number, scope: "within" | "cross" | "all" = "cross", limit = 8, signal?: AbortSignal) =>
     getJSON<SimilarJobs>(`/api/jobs/${id}/similar?scope=${scope}&limit=${limit}`, signal),
   setFavorite: (id: number, on: boolean) =>

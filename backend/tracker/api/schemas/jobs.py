@@ -719,7 +719,7 @@ class LocationFacetOption(Built):
 
 
 class FacetCounts(Built):
-    """Open, in-scope, visible roles per value; a null column value is never a key."""
+    """Visible list rows per value; a null column value is never a key."""
 
     company: dict[str, int]
     level_band: dict[str, int]
@@ -734,8 +734,8 @@ class FacetCounts(Built):
 class FacetsResponse(Built):
     """`GET /api/facets`: the board's filter options and their counts.
 
-    Families and tracks list the whole taxonomy; locations only tracked groups with
-    roles; worlds only those with roles, plus `unclassified` when some roles name none.
+    On Radar, families and tracks list the whole taxonomy. Locations are tracked
+    groups with rows; worlds are those with rows, including `unclassified` when some name none.
     """
 
     companies: dict[str, FacetOption]

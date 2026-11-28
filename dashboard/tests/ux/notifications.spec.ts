@@ -56,7 +56,7 @@ test.beforeEach(async ({ page, isMobile }) => {
   if (!isMobile) await page.setViewportSize({ width: 1600, height: 900 });
   await page.route("/api/stats", (route) => route.fulfill({ json: statsFixture }));
   await page.route("/api/status", (route) => route.fulfill({ json: statusFixture }));
-  await page.route("/api/facets", (route) => route.fulfill({ json: facetsFixture }));
+  await page.route("/api/facets?**", (route) => route.fulfill({ json: facetsFixture }));
   await page.route("/api/jobs/101", (route) => route.fulfill({ json: jobFixture }));
   await page.route("/api/jobs/*/similar**", (route) => route.fulfill({ json: { scope: "cross", items: [] } }));
   await page.route("/api/jobs?**", (route) => route.fulfill({ json: jobListFixture }));

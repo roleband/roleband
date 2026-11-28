@@ -788,7 +788,7 @@ test("a failed facets fetch is recoverable from the pinned rail, not just the pa
   // StrictMode double-mounts in dev, so a "fail once" mock is satisfied by the
   // second mount and the empty rail never appears.
   let failing = true;
-  await page.route("/api/facets", (route) =>
+  await page.route("/api/facets?**", (route) =>
     failing
       ? route.fulfill({ status: 500, json: { detail: "facets exploded" } })
       : route.fulfill({ json: facetsFixture })

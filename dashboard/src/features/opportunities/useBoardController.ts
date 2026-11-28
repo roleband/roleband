@@ -120,7 +120,8 @@ export function useBoardController({
   // value the register can show and retry. BoardFilters renders nothing without
   // `facets`, so a failure left as null would hide the whole register for good.
   const facetsResource = useAsyncResource<Facets>(
-    (signal) => api.facets(signal, topPicks), [topPicks], { keep: topPicks ? "facets:top-picks" : "facets" },
+    (signal) => api.facets(signal, { ...MODE_FILTERS[mode], top_picks: topPicks }),
+    [topPicks, mode], { keep: "facets" },
   );
   const facets = facetsResource.data;
   const refreshFacets = facetsResource.refresh;
@@ -413,7 +414,10 @@ export function useBoardController({
       if (job.is_dismissed) {
         // Not-for-me lens: the same button restores.
         mutateList((prev) => (prev ? removeJob(prev, job.id) : prev));
-        api.undismissJob(job.id).then(invalidateBaseline).catch(retryList);
+        api.undismissJob(job.id).then(() => {
+          invalidateBaseline();
+          void refreshFacets({ preserveData: true });
+        }).catch(retryList);
         return;
       }
       const seam = seamFor(list, job.id);
@@ -422,12 +426,13 @@ export function useBoardController({
         .dismissJob(job.id, reason)
         .then(() => {
           invalidateBaseline();
+          void refreshFacets({ preserveData: true });
           if (!mounted.current) return;
           offerWayBack({ job, ...seam });
         })
         .catch(() => retryList());
     },
-    [list, mutateList, retryList, invalidateBaseline, offerWayBack]
+    [list, mutateList, retryList, invalidateBaseline, refreshFacets, offerWayBack]
   );
 
   const undoDismiss = useCallback(
@@ -437,7 +442,11 @@ export function useBoardController({
       setDismissal((prev) => (prev?.job.id === job.id ? null : prev));
       api
         .undismissJob(job.id)
-        .then(() => { invalidateBaseline(); void refreshList({ preserveData: true }); })
+        .then(() => {
+          invalidateBaseline();
+          void refreshFacets({ preserveData: true });
+          void refreshList({ preserveData: true });
+        })
         .catch(() => {
           // The role is still hidden: put its way back where it was, with a
           // fresh clock, and say the restore did not happen. Cleared and
@@ -446,7 +455,7 @@ export function useBoardController({
           toast({ key: "board", text: radarRestoreFailed({ title: job.title }), tone: "error" });
         });
     },
-    [dismissal, refreshList, invalidateBaseline, clearTtl, offerWayBack, toast]
+    [dismissal, refreshList, refreshFacets, invalidateBaseline, clearTtl, offerWayBack, toast]
   );
 
   const excludeVocabulary = useCallback(

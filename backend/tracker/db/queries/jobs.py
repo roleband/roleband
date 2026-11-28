@@ -220,61 +220,62 @@ def pair_on_board(left, right, hidden: list[str]):
     return or_(left.in_(ids), right.in_(ids))
 
 
-def _open_members(columns: list, hidden: list[str], within: Select | None = None) -> Select:
-    """Open, in-scope postings of visible companies with `columns`, each
-    labelled with its role: a place set's id (negated, so it cannot meet a
-    job id), else the posting's own. Counting distinct `role` per value
-    counts a set once under EVERY value a member has, because a filter on
-    that value lists the set through the member that has it."""
+def _facet_members(columns: list, hidden: list[str], params: dict | None) -> Select:
+    """Use browse membership when a list is specified, or open market membership.
+
+    Keep eligible place-set members until grouping: each value counts the set
+    through a member that has it. A marked posting is a row of its own.
+    """
+    if params is None:
+        conds = [Job.status == "open", Job.in_scope.is_(True)]
+    else:
+        conds = structured_conds({**params, "hidden": hidden}, collapse=False)
+        if params.get("dismissed_only"):
+            return select(*columns, Job.id.label("role")).where(*conds)
+
     member = aliased(JobPlaceSetMember)
     role = func.coalesce(-member.set_id, Job.id)
+    if params is not None and not params.get("status"):
+        # A place set has a representative in each status the list admits.
+        role = func.row(role, Job.status)
     return exclude_hidden(
         select(*columns, role.label("role"))
         .select_from(Job)
         .outerjoin(member, and_(member.job_id == Job.id, member.status == "auto"))
-        .where(Job.status == "open", Job.in_scope.is_(True), *([Job.id.in_(within)] if within is not None else [])),
-        hidden,
+        .where(*conds),
+        hidden if params is None else [],
     )
 
 
-def _roles_per_value(value, hidden: list[str], within: Select | None = None) -> Select:
-    sub = _open_members([value.label("value")], hidden, within).subquery()
+def _roles_per_value(value, hidden: list[str], params: dict | None) -> Select:
+    sub = _facet_members([value.label("value")], hidden, params).subquery()
     return select(sub.c.value, func.count(func.distinct(sub.c.role))).group_by(sub.c.value)
 
 
-def roles_within_count_stmt(hidden: list[str], within: Select) -> Select:
-    """Open roles among the postings `within`, a place set once, counted by
-    the members that are in it: the total the facet counts of a part of the
-    Board are read against, so it matches the rows the list shows."""
-    sub = _open_members([], hidden, within).subquery()
+def facet_total_count_stmt(hidden: list[str], *, params: dict) -> Select:
+    sub = _facet_members([], hidden, params).subquery()
     return select(func.count(func.distinct(sub.c.role)))
 
 
-def facet_count_stmt(column, hidden: list[str], within: Select | None = None) -> Select:
-    """Open roles per value of `column`: the count beside a filter option is
-    the rows that option lists, so a place set counts once, under
-    each value a member has. `within`, a select of posting ids, counts only
-    those postings: the options of a list that shows a part of the Board."""
-    return _roles_per_value(column, hidden, within)
+def facet_count_stmt(column, hidden: list[str], *, params: dict | None = None) -> Select:
+    """Rows per value of `column`, using the population of the chosen list."""
+    return _roles_per_value(column, hidden, params)
 
 
-def domain_facet_count_stmt(hidden: list[str], within: Select | None = None) -> Select:
-    """Open roles per world (`domains` is an array, so it is unnested)."""
-    return _roles_per_value(func.unnest(Job.domains), hidden, within)
+def domain_facet_count_stmt(hidden: list[str], *, params: dict | None = None) -> Select:
+    return _roles_per_value(func.unnest(Job.domains), hidden, params)
 
 
-def unclassified_domain_count_stmt(hidden: list[str], within: Select | None = None) -> Select:
-    """Open roles no world was read for: NULL (never classified) or `{}` (honestly unknown)."""
-    sub = _open_members(
-        [], hidden, within
+def unclassified_domain_count_stmt(hidden: list[str], *, params: dict | None = None) -> Select:
+    """Rows with no classified world, including NULL and empty arrays."""
+    sub = _facet_members(
+        [], hidden, params
     ).where(or_(Job.domains.is_(None), func.cardinality(Job.domains) == 0)).subquery()
     return select(func.count(func.distinct(sub.c.role)))
 
 
-def place_facet_count_stmt(hidden: list[str], within: Select | None = None) -> Select:
-    """Open roles per location group. A place set counts once at EVERY place a
-    member is at, because the place filter admits it there."""
-    return _roles_per_value(func.unnest(Job.location_groups), hidden, within)
+def place_facet_count_stmt(hidden: list[str], *, params: dict | None = None) -> Select:
+    return _roles_per_value(func.unnest(Job.location_groups), hidden, params)
 
 
 def listed_recently_clause(now: datetime):
