@@ -1362,6 +1362,10 @@ reactions since the last run and the first postings. `picks.next` hands out
 a further batch, `picks.decide` records up to 50 verdicts and `picks.finish`
 closes the run, `finished` or `stopped` with a note. Batch answers, including
 first-batch replays, and new verdicts recheck the queue under the run's brief.
+If the active brief changes, batch requests return `brief_changed` in the
+error details. They record no handoffs, and the assistant can still close the
+run as `stopped`. The bundled routine applies reactions after the last batch's
+verdicts and before it closes the run.
 The engine treats a run as abandoned after two hours and closes it when the
 same assistant starts another. A closed run refuses batches, including a replay of the first
 batch, and accepts no new writes. Routine runs share a limit for each local

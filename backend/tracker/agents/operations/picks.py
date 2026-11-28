@@ -920,7 +920,8 @@ async def begin(
         queue=[(job.id, job.content_hash or "") for job in jobs], counts=counts.model_dump(), now=now,
     )
     first = await _batch_at(
-        session, run, cursor=0, limit=params.limit, room=room, now=now, day=now.astimezone(zone).date(), estimates=True,
+        session, run, body, cursor=0, limit=params.limit, room=room, now=now, day=now.astimezone(zone).date(),
+        estimates=True,
     )
     counts.handed = first.count
     run.counts = counts.model_dump()
@@ -965,11 +966,10 @@ async def _read_open_run(session: AsyncSession, run_id: str, now: datetime | Non
 
 
 async def _eligible_run_postings(
-    session: AsyncSession, run: PickRun, ids: list[int], now: datetime,
+    session: AsyncSession, run: PickRun, ids: list[int], body: BriefBody, now: datetime,
 ) -> dict[int, Job]:
     if not ids:
         return {}
-    body = briefs.body_of(await briefs.version(session, run.brief_version))
     stmt = (await queue.eligible_in_run(session, run, ids, body=body, now=now)).execution_options(populate_existing=True)
     queued = runs.queue_of(run)
     return {
@@ -978,12 +978,27 @@ async def _eligible_run_postings(
     }
 
 
+async def _current_run_brief(session: AsyncSession, run: PickRun) -> BriefBody:
+    active = await briefs.active(session)
+    if active is None or active.version != run.brief_version:
+        note = "The active brief changed during this run."
+        raise OperationError(
+            "invalid_input", f"{note} Close this run as stopped.",
+            details={"field": "run", "reason": "brief_changed"},
+            next_actions=[NextAction(
+                operation=PICKS_FINISH.id, arguments={"run": run.id, "outcome": "stopped", "note": note},
+            )],
+        )
+    return briefs.body_of(active)
+
+
 async def replayed_begin(session: AsyncSession, result: RunStart, withheld: Collection[DataClass]) -> RunStart:
     """Reading the first batch again requires a run that can still serve it."""
     if "public_posting" in withheld:
         raise category_disabled("public_posting")
     run = await _read_open_run(session, result.run)
-    eligible = await _eligible_run_postings(session, run, [posting.job for posting in result.batch], datetime.now(UTC))
+    body = await _current_run_brief(session, run)
+    eligible = await _eligible_run_postings(session, run, [posting.job for posting in result.batch], body, datetime.now(UTC))
     batch = [posting for posting in result.batch if posting.job in eligible]
     counts = result.counts if run.tracks_delivery else result.counts.model_copy(update={"handed": result.count})
     return result.model_copy(update={"batch": batch, "count": len(batch), "counts": counts})
@@ -998,23 +1013,25 @@ async def next_batch(
         run = await runs.open_run(session, params.run, now)
     except RunError as error:
         raise _run_refusal(error) from None
+    body = await _current_run_brief(session, run)
     zone = local_zone()
     room = 0
     if run.tracks_delivery and not run.trial:
         settings = await get_top_picks_settings(session)
         room = max(settings.daily_cap - await runs.handed_today(session, now, zone=zone), 0)
     return await _batch_at(
-        session, run, cursor=params.cursor, limit=params.limit, room=room, now=now, day=now.astimezone(zone).date(),
+        session, run, body, cursor=params.cursor, limit=params.limit, room=room, now=now, day=now.astimezone(zone).date(),
         estimates="market_statistic" not in withheld,
     )
 
 
 async def _batch_at(
-    session: AsyncSession, run: PickRun, *, cursor: int, limit: int, room: int, now: datetime, day: date, estimates: bool,
+    session: AsyncSession, run: PickRun, body: BriefBody, *,
+    cursor: int, limit: int, room: int, now: datetime, day: date, estimates: bool,
 ) -> Batch:
     ids = [int(job_id) for job_id, _ in run.queue]
     window = ids[cursor : cursor + limit]
-    found = await _eligible_run_postings(session, run, window, now)
+    found = await _eligible_run_postings(session, run, window, body, now)
     kept = [
         (cursor + offset + 1, found[job_id]) for offset, job_id in enumerate(window) if job_id in found
     ]

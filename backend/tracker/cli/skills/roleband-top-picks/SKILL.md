@@ -2,7 +2,7 @@
 name: roleband-top-picks
 description: Set up, run and change RoleBand top picks, the few open roles worth the person's attention, chosen against what they want. Use when the person says "set up my top picks" or "update my top picks" in any language (such as "configura mis destacados" or "设置我的首选"), asks why a role was or was not picked, or when a scheduled task says to run the RoleBand top picks check.
 ---
-<!-- roleband-top-picks skill, version 2. `roleband connect` installed these files and `roleband picks status` keeps unedited ones current; once you edit a file, neither changes it. -->
+<!-- roleband-top-picks skill, version 3. `roleband connect` installed these files and `roleband picks status` keeps unedited ones current; once you edit a file, neither changes it. -->
 
 # RoleBand top picks
 
@@ -43,20 +43,23 @@ the run with a note; the app tells them.
    best fit first. If it exits 3, RoleBand is not running yet: stop. There is
    nothing to close, and the next check tries again. If it exits 4 with
    `mode_off`, top picks is off: stop.
-2. Apply the reactions in `data.reactions` to the brief as `judging.md`
-   says, with `roleband brief patch --run RUN ...`. Never change a hard rule
-   in a run. Do this even when the batch is empty: the next run is handed
-   only the reactions that come after this one.
-3. If `data.batch` is empty, go to step 5.
-4. Judge every posting in the batch as `judging.md` says. Do the second look
+2. If `data.batch` is empty, go to step 4.
+3. Judge every posting in the batch as `judging.md` says. Do the second look
    before any pick. Send the batch's verdicts in one call:
    `echo '{"run": "RUN", "brief_version": N, "verdicts": [...]}' | roleband picks decide --input - --idempotency-key KEY --json`.
-   Read each item's outcome.
-5. Look at `data.next_cursor` in the answer
+   Read each item's outcome. If any item says `brief_changed`, go to step 6
+   and close the run as stopped.
+4. Look at `data.next_cursor` in the answer
    that handed you this batch (`picks begin` or `picks next`; `picks decide`
    has none). If it is set, read the next batch with
-   `roleband picks next --run RUN --cursor CURSOR --json`, using that number
-   as `CURSOR`, and repeat from step 3. If it is null, go to step 6.
+   `roleband picks next --run RUN --cursor CURSOR --json`. On success, repeat
+   from step 2. If `error.details.reason` is `brief_changed`, go to step 6
+   and close the run as stopped. If the cursor is null, go to step 5.
+5. Once all batches have been judged, apply the reactions in `data.reactions`
+   from `picks begin` as `judging.md` says, even if no postings were handed out.
+   A finished run advances the window for reactions. If the brief changed or
+   the reaction update fails, close the run as stopped so the reactions can
+   be read again on the next run.
 6. Close the run:
    `roleband picks finish --run RUN --outcome finished --idempotency-key KEY --json`.
    If you had to stop early (a limit, an error you could not get past), use

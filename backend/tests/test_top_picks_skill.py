@@ -403,9 +403,9 @@ def test_the_routine_reads_the_next_cursor_from_the_answer_that_handed_the_batch
     assert "(`picks begin` or `picks next`; `picks decide` has none)" in step
 
 
-def test_the_routine_applies_reactions_and_follows_the_cursor_on_an_empty_batch():
-    """`picks begin` hands the reactions that came after the last finished
-    run started, so a run that finishes without applying them loses them."""
+def test_the_routine_applies_reactions_after_all_batches_and_before_finishing():
+    """Judging needs the original active version. A finished run advances the
+    reactions window even when no postings were handed out."""
     routine = _section(FILES["SKILL.md"], "## The routine")
     steps = re.split(r"^\d\. ", routine, flags=re.MULTILINE)[1:]
     reactions = next(number for number, step in enumerate(steps, 1) if "`data.reactions`" in step)
@@ -413,20 +413,27 @@ def test_the_routine_applies_reactions_and_follows_the_cursor_on_an_empty_batch(
     decide = next(number for number, step in enumerate(steps, 1) if "| roleband picks decide" in step)
     paging = next(number for number, step in enumerate(steps, 1) if "`data.next_cursor`" in step)
     finish = next(number for number, step in enumerate(steps, 1) if "roleband picks finish" in step)
-    assert reactions < empty < decide < paging < finish
+    assert empty < decide < paging < reactions < finish
     assert f"go to step {paging}" in steps[empty - 1]
-    assert f"repeat from step {empty}" in steps[paging - 1]
-    assert f"If it is null, go to step {finish}" in steps[paging - 1]
+    paging_step = " ".join(steps[paging - 1].split())
+    assert f"repeat from step {empty}" in paging_step
+    assert f"If the cursor is null, go to step {reactions}" in paging_step
+    for step in (decide, paging):
+        assert "`brief_changed`" in steps[step - 1]
+        assert f"go to step {finish}" in steps[step - 1]
 
 
 def test_the_scheduled_task_asks_for_the_writes_by_name():
     """Claude's app tells a scheduled run to write only what its task asks
-    for, so the task's prompt names the two writes of the routine."""
+    for, so the task's prompt names verdicts, reactions and closing."""
     routine = _section(FILES["setup.md"], "## `routine`")
     prompt = re.search(r'"(Run the RoleBand top picks check now\..*?)"', routine, re.DOTALL)
     assert prompt is not None
     words = " ".join(prompt.group(1).split())
-    assert "`roleband picks decide`" in words and "`roleband picks finish`" in words
+    decide = words.index("`roleband picks decide`")
+    patch = words.index("`roleband brief patch`")
+    finish = words.index("`roleband picks finish`")
+    assert decide < patch < finish
     assert "roleband-top-picks skill" in words
 
 
