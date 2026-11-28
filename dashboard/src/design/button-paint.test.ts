@@ -66,13 +66,16 @@ describe("the button scan can see a repaint", () => {
             className={\`probe-fold \${open ? "is-open" : ""}\`}
           >More</Button>
           <RouterLink to="/x" className="probe-place ui-btn-strong">Go</RouterLink>
+          <Button className = "probe-spaced" variant="ghost">Wide</Button>
           <ButtonGroup className="probe-group" />
         </div>
       );
     }`;
 
   it("reads the literal classes handed to Button and RouterLink, and no other tag", () => {
-    expect(classesOnButtons(screen).sort()).toEqual(["is-open", "probe-fold", "probe-place", "ui-btn-strong"]);
+    expect(classesOnButtons(screen).sort()).toEqual([
+      "is-open", "probe-fold", "probe-place", "probe-spaced", "ui-btn-strong",
+    ]);
   });
 
   it("reports a class that repaints, and leaves placement, reveal and ui- classes alone", () => {
@@ -88,6 +91,14 @@ describe("the button scan can see a repaint", () => {
     );
     expect([...found.keys()]).toEqual(["probe-fold"]);
     expect(found.get("probe-fold")).toEqual(["features/probe/probe.css:2 padding, color"]);
+  });
+
+  it("counts the font shorthand as a resize", () => {
+    const found = buttonRepaints(
+      [["features/probe/Probe.tsx", screen]],
+      [["features/probe/probe.css", ".probe-spaced { font: var(--app-weight-ui) var(--app-type-title) / 1.2 var(--app-font-sans); }"]],
+    );
+    expect(found.get("probe-spaced")).toEqual(["features/probe/probe.css:1 font"]);
   });
 
   it("does not read a class handed to a Button inside src/ui/", () => {

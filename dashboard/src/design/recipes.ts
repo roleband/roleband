@@ -64,9 +64,10 @@ export function writesCard(decls: Map<string, string>): boolean {
   );
 }
 
-/** The small label recipe, by the one declaration every copy of it shares. */
+/** The small label recipe, by the one declaration every copy of it shares,
+ *  with or without `!important`. */
 export const writesLabel = (decls: Map<string, string>): boolean =>
-  decls.get("text-transform") === "uppercase";
+  /^uppercase(?:\s*!\s*important)?$/i.test(decls.get("text-transform") ?? "");
 
 /** `sheet :: selector` for every rule in `sheets` that `matches`, outside the
  *  sheets `owns` accepts, with the lines that write it. */
@@ -95,7 +96,7 @@ export function recipeCopies(
  *  grid placement, position) and reveal (`opacity`, `visibility`) are not here:
  *  a screen places a button and may hide it until a row is hovered. */
 const BUTTON_PAINT =
-  /^(?:color|background(?:-[a-z-]+)?|border(?:-[a-z-]+)?|box-shadow|font-size|font-weight|line-height|letter-spacing|height|min-height|padding(?:-[a-z-]+)?)$/;
+  /^(?:color|background(?:-[a-z-]+)?|border(?:-[a-z-]+)?|box-shadow|font|font-size|font-weight|line-height|letter-spacing|height|min-height|padding(?:-[a-z-]+)?)$/;
 
 function endOfString(s: string, i: number): number {
   const quote = s[i++];
@@ -152,8 +153,9 @@ export function classesOnButtons(tsx: string): string[] {
   for (const tag of tsx.matchAll(/<(?:Button|RouterLink)(?=[\s/>])/g)) {
     let i = tag.index + tag[0].length;
     while (i < tsx.length && tsx[i] !== ">") {
-      if (tsx.startsWith("className=", i) && /\s/.test(tsx[i - 1])) {
-        const at = i + "className=".length;
+      const attribute = /^className\s*=\s*/.exec(tsx.slice(i, i + 40));
+      if (attribute && /\s/.test(tsx[i - 1])) {
+        const at = i + attribute[0].length;
         const end = tsx[at] === "{" ? endOfBraces(tsx, at) : endOfString(tsx, at);
         for (const word of literalWords(tsx[at] === "{" ? tsx.slice(at + 1, end - 1) : tsx.slice(at, end))) {
           out.add(word);

@@ -78,6 +78,16 @@ describe("the label scan can see a label", () => {
     ]);
   });
 
+  it("reports uppercase written with !important as well as without", () => {
+    const important = ".probe-loud { font-size: var(--app-type-whisper); text-transform: uppercase !important; }";
+    const plain = ".probe-quiet { text-transform: uppercase; }";
+    expect([...labelCopies([["features/probe/probe.css", `${important} ${plain}`]]).keys()]).toEqual([
+      "features/probe/probe.css :: .probe-loud",
+      "features/probe/probe.css :: .probe-quiet",
+    ]);
+    expect(labelCopies([["features/probe/probe.css", ".probe-case { text-transform: capitalize !important; }"]]).size).toBe(0);
+  });
+
   it("leaves the owners alone, and a rule that only sets the ink", () => {
     for (const owner of ["ui/Probe.css", "design/surfaces.css", "patterns/figure-table.css", "design/dataviz.css"]) {
       expect(labelCopies([[owner, `.probe-kicker ${label}`]]).size, owner).toBe(0);
