@@ -34,7 +34,7 @@ test.beforeEach(async ({ page }) => {
   const picks = (url: string) => new URL(url).searchParams.get("top_picks") === "true";
   await mockGet(page, "/api/jobs?**", (route) =>
     picks(route.request().url()) ? route.fulfill({ json: picksList() }) : route.fallback());
-  await mockGet(page, "/api/facets?**", (route) =>
+  await mockGet(page, "/api/facets**", (route) =>
     picks(route.request().url()) ? route.fulfill({ json: facetsFixture }) : route.fallback());
 });
 
