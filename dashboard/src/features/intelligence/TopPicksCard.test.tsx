@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, type PicksState } from "../../api";
@@ -44,11 +44,12 @@ function setUp(overrides: Partial<PicksState> = {}): PicksState {
 const claude = () => msg("picks-host", { host: "claude-code" });
 const twoHoursAgo = () => relative(-2 * 3600);
 
-function mount() {
+function mount(reactStrictMode = false) {
   return render(
     <ToastProvider>
       <TopPicksCard />
     </ToastProvider>,
+    { reactStrictMode },
   );
 }
 
@@ -69,29 +70,96 @@ const theSwitch = (region: HTMLElement) =>
   within(region).getByRole("checkbox", { name: msg("ai-top-picks-card-check") });
 const limitField = (region: HTMLElement) =>
   within(region).getByLabelText(msg("ai-top-picks-card-limit"));
+const tryAgain = (alert: HTMLElement) =>
+  within(alert).getByRole("button", { name: msg("common-try-again") });
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
 });
 
 afterEach(cleanup);
 
-describe("TopPicksCard: shown only once Top picks is set up", () => {
+describe("TopPicksCard: reading the settings", () => {
   it("draws nothing before setup", async () => {
-    mocked.picksState.mockResolvedValue(picksStateFixture({ state: "never_set_up" }));
+    const response = Promise.resolve(picksStateFixture({ state: "never_set_up" }));
+    mocked.picksState.mockReturnValue(response);
     mount();
-    await waitFor(() => expect(mocked.picksState).toHaveBeenCalledTimes(1));
-    // Let the read settle before asserting nothing came of it.
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await act(async () => { await response; });
+    expectNoCard();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("names the failed read and restores the settings on a keyboard retry", async () => {
+    let resolveRetry!: (state: PicksState) => void;
+    const retry = new Promise<PicksState>((resolve) => { resolveRetry = resolve; });
+    mocked.picksState.mockRejectedValueOnce(new Error("offline")).mockReturnValueOnce(retry);
+    const user = userEvent.setup();
+    mount();
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(msg("ai-top-picks-card-load-failed"));
+    expectNoCard();
+    await user.tab();
+    expect(tryAgain(alert)).toHaveFocus();
+    await user.keyboard("{Enter}");
+
+    expect(screen.getByRole("status")).toHaveTextContent(msg("ui-loading"));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await act(async () => resolveRetry(setUp({ state: "off", health: "off", daily_limit: 320 })));
+
+    const region = screen.getByRole("region", { name: msg("shell-nav-top-picks") });
+    expect(theSwitch(region)).not.toBeChecked();
+    expect(theSwitch(region)).toBeEnabled();
+    expect(limitField(region)).toHaveValue("320");
+    expect(within(region).getByRole("button", { name: msg("ai-top-picks-card-remove") })).toBeEnabled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(mocked.picksState).toHaveBeenCalledTimes(2);
+  });
+
+  it("offers another retry after a second failure and hides the card when setup is absent", async () => {
+    mocked.picksState
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockRejectedValueOnce(new Error("still offline"))
+      .mockResolvedValueOnce(picksStateFixture({ state: "never_set_up" }));
+    const user = userEvent.setup();
+    mount();
+
+    await user.click(tryAgain(await screen.findByRole("alert")));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(msg("ai-top-picks-card-load-failed"));
+    expect(mocked.picksState).toHaveBeenCalledTimes(2);
+    expectNoCard();
+
+    await user.click(tryAgain(alert));
+    await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
+    expect(mocked.picksState).toHaveBeenCalledTimes(3);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expectNoCard();
   });
 
-  it("draws nothing when the state cannot be read", async () => {
-    mocked.picksState.mockRejectedValue(new Error("offline"));
-    mount();
-    await waitFor(() => expect(mocked.picksState).toHaveBeenCalledTimes(1));
-    await new Promise((resolve) => setTimeout(resolve, 0));
+  it("ignores an earlier read that settles after a retry and successful removal", async () => {
+    let resolveStale!: (state: PicksState) => void;
+    const stale = new Promise<PicksState>((resolve) => { resolveStale = resolve; });
+    mocked.picksState
+      .mockReturnValueOnce(stale)
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce(setUp());
+    mocked.removePicksSetup.mockResolvedValue({ briefs: 1, readings: 2, documents: 1, verdicts: 18 });
+    const user = userEvent.setup();
+    mount(true);
+
+    await user.click(tryAgain(await screen.findByRole("alert")));
+    const region = await screen.findByRole("region", { name: msg("shell-nav-top-picks") });
+    const remove = msg("ai-top-picks-card-remove");
+    await user.click(within(region).getByRole("button", { name: remove }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: remove }));
+    await screen.findByText(msg("ai-top-picks-card-removed"));
+
+    await act(async () => resolveStale(setUp({ daily_limit: 100 })));
     expectNoCard();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(mocked.picksState).toHaveBeenCalledTimes(3);
   });
 
   it("draws the five parts once set up, with the brief as read-only text", async () => {

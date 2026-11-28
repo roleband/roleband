@@ -415,6 +415,7 @@ ai-capabilities-card-apple-not-supported = no compatible con este ordenador
 ai-local-server-start-pending = Tu servidor de IA local aún se está iniciando. Vuelve a comprobarlo en un minuto.
 
 ## features/intelligence/TopPicksCard.tsx
+ai-top-picks-card-load-failed = No se pudo cargar la configuración de Destacados
 ai-top-picks-card-status = { $state ->
     [checked] activado · { $host } revisó { $when }
     [first] activado · { $host } aún no ha revisado

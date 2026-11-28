@@ -57,6 +57,36 @@ test("before setup the AI tab has no Top picks card", async ({ page }) => {
   await expect(picksCard(page)).toHaveCount(0);
 });
 
+test("Top picks settings can be retried with the keyboard while Assistant apps stays usable", async ({ page }) => {
+  await installSettingsRoutes(page);
+  let available = false;
+  await mockGet(page, "/api/picks/state", (route) => available
+    ? route.fulfill({ json: setUp({ state: "off", health: "off", daily_limit: 320 }) })
+    : route.fulfill({ status: 503, json: {} }));
+  await page.goto("/settings/intelligence");
+
+  const failure = page.getByRole("alert").filter({ hasText: msg("ai-top-picks-card-load-failed") });
+  await expect(failure).toBeVisible();
+  await expect(picksCard(page)).toHaveCount(0);
+
+  const assistants = page.getByRole("region", { name: msg("ai-assistants-card-assistant-apps-2") });
+  const allow = assistants.getByRole("checkbox", { name: msg("ai-assistants-card-allow-assistant-apps-to-connect") });
+  await allow.click();
+  await expect(allow).toBeChecked();
+  await expect(page.getByRole("region", { name: msg("ai-capabilities-card-extended-capabilities-2") })).toBeVisible();
+  await expect(failure).toBeVisible();
+
+  available = true;
+  await failure.getByRole("button", { name: msg("common-try-again") }).press("Enter");
+  const card = picksCard(page);
+  const check = card.getByRole("checkbox", { name: msg("ai-top-picks-card-check") });
+  await expect(check).toBeEnabled();
+  await expect(check).not.toBeChecked();
+  await expect(card.getByLabel(msg("ai-top-picks-card-limit"))).toHaveValue("320");
+  await expect(card.getByRole("button", { name: msg("ai-top-picks-card-remove") })).toBeEnabled();
+  await expect(failure).toHaveCount(0);
+});
+
 test("once set up the card sits after Assistant apps, with its five parts", async ({ page }) => {
   await openWith(page, setUp());
   const card = picksCard(page);
