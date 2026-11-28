@@ -379,6 +379,7 @@ ai-capabilities-card-apple-not-supported = 这台电脑不支持
 ai-local-server-start-pending = 本地 AI 服务器仍在启动。请一分钟后再查看。
 
 ## features/intelligence/TopPicksCard.tsx
+ai-top-picks-card-load-failed = 无法加载首选设置
 ai-top-picks-card-status = { $state ->
     [checked] 开启 · { $host } { $when }检查过
     [first] 开启 · { $host } 还没有检查过

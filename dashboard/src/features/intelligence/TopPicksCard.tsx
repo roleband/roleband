@@ -1,12 +1,11 @@
-// Card: Top picks, once it is set up. The person's own assistant reads the
+// Card: Top picks. The person's own assistant reads the
 // new roles of each scan through the `roleband` command and keeps the few
 // worth a move. This card is where the person pauses it, sees which assistant
 // checks and when it last did, reads what it looks for, bounds how much it
 // reads a day, and takes back what they gave it.
 //
-// The card is drawn only once Top picks is set up: before that, the Top picks
-// screen is where a person starts, and an empty card here would offer nothing
-// to change. A failed read draws nothing either, for the same reason.
+// Setup starts on the Top picks screen, so a successful read before setup
+// leaves no card here.
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { api, type PicksState } from "../../api";
 import { errorText } from "../../api/errorText";
@@ -21,6 +20,7 @@ import {
   aiTopPicksCardLimitFailed,
   aiTopPicksCardLimitNote,
   aiTopPicksCardLimitRange,
+  aiTopPicksCardLoadFailed,
   aiTopPicksCardPauseFailed,
   aiTopPicksCardRemove,
   aiTopPicksCardRemoveConfirm,
@@ -34,7 +34,7 @@ import {
 } from "../../copy/gen/ai";
 import { picksHost, picksResumeFailed } from "../../copy/gen/picks";
 import { shellNavTopPicks } from "../../copy/gen/shell";
-import { Button, Content, CopyField, Dialog, Switch, useToast } from "../../ui";
+import { Button, Content, CopyField, Dialog, ResourceLoadState, Switch, useToast } from "../../ui";
 import { OriginBadge } from "./OriginBadge";
 
 /** The status line's case. */
@@ -85,36 +85,49 @@ interface Failure {
 
 const failureText = ({ cause, fallback }: Failure) => errorText(cause, fallback());
 
+type CardState =
+  | { status: "loading" }
+  | { status: "failed"; error: Error }
+  | { status: "ready"; data: PicksState | null };
+
 export function TopPicksCard() {
-  const [state, setState] = useState<PicksState | null>(null);
+  const [result, setResult] = useState<CardState>({ status: "loading" });
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<Failure | null>(null);
+  const [saveError, setSaveError] = useState<Failure | null>(null);
   const [removing, setRemoving] = useState(false);
   const headingId = useId();
 
-  // Counts the requests started. A read answers only if nothing started after
-  // it: a save started or finished after it answers with the mode as saved,
-  // which the read may predate.
+  // A read can predate a preference write or removal. Only a read that
+  // has not been superseded can publish its result.
   const requests = useRef(0);
-  useEffect(() => {
+  const load = useCallback(async () => {
     const ticket = ++requests.current;
-    api.picksState()
-      .then((next) => {
-        if (requests.current === ticket) setState(next);
-      })
-      .catch(() => undefined);
+    setResult({ status: "loading" });
+    try {
+      const next = await api.picksState();
+      if (requests.current === ticket) setResult({ status: "ready", data: next });
+    } catch (error) {
+      if (requests.current === ticket) {
+        setResult({ status: "failed", error: error instanceof Error ? error : new Error() });
+      }
+    }
   }, []);
+
+  useEffect(() => {
+    void load();
+    return () => { requests.current += 1; };
+  }, [load]);
 
   const save = useCallback(async (write: () => Promise<PicksState>, failed: () => string) => {
     requests.current += 1;
     setSaving(true);
-    setError(null);
+    setSaveError(null);
     try {
       const next = await write();
       requests.current += 1;
-      setState(next);
+      setResult({ status: "ready", data: next });
     } catch (e) {
-      setError({ cause: e, fallback: failed });
+      setSaveError({ cause: e, fallback: failed });
     } finally {
       setSaving(false);
     }
@@ -123,9 +136,15 @@ export function TopPicksCard() {
   const onRemoved = useCallback(() => {
     requests.current += 1;
     setRemoving(false);
-    setState(null);
+    setResult({ status: "ready", data: null });
   }, []);
 
+  if (result.status === "loading") return <ResourceLoadState error={null} />;
+  if (result.status === "failed") {
+    return <ResourceLoadState error={result.error} failed={aiTopPicksCardLoadFailed()} onRetry={() => void load()} />;
+  }
+
+  const state = result.data;
   if (state == null || state.state === "never_set_up") return null;
 
   const on = state.state === "on";
@@ -181,7 +200,7 @@ export function TopPicksCard() {
         </Button>
       </div>
 
-      {error && <div className="intel-error" role="alert">{failureText(error)}</div>}
+      {saveError && <div className="intel-error" role="alert">{failureText(saveError)}</div>}
 
       {removing && <RemoveDialog onCancel={() => setRemoving(false)} onRemoved={onRemoved} />}
     </section>

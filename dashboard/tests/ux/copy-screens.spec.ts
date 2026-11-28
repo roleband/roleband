@@ -141,17 +141,23 @@ test("assistant apps with choices held back, and Customize, say only the catalog
   expect(await unbracketed(page, "[role='dialog']"), "Customize").toEqual([]);
 });
 
-// Settings > AI once Top picks is set up: the card in a state that needs the
-// person's eye, then its Remove question. What the person looks for and the
-// schedule are the assistant's words, marked as such.
-test("the Top picks card and its Remove question say only the catalog's words", async ({ page }) => {
+// What the person looks for and the schedule are the assistant's words, marked as such.
+test("the Top picks load failure, card and Remove question say only the catalog's words", async ({ page }) => {
   await bootPseudo(page);
   await installSettingsRoutes(page);
-  await mockGet(page, "/api/picks/state", (route) => route.fulfill({ json: healthyState({
-    health: "late", waiting: 40, schedule: "daily 09:30 and 17:30", brief_summary: "Staff level and above, remote in the EU.",
-  }) }));
+  let available = false;
+  await mockGet(page, "/api/picks/state", (route) => available
+    ? route.fulfill({ json: healthyState({
+      health: "late", waiting: 40, schedule: "daily 09:30 and 17:30", brief_summary: "Staff level and above, remote in the EU.",
+    }) })
+    : route.fulfill({ status: 503, json: {} }));
   await page.goto("/settings/intelligence");
-  await expect(page.locator("h1").first()).toBeVisible();
+  const failure = page.getByRole("alert").filter({ has: page.getByRole("button", { name: /⟦/ }) });
+  await expect(failure.getByRole("heading")).toHaveText(/⟦/);
+  expect(await unbracketed(page, "[role='alert']"), "the Top picks load failure").toEqual([]);
+
+  available = true;
+  await failure.getByRole("button").click();
   const card = page.locator("[data-testid='top-picks-card']");
   await expect(card.getByText(/⟦/).first()).toBeVisible();
   await page.waitForLoadState("networkidle");

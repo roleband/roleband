@@ -651,6 +651,8 @@ ai-capabilities-card-apple-not-supported = not supported on this computer
 ai-local-server-start-pending = Your local AI server is still starting. Check again in a minute.
 
 ## features/intelligence/TopPicksCard.tsx
+# kind=heading note="Settings › AI when the Top picks controls couldn't load"
+ai-top-picks-card-load-failed = Top picks settings couldn't load
 # kind=status note="The Top picks card's status line, beside its title. It starts with whether the checks are on, as the Assistant apps card's line does. $host is the assistant's name (Claude Code, Codex); $when is how long ago, already worded (2 hours ago). checked: the last check finished; first: no check has finished yet; late: roles are waiting and no check has finished for a day and a half; stopped: the last check ended before it finished; disconnected: the assistant is no longer connected; asks: it asks before each command, so a check can't run unattended; read-only: its read-only mode blocks the checks; paused-checked and paused: the checks are off"
 ai-top-picks-card-status = { $state ->
     [checked] on · { $host } checked { $when }
