@@ -57,7 +57,17 @@ const FULL_WIDTH = new Set(["app-main", "welcome-main"]);
  *  a list never is one, since its edges are the frame's. */
 const NARROW_BLOCKS = new Set(["onboard"]);
 
-type Finding = { where: string; selector: string; value: string };
+type Finding = { where: string; selector: string; property: string; value: string };
+
+/** The width properties a screen could set on a page's child, each with the
+ *  values that leave the frame as the shell draws it: the measure itself for
+ *  a cap, and the shell's own `width: 100%` (or `auto`) for a width. */
+const WIDTHS: [string, Set<string>][] = [
+  ["max-width", new Set(["var(--app-page-measure)"])],
+  ["max-inline-size", new Set(["var(--app-page-measure)"])],
+  ["width", new Set(["100%", "auto"])],
+  ["inline-size", new Set(["100%", "auto"])],
+];
 
 /** Every rule that sets a width on a page root's own child, other than the
  *  page measure itself. */
@@ -65,8 +75,11 @@ export function measureAudit(sheets: { file: string; css: string }[], roots: Set
   const found: Finding[] = [];
   for (const { file, css } of sheets) {
     for (const rule of rules(css)) {
-      const value = rule.decls.get("max-width") ?? rule.decls.get("max-inline-size");
-      if (value === undefined || value === "var(--app-page-measure)") continue;
+      const set = WIDTHS.flatMap(([property, keeps]) => {
+        const value = rule.decls.get(property);
+        return value === undefined || keeps.has(value) ? [] : [{ property, value }];
+      });
+      if (set.length === 0) continue;
       for (const selector of rule.selectors) {
         // The subject is a direct child of a compound that names a page root.
         const m = /(?:^|\s)([^\s>]+)\s*>\s*([^\s>]+)\s*$/.exec(selector.replace(/&/g, ""));
@@ -75,7 +88,7 @@ export function measureAudit(sheets: { file: string; css: string }[], roots: Set
         if (!named.some((name) => roots.has(name))) continue;
         if (named.some((name) => FULL_WIDTH.has(name))) continue;
         if ([...m[2].matchAll(/\.([\w-]+)/g)].some((c) => NARROW_BLOCKS.has(c[1]))) continue;
-        found.push({ where: `${file}:${rule.line}`, selector, value });
+        for (const { property, value } of set) found.push({ where: `${file}:${rule.line}`, selector, property, value });
       }
     }
   }
@@ -99,7 +112,7 @@ describe("a screen's content takes the one page measure", () => {
   });
 
   it("no sheet sets a width of its own on a page's children", () => {
-    const report = measureAudit(SHEETS, roots).map((f) => `${f.where} ${f.selector} { max-width: ${f.value} }`);
+    const report = measureAudit(SHEETS, roots).map((f) => `${f.where} ${f.selector} { ${f.property}: ${f.value} }`);
     expect(report).toEqual([]);
   });
 
@@ -116,6 +129,9 @@ describe("a screen's content takes the one page measure", () => {
       [".prof-main > .page-hero, .prof-main > .prof-shell { max-width: 1480px; }"],
       ["main.settings-design-system { &.settings-view > * { max-width: none; } }"],
       [".main > * { max-width: 1200px; }"],
+      [".board-main > * { width: 900px; }"],
+      [".board-main > .board-toolbar { inline-size: 1200px; }"],
+      [".prof-main > .prof-shell { width: min(100%, 1480px); }"],
     ])("%s", (css) => expect(fails(css)).toBe(true));
     it.each([
       [".main > * { max-width: var(--app-page-measure); }"],
@@ -124,6 +140,9 @@ describe("a screen's content takes the one page measure", () => {
       [".onboard { max-width: 920px; }"],
       [".main > .onboard { max-width: 920px; }"],
       [".board-main > * { padding-right: 76px; }"],
+      [".main > * { width: 100%; max-width: var(--app-page-measure); }"],
+      [".board-main > .board-toolbar { width: 100%; }"],
+      [".board-main > .board-toolbar { inline-size: auto; }"],
     ])("%s passes", (css) => expect(fails(css)).toBe(false));
   });
 });
