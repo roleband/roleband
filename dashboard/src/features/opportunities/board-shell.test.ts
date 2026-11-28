@@ -84,8 +84,9 @@ describe("the board's one-scroll layout", () => {
     expect(root).toMatch(/padding-top:\s*0/);
     // The hero pays its own top air instead, in the one page-header rule
     // every tab shares (surfaces.css), not a board-local margin.
-    // The page measure is one rule for every child, the hero included.
-    expect(rule(css, ".board-main > *")).not.toMatch(/margin-top/);
+    // The page measure is the shell's one rule for every child, the hero
+    // included; the board states nothing of its own on them.
+    expect(css).not.toMatch(/\.board-main > \*\s*\{/);
     const surfaces = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../design/surfaces.css"), "utf8");
     expect(surfaces).toMatch(/\.main > \.page-hero\s*\{[^}]*margin-top:\s*var\(--app-space-5\)/);
   });

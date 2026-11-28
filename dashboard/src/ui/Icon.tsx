@@ -45,7 +45,7 @@ import {
   Compass,
   Copy,
   Crosshair,
-  GitCompareArrows,
+  Scale,
   Laptop,
   ExternalLink,
   Eye,
@@ -119,7 +119,7 @@ const ICONS = {
   close: X,
   columns: Columns2,
   // Roles side by side. Not `columns`, which is a table's column picker.
-  compare: GitCompareArrows,
+  compare: Scale,
   undo: Undo2,
   compass: Compass,
   copy: Copy,
@@ -176,6 +176,13 @@ const ICONS = {
  *  fails the build instead of silently rendering an empty <svg>. */
 export type IconName = keyof typeof ICONS;
 
+/** Glyphs drawn larger than the size a caller asks for, so they fill the
+ *  room the square glyphs beside them fill. The scale is wide and short, with
+ *  thin pans, so at the asked size it reads a step smaller than the star or
+ *  the menu it sits with. Only the shape grows: its stroke is thinned by the
+ *  same factor, so its lines are as thick as every other icon's at that size
+ *  and it stays one of the set. */
+export const OPTICAL_SIZE: Partial<Record<IconName, number>> = { compare: 1.25 };
 
 export function Icon({
   name,
@@ -189,11 +196,13 @@ export function Icon({
   filled?: boolean;
 }) {
   const Glyph = ICONS[name];
+  const grow = OPTICAL_SIZE[name] ?? 1;
+  const drawn = Math.round(size * grow);
   return (
     <Glyph
-      width={size}
-      height={size}
-      strokeWidth={2}
+      width={drawn}
+      height={drawn}
+      strokeWidth={2 * (size / drawn)}
       fill={filled ? "currentColor" : "none"}
       aria-hidden="true"
       focusable="false"

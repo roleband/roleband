@@ -164,8 +164,12 @@ function escape(text: string): string {
 }
 
 /* Every tab opens with one hero whose eyebrow IS its tab label,
- * one level-2 figure, and two to four KPI tiles; nothing sits above it. */
-test("every Insights tab opens with the same hero, named by its tab", async ({ page }) => {
+ * one level-2 figure, and two to four KPI tiles; nothing sits above it.
+ * On a desktop card the tiles end at the card's right edge with no empty
+ * cell: a fixed two-column grid left three tiles with a hole and Skills'
+ * one tile short of the edge. */
+test("every Insights tab opens with the same hero, named by its tab", async ({ page, isMobile }) => {
+  if (!isMobile) await page.setViewportSize({ width: 1440, height: 1000 });
   const routes: Record<string, unknown> = {
     "/api/demand": hiringFixture,
     "/api/statistics/compensation**": {
@@ -220,6 +224,16 @@ test("every Insights tab opens with the same hero, named by its tab", async ({ p
     // Nothing above it: the hero is the panel's first card.
     const first = await page.locator("#statistics-tabpanel .panel").first().evaluate((el) => el.classList.contains("insight-hero"));
     expect(first, tab).toBe(true);
+    if (!isMobile) {
+      const rows = await hero.evaluate((card) => {
+        const inner = card.getBoundingClientRect().right - parseFloat(getComputedStyle(card).paddingRight);
+        const tiles = [...card.querySelectorAll(".kpi")].map((tile) => tile.getBoundingClientRect());
+        const tops = [...new Set(tiles.map((tile) => Math.round(tile.top)))];
+        // How far each row of tiles stops short of the card's inner right edge.
+        return tops.map((top) => Math.round(inner - Math.max(...tiles.filter((tile) => Math.round(tile.top) === top).map((tile) => tile.right))));
+      });
+      expect(rows.filter((short) => Math.abs(short) > 1), `${tab}: each row of tiles reaches the card's right edge`).toEqual([]);
+    }
   }
 });
 

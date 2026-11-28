@@ -102,17 +102,6 @@
   padding: 0 var(--app-space-1);
 }
 
-/* Widened measure, the /company precedent: rail + gutter + the 1200 measure,
-   so the table keeps its full width beside the register. One pair of left
-   edges for hero, toolbar, strips and shell. The hero arm lives in
-   patterns/jobs/job-page.css instead: Saved renders a `.board-main` hero too
-   and imports only that sheet. */
-.board-main > .board-toolbar,
-.board-main > .search-interp,
-.board-main > .board-shell {
-  max-width: 1460px;
-}
-
 .search-interp {
   display: flex;
   flex-wrap: wrap;

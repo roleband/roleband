@@ -977,6 +977,51 @@ test("a pick card is one width and one height on every step that shows one", asy
   expect(lopsided, JSON.stringify(lopsided.slice(0, 3))).toEqual([]);
 });
 
+/* A DISCIPLINE SAYS WHAT IT HOLDS. The hint lists the jobs a discipline
+   covers, so a hint cut to "…" loses the very thing it is there for. The
+   role count ends the name's first line, as a sector's count does in
+   Settings, so the hint is all examples; it may take three lines. At the
+   narrowest four-across card a count in a column of its own pushed a
+   two-line name to three. */
+for (const width of [1440, 1536]) {
+  test(`every discipline shows its whole name and hint at ${width}px, its count on the name's first line`, async ({ page, isMobile }) => {
+    test.skip(isMobile, "four cards to a row is the desktop step");
+    // Ready cells, so every discipline states its count.
+    await page.route("/api/scope/catalog", (route) => route.fulfill({ json: {
+      ...scopeCatalog,
+      scope_cells: {
+        ...emptyScopeCellsFixture, ready: true, companies: ["google"],
+        roles: ["software_engineering"], bands: ["staff", "entry"], tracks: ["technical"],
+        location_sets: [["silicon_valley", "united_states"]],
+        domain_sets: [["ai_ml"], ["logistics_fulfillment"]],
+        cells: [[0, 0, 0, 0, 0, 1], [0, 0, 0, 0, 1, 2], [0, 1, 0, 0, 0, 2]],
+      },
+    } }));
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto("/profile/direction");
+    await stripButton(page, "Discipline").click();
+    const cards = page.locator(".walk-cards label.select-card:visible");
+    await expect(cards.first()).toBeVisible();
+    const report = await cards.evaluateAll((nodes) => nodes.map((card) => {
+      const name = card.querySelector(".select-card-label")!;
+      const hint = card.querySelector("small")!;
+      const count = card.querySelector(".walk-card-count");
+      const nameTop = name.getBoundingClientRect().top;
+      return {
+        name: [...name.childNodes].filter((node) => node !== count).map((node) => node.textContent).join("").trim(),
+        nameCut: name.scrollHeight > name.clientHeight + 1,
+        hintCut: hint.scrollHeight > hint.clientHeight + 1,
+        hintLeadsWithCount: /^\d/.test(hint.textContent!.trim()),
+        hasCount: Boolean(count),
+        countOffFirstLine: count ? Math.abs(count.getBoundingClientRect().top - nameTop) > 2 : false,
+      };
+    }));
+    expect(report.length).toBeGreaterThan(3);
+    expect(report.filter((card) => card.nameCut || card.hintCut || card.hintLeadsWithCount || card.countOffFirstLine)).toEqual([]);
+    expect(report.every((card) => card.hasCount), "every discipline states its count").toBe(true);
+  });
+}
+
 /* THE LIST IS ALWAYS IN SIGHT. On World the first decision is which list
    a tick lands in, so the chooser is the step's largest object and never
    scrolls away: scrolled to the picks at the bottom, both lists are still on

@@ -574,6 +574,37 @@ test("nothing on the company route renders outside the block that holds it", asy
   expect(escapees).toEqual([]);
 });
 
+/* THE FACTS ARE READ, NOT GUESSED AT. With no plugin answering, every
+   identity fact is RoleBand's own; a "Built-in data" chip on each row said
+   nothing new and took the room the value needed, down to "AM…". */
+for (const width of [1440, 1920]) {
+  test(`facts read from built-in data show in full, without a chip on every row, at ${width}px`, async ({ page }) => {
+    const ours = { source: "roleband" };
+    await page.route("/api/company-profiles/google", (r) => r.fulfill({ json: {
+      ...googleDetail,
+      attribution: null,
+      source_names: {},
+      sources: { pay: OUR_SECTION, benefits: OUR_SECTION, company_size: OUR_SECTION },
+      fields: companyProfileFieldsFixture({
+        is_public: field(true, ours),
+        ticker: field("GOOG", ours),
+        headcount: field(1_576_000, ours),
+        hq_city: field("Mountain View", ours),
+        website: field("https://www.google.com", ours),
+      }),
+    } satisfies CompanyProfileDetail }));
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto("/company/google");
+    const facts = page.locator(".prof-fields:not(.prof-offer-fields)").first();
+    await expect(facts.locator(".prof-field", { hasText: "Ticker" })).toContainText("GOOG");
+
+    await expect(facts.getByText(msg("vocab-source-roleband"))).toHaveCount(0);
+    const cut = await facts.locator(".prof-field-v").evaluateAll((values) =>
+      values.filter((v) => v.scrollWidth > v.clientWidth + 1).map((v) => v.textContent));
+    expect(cut).toEqual([]);
+  });
+}
+
 test("the company route settles on a single pair of outer edges", async ({ page }) => {
   await page.setViewportSize({ width: 2300, height: 1000 });
   await page.goto("/company/google");

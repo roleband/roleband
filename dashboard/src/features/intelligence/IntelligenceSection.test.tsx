@@ -850,13 +850,14 @@ describe("assistants card", () => {
       (await within(await card()).findByText(name)).closest(".intel-tile") as HTMLElement;
     const checked = (element: HTMLElement) => within(element).queryByRole("img", { name: msg("ai-assistants-card-connected") });
 
-    it("wears each app's own mark: Claude's from the icon set, the Codex app's icon, and a glyph for any other app", async () => {
+    it("wears each app's own mark: Claude's from the icon set, the Codex app's drawn alike, and a glyph for any other app", async () => {
       mount();
       const claude = await tile(msg("ai-assistants-card-app-claude-code"));
       const codex = await tile(msg("ai-assistants-card-app-codex-app"));
       const other = await tile(msg("ai-assistants-card-app-other-app"));
       expect(claude.querySelector(".intel-tile-mark .ui-company-icon svg path")).not.toBeNull();
-      expect(codex.querySelector(".intel-tile-mark img")?.getAttribute("src")).toMatch(/codex-app\.png/);
+      expect(codex.querySelector(".intel-tile-mark .ui-company-icon svg path")).toHaveAttribute("fill-rule", "evenodd");
+      expect(codex.querySelector(".intel-tile-mark img")).toBeNull();
       for (const app of [claude, codex, other]) expect(app.querySelector("[data-letter]")).toBeNull();
       expect(other.querySelector(".intel-tile-mark img, .intel-tile-mark .ui-company-icon")).toBeNull();
     });

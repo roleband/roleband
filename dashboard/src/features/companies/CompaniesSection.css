@@ -302,11 +302,12 @@
   gap: var(--app-space-2);
 }
 
+/* A long sector name wraps rather than clips: "Robotics, autonomy & defense"
+   outruns the 224px column, and so does a longer translation. The row aligns
+   on its first baseline, so the count stays beside the name's first line. */
 .ledger-index-row span {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .ledger-index-row b {

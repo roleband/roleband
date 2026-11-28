@@ -33,16 +33,6 @@
    scroller does not: the sticky toolbar pins at the scrollport edge. */
 .main.notif-center { padding-top: 0; }
 
-/* Widened measure, the Board's: rail + gutter + the 1200 measure, so the
-   list keeps its full width beside the register. One left edge for hero,
-   toolbar and shell. */
-.notif-center > .page-hero,
-.notif-center > .notif-toolbar,
-.notif-center > .notif-shell,
-.notif-center > .notif-content {
-  max-width: 1460px;
-}
-
 /* ---- toolbar ------------------------------------------------------------- */
 
 /* ui/SearchField at md; the class only gives it its share of the band. */

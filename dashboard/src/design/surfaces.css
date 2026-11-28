@@ -57,11 +57,9 @@
   gap: var(--app-space-5);
 }
 
-/* The title keeps its screen's measure (Board 1460, Companies 1480, full
-   width on Settings, Profile, Insights and Duplicates) so it shares a left
-   edge with the content under it. Up to ~1560px every tab is full width and
-   the title sits at one point; past that the measures differ, which is a
-   measure question, not a header one. */
+/* The title takes the page measure with the content under it, so it shares
+   their left edge, and every tab's title sits at one point at any width
+   (docs/ui.md "The app shell"). */
 .main > .page-hero { margin-top: var(--app-space-5); }
 /* An action (Profile's guide, the Insights view switch) never sets the row's
    height: the title's does, so the h1 sits where it sits on every tab

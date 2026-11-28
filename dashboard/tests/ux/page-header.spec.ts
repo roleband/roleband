@@ -1,8 +1,8 @@
 import { facetsFixture, picksStateFixture } from "../../src/test/fixtures";
 import { msg } from "../../src/test/msg";
-import { expect, mockGet, test } from "./fixtures";
+import { expect, mockGet, test, type Page } from "./fixtures";
 import { installEveryRoute } from "./routesHarness";
-import { healthyState, picksList } from "./topPicksHarness";
+import { healthyState, installPassedOverRoutes, picksList } from "./topPicksHarness";
 
 /* ONE PAGE HEADER. Every tab of the rail names itself with the same h1, at the
    same height and the same left edge, so switching tabs moves nothing but the
@@ -81,6 +81,101 @@ test("every tab's title is its rail label, in one place, at one size", async ({ 
   }
   const places = new Set(seen.map((line) => line.split(": ")[1]));
   expect(places.size, seen.join("\n")).toBe(1);
+});
+
+/* ONE PAGE FRAME (docs/ui.md "The app shell"). Every screen but the
+   Pipeline lays its title, its toolbar and its content in one frame, the page
+   measure, so switching tabs moves no edge at any window width. At 1440 the
+   measure is wider than the room and every screen passes whatever it sets;
+   the wide windows are where a screen's own width shows. A page under a tab
+   (Activity under Settings, Passed over under Top picks) keeps its tab's
+   frame. The source half is `src/design/page-measure.test.ts`. */
+const FRAMED = [
+  ...TABS.filter((tab) => !OFF_SCREEN.has(tab.rail)).map((tab) => tab.path),
+  "/settings/intelligence/activity",
+  "/top-picks/passed",
+];
+
+/** The frame (the widest block of the page), the title's left edge when it
+ *  is drawn, and every block that leaves the frame. */
+async function frameOf(page: Page) {
+  const main = page.getByRole("main").first();
+  await expect(main.getByRole("heading", { level: 1 })).toHaveCount(1);
+  return main.evaluate((root) => {
+    const blocks = [...root.children].filter((node) => {
+      const style = getComputedStyle(node);
+      const box = node.getBoundingClientRect();
+      return style.position !== "absolute" && style.position !== "fixed" && box.width > 1 && box.height > 1;
+    });
+    const frame = blocks.map((node) => node.getBoundingClientRect()).sort((a, b) => b.width - a.width)[0];
+    const title = root.querySelector("h1")!.getBoundingClientRect();
+    const escapes = blocks.filter((node) => {
+      const box = node.getBoundingClientRect();
+      return box.left < frame.left - 0.5 || box.right > frame.right + 0.5;
+    }).map((node) => node.className);
+    return {
+      frame: `${Math.round(frame.left)}-${Math.round(frame.right)}`,
+      title: title.width * title.height > 1 ? Math.round(title.left) : null,
+      escapes,
+    };
+  });
+}
+
+for (const width of [1440, 1920, 2560]) {
+  test(`every screen but the Pipeline keeps one frame at ${width}`, async ({ page, isMobile }) => {
+    test.skip(isMobile, "a phone has one width; the claim is about wide windows");
+    test.slow();
+    await installPassedOverRoutes(page);
+    await page.setViewportSize({ width, height: 900 });
+    const seen: string[] = [];
+    for (const path of FRAMED) {
+      await page.goto(path);
+      const { frame, title, escapes } = await frameOf(page);
+      expect(escapes, `${path}: blocks outside its frame`).toEqual([]);
+      seen.push(`${path}: ${frame}`);
+      // A drawn title starts where the frame does.
+      if (title !== null) expect(title, `${path}: the title against the frame ${frame}`).toBe(Number(frame.split("-")[0]));
+    }
+    const frames = new Set(seen.map((line) => line.split(": ")[1]));
+    expect(frames.size, seen.join("\n")).toBe(1);
+  });
+}
+
+test("the Pipeline alone runs past the page frame", async ({ page, isMobile }) => {
+  test.skip(isMobile, "the claim is about a wide window");
+  await page.setViewportSize({ width: 2560, height: 900 });
+  await page.goto("/");
+  const radar = await frameOf(page);
+  await page.goto("/pipeline/board");
+  const pipeline = await frameOf(page);
+  const span = (frame: string) => { const [left, right] = frame.split("-").map(Number); return right - left; };
+  expect(span(pipeline.frame)).toBeGreaterThan(span(radar.frame));
+});
+
+/* The check above, refusing a screen that takes its own width: it passes at
+   1440, where no cap applies, and fails at 1920, which is how screens with
+   six widths of their own all passed the 1440 check. A block that resets its
+   side margins leaves the frame at any width the measure caps. */
+test("the frame check refuses a screen with a width of its own", async ({ page, isMobile }) => {
+  test.skip(isMobile, "the claim is about wide windows");
+  const companiesWider = ".main.prof-main > * { max-width: 1520px !important; }";
+  const measure = async (width: number) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/");
+    const radar = await frameOf(page);
+    await page.goto("/company");
+    await page.addStyleTag({ content: companiesWider });
+    const companies = await frameOf(page);
+    return { radar: radar.frame, companies: companies.frame };
+  };
+  const narrow = await measure(1440);
+  expect(narrow.companies).toBe(narrow.radar);
+  const wide = await measure(1920);
+  expect(wide.companies).not.toBe(wide.radar);
+
+  await page.goto("/statistics");
+  await page.addStyleTag({ content: ".main > .page-hero + * { margin: 0 !important; }" });
+  expect((await frameOf(page)).escapes).not.toEqual([]);
 });
 
 /* ONE TAB ROW. The screens whose parts are ui/TabBar show it the same way:

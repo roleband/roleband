@@ -267,6 +267,7 @@ function Row({ row, now, columns, actions, match }: {
           </StageMenu>
         </span>
       </td>
+      <td className="app-list-margin" aria-hidden="true" />
     </tr>
   );
 }
@@ -281,20 +282,28 @@ function useListLayout() {
   return [layout, setLayout] as const;
 }
 
-/** Whether the table is wider than its frame, so it scrolls sideways. The
- *  frame is a node, not a ref: it mounts only once the applications load. */
+/** Whether the table is wider than its frame, so it scrolls sideways, and
+ *  how wide the frame's own vertical scrollbar is: a scrollbar that takes
+ *  room (one that does not overlay) stands at the frame's right edge, past
+ *  the pinned margin, and the compare beacon steps in by its width to stay in
+ *  the margin. The frame is a node, not a ref: it mounts only once the
+ *  applications load. */
 function useOverflowing(node: HTMLDivElement | null, version: unknown) {
   const [overflowing, setOverflowing] = useState(false);
+  const [scrollbar, setScrollbar] = useState(0);
   useLayoutEffect(() => {
     if (!node) return;
-    const measure = () => setOverflowing(node.scrollWidth > node.clientWidth + 1);
+    const measure = () => {
+      setOverflowing(node.scrollWidth > node.clientWidth + 1);
+      setScrollbar(Math.max(0, node.offsetWidth - node.clientWidth));
+    };
     measure();
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
     observer?.observe(node);
     if (node.firstElementChild) observer?.observe(node.firstElementChild);
     return () => observer?.disconnect();
   }, [node, version]);
-  return overflowing;
+  return { overflowing, scrollbar };
 }
 
 /** The List: the backlog, every role still in Considering, as a row of a
@@ -351,7 +360,7 @@ export function ListView({ board, now }: {
   const filtering = isFiltering(filter);
   const highlight = filtering && filter.mode === "highlight";
   const shown = layout.order.filter((column) => !layout.hidden.includes(column));
-  const overflowing = useOverflowing(frame, shown.join());
+  const { overflowing, scrollbar } = useOverflowing(frame, shown.join());
   const asFirst = layout.order.join() === DEFAULT_LAYOUT.order.join()
     && [...layout.hidden].sort().join() === [...DEFAULT_LAYOUT.hidden].sort().join();
 
@@ -447,13 +456,18 @@ export function ListView({ board, now }: {
         ) : rows.length === 0 ? (
           <NoMatches />
         ) : (
-          <div className="app-list-host job-margin-host" ref={host}>
+          <div
+            className="app-list-host job-margin-host"
+            ref={host}
+            style={scrollbar ? ({ "--app-list-scrollbar": `${scrollbar}px` } as React.CSSProperties) : undefined}
+          >
             <div className="app-list-scroll" ref={setFrame} data-overflowing={overflowing || undefined}>
               <table className="data-table app-list" data-highlight={highlight ? "" : undefined} data-dragging={dnd.dragging ? "" : undefined}>
                 <thead data-selection="chrome">
                   <tr>
                     {shown.map(head)}
                     <th scope="col" className="app-list-actions"><span className="sr-only">{applicationsListHeadActions()}</span></th>
+                    <td className="app-list-margin" aria-hidden="true" />
                   </tr>
                 </thead>
                 <tbody>

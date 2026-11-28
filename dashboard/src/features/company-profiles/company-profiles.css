@@ -56,14 +56,6 @@
   margin-top: var(--app-space-4);
 }
 
-/* The hero, the toolbar and the shell share one measure, wider than the app
-   default — three blocks, one pair of left edges. */
-.prof-main > .page-hero,
-.prof-main > .prof-toolbar,
-.prof-main > .prof-shell {
-  max-width: 1480px; /* 260 list + space-4 gutter + the 1200px `.main > *` measure */
-}
-
 
 /* The cards keep the app's card radius (--app-radius-lg, overlays.css), even
    though Settings shows no rounded frame. What this
@@ -156,8 +148,9 @@
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
   /* ONE gutter, and a narrow one: the selector belongs beside the profile it
-     drives (companies.spec.ts caps it at 24px), and the profile keeps its
-     1200px measure at wide viewports — the cap above is this arithmetic. */
+     drives (companies.spec.ts caps it at 24px). The index is 260, not the
+     Radar's 240: at 240 the longest sector name takes two lines and breaks
+     the register's one-line rhythm. */
   gap: var(--app-space-4);
   align-items: start;
   /* Air between the frozen edge and the content it releases. */

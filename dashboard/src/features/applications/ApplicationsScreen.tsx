@@ -80,10 +80,10 @@ function PipelineView() {
   const place = useMemo(() => ({ row, slot }), [row, slot]);
 
   return (
-    // The List keeps Radar's ledger margin (patterns/jobs/margin.css) for its
-    // compare beacon, and the row ends where its rows end; the board's columns
-    // and Up next have none.
-    <main className={tab === "list" ? "main app-main job-margin-page" : "main app-main"} data-design-system="app" data-view={tab}>
+    // The row spans the page in every view, so switching views moves none of
+    // its tools. The List keeps Radar's ledger margin for its compare beacon
+    // inside its own frame (ListView).
+    <main className="main app-main" data-design-system="app" data-view={tab}>
       <ViewMemory key={tab} slug={tab} />
       <PageHeader title={shellNavPipeline()} offScreen />
       <div className="app-toolbar app-pipeline-toolbar" data-selection="chrome" ref={setRow}>

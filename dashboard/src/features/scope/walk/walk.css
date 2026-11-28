@@ -243,7 +243,7 @@
    1241-1270px, a tablet) it is two, one on a phone. The count steps down on
    the step card's own width, never the viewport's.
    The height is fixed from the line budget (a name of up to two lines, a
-   sub-line of up to two, both clamped), so a wrapped hint never makes one
+   sub-line of up to three, both clamped), so a wrapped hint never makes one
    card taller than its neighbours or than the same card on another step.
    profile.spec.ts measures the three steps against each other. */
 .walk-cards {
@@ -272,8 +272,10 @@
      127. The checkbox's UA margin is zeroed in ScopeSection.css for the same
      reason. */
   padding-right: var(--app-space-2);
-  /* padding 2 x space-2, border 1 + 1, row gap space-1, two lines of each. */
-  height: calc(2 * var(--app-space-2) + 2px + var(--app-space-1) + 2 * var(--walk-card-name-lh) + 2 * var(--walk-card-sub-lh));
+  /* padding 2 x space-2, border 1 + 1, row gap space-1, two lines of name
+     and three of hint: a discipline's hint lists the jobs it covers, and two
+     lines cut that list at a four-across card. */
+  height: calc(2 * var(--app-space-2) + 2px + var(--app-space-1) + 2 * var(--walk-card-name-lh) + 3 * var(--walk-card-sub-lh));
   min-height: 0;
 }
 .walk-cards .select-card .select-card-label,
@@ -283,6 +285,7 @@
   -webkit-line-clamp: 2;
   overflow: hidden;
 }
+.walk-cards .select-card small { -webkit-line-clamp: 3; }
 .walk-cards .select-card .select-card-label { line-height: var(--walk-card-name-lh); }
 .walk-cards .select-card small {
   font-family: var(--app-font-sans);
@@ -303,6 +306,29 @@
 .walk-roles .walk-cards .select-card > input {
   align-self: start;
   margin-top: calc((var(--walk-card-name-lh) - 15px) / 2);
+}
+/* A discipline's role count ends the name's first line, the way a sector's
+   count does in Settings. It floats, so only that line gives up its width: a
+   flex or grid column for it would take the same width from every line, and
+   at a 186px card a two-line name then needs three. A float needs a block,
+   so this name clips at two lines by height rather than with an ellipsis;
+   every discipline name fits two lines at the narrowest four-across card. */
+.walk-roles .walk-cards .select-card .select-card-label:has(> .walk-card-count) {
+  display: block;
+  max-height: calc(2 * var(--walk-card-name-lh));
+}
+.walk-card-count {
+  float: right;
+  margin-left: var(--app-space-2);
+  color: var(--app-text-muted);
+  font-family: var(--app-font-mono);
+  font-size: var(--app-type-meta);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  /* A mono fallback with tall ascent and descent draws a content box taller
+     than the line; clipped to the line, it cannot push the name past the two
+     lines its card allows. */
+  overflow: hidden;
 }
 @container walk-step (max-width: 360px) {
   /* One card to a row has no neighbour to line up with: centred again. */

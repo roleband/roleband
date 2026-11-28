@@ -651,6 +651,36 @@ test("making a sector current does not move its count", async ({ page }) => {
   expect(await xOf()).toBe(before);
 });
 
+// A sector's name is read whole: "Robotics, autonomy & defense" outruns the
+// index column, and a cut name reads as a different sector. It wraps, and its
+// count stays beside the first line.
+test("a long sector name wraps in the index, its count beside the first line", async ({ page, isMobile }) => {
+  test.skip(isMobile, "on a phone the index is a strip that scrolls sideways");
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/settings/companies");
+  const sectors = page.getByRole("navigation", { name: "Sectors" });
+  await expect(sectors.getByRole("button", { name: /Robotics/ })).toBeVisible();
+  const rows = await sectors.locator(".ledger-index-row").evaluateAll((nodes) => nodes.flatMap((row) => {
+    const name = row.querySelector("span");
+    const count = row.querySelector("b");
+    if (!name || !count) return [];
+    const range = document.createRange();
+    range.selectNodeContents(name);
+    const firstLine = range.getClientRects()[0];
+    const box = count.getBoundingClientRect();
+    const middle = (box.top + box.bottom) / 2;
+    return [{
+      name: name.textContent!.trim(),
+      cut: name.scrollWidth > name.clientWidth + 1,
+      lines: new Set([...range.getClientRects()].map((line) => Math.round(line.top))).size,
+      countBesideFirstLine: middle >= firstLine.top && middle <= firstLine.bottom,
+    }];
+  }));
+  expect(rows.filter((row) => row.cut || !row.countBesideFirstLine)).toEqual([]);
+  // The case that needs it: the longest name takes a second line rather than an ellipsis.
+  expect(rows.find((row) => row.name === "Robotics, autonomy & defense")?.lines).toBe(2);
+});
+
 // A heading has to point DOWNWARD at its own rows. Flush against the previous
 // sector's last row it reads as part of that block instead.
 test("a sector heading is separated from the block above it", async ({ page }) => {

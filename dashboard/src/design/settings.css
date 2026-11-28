@@ -45,7 +45,6 @@ main.settings-design-system {
   color: var(--app-text);
   font-family: var(--app-font-sans);
 
-  &.settings-view > * { max-width: none; }
   /* The page head is patterns/PageHeader, one rule for every tab of the rail
      (surfaces.css), so Profile and Settings put their h1 where Radar and
      Companies put theirs. */

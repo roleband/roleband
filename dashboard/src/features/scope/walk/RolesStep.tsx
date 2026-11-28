@@ -15,7 +15,7 @@ import {
   profileRolesStepFilterRoles2,
   profileRolesStepNothingCalledUnder,
   profileRolesStepPickAKindOfRole,
-  profileRolesStepRoles,
+  profileScopeSectionRoles,
 } from "../../../copy/gen/profile";
 import { Msg } from "../../../ui/Msg";
 
@@ -134,9 +134,19 @@ function RoleQuestionBlock({
                   aria-label={`${row.label} (${answer.label})`}
                   onChange={(event) => onChange(withRow(answers, track, row.key, event.target.checked))}
                 />
-                <span className="select-card-label">{row.label} <NewMark on={row.families.some((family) => fresh.has(family))} /></span>
-                {/* The count leads, so a long line of examples can never clip it. */}
-                <small>{count === null ? row.examples : profileRolesStepRoles({ count: count, count2: String(copyNumber(count)), examples: String(row.examples) })}</small>
+                <span className="select-card-label">
+                  {/* The count ends the name's first line, as a sector's count
+                      does in Settings; it floats, so a second line of the name
+                      and the hint below have the card's whole width. */}
+                  {count !== null && (
+                    <span className="walk-card-count" title={profileScopeSectionRoles({ count: count, count2: String(copyNumber(count)) })}>
+                      <span aria-hidden="true">{copyNumber(count)}</span>
+                      <span className="sr-only">{profileScopeSectionRoles({ count: count, count2: String(copyNumber(count)) })}</span>
+                    </span>
+                  )}
+                  {row.label} <NewMark on={row.families.some((family) => fresh.has(family))} />
+                </span>
+                <small>{row.examples}</small>
               </label>
             );
           })}

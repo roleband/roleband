@@ -97,6 +97,9 @@ import { Msg } from "../../ui/Msg";
 import { Content } from "../../ui/Content";
 import { SourceLabel, type SourceNames } from "./SourceLabel";
 
+/** The source of RoleBand's own data on a profile field. */
+const BUILT_IN_SOURCE = "roleband";
+
 // Renders a value together with how much we should trust it: which source won,
 // how fresh that claim is, and, critically, who disagrees. A field awaiting
 // review carries its own resolution controls (FieldReview), so a value is
@@ -108,6 +111,7 @@ function Field({
   enriching,
   slug,
   sourceNames,
+  quietSource = null,
   onResolved,
   searched = false,
   notCoveredBy = null,
@@ -118,6 +122,9 @@ function Field({
   enriching: boolean;
   slug: string;
   sourceNames: SourceNames;
+  /** The source a row may leave unsaid: what every row is read from unless
+   *  it says otherwise. */
+  quietSource?: string | null;
   onResolved: () => void;
   /** The atlas searched for this and found nothing: say so, not a bare dash. */
   searched?: boolean;
@@ -131,7 +138,9 @@ function Field({
   // The footer credits every plugin answering this profile, so its rows carry
   // no chip: identical plugin chips down one column read as noise and bury
   // the rows that actually differ (a manual pin, an inference, a filing).
-  const showSource = Boolean(source) && (is_manual || !(source! in sourceNames));
+  // With no plugin answering, the built-in data is that same default: a chip
+  // on every row takes the room the values need and tells the reader nothing.
+  const showSource = Boolean(source) && (is_manual || (!(source! in sourceNames) && source !== quietSource));
 
   let shown: ReactNode;
   if ((value === null || value === undefined) && notCoveredBy)
@@ -629,6 +638,7 @@ export function CompanyProfilePanel({
               enriching={enriching}
               slug={slug}
               sourceNames={data.source_names}
+              quietSource={data.attribution ? null : BUILT_IN_SOURCE}
               onResolved={handleResolved}
               notCoveredBy={name === "headcount" && !data.sources.company_size.covered
                 ? data.sources.company_size.plugin_name ?? data.sources.company_size.plugin
