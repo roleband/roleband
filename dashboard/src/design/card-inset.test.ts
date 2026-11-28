@@ -2,6 +2,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { NOT_A_CARD } from "./recipes";
 
 /* The card inset.
  *
@@ -33,11 +34,8 @@ const ALLOWED = ["--app-space-5", "--app-space-4", "--app-space-3"];
  * inset (`.review-history-list`, a <ul> with overflow hidden). Anything below
  * the smallest card step is a bar, a notice or a chip — `.review-decision-bar`
  * is a sticky grid of controls at space-2 — and those are a different object
- * on a different scale. */
-const NOT_A_CARD = (padding: string) =>
-  /^0(px)?$/.test(padding.trim()) ||
-  /var\(--app-space-(1|2)\)/.test(padding) ||
-  /^(?:[0-9]|1[0-3])px/.test(padding.trim());
+ * on a different scale. `NOT_A_CARD` (recipes.ts) states that rule for
+ * card-recipe.test.ts too. */
 
 function sheets(dir: string, acc: string[] = []): string[] {
   for (const name of readdirSync(dir)) {

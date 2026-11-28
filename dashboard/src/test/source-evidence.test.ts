@@ -90,6 +90,20 @@ const CHARTER: Record<string, FactClass> = {
   // which one render cannot show (it re-renders the same either way).
   "context/provider-values.test.ts": "ownership",
   "design/card-inset.test.ts": "token-vocabulary",
+  // Which sheets may write the card, the uppercase label or a Button's paint:
+  // ownership facts about where a recipe is written. A copy renders exactly
+  // like the shared piece it copies, so no render can tell them apart.
+  "design/card-recipe.test.ts": "ownership",
+  "design/label-recipe.test.ts": "ownership",
+  "design/button-paint.test.ts": "ownership",
+  // Whether a distance came from the scale or a literal: computed style shows
+  // the same px either way.
+  "design/rhythm-literals.test.ts": "token-vocabulary",
+  // The rulebook's type table against the ramp: two vocabularies agreeing.
+  "design/type-doc.test.ts": "token-vocabulary",
+  // Which sheet holds each shared class the rulebook names, and which
+  // components the primitive tier exports.
+  "design/primitive-doc.test.ts": "ownership",
   // Which ground tokens a held band paints over the base colour: the plate
   // shows only where the wash is strong, a corner no fixed viewport promises.
   "design/held-ground.test.ts": "token-vocabulary",
