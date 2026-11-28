@@ -135,7 +135,7 @@ export async function installBoardRoutes(page: Page) {
   await mockGet(page, "/api/stats", (route) => route.fulfill({ json: statsFixture }));
   await mockGet(page, "/api/status", (route) => route.fulfill({ json: statusFixture }));
   await mockApi(page, "POST", "/api/sync", (route) => route.fulfill({ json: syncStartedFixture }));
-  await mockGet(page, "/api/facets", (route) => route.fulfill({ json: facetsFixture }));
+  await mockGet(page, "/api/facets**", (route) => route.fulfill({ json: facetsFixture }));
   await mockGet(page, "/api/notifications**", (route) => route.fulfill({ json: notificationsFixture }));
   await mockGet(page, "/api/jobs/101", (route) => route.fulfill({ json: jobFixture }));
   await mockGet(page, "/api/jobs/202", (route) => route.fulfill({ json: jobFixture2 }));

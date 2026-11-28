@@ -1,5 +1,6 @@
 import { msg } from "../../src/test/msg";
-import { expect, test } from "./fixtures";
+import { deepList } from "./boardHarness";
+import { expect, mockGet, test } from "./fixtures";
 import {
   facetsFixture,
   jobFixture,
@@ -18,7 +19,7 @@ test.beforeEach(async ({ page }) => {
     profile: null, scope_configured: true,
   } }));
   await page.route("/api/stats", (route) => route.fulfill({ json: statsFixture }));
-  await page.route("/api/facets", (route) => route.fulfill({ json: facetsFixture }));
+  await mockGet(page, "/api/facets**", (route) => route.fulfill({ json: facetsFixture }));
   await page.route("/api/notifications**", (route) => route.fulfill({ json: notificationsFixture }));
   await page.route("/api/jobs/*/similar**", (route) => route.fulfill({ json: { scope: "cross", items: [] } }));
   await page.route("/api/jobs?**", (route) => route.fulfill({ json: jobListFixture }));
@@ -76,6 +77,51 @@ test("the Sync button triggers a scrape and shows live progress then the result"
   await expect(busy).toHaveText(/Scanning/);
   await page.clock.runFor(3_100);
   await expect(page.getByRole("button", { name: /Scan/ })).toContainText(`+${COMPLETED_NEW} new`);
+});
+
+test("Radar retries a failed scan update without moving or replacing the visible list", async ({ page }) => {
+  let running = true;
+  let failedReads = 0;
+  const added = { ...jobFixture, title: "New role from the scan" };
+  await mockGet(page, "/api/status", (route) => route.fulfill({ json: { ...statusFixture, running } }));
+  await mockGet(page, "/api/jobs?**", (route) => {
+    const { searchParams } = new URL(route.request().url());
+    if (running || searchParams.get("limit") === "1") return route.fulfill({ json: deepList });
+    if (++failedReads <= 2) return route.fulfill({ status: 503, json: { detail: "engine away" } });
+    return route.fulfill({ json: { ...deepList, total: 41, items: [added, ...deepList.items] } });
+  });
+  await page.clock.install();
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "Scan in progress" })).toBeVisible();
+  const row = page.getByRole("article").filter({ hasText: "Row 18 Principal Product Manager" });
+  await row.scrollIntoViewIfNeeded();
+  await row.focus();
+  const rowTop = () => row.evaluate((el) => Math.round(el.getBoundingClientRect().top));
+  const before = await rowTop();
+
+  running = false;
+  await page.clock.runFor(3_100);
+  const failure = page.getByRole("status").filter({ hasText: msg("radar-refresh-failed") });
+  const retry = failure.getByRole("button", { name: msg("common-try-again") });
+  await expect(retry).toBeVisible();
+  await expect(row).toBeFocused();
+  await expect.poll(rowTop).toBe(before);
+
+  await retry.focus();
+  const scroll = () => page.getByRole("main").evaluate((el) => el.scrollTop);
+  const retryScroll = await scroll();
+  await retry.press("Enter");
+  await expect.poll(() => failedReads).toBe(2);
+  await expect(retry).toBeFocused();
+  expect(await scroll()).toBe(retryScroll);
+  await retry.press("Enter");
+  const accept = page.getByRole("button", { name: msg("radar-board-fresh-show") });
+  await expect(accept).toBeFocused();
+  expect(await scroll()).toBe(retryScroll);
+  await expect(page.getByRole("article")).toHaveCount(40);
+  await expect(page.getByText(added.title)).toHaveCount(0);
+  await accept.press("Enter");
+  await expect(page.getByText(added.title)).toBeVisible();
 });
 
 test("a queued scan the background service holds says why, and says it again once the hold changes", async ({ page }) => {

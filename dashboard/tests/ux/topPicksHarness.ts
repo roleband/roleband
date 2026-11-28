@@ -77,7 +77,7 @@ export async function installTopPicksRoutes(
     if (!isLens(url)) return route.fallback();
     return route.fulfill({ json: isRemoved(url) ? removed : list });
   });
-  await mockGet(page, "/api/facets?**", (route) =>
+  await mockGet(page, "/api/facets**", (route) =>
     isLens(route.request().url()) ? route.fulfill({ json: facetsFixture }) : route.fallback());
   return seen;
 }

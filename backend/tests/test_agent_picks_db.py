@@ -54,7 +54,11 @@ from tracker.picks.health import ABANDONED_AFTER
 from tracker.picks.lock import lock_picks
 from tracker.picks.verdicts import REASON_MAX
 from tracker.platform import agent_hosts
-from tracker.settings_store import get_top_picks_settings, update_top_picks_settings
+from tracker.settings_store import (
+    get_top_picks_settings,
+    set_enabled_locations,
+    update_top_picks_settings,
+)
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("no_escape")]
 
@@ -2328,6 +2332,78 @@ async def test_the_picks_total_counts_a_place_set_through_its_picked_member(api_
     assert facets["counts"]["company"] == {"google": 1, "stripe": 1}
     # Control: the Radar's own total counts the role once too.
     assert (await api_client.get("/api/facets")).json()["total"] == 4
+
+
+async def test_rejected_pick_facets_count_the_marked_postings_each_option_lists(api_client, db_session, workspace):
+    jobs = workspace["jobs"]
+    run = await _begin(api_client)
+    await _outcomes(api_client, run, [_pick(jobs[key]) for key in ("staff", "principal", "lead")])
+
+    async with _fresh(db_session) as session:
+        await set_enabled_locations(session, ["silicon_valley", "new_york", "united_states"])
+        place_set = JobPlaceSet(
+            company="stripe", title="product manager", text_hash="0" * 32, size=2,
+            places=["New York, NY, USA", "Mountain View, CA, USA"], rule_version="t1",
+        )
+        session.add(place_set)
+        await session.flush()
+        for key in ("principal", "lead"):
+            session.add(JobPlaceSetMember(job_id=jobs[key], set_id=place_set.id, status="auto"))
+        await session.execute(update(Job).where(Job.id == jobs["principal"]).values(
+            location_groups=["new_york", "united_states"],
+        ))
+        await session.execute(update(Job).where(Job.id == jobs["lead"]).values(
+            location_groups=["silicon_valley", "united_states"],
+        ))
+        await session.commit()
+    for key in ("principal", "lead", "underpaid"):
+        response = await api_client.put(f"/api/jobs/{jobs[key]}/feedback", json={"verdict": "dismissed"})
+        assert response.status_code == 200, response.text
+
+    showing = {"top_picks": True, "dismissed_only": True, "status": ""}
+
+    async def facets(**params):
+        response = await api_client.get("/api/facets", params=params)
+        assert response.status_code == 200, response.text
+        return response.json()
+
+    assert (await facets(**showing))["counts"]["company"] == {"stripe": 2}
+    async with _fresh(db_session) as session:
+        await session.execute(update(Job).where(Job.id == jobs["principal"]).values(status="closed"))
+        await session.commit()
+
+    rejected = await facets(**showing)
+    assert rejected["total"] == 2
+    assert set(rejected["companies"]) == {"stripe"}
+    assert set(rejected["location_groups"]) == {"silicon_valley", "united_states", "new_york"}
+    assert {row["id"] for row in (await _radar(api_client, **showing))["items"]} == {jobs["principal"], jobs["lead"]}
+    for field, value, keys in [
+        ("company", "stripe", ("principal", "lead")),
+        ("location_group", "united_states", ("principal", "lead")),
+        ("location_group", "new_york", ("principal",)),
+        ("location_group", "silicon_valley", ("lead",)),
+    ]:
+        selected = await _radar(api_client, **showing, **{field: value})
+        assert {row["id"] for row in selected["items"]} == {jobs[key] for key in keys}
+        assert rejected["counts"][field][value] == selected["total"] == len(keys)
+    assert (await facets(**{**showing, "status": "open"}))["counts"]["company"] == {"stripe": 1}
+
+    active = await facets(top_picks=True)
+    assert active["counts"]["company"] == {"google": 1}
+    assert active["total"] == (await _radar(api_client, top_picks=True))["total"] == 1
+    assert "new_york" not in active["location_groups"]
+    assert (await facets())["counts"]["company"] == {"google": 2, "stripe": 1}
+    assert (await facets(status="open"))["total"] == (await _radar(api_client))["total"] == 1
+    assert (await facets(dismissed_only=True, status=""))["total"] == 3
+
+    response = await api_client.delete(f"/api/jobs/{jobs['lead']}/feedback")
+    assert response.status_code == 200, response.text
+    assert (await facets(**showing))["counts"]["location_group"] == {"new_york": 1, "united_states": 1}
+
+    async with _fresh(db_session) as session:
+        await session.execute(update(TrackedCompany).where(TrackedCompany.slug == "stripe").values(visible=False))
+        await session.commit()
+    assert (await facets(**showing))["total"] == (await _radar(api_client, **showing))["total"] == 0
 
 
 async def test_the_state_says_how_the_checks_stand_and_what_the_week_held(api_client, db_session, workspace, monkeypatch):

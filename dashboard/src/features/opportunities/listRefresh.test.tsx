@@ -39,6 +39,7 @@ const listCalls = () => vi.mocked(api.jobs).mock.calls.filter(([params]) => para
 
 beforeEach(() => {
   epoch.referenceVersion = 0;
+  epoch.runVersion = 0;
   vi.spyOn(api, "facets").mockResolvedValue(facetsFixture);
   vi.spyOn(api, "jobs").mockResolvedValue(listed);
   vi.spyOn(api, "picksState").mockResolvedValue(picksOn);
@@ -46,18 +47,21 @@ beforeEach(() => {
 });
 afterEach(() => vi.restoreAllMocks());
 
+const radar = (mode: "open" | "closed" = "open") =>
+  <BoardScreen companyParam={[]} onCompanyParamChange={vi.fn()} mode={mode} onModeChange={vi.fn()} />;
+
+function mount(screenUnderTest: () => ReactElement) {
+  const tree = () => <MemoryRouter><ToastProvider>{screenUnderTest()}</ToastProvider></MemoryRouter>;
+  const view = render(tree());
+  return () => view.rerender(tree());
+}
+
 const screens: Array<[string, () => ReactElement, string]> = [
-  ["the Radar", () => <BoardScreen companyParam={[]} onCompanyParamChange={vi.fn()} mode="open" onModeChange={vi.fn()} />, msg("radar-refresh-failed")],
+  ["the Radar", radar, msg("radar-refresh-failed")],
   ["Top picks", () => <TopPicksScreen />, msg("picks-refresh-failed")],
 ];
 
 describe.each(screens)("a background refresh of the list on %s", (_name, screenUnderTest, failed) => {
-  const mount = () => {
-    const tree = () => <MemoryRouter><ToastProvider>{screenUnderTest()}</ToastProvider></MemoryRouter>;
-    const view = render(tree());
-    return { rerender: () => view.rerender(tree()) };
-  };
-
   /* Estimates moving together re-read the page in place; that read failing is
      the background failure this screen has to say. */
   async function failARefresh(rerender: () => void) {
@@ -69,7 +73,7 @@ describe.each(screens)("a background refresh of the list on %s", (_name, screenU
   }
 
   it("keeps the rows and says the update failed, with Try again", async () => {
-    const { rerender } = mount();
+    const rerender = mount(screenUnderTest);
     expect(await screen.findByText("Staff Platform Engineer")).toBeVisible();
     expect(screen.queryByText(failed)).toBeNull();
 
@@ -85,7 +89,7 @@ describe.each(screens)("a background refresh of the list on %s", (_name, screenU
 
   it("keeps the rows when Try again fails too, and takes the new list once it answers", async () => {
     const user = userEvent.setup();
-    const { rerender } = mount();
+    const rerender = mount(screenUnderTest);
     await screen.findByText("Staff Platform Engineer");
     await failARefresh(rerender);
     await screen.findByText(failed);
@@ -104,5 +108,91 @@ describe.each(screens)("a background refresh of the list on %s", (_name, screenU
     expect(await screen.findByText("Principal Engineer")).toBeVisible();
     expect(listCalls()).toBeGreaterThan(before);
     expect(screen.queryByText(failed)).toBeNull();
+  });
+});
+
+describe("a scan finishes while Radar is open", () => {
+  const failed = msg("radar-refresh-failed");
+  const showUpdate = msg("radar-board-fresh-show");
+  const newer = {
+    ...listed, total: 2, items: [{ ...jobFixture, id: 202, title: "Principal Engineer" }, ...listed.items],
+  };
+
+  it("keeps the list and focus through failed retries and offers the successful read", async () => {
+    const user = userEvent.setup();
+    const rerender = mount(radar);
+    await screen.findByText("Staff Platform Engineer");
+    const row = screen.getByRole("article");
+    row.focus();
+
+    vi.mocked(api.jobs).mockRejectedValueOnce(new Error("scan update unavailable"));
+    epoch.runVersion += 1;
+    act(rerender);
+    const notice = (await screen.findByText(failed)).closest<HTMLElement>("[role=status]")!;
+    const retry = within(notice).getByRole("button", { name: msg("common-try-again") });
+    expect(row).toHaveFocus();
+
+    let failRetry!: (error: Error) => void;
+    const pending = new Promise<never>((_resolve, reject) => { failRetry = reject; });
+    vi.mocked(api.jobs).mockReturnValueOnce(pending);
+    const before = listCalls();
+    retry.focus();
+    await user.keyboard("{Enter}");
+    expect(listCalls()).toBe(before + 1);
+    expect(screen.getByRole("article")).toBe(row);
+    expect(retry).toHaveFocus();
+    await act(async () => failRetry(new Error("still unavailable")));
+    expect(retry).toBeVisible();
+    expect(retry).toHaveFocus();
+
+    vi.mocked(api.jobs).mockResolvedValueOnce(newer);
+    await user.keyboard("{Enter}");
+    const accept = await screen.findByRole("button", { name: showUpdate });
+    expect(accept).toHaveFocus();
+    expect(screen.getByRole("article")).toBe(row);
+    expect(screen.queryByText("Principal Engineer")).toBeNull();
+    await user.keyboard("{Enter}");
+    expect(await screen.findByText("Principal Engineer")).toBeVisible();
+    expect(screen.queryByText(failed)).toBeNull();
+  });
+
+  it.each([
+    { next: "with a newer offer", offer: true },
+    { next: "without a newer offer", offer: false },
+  ])("ignores a read that fails after Showing changes, $next", async ({ offer }) => {
+    let mode: "open" | "closed" = "open";
+    const rerender = mount(() => radar(mode));
+    await screen.findByText("Staff Platform Engineer");
+    let failOlder!: (error: Error) => void;
+    const pending = new Promise<never>((_resolve, reject) => { failOlder = reject; });
+    vi.mocked(api.jobs).mockReturnValueOnce(pending);
+    const before = listCalls();
+    epoch.runVersion += 1;
+    act(rerender);
+    expect(listCalls()).toBe(before + 1);
+
+    const closedRow = { ...jobFixture, id: 301, status: "closed", title: "Closed position" };
+    vi.mocked(api.jobs).mockResolvedValueOnce({ ...listed, items: [closedRow] });
+    mode = "closed";
+    act(rerender);
+    expect(await screen.findByText(closedRow.title)).toBeVisible();
+    expect(screen.queryByText(failed)).toBeNull();
+
+    if (offer) {
+      vi.mocked(api.jobs).mockResolvedValueOnce({ ...newer, items: [newer.items[0], closedRow] });
+      epoch.runVersion += 1;
+      act(rerender);
+      await screen.findByRole("button", { name: showUpdate });
+    }
+
+    await act(async () => failOlder(new Error("obsolete scan update")));
+    expect(screen.queryByText(failed)).toBeNull();
+    expect(screen.queryByText("Principal Engineer")).toBeNull();
+    if (offer) {
+      await userEvent.click(screen.getByRole("button", { name: showUpdate }));
+      expect(await screen.findByText("Principal Engineer")).toBeVisible();
+    } else {
+      expect(screen.queryByRole("button", { name: showUpdate })).toBeNull();
+    }
   });
 });

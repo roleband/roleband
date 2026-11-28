@@ -1431,8 +1431,10 @@ words are in [copy.md](copy.md).
 with one condition more: the role is a pick that stands and no current hard
 rule rules it out. Every filter, the search, each sort and the paging work as
 on the Radar; Newest orders by when the pick was made, and each row carries
-`pick_reasons` and `picked_at`. `GET /api/facets?top_picks=true` offers only
-what the picks contain. `GET /api/picks/state` answers the mode, its health,
+`pick_reasons` and `picked_at`. Radar and Top picks send their Showing mode
+to `GET /api/facets` with the same `status` and `dismissed_only` values as the
+list. Top picks offers only what that list contains. The unqualified facets
+route counts open roles across the visible market. `GET /api/picks/state` answers the mode, its health,
 what waits, the week's reads and passes, the last check, the daily limit,
 whether a pick arrived since the person last opened Top picks (`unseen_pick`,
 which `POST /api/picks/opened` resets), the routine assistant's connection

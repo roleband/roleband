@@ -3,7 +3,7 @@
    widths) because which home is showing changes how a filter is reached. */
 
 import type { Locator, Page } from "@playwright/test";
-import { expect, test } from "./fixtures";
+import { expect, mockGet, test } from "./fixtures";
 import { facetsFixture, jobFixture, jobListFixture, statsFixture } from "../../src/test/fixtures";
 import { deepList, installBoardRoutes, twoJobList } from "./boardHarness";
 import { msg } from "../../src/test/msg";
@@ -788,7 +788,7 @@ test("a failed facets fetch is recoverable from the pinned rail, not just the pa
   // StrictMode double-mounts in dev, so a "fail once" mock is satisfied by the
   // second mount and the empty rail never appears.
   let failing = true;
-  await page.route("/api/facets", (route) =>
+  await mockGet(page, "/api/facets**", (route) =>
     failing
       ? route.fulfill({ status: 500, json: { detail: "facets exploded" } })
       : route.fulfill({ json: facetsFixture })

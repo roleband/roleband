@@ -145,6 +145,48 @@ describe("Showing on Top picks", () => {
     expect(screen.queryByText("Staff Platform Engineer")).toBeNull();
   });
 
+  it("offers the rejected list's companies and refreshes them after putting a pick back", async () => {
+    let rejected = [{ ...payPick, company: "stripe", status: "closed" }, { ...otherPick, company: "amazon" }];
+    vi.mocked(api.jobs).mockImplementation(async ({ dismissed_only, company }) =>
+      list((dismissed_only ? rejected : [pick]).filter((row) => !company.length || company.includes(row.company))));
+    vi.mocked(api.facets).mockImplementation(async (_signal, showing) => {
+      if (!showing?.dismissed_only) {
+        return { ...facetsFixture, companies: { openai: { display: "OpenAI" } } };
+      }
+      expect(showing).toEqual({ top_picks: true, dismissed_only: true, status: "" });
+      const counts = Object.fromEntries(rejected.map(({ company }) => [company, 1]));
+      const companies = Object.fromEntries(rejected.map(({ company }) => [
+        company, { display: company === "stripe" ? "Stripe" : "Amazon" },
+      ]));
+      return { ...facetsFixture, companies, total: rejected.length, counts: { ...facetsFixture.counts, company: counts } };
+    });
+    vi.mocked(api.undismissJob).mockImplementation(async (id) => {
+      rejected = rejected.filter((row) => row.id !== id);
+      return { job_id: id, is_dismissed: false };
+    });
+
+    mount();
+    await screen.findByText(pick.title);
+    const { user, group } = await showing();
+    const companyGroup = () => screen.getByRole("group", { name: msg("radar-filter-company-aria") });
+    await user.click(within(companyGroup()).getByRole("button", { name: msg("radar-field-company") }));
+    expect(within(companyGroup()).getByRole("checkbox", { name: "OpenAI" })).toBeVisible();
+    expect(within(companyGroup()).queryByRole("checkbox", { name: "Stripe" })).toBeNull();
+
+    await user.click(within(group).getByRole("button", { name: msg("shared-not-for-me") }));
+    const stripe = await screen.findByRole("checkbox", { name: "Stripe" });
+    expect(stripe.closest("label")).toHaveTextContent("Stripe1");
+    expect(within(companyGroup()).queryByRole("checkbox", { name: "OpenAI" })).toBeNull();
+    await user.click(stripe);
+    expect(await screen.findByText(payPick.title)).toBeVisible();
+    await waitFor(() => expect(screen.queryByText(otherPick.title)).toBeNull());
+    await user.click(within(rowOf(payPick.title)).getByRole("button", {
+      name: msg("picks-removed-put-back-name", { title: payPick.title }),
+    }));
+    await waitFor(() => expect(within(companyGroup()).queryByRole("checkbox", { name: "Stripe" })).toBeNull());
+    expect(within(companyGroup()).getByRole("checkbox", { name: "Amazon" })).toBeVisible();
+  });
+
   it("reads an address that names another of the Radar's lists as the picks", async () => {
     mount("/top-picks?show=closed");
     expect(await screen.findByText("Staff Platform Engineer")).toBeVisible();

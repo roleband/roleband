@@ -50,7 +50,7 @@ export function BoardScreen(props: CompanyLens) {
   const { viewedIds, compareIds, compareFull, compareCap } = useJobWorkspace();
   const { openJob, toggleCompare } = useJobActions();
   const {
-    filters, facets, facetsError, retryFacets, list, listError, listRefreshError, retryList, refreshList, baseline, bestFitUnranked,
+    filters, facets, facetsError, retryFacets, list, listError, listRefreshError, retryList, retryListRefresh, baseline, bestFitUnranked,
     mode, onModeChange,
     total, isDirect, relatedTotal, expanded, pageableTotal,
     update, updateFilters, onSort, toggleFav, dismiss,
@@ -151,11 +151,17 @@ export function BoardScreen(props: CompanyLens) {
       <AsyncBoundary
         resource={{
           data: list, error: list ? null : listError, loading: !list && !listError,
-          retry: retryList, refresh: refreshList, refreshError: listRefreshError,
+          retry: retryList, refresh: retryListRefresh, refreshError: listRefreshError,
         }}
         loading={radarLoading()}
         failed={radarLoadFailed()}
         refreshFailed={radarRefreshFailed()}
+        scrollContainer={rootRef}
+        updateOffer={fresh ? {
+          message: fresh.more > 0 ? radarBoardFreshMore({ count: fresh.more }) : radarBoardFreshChanged(),
+          label: radarBoardFreshShow(),
+          apply: showFresh,
+        } : undefined}
         skeleton={<JobList><RowSkeleton rows={9} /></JobList>}
       >
       {() => total === 0 && relatedTotal === 0 ? (
@@ -269,17 +275,6 @@ export function BoardScreen(props: CompanyLens) {
           the list read again as it finds more. */}
       {mode === "open" && !inLens && (total > 0 || relatedTotal > 0) && <FirstScanLine />}
       <FirstScanReread onReread={rereadDuringScan} />
-
-      {/* A scan ended while the list was open: the update waits for the reader,
-          so no row moves under them mid-read. */}
-      {fresh && (
-        <div className="empty-hint" role="status">
-          {fresh.more > 0 ? radarBoardFreshMore({ count: fresh.more }) : radarBoardFreshChanged()}{" "}
-          <Button variant="ghost" size="sm" onClick={showFresh}>
-            {radarBoardFreshShow()}
-          </Button>
-        </div>
-      )}
 
       {/* The intent-ranked order is deliberately UNANNOUNCED here: a
           "Ranked by your direction" strip would break the page's visual line.

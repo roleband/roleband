@@ -1,6 +1,6 @@
 import { commonTryAgain } from "../copy/gen/common";
 import { sharedEmpty, sharedRefreshFailed } from "../copy/gen/shared";
-import { Fragment, ReactNode } from "react";
+import { Component, Fragment, createRef, type ReactNode, type RefObject } from "react";
 import type { AsyncResource } from "../hooks/useAsyncResource";
 import { Button } from "./Button";
 import { EmptyState } from "./EmptyState";
@@ -34,6 +34,10 @@ export interface AsyncBoundaryProps<T> {
   /** "Couldn't refresh plugins. Showing the last result.": said above the
    *  data a failed background refresh left on screen. */
   refreshFailed?: string;
+  /** A newer result the reader can choose to display. */
+  updateOffer?: Notice;
+  /** The list's scrollport, so an offscreen notice keeps the rows in view. */
+  scrollContainer?: RefObject<HTMLElement | null>;
   /** Ready render — only called with loaded, non-empty data. */
   children: (data: T) => ReactNode;
   /** Loading slot (e.g. skeleton rows). Defaults to the spinner line. */
@@ -43,6 +47,8 @@ export interface AsyncBoundaryProps<T> {
   /** Empty slot. Defaults to the radar EmptyState. */
   empty?: ReactNode;
 }
+
+type Notice = { message: string; label: string; apply: () => void };
 
 export function AsyncBoundary<T>({
   resource,
@@ -54,6 +60,8 @@ export function AsyncBoundary<T>({
   failed,
   emptyTitle,
   refreshFailed,
+  updateOffer,
+  scrollContainer,
 }: AsyncBoundaryProps<T>) {
   const { data, error, loading, retry, refreshError, refresh } = resource;
   if (loading) {
@@ -68,24 +76,57 @@ export function AsyncBoundary<T>({
   if (data == null || isEmpty?.(data)) {
     return <>{empty ?? <EmptyState title={emptyTitle ?? sharedEmpty()} />}</>;
   }
-  if (!refreshError) return body(children(data));
+  const notice = updateOffer ?? (refreshError ? {
+    message: refreshFailed ?? sharedRefreshFailed(),
+    label: commonTryAgain(),
+    apply: refresh ? () => void refresh({ preserveData: true }) : retry,
+  } : null);
+  return body(children(data), scrollContainer
+    ? <AnchoredNotice key="refresh-notice-slot" notice={notice} scrollContainer={scrollContainer} />
+    : noticeLine(notice));
+}
 
-  /* A failed REFRESH keeps its data on screen by design (that is why
-     `useAsyncResource` routes it to `refreshError` instead of `error`), and
-     this is where it renders: unrendered, a failing poll leaves a frozen list
-     looking freshly loaded. Stale is survivable; stale and confident is not.
-     Its Try again is a refresh too, so the rows stay through the attempt and
-     through another failure; `retry` would blank them. */
-  const again = refresh ? () => void refresh({ preserveData: true }) : retry;
-  return body(
-    children(data),
-    <div key="refresh-failed" className="empty-hint" role="status">
-      {refreshFailed ?? sharedRefreshFailed()}{" "}
-      <Button variant="ghost" size="sm" onClick={again}>
-        {commonTryAgain()}
+function noticeLine(notice: Notice | null) {
+  // One button stays mounted while a failed offer turns into an available update.
+  return notice && (
+    <div key="refresh-notice" className="empty-hint" role="status">
+      {notice.message}{" "}
+      <Button variant="ghost" size="sm" onClick={notice.apply}>
+        {notice.label}
       </Button>
-    </div>,
+    </div>
   );
+}
+
+type AnchoredNoticeProps = {
+  notice: Notice | null;
+  scrollContainer: RefObject<HTMLElement | null>;
+};
+
+class AnchoredNotice extends Component<AnchoredNoticeProps, object, number | null> {
+  private readonly slot = createRef<HTMLDivElement>();
+
+  getSnapshotBeforeUpdate({ notice: previous }: AnchoredNoticeProps): number | null {
+    const { notice, scrollContainer } = this.props;
+    if (previous?.message === notice?.message && previous?.label === notice?.label) return null;
+    const root = scrollContainer.current;
+    if (!root || root.scrollTop === 0 || !this.slot.current) return null;
+    const bottom = this.slot.current.getBoundingClientRect().bottom;
+    return bottom <= root.getBoundingClientRect().top ? bottom : null;
+  }
+
+  componentDidUpdate(_props: AnchoredNoticeProps, _state: object, previousBottom: number | null) {
+    const root = this.props.scrollContainer.current;
+    const slot = this.slot.current;
+    // Measure after native anchoring, which may already have held the rows.
+    if (root && slot && previousBottom !== null) {
+      root.scrollTop += slot.getBoundingClientRect().bottom - previousBottom;
+    }
+  }
+
+  render() {
+    return <div ref={this.slot}>{noticeLine(this.props.notice)}</div>;
+  }
 }
 
 /* The content sits under one key in every state, so React matches it by key

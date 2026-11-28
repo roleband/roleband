@@ -30,7 +30,7 @@ async function installSetup(page: Page) {
   await mockGet(page, "/api/profile", (route) => route.fulfill({ json: FRESH }));
   await mockGet(page, "/api/stats", (route) => route.fulfill({ json: statsFixture }));
   await mockGet(page, "/api/status", (route) => route.fulfill({ json: statusFixture }));
-  await mockGet(page, "/api/facets", (route) => route.fulfill({ json: facetsFixture }));
+  await mockGet(page, "/api/facets**", (route) => route.fulfill({ json: facetsFixture }));
   await mockGet(page, "/api/notifications**", (route) => route.fulfill({ json: notificationsFixture }));
   await mockGet(page, "/api/jobs?**", (route) => route.fulfill({ json: { ...jobListFixture, items: [], total: 0 } }));
   await mockGet(page, "/api/scope/catalog", (route) => route.fulfill({ json: scopeCatalog }));

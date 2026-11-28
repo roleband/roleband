@@ -1834,8 +1834,7 @@ export interface paths {
         };
         /**
          * Facets
-         * @description Filter-sidebar options with open-job counts. With `top_picks`, the
-         *     options and counts of the Top picks list: only what the picks contain.
+         * @description Filter options and counts for a list's Showing mode.
          */
         get: operations["facets_api_facets_get"];
         put?: never;
@@ -8742,7 +8741,7 @@ export interface components {
         };
         /**
          * FacetCounts
-         * @description Open, in-scope, visible roles per value; a null column value is never a key.
+         * @description Visible list rows per value; a null column value is never a key.
          */
         FacetCounts: {
             /** Company */
@@ -8790,8 +8789,8 @@ export interface components {
          * FacetsResponse
          * @description `GET /api/facets`: the board's filter options and their counts.
          *
-         *     Families and tracks list the whole taxonomy; locations only tracked groups with
-         *     roles; worlds only those with roles, plus `unclassified` when some roles name none.
+         *     On Radar, families and tracks list the whole taxonomy. Locations are tracked
+         *     groups with rows; worlds are those with rows, including `unclassified` when some name none.
          */
         FacetsResponse: {
             /** Companies */
@@ -21393,6 +21392,8 @@ export interface operations {
         parameters: {
             query?: {
                 top_picks?: boolean;
+                status?: string | null;
+                dismissed_only?: boolean;
             };
             header?: never;
             path?: never;

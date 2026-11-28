@@ -90,6 +90,42 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("a check that makes a pick while Top picks is open", () => {
+  it("retries a failed offer and leaves the pick unseen until the update is accepted", async () => {
+    const user = userEvent.setup();
+    mount(<TopPicksScreen />);
+    await screen.findByText(firstPick.title);
+    const row = screen.getByRole("article");
+    row.focus();
+    const failed = msg("picks-refresh-failed");
+
+    vi.mocked(api.jobs).mockRejectedValueOnce(new Error("pick update unavailable"));
+    await aCheckMakesAPick();
+    expect(await screen.findByText(failed)).toBeVisible();
+    expect(row).toHaveFocus();
+    const retry = screen.getByRole("button", { name: msg("common-try-again") });
+    const before = listCalls();
+    vi.mocked(api.jobs).mockRejectedValueOnce(new Error("still unavailable"));
+    await user.click(retry);
+    expect(listCalls()).toBe(before + 1);
+    expect(screen.getByRole("article")).toBe(row);
+    expect(screen.getByText(failed)).toBeVisible();
+    expect(retry).toHaveFocus();
+
+    vi.mocked(api.jobs).mockResolvedValueOnce(twoPicks);
+    await user.keyboard("{Enter}");
+    await offerLine(1);
+    const accept = screen.getByRole("button", { name: msg("radar-board-fresh-show") });
+    expect(accept).toHaveFocus();
+    expect(screen.queryByText(newPick.title)).toBeNull();
+    expect(screen.getByTestId("dot")).toHaveTextContent("lit");
+    expect(api.picksOpened).toHaveBeenCalledTimes(1);
+
+    await user.keyboard("{Enter}");
+    expect(await screen.findByText(newPick.title)).toBeVisible();
+    await waitFor(() => expect(screen.getByTestId("dot")).toHaveTextContent("out"));
+    expect(api.picksOpened).toHaveBeenCalledTimes(2);
+  });
+
   it("offers the new pick without moving the rows, and taking it shows the pick and puts the dot out", async () => {
     const user = userEvent.setup();
     mount(<TopPicksScreen />);

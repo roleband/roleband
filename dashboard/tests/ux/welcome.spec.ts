@@ -52,7 +52,7 @@ async function install(page: Page, profile: typeof FRESH) {
   await page.route("/api/profile", (route) => route.fulfill({ json: saves.length > 0 ? { ...profile, scope_configured: true } : profile }));
   await page.route("/api/stats", (route) => route.fulfill({ json: statsFixture }));
   await page.route("/api/status", (route) => route.fulfill({ json: NEVER_SCANNED }));
-  await page.route("/api/facets", (route) => route.fulfill({ json: facetsFixture }));
+  await mockGet(page, "/api/facets**", (route) => route.fulfill({ json: facetsFixture }));
   await page.route("/api/notifications**", (route) => route.fulfill({ json: notificationsFixture }));
   await page.route("/api/jobs?**", (route) => route.fulfill({ json: { ...jobListFixture, items: [], total: 0 } }));
   await page.route("/api/scope/catalog", (route) => route.fulfill({ json: scopeCatalog }));

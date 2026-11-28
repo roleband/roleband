@@ -70,12 +70,12 @@ from tracker.db.queries.jobs import (
     domain_facet_count_stmt,
     exclude_hidden,
     facet_count_stmt,
+    facet_total_count_stmt,
     known_order,
     known_sort,
     list_rows,
     open_in_scope_count_stmt,
     place_facet_count_stmt,
-    roles_within_count_stmt,
     row_context,
     unclassified_domain_count_stmt,
 )
@@ -248,9 +248,7 @@ async def _listed(
         # picked: every filter, the search and each sort work as they do there,
         # and so do scope, hidden companies and Not for me. Newest means newest
         # pick, since that is what arrived.
-        params["pick_ids"] = pick_verdicts.standing_pick_ids(
-            pick_briefs.body_of(await pick_briefs.active(session)), keep_removed=True,
-        )
+        params["pick_ids"] = await _standing_pick_ids(session)
         # The Not-for-me lens keeps its own order, below.
         if sort == DEFAULT_SORT and not dismissed_only:
             picked = pick_verdicts.picked_at()
@@ -683,31 +681,43 @@ async def _visible_company_options(session: AsyncSession) -> dict[str, dict]:
     return {slug: {"display": display} for slug, display in await visible_company_names(session)}
 
 
-@router.get("/api/facets", response_model=FacetsResponse)
-async def facets(session: SessionDep, hidden: OffBoardDep, top_picks: bool = False) -> dict:
-    """Filter-sidebar options with open-job counts. With `top_picks`, the
-    options and counts of the Top picks list: only what the picks contain."""
-    within = None
-    if top_picks:
-        within = pick_verdicts.standing_pick_ids(pick_briefs.body_of(await pick_briefs.active(session)))
+async def _standing_pick_ids(session: AsyncSession):
+    return pick_verdicts.standing_pick_ids(
+        pick_briefs.body_of(await pick_briefs.active(session)), keep_removed=True,
+    )
 
-    # Every count is of open roles, a place set once, so the number
-    # beside an option is the rows choosing it lists.
+
+@router.get("/api/facets", response_model=FacetsResponse)
+async def facets(
+    session: SessionDep,
+    hidden: OffBoardDep,
+    top_picks: bool = False,
+    status: str | None = None,
+    dismissed_only: bool = False,
+) -> dict:
+    """Filter options and counts for a list's Showing mode."""
+    # An unqualified read describes the open market, including dismissed roles.
+    params = None
+    if top_picks or status is not None or dismissed_only:
+        params = {"status": "open" if status is None else status, "dismissed_only": dismissed_only}
+        if top_picks:
+            params["pick_ids"] = await _standing_pick_ids(session)
+
     async def grouped(column) -> dict[str, int]:
-        rows = (await session.execute(facet_count_stmt(column, hidden, within))).all()
+        rows = (await session.execute(facet_count_stmt(column, hidden, params=params))).all()
         return {str(k): v for k, v in rows if k is not None}
 
     bound_locations = {
-        str(k): v for k, v in (await session.execute(place_facet_count_stmt(hidden, within))).all()
+        str(k): v for k, v in (await session.execute(place_facet_count_stmt(hidden, params=params))).all()
     }
 
     # Worlds (domains), plus the unclassified bucket: NULL (pre-axis) and `{}`
     # (honestly unknown) rows are the fail-open volume and must stay findable,
     # not invisible.
     domain_counts = {
-        str(k): v for k, v in (await session.execute(domain_facet_count_stmt(hidden, within))).all()
+        str(k): v for k, v in (await session.execute(domain_facet_count_stmt(hidden, params=params))).all()
     }
-    unclassified = int(await session.scalar(unclassified_domain_count_stmt(hidden, within)) or 0)
+    unclassified = int(await session.scalar(unclassified_domain_count_stmt(hidden, params=params)) or 0)
     if unclassified:
         domain_counts[UNCLASSIFIED_KEY] = unclassified
 
@@ -722,11 +732,11 @@ async def facets(session: SessionDep, hidden: OffBoardDep, top_picks: bool = Fal
         "companies": {
             slug: option
             for slug, option in (await _visible_company_options(session)).items()
-            if slug not in off_board and (within is None or slug in by_company)
+            if slug not in off_board and (not top_picks or slug in by_company)
         },
         # Slugs only: the dashboard names them from its catalog.
-        "families": {g.slug: {} for g in ROLE_GROUPS if within is None or by_family.get(g.slug)},
-        "tracks": {t.slug: {} for t in TRACKS if within is None or by_track.get(t.slug)},
+        "families": {g.slug: {} for g in ROLE_GROUPS if not top_picks or by_family.get(g.slug)},
+        "tracks": {t.slug: {} for t in TRACKS if not top_picks or by_track.get(t.slug)},
         # Tracked AND bound. A filter option that can only ever return nothing
         # is noise here, and across every group it is a wall of it — the scope may
         # cover the planet, but the board offers the slice that actually has
@@ -761,12 +771,11 @@ async def facets(session: SessionDep, hidden: OffBoardDep, top_picks: bool = Fal
                 else {}
             ),
         },
-        # Every open in-scope role the board can show, under the same guard the
-        # counts use. A facet VALUE whose count equals this narrows nothing
+        # A facet VALUE whose count equals this narrows nothing
         # (a broad region can match the entire board), and an option that cannot narrow is noise in a column whose whole job
         # is narrowing.
         "total": await session.scalar(
-            open_in_scope_count_stmt(hidden) if within is None else roles_within_count_stmt(hidden, within)
+            open_in_scope_count_stmt(hidden) if params is None else facet_total_count_stmt(hidden, params=params)
         ) or 0,
         "counts": {
             "company": by_company,
