@@ -48,6 +48,7 @@ jobs:
             backend/tracker/**
             backend/tests/fixtures/level_basis_gate.json
             backend/tests/fixtures/notification_keys.json
+            docs/ui.md
             launcher/contracts/status-cases.json
             launcher/macos/Sources/LauncherCore/Resources/**
             launcher/macos/Tools/ci_changes.py

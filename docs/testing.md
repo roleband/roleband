@@ -498,6 +498,8 @@ silence a failure your change did not intend is not allowed.
 | `backend/tests/fixtures/schema_metadata.json` | `tests/test_schema_metadata.py` | `scripts.freeze_schema_metadata`, with the model change's migration |
 | `ignore_imports` in `backend/pyproject.toml` | `tests/test_import_contracts.py` | Only shrinks |
 | `dashboard/src/test/ratchet-baseline.json` | `src/test/ratchet.test.ts` | Only lowered |
+| `dashboard/src/design/card-recipe-names.json`, `label-recipe-names.json`, `button-paint-names.json` | `src/design/card-recipe.test.ts`, `label-recipe.test.ts`, `button-paint.test.ts` | Only shrink: a name leaves in the change that removes its copy |
+| `dashboard/src/design/rhythm-literals-baseline.json` | `src/design/rhythm-literals.test.ts` | Only lowered |
 | `LEGACY_EDGES` in `dashboard/eslint.config.js` | `src/test/layer-edges.test.ts` | Only shrinks |
 | `dashboard/src/test/copy-check-baseline.json` | `src/test/copy-check.test.ts`, `npm run copy:check` | Only lowered (`npm run copy:check -- --freeze`) |
 | `dashboard/bundle-baseline.json` | `npm run build` | `npm run bundle:record` when a change deliberately moves the startup bundle |

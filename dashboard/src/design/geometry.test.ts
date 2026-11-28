@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { literalsIn } from "./rhythm";
 
 /* The geometry gate.
  *
@@ -36,31 +37,6 @@ const TAB_STYLESHEETS = [
      their literals are gone. */
   "ui/CompanyIcon.css",
 ] as const;
-
-const RHYTHM_PROPS = [
-  "padding", "padding-top", "padding-right", "padding-bottom", "padding-left",
-  "padding-inline", "padding-block",
-  "margin", "margin-top", "margin-right", "margin-bottom", "margin-left",
-  "margin-inline", "margin-block",
-  "gap", "row-gap", "column-gap",
-  "border-radius",
-];
-
-function literalsIn(source: string): string[] {
-  const out: string[] = [];
-  for (const prop of RHYTHM_PROPS) {
-    const re = new RegExp(`(?:^|[;{\\s])${prop}:\\s*([^;}]+)`, "g");
-    for (const match of strip(source).matchAll(re)) {
-      const value = match[1];
-      if (/var\(|calc\(|clamp\(|env\(/.test(value)) continue;
-      for (const px of value.matchAll(/(\d+(?:\.\d+)?)px/g)) {
-        const n = Number(px[1]);
-        if (n > 3 && n <= 48) out.push(`${prop}: ${value.trim()}`);
-      }
-    }
-  }
-  return out;
-}
 
 describe("settings geometry", () => {
   it.each(TAB_STYLESHEETS)("%s sizes rhythm from the scales, not literals", (file) => {

@@ -1,0 +1,15 @@
+[
+  "design/dataviz.css :: [data-design-system=\"app\"] .kpi",
+  "features/applications/applications.css :: .app-panel",
+  "features/companies/CompaniesSection.css :: .ledger-add-card",
+  "features/intelligence/IntelligenceSection.css :: .intel-card",
+  "features/intelligence/activity/activity.css :: .activity-inspector",
+  "features/job-detail/job-detail.css :: .comp-panel",
+  "features/job-detail/job-detail.css :: .jd-next",
+  "features/job-detail/job-detail.css :: .jd-section-pay_and_benefits",
+  "features/job-detail/job-detail.css :: .lineage-stack",
+  "features/job-detail/job-detail.css :: .req-panel",
+  "features/notifications/notification-row.css :: .notif-details",
+  "features/scope/ScopeSection.css :: .scope-rail-card",
+  "patterns/companies/company-chip.css :: .co-card"
+]

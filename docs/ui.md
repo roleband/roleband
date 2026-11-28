@@ -412,7 +412,7 @@ The ramp is whole pixels, declared once in `tokens.css`. Never write a literal
 | `page` | 22 | Every screen's `h1` |
 | `screen` | 18 | Card or zone heading (`h2`) |
 | `stat` | 22 | Standalone numerals |
-| `title` | 16 | `h3`, sector heading, tile title |
+| `title` | 15 | `h3`, sector heading, tile title |
 | `read` | 17 | Long-form reading: a posting's own text |
 | `read-head` | 20 | A section heading inside a long read |
 | `read-title` | 24 | A long read's own title: a posting's `h1` |
@@ -422,8 +422,8 @@ The ramp is whole pixels, declared once in `tokens.css`. Never write a literal
 | `meta` | 13 | Secondary facts. The floor for anything that states a fact |
 | `label` | 12 | Uppercase mono labels, column heads. The floor for chrome |
 | `viz` | 11 | Instrument text with a text alternative only |
-| `micro` | 11 | A secondary fact on a dense instrument row, in muted or fainter ink, never prose |
-| `whisper` | 9 | A recognition label: uppercase, at the recipe `--app-type-whisper-weight` / `--app-type-whisper-track`. Never sentence case |
+| `micro` | 12 | A secondary fact on a dense instrument row, in muted or fainter ink, never prose |
+| `whisper` | 10 | A recognition label: uppercase, at the recipe `--app-type-whisper-weight` / `--app-type-whisper-track`. Never sentence case |
 
 Rules that go with it:
 
@@ -459,7 +459,9 @@ checks that every mono weight a rule asks for is a face the app loads.
 - A control's height and inset come from the same step.
 - `design/geometry.test.ts` rejects bare px from 4 to 48 in padding, margin,
   gap and radius, and off-scale control heights, in the sheets it enrols (the
-  register screens, `ui/Card.css`, `ui/CompanyIcon.css`). Follow it everywhere.
+  register screens, `ui/Card.css`, `ui/CompanyIcon.css`). Follow it everywhere:
+  every other sheet's count of those literals may only fall
+  (`design/rhythm-literals.test.ts`).
 - A card's inset says how much room it has: `space-5` for a card spanning its
   column, `space-4` for a card in a multi-column grid or any card below 640px,
   `space-3` for a block nested in a card. No fourth value
@@ -494,6 +496,7 @@ writing a screen-local version.
 | Floating surface | `Overlay` and its shells `Popover`, `Dialog`, `Sheet` |
 | Escape handling outside an overlay | `useEscapeLayer` (`ui/escapeLayer.ts`) |
 | Status label or count | `Badge` (tone, variant, size); a job row's read-only label is `shape="tag"` |
+| A count on a navigation item (a tab, a rail entry) | `CountBadge`; its `className` places it and sets nothing else |
 | Fetch states | `AsyncBoundary`, `ResourceLoadState` (shows only after 200 ms, so a short load never flashes), `Spinner`, `ProgressBar` (with no value, a running line for a wait nothing can measure) |
 | Empty result | `EmptyState` (`narrowedBy` explains which filters emptied it) |
 | On/off setting | `Switch` |
@@ -510,10 +513,28 @@ writing a screen-local version.
 | Card anatomy | `Card`, `CardRow`, `CardMessage` |
 | Glyph, company mark, key hint, help mark | `Icon`, `CompanyIcon`, `Kbd`, `InfoTip` |
 | Short form of a name in a column, row or chip (*Est. TC*) | `Abbr` (full words on hover and for screen readers) |
-| Third-party text; chart | `Content`; `EChart` |
+| A sentence with an element inside it (a link, a name in bold) | `Msg` ([copy.md](copy.md)) |
+| Third-party text; engineering text behind the diagnostics toggle; chart | `Content`; `Diagnostic`; `EChart` |
 
 A primitive that needs CSS ships it beside itself as `ui/<Name>.css` with a
 `ui-` class prefix. A control used by two screens belongs in `src/ui/`.
+
+Some shared pieces are classes rather than components. Use the class before
+writing a box, label or table of a screen's own:
+
+| Job | Class | Sheet |
+|---|---|---|
+| A card without `Card`'s heading, inset `space-5` (`space-4` below 640px) | `.panel` | `design/overlays.css` |
+| A small uppercase label: a kicker, a group or column head, in faint ink. A role that needs another ink adds a rule that sets only the colour | `.eyebrow` | `design/surfaces.css` |
+| A table of rows with uppercase column heads and hairline rows; `.num` cells right-aligned in tabular figures | `.data-table` | `design/surfaces.css` |
+| A compact table of figures by row, its row heads apart from its column heads. A screen that uses it imports the sheet itself | `.traj-table` | `patterns/figure-table.css` |
+| A dialog's form: fields and labels in one grid, and its action row, with a destructive action set apart by `.is-leading`. A screen that uses it imports the sheet itself | `.ledger-form`, `.ledger-form-actions` | `design/materials/register-material.css` |
+| A list of facts as terms and values (`dl`). Only where a role's page is drawn, since its sheet loads with Job detail | `.kv` | `features/job-detail/job-detail.css` |
+| A tile with one figure: label, figure and a line under it | `.kpi`, `.kpi-l`, `.kpi-n`, `.kpi-s` | `design/dataviz.css` |
+| A one-line note where a list or panel has nothing to show, or its read failed | `.empty-hint` | `design/overlays.css` |
+
+`.data-table` and the `.kpi` classes apply only under a root marked
+`data-design-system="app"`; the others apply anywhere.
 
 Every screen follows the same contract: co-located CSS consuming `--app-*`
 only, type from the ramp, the route root marked `data-design-system="app"`
@@ -542,6 +563,24 @@ options, the dial's drag handle, the sync button, and the rail's theme toggle,
 which wears the class of the rail entries beside it on the rail's own
 palette). A new exception is paid for
 by converting an existing one, never by raising the number.
+
+Three more gates keep a screen from writing a shared recipe again. Each
+freezes a list of names in a JSON file beside it, one per line, matched both
+ways: a name that is not on the list fails and says what to use instead, and a
+listed name that no longer exists fails until its line is deleted, so a move
+onto the shared piece banks its win. They freeze names, not a count, because a
+count lets a new copy in whenever an old one leaves in the same change. A name
+on a list is inventory, not permission.
+
+| Gate | Freezes | Use instead |
+|---|---|---|
+| `design/card-recipe.test.ts` | Rules outside `ui/Card.css`, `design/overlays.css` and `design/settings.css` that write the card: a 1px hairline, `--app-radius-lg` and a card inset | `Card`, or `.panel` |
+| `design/label-recipe.test.ts` | Rules outside `ui/`, `design/surfaces.css`, `patterns/figure-table.css` and `design/dataviz.css` that set `text-transform: uppercase` | `.eyebrow`; another ink is a rule that sets only the colour |
+| `design/button-paint.test.ts` | Classes handed to `Button` or `RouterLink` outside `src/ui/` whose rules set paint or size: colour, ground, border, corner, shadow, type size, weight, leading, tracking, height, padding. Placement and reveal (margin, width, flex, grid, position, opacity, visibility) stay free | A variant or modifier of `Button` |
+
+Off-scale spacing is counted per sheet, as literal colours are:
+`design/rhythm-literals.test.ts` holds each sheet's rhythm literals at its
+number in `rhythm-literals-baseline.json`, which may only fall.
 
 ## Controls
 
@@ -1489,6 +1528,9 @@ Unit gates (`npm run test:unit`) are under `dashboard/src/`; UX specs
 | Card inset steps | `design/card-inset.test.ts` |
 | Sans weight roles; loaded mono weights | `design/sans-weights.test.ts`, `design/font-weights.test.ts` |
 | Literal colours only fall | `design/literal-colours.test.ts` |
+| Rhythm literals per sheet only fall | `design/rhythm-literals.test.ts` + `rhythm-literals-baseline.json` |
+| The card recipe, the uppercase label and a `Button`'s paint or size are written only by their owners | `design/card-recipe.test.ts`, `design/label-recipe.test.ts`, `design/button-paint.test.ts`, each with its `*-names.json` |
+| The type table matches `tokens.css`; every shared class the primitive tier names is in its sheet, and every component `ui/index.ts` exports is named here | `design/type-doc.test.ts`, `design/primitive-doc.test.ts` |
 | Hand-rolled UI markers, extinct tokens, click targets | `test/ratchet.test.ts` + `ratchet-baseline.json` |
 | Button classes outside `src/ui/` | `test/control-inventory.test.ts` + `control-inventory-baseline.json` |
 | No router `Link` wears `ui-btn` classes by hand | `test/ratchet.test.ts` |
