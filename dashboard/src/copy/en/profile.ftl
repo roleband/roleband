@@ -396,11 +396,6 @@ profile-roles-step-filter-roles = Filter disciplines
 profile-roles-step-filter-roles-2 = Filter disciplines…
 # kind=label
 profile-roles-step-craft-for = Disciplines for { $label }
-# kind=label wording=as-is
-profile-roles-step-roles = { $count ->
-    [one] { $count2 } role · { $examples }
-   *[other] { $count2 } roles · { $examples }
-}
 
 ## features/scope/walk/SubjectsStep.tsx
 # kind=label wording=as-is

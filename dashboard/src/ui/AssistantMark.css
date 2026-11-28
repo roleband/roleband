@@ -1,7 +1,0 @@
-/* An app icon is a picture with its own colours: it rests at full strength,
-   unlike a company mark, which takes the ink of its line. */
-.ui-assistant-mark {
-  flex: 0 0 auto;
-  display: block;
-  border-radius: 22%;
-}

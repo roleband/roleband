@@ -50,7 +50,7 @@ export function InsightHero({
         {children}
       </div>
       {kpis.length > 0 && (
-        <div className="cockpit-kpis">
+        <div className="cockpit-kpis" data-tiles={Math.min(kpis.length, 4)}>
           {kpis.slice(0, 4).map((k) => (
             <div className="kpi" key={k.label}>
               <span className="kpi-l">{k.label}</span>

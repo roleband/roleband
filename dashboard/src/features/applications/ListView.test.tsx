@@ -1,7 +1,7 @@
 import { createEvent, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { positionPath } from "../../routing/paths";
 import { api, type ApplicationCard, type Job, type JobList } from "../../api";
 import { ToastProvider } from "../../ui/Toast";
@@ -265,6 +265,32 @@ describe("sorting the List", () => {
     expect(header("pay")).toHaveAttribute("aria-sort", "ascending");
     // A row without pay is last whichever way the column runs.
     expect(rowOrder()).toEqual([1, 4]);
+  });
+});
+
+describe("the compare beacon's margin", () => {
+  /** The scroller reports a vertical scrollbar of `bar` px that takes room
+   *  (0: one that overlays, as on a Mac by default). */
+  const withScrollbar = (bar: number) => {
+    const isFrame = (el: Element) => el.classList.contains("app-list-scroll");
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(function (this: HTMLElement) { return isFrame(this) ? 1200 : 0; });
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(function (this: HTMLElement) { return isFrame(this) ? 1200 - bar : 0; });
+  };
+  const host = () => document.querySelector<HTMLElement>(".app-list-host")!;
+  afterEach(() => vi.restoreAllMocks());
+
+  it("tells the beacon how wide a scrollbar that takes room is, so it stays over the pinned margin", async () => {
+    withScrollbar(15);
+    render(at());
+    await loaded();
+    await waitFor(() => expect(host().style.getPropertyValue("--app-list-scrollbar")).toBe("15px"));
+  });
+
+  it("says nothing where the scrollbar overlays the list", async () => {
+    withScrollbar(0);
+    render(at());
+    await loaded();
+    expect(host().style.getPropertyValue("--app-list-scrollbar")).toBe("");
   });
 });
 

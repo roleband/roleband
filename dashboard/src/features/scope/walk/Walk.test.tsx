@@ -1048,8 +1048,15 @@ it("typing in the roles filter counts nothing again, and every card keeps its co
   renderWalk();
   await screen.findByRole("complementary", { name: "Your progress" });
   await user.click(stripButton("Discipline"));
-  const card = (label: string) => screen.getByLabelText(label).closest("label");
-  expect(card("Engineers (Leading a team)")).toHaveTextContent(/6 roles ·/);
+  // The count ends the name's row: the figure on screen, said in full for a
+  // screen reader; the hint under it is the examples alone.
+  const count = (label: string) => {
+    const card = screen.getByLabelText(label).closest("label")!;
+    const cell = card.querySelector(".walk-card-count") as HTMLElement;
+    return { shown: cell.querySelector("[aria-hidden]")!.textContent, said: within(cell).getByText(/roles?$/).textContent, hint: card.querySelector("small")!.textContent };
+  };
+  expect(count("Engineers (Leading a team)")).toMatchObject({ shown: "6", said: "6 roles" });
+  expect(count("Engineers (Leading a team)").hint).not.toMatch(/roles?/);
   vi.mocked(countUnderScope).mockClear();
   vi.mocked(countByOption).mockClear();
 
@@ -1057,8 +1064,8 @@ it("typing in the roles filter counts nothing again, and every card keeps its co
   expect(countUnderScope).not.toHaveBeenCalled();
   expect(countByOption).not.toHaveBeenCalled();
   // The cards still say what they hold: engineers at Staff in the two places.
-  expect(card("Engineers (Leading a team)")).toHaveTextContent(/6 roles ·/);
-  expect(card("Data engineering (Hands-on, as the expert)")).toHaveTextContent(/0 roles ·/);
+  expect(count("Engineers (Leading a team)")).toMatchObject({ shown: "6", said: "6 roles" });
+  expect(count("Data engineering (Hands-on, as the expert)")).toMatchObject({ shown: "0", said: "0 roles" });
 });
 
 it("keeps Back and Continue in one frame across the three answers that decide", async () => {

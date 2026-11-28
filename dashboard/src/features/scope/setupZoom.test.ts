@@ -102,11 +102,13 @@ const PAGES = "a page of the app's own, reached from the rail, which setup does 
 const NOT_SETUP: Record<string, string> = {
   "features/applications/applications.css .app-list-row:hover .app-list-actions": PAGES,
   "features/applications/applications.css .app-list-scroll[data-overflowing] .app-list-row:hover .app-list-actions": PAGES,
+  "features/applications/applications.css .app-list-row:hover .app-list-margin": PAGES,
   "features/applications/applications.css .app-month": PAGES,
   "features/company-profiles/company-profiles.css .main.prof-main": PAGES,
   "features/company-profiles/company-profiles.css .prof-main > .prof-shell > .prof-list": PAGES,
   "features/notifications/notification-bell.css .notif-popover .ui-popover-inner": "the bell sits in the top bar, which setup does not draw",
   "features/opportunities/board-shell.css .board-first-scan .empty": BOARD,
+  "features/review/review.css .review-decision-console": PAGES,
   "features/review/review.css .review-decision-console.has-ai-response": PAGES,
   "features/review/review.css .review-history": PAGES,
   "features/review/review.css .review-history-search": PAGES,

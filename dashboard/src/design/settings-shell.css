@@ -13,11 +13,9 @@
  * Tokens are `--app-*`: this sheet is part of the promoted system.
  */
 
-/* Settings is a deliberate full-width composition (Review precedent): uncap its
-   children too, then re-cap prose inside .settings-content at a readable
-   measure. */
+/* Settings takes the page measure like every tab; prose inside
+   .settings-content keeps a reading measure of its own. */
 .settings-view { max-width: none; }
-.main.settings-view > * { max-width: none; }
 
 /* A section tabbar over one full-width content column. */
 .settings-shell { display: block; }

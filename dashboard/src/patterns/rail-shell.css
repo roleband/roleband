@@ -2,9 +2,8 @@
    the content instead of inside the toolbar's Filters panel.
  *
  * The physics are the same on every screen because they answer the same
- * question; what genuinely
- * differs per screen is the MEASURE (each keeps its own max-width arm) and the
- * height of the bar the rail pins under, which the screen passes in as
+ * question, and so is the width (the page measure). What differs per screen
+ * is the height of the bar the rail pins under, which the screen passes in as
  * `--rail-shell-top`.
  */
 

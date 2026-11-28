@@ -23,10 +23,6 @@
   padding-bottom: 64px; /* clearance for the fixed console */
 }
 
-.main.review-main > * {
-  max-width: none;
-}
-
 .review {
   width: 100%;
   margin: 0 auto;
@@ -484,12 +480,17 @@
    arithmetic, and --app-nav-width is the width the shell grid itself uses —
    read through the cascade, so `.app.nav-expanded`'s override slides the
    console with the rail instead of leaving it under one. A literal here is the
-   bug this token exists to prevent. */
+   bug this token exists to prevent. The console stands space-4 from the
+   window's edges, wider than the page's content, until the centred page
+   measure leaves more than that each side; from there its sides follow the
+   measure's edges, and they meet the page's once that gap passes the page's
+   own padding. */
 
 .review-decision-console {
+  --review-console-side: max(var(--app-space-4), (100vw - var(--app-nav-width) - var(--app-page-measure)) / 2);
   position: fixed;
-  left: calc(var(--app-nav-width) + var(--app-space-4));
-  right: var(--app-space-4);
+  left: calc(var(--app-nav-width) + var(--review-console-side));
+  right: var(--review-console-side);
   bottom: var(--app-space-3);
   z-index: 19;
   padding: var(--app-space-2);

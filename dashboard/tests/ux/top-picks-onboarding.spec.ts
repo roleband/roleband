@@ -37,6 +37,44 @@ async function installOnboarding(page: Page, held: { picks: PicksState; access: 
   return held;
 }
 
+test("the assistants it works with show as a matched pair: one size, grey at rest, each in its own colour under the pointer", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "the colour comes under a pointer");
+  await installOnboarding(page, { picks: picksStateFixture(), access: { ...agentAccessFixture, enabled: true } });
+  await page.goto("/top-picks");
+  const pair = page.getByRole("img", { name: msg("picks-onboard-works-with") });
+  await expect(pair).toBeVisible();
+  const marks = pair.locator(".ui-company-icon");
+  await expect(marks, "Claude's and Codex's, drawn alike").toHaveCount(2);
+  // Claude's mark loads once near the screen; until then a lettered stand-in holds its place.
+  await expect(marks.locator("svg"), "both drawn as marks").toHaveCount(2);
+  /** Each mark's box, its painted colour and strength once any fade has landed. */
+  const looks = () => marks.evaluateAll(async (els) => {
+    await Promise.all(els.flatMap((el) => el.getAnimations()).map((animation) => animation.finished.catch(() => {})));
+    return els.map((el) => {
+      const box = el.getBoundingClientRect();
+      const style = getComputedStyle(el);
+      return { size: `${box.width}x${box.height}`, color: style.color, opacity: style.opacity, picture: el.querySelector("img") !== null };
+    });
+  });
+  await page.mouse.move(0, 0);
+  const rest = await looks();
+  expect(rest.map((m) => m.size), "one size").toEqual(["16x16", "16x16"]);
+  expect(rest.map((m) => m.picture), "neither is a picture with colours of its own").toEqual([false, false]);
+  expect(rest[0].color, "both rest in the ink of their line").toBe(rest[1].color);
+  expect(rest.map((m) => m.opacity)).toEqual(["0.55", "0.55"]);
+
+  const lit: string[] = [];
+  for (const i of [0, 1]) {
+    await marks.nth(i).hover();
+    await expect.poll(async () => (await looks())[i].opacity, "under the pointer it comes to full strength").toBe("1");
+    const now = await looks();
+    expect(now[i].color, "in its own colour").not.toBe(rest[i].color);
+    expect(now[1 - i], "and the other stays at rest").toEqual(rest[1 - i]);
+    lit.push(now[i].color);
+  }
+  expect(lit[0], "two brands, two colours").not.toBe(lit[1]);
+});
+
 test.describe("before the setup conversation saves anything", () => {
   test("the sentence copies whole, and the control says so", async ({ page, context, browserName }) => {
     test.skip(browserName !== "chromium", "clipboard permissions are granted in Chromium only");

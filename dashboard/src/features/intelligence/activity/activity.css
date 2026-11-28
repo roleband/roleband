@@ -13,12 +13,6 @@
   --activity-toolbar-h: calc(var(--app-space-2) + var(--app-control-md) + var(--app-space-4));
 }
 
-.activity-screen > .page-hero,
-.activity-screen > .activity-toolbar,
-.activity-screen > .activity-split {
-  max-width: 1320px;
-}
-
 /* ---- toolbar ------------------------------------------------------------- */
 
 .activity-search {

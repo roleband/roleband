@@ -124,6 +124,10 @@
 .empty-body > p { margin: 0; }
 .empty-body > p + p { margin-top: var(--app-space-2); }
 
+/* An icon named in the sentence ("use the scale button") is centred on the
+   text's x-height; stood on the baseline, it rides above the words. */
+.empty-body svg { vertical-align: middle; }
+
 .empty-actions {
   display: flex;
   flex-wrap: wrap;

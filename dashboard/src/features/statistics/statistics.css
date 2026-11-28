@@ -17,10 +17,6 @@
 /* The page header pays the top air (surfaces.css, one header), so the
    scroller does not. */
 .main.stats-main { padding-top: 0; }
-/* The full width between the gutters, like Settings, Profile and Duplicates:
-   capped at the app's 1200 and centred, the panels would start right of the
-   page title on every wide window. */
-.main.stats-main > * { max-width: none; }
 
 /* ---- shell: sub-tabs + period lens --------------------------------------- */
 
@@ -71,7 +67,7 @@
 
 /* Above a tab the basic view does not list, opened from a link. */
 .stats-view-note {
-  margin: 0 0 var(--app-space-3);
+  margin-block: 0 var(--app-space-3);
   color: var(--app-text-muted);
   font-size: var(--app-type-meta);
 }
@@ -166,10 +162,41 @@
   max-width: 560px;
 }
 
+/* One row of equal tiles that ends at the card's right edge, one to four of
+   them: a fixed two-column grid left three tiles with an empty fourth cell and
+   a lone tile short of the edge. The widest tile sets the width of all of
+   them. The card's own width decides when a row no longer fits beside the
+   headline: four tiles fold into a full two-by-two first, and on a narrow
+   card two columns keep the headline beside them. */
+.insight-hero {
+  container: insight-hero / inline-size;
+}
+
 .cockpit-kpis {
   display: grid;
-  grid-template-columns: repeat(2, minmax(150px, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(150px, 1fr);
   gap: var(--app-space-2);
+}
+
+@container insight-hero (max-width: 1179px) {
+  .cockpit-kpis[data-tiles="4"] {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(2, minmax(150px, 1fr));
+  }
+}
+
+@container insight-hero (max-width: 899px) {
+  .cockpit-kpis:not([data-tiles="1"]) {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(2, minmax(150px, 1fr));
+  }
+
+  /* Three in two columns: the first takes the whole row, so none is left
+     with an empty cell beside it. */
+  .cockpit-kpis[data-tiles="3"] > :first-child {
+    grid-column: 1 / -1;
+  }
 }
 
 /* ---- compensation -------------------------------------------------------- */

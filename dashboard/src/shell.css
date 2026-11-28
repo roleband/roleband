@@ -277,9 +277,11 @@ textarea {
   padding: 22px clamp(22px, 3vw / var(--page-zoom, 1), 48px) 64px;
 }
 
+/* Every screen's content takes the one page measure; a screen sets no width
+   of its own on these children (design/page-measure.test.ts). */
 .main > * {
   width: 100%;
-  max-width: 1200px;
+  max-width: var(--app-page-measure);
   margin-left: auto;
   margin-right: auto;
 }

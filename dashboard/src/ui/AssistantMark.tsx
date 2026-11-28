@@ -1,10 +1,9 @@
 // An assistant app's mark, for the places that name the apps a person can
-// connect. Claude's mark is in the company icon set; the Codex app's is not
-// (the set carries no OpenAI marks), so it is the app's own icon, cropped to
-// its tile, at the size the other mark takes.
-import { CompanyIcon } from "./CompanyIcon";
-import codexApp from "./marks/codex-app.png";
-import "./AssistantMark.css";
+// connect. Both are one-colour marks drawn alike, so the pair matches in size
+// and in how it greys at rest and takes colour under the pointer: Claude's is
+// its company mark, and the Codex app's is drawn for the set (marks/codex.ts).
+import { BrandGlyph, CompanyIcon } from "./CompanyIcon";
+import { CODEX_MARK } from "./marks/codex";
 
 export type AssistantApp = "claude-code" | "codex";
 
@@ -16,18 +15,6 @@ export interface AssistantMarkProps {
 }
 
 export function AssistantMark({ app, display, size = 20 }: AssistantMarkProps) {
-  if (app === "codex") {
-    return (
-      <img
-        className="ui-assistant-mark"
-        src={codexApp}
-        alt=""
-        aria-hidden="true"
-        width={size}
-        height={size}
-        draggable={false}
-      />
-    );
-  }
+  if (app === "codex") return <BrandGlyph path={CODEX_MARK.path} hex={CODEX_MARK.hex} size={size} evenOdd />;
   return <CompanyIcon slug="claude" display={display} size={size} />;
 }

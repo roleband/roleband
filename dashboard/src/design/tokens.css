@@ -204,6 +204,15 @@
   --app-nav-width: 72px;
   --app-nav-width-expanded: 204px;
 
+  /* PAGE MEASURE: the width every screen's content takes, its title, its
+     toolbar and its body alike, so every tab's title starts on one left edge
+     at any window width. It holds the widest side column (Companies' index,
+     260), a gutter and a 1200 body: a screen with a column beside its list
+     (the Radar's filters, Companies' index) fills it, and a screen without one
+     is the same frame, centred. The Pipeline alone runs past it (docs/ui.md
+     "The app shell"). */
+  --app-page-measure: 1480px;
+
   /* FOCUS RING geometry, as a pair, so no sheet re-types the width or picks
      its own offset. Colour stays per scope (--app-action, or --app-danger
      on the danger rank); geometry is one value app-wide. A control flush with

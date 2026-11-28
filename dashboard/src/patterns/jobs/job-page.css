@@ -11,11 +11,3 @@
   --board-toolbar-h: 0px;
 }
 
-/* One measure for the page, for BOTH screens that render this root. Every
-   tab's title sits at one left edge (page-header.spec), so the content
-   joins the hero, not the reverse: the count, the list and each state that
-   replaces it (loading, failure, empty) take the same measure, and the list
-   keeps the Board's beacon margin inside it. */
-.board-main > * {
-  max-width: 1460px;
-}

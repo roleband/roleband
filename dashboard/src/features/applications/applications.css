@@ -4,8 +4,8 @@
 /* The page header pays the top air (surfaces.css, one header), so the
    scroller does not. */
 .main.app-main { padding-top: 0; }
-/* The full width between the gutters, like Statistics: capped at the app's
-   1200 and centred, the title would start right of every other tab's. */
+/* The full width between the gutters, the one screen past the page measure
+   (docs/ui.md "The app shell"): its stage columns are the content. */
 .main.app-main > * { max-width: none; }
 
 /* One row leads the page: the views, then the tools of the one on screen.
@@ -220,17 +220,27 @@
 }
 
 /* A card's and a lane's menu wait for the pointer or the keyboard, and stay
-   while open. Where nothing hovers they always show. */
+   while open. Where nothing hovers they always show.
+
+   Only the keyboard's focus keeps a menu out: a menu pressed with the pointer
+   keeps the focus after it closes, and `:focus-within` would leave its ⋯
+   standing in a column the pointer has left, beside the one it is in.
+
+   The fade runs one way. A menu comes on along the app's hover curve and
+   goes at once, so the one the pointer leaves is gone before the next one
+   shows, and two never stand together. The transition sits on the shown
+   state, which is the state a change goes to when it comes on. */
 .app-tile-menu,
 .app-column-menu {
   opacity: 0;
-  transition: opacity var(--app-duration-fast);
 }
 
-.app-tile:is(:hover, :focus-within) .app-tile-menu,
-.app-column:is(:hover, :focus-within) > .app-column-head > .app-column-menu,
+.app-tile:is(:hover, :has(:focus-visible)) .app-tile-menu,
+.app-board:not([data-dragging], :has(.app-column-menu[aria-expanded="true"])) .app-column:hover > .app-column-head > .app-column-menu,
+.app-column:has(:focus-visible) > .app-column-head > .app-column-menu,
 :is(.app-tile-menu, .app-column-menu)[aria-expanded="true"] {
   opacity: 1;
+  transition: opacity var(--app-duration-fast) var(--app-ease);
 }
 
 @media (hover: none) {
@@ -436,13 +446,49 @@
 }
 
 .app-column[data-drop-target] {
-  background: var(--app-surface-hover);
+  background-color: var(--app-surface-hover);
   box-shadow: inset 0 0 0 1px var(--app-border-strong);
+  transition:
+    background-color var(--app-duration-fast) var(--app-ease),
+    box-shadow var(--app-duration-fast) var(--app-ease);
+}
+
+/* A lane's ⋯ menu acts on the whole column, and in a wide column it stands
+   far from the name it belongs to. So wherever the pointer brings the menu
+   out, and while it is open, the column wears the mark a card's drop would
+   give it: the person sees which column the menu changes. One column at a
+   time: while a menu is open the pointer marks no other, and the mark, like
+   the menu, comes on with a fade and goes at once. Focus alone does not
+   mark: the focused control wears the one focus ring, and the column marks
+   once its menu opens. Under a drag only the drop marks, so the column the
+   card leaves stays plain. */
+.app-board:not([data-dragging]) .app-column:has(> .app-column-head > .app-column-menu[aria-expanded="true"]) {
+  background-color: var(--app-surface-hover);
+  box-shadow: inset 0 0 0 1px var(--app-border-strong);
+  transition:
+    background-color var(--app-duration-fast) var(--app-ease),
+    box-shadow var(--app-duration-fast) var(--app-ease);
+}
+
+@media (hover: hover) {
+  .app-board:not([data-dragging], :has(.app-column-menu[aria-expanded="true"])) .app-column:hover {
+    background-color: var(--app-surface-hover);
+    box-shadow: inset 0 0 0 1px var(--app-border-strong);
+    transition:
+      background-color var(--app-duration-fast) var(--app-ease),
+      box-shadow var(--app-duration-fast) var(--app-ease);
+  }
+
+  .app-board-frame[data-under] .app-board:not([data-dragging], :has(.app-column-menu[aria-expanded="true"])) .app-column:hover > .app-column-head {
+    background-image: linear-gradient(var(--app-surface-hover), var(--app-surface-hover)), var(--app-ambient-image);
+    background-attachment: scroll, fixed, fixed;
+  }
 }
 
 /* Held over scrolled cards, the head takes the lane's tint with it, over the
    page ground it stands on. */
-.app-board-frame[data-under] .app-column[data-drop-target] > .app-column-head {
+.app-board-frame[data-under] .app-column[data-drop-target] > .app-column-head,
+.app-board-frame[data-under] .app-board:not([data-dragging]) .app-column:has(> .app-column-head > .app-column-menu[aria-expanded="true"]) > .app-column-head {
   background-image: linear-gradient(var(--app-surface-hover), var(--app-surface-hover)), var(--app-ambient-image);
   background-attachment: scroll, fixed, fixed;
 }
@@ -910,11 +956,49 @@
 
 /* A register, as Settings' company list is: no card around it, a header band
    over a strong rule, rows between hairlines, from the toolbar's left edge to
-   its right. To the right of both is Radar's ledger margin, where the compare
-   beacon stands level with the role picked last. */
-.main.app-main.job-margin-page > .app-pipeline-toolbar {
-  width: calc(100% - var(--job-margin));
-  margin-right: var(--job-margin);
+   its right. Its last column is Radar's ledger margin, empty, where the
+   compare beacon stands level with the role picked last: the margin is a
+   column, not the frame's padding, so the rule and every hairline run through
+   it to the page's edge, as the toolbar's line does above. */
+.app-list-host.job-margin-host {
+  padding-right: 0;
+}
+
+/* A scrollbar that takes room stands past the pinned margin, so the beacon
+   steps in by its width (ListView measures it) to stay over the margin. */
+.app-list-host.job-margin-host > .job-beacon:not(.is-docked) {
+  left: calc(100% - var(--job-margin) - var(--app-list-scrollbar, 0px));
+}
+
+/* The margin cell is pinned at the right, so it draws its row's line as a
+   shadow: a collapsed table keeps its borders on the grid, where a pinned
+   cell leaves them behind while the list scrolls sideways. */
+.data-table.app-list .app-list-margin {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  width: var(--job-margin);
+  min-width: var(--job-margin);
+  max-width: var(--job-margin);
+  padding: 0;
+  border-bottom: 0;
+  box-shadow: inset 0 -1px 0 var(--app-border);
+  background-color: var(--app-canvas);
+  background-image: var(--app-ambient-image);
+  background-attachment: fixed, fixed;
+}
+
+/* The head's margin is a `td`, so it pins to the top as the heads do, or the
+   heads would pass under the margin's place as the list scrolls down. */
+.data-table.app-list thead .app-list-margin {
+  top: 0;
+  z-index: 4;
+  box-shadow: inset 0 -1px 0 var(--app-border-strong);
+}
+
+/* A row's hover reaches the end of its line, through the margin. */
+.app-list-row:hover .app-list-margin {
+  box-shadow: inset 0 -1px 0 var(--app-border), inset 0 0 0 100vmax var(--app-surface-hover);
 }
 
 /* The list's frame, as the Board's: it fills the panel under the toolbar and
@@ -1094,7 +1178,7 @@
    row's hover wash on top of it. */
 .data-table.app-list .app-list-actions {
   position: sticky;
-  right: 0;
+  right: var(--job-margin);
   z-index: 1;
   width: 1%;
   padding-left: var(--app-space-1);

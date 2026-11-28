@@ -1302,6 +1302,79 @@ test("the Board's lanes are open: a card is the only box, and a card's and a lan
   await expect.poll(() => seen(menu), "open, it stays").toBe("1");
 });
 
+test("wherever a lane's menu comes out, its whole column is marked, so the person sees which column the menu changes", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Where nothing hovers the menus always show and no pointer marks a column.");
+  await installPipeline(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/pipeline/board");
+  await expect(column(page, "Considering").locator(".app-tile").first()).toBeVisible();
+  const names = ["Considering", "Researching", "Applied", "Offer", "Decided"];
+  /** Which columns wear the mark once any fade has landed. */
+  const marked = () => Promise.all(names.map((name) => column(page, name).evaluate(async (el) => {
+    await Promise.all(el.getAnimations().map((animation) => animation.finished.catch(() => {})));
+    return getComputedStyle(el).boxShadow !== "none";
+  }))).then((on) => names.filter((_, i) => on[i]));
+  await page.mouse.move(0, 0);
+  expect(await marked(), "at rest no column is marked").toEqual([]);
+
+  // Decided's menu stands at its far end; the pointer low in its empty lane brings it out.
+  const decided = column(page, "Decided");
+  await decided.locator(".app-column-head").scrollIntoViewIfNeeded();
+  const lane = (await decided.boundingBox())!;
+  await page.mouse.move(lane.x + lane.width / 2, lane.y + lane.height - 24);
+  await expect.poll(() => seen(decided.locator(".app-column-menu")), "the pointer in the lane brings its menu out").toBe("1");
+  await expect.poll(marked, "and marks that column alone").toEqual(["Decided"]);
+  // The mark is the one a drop gives a column, so the two read as one sign.
+  const look = (el: Element) => { const style = getComputedStyle(el); return `${style.backgroundColor} ${style.boxShadow}`; };
+  const hovered = await decided.evaluate(look);
+
+  // One column at a time, at every moment: read the instant the pointer
+  // crosses, before any fade lands, the column it left is already plain.
+  const decidedMenu = decided.locator(".app-column-menu");
+  const offer = column(page, "Offer");
+  const offerLane = (await offer.boundingBox())!;
+  const inOffer = { x: offerLane.x + offerLane.width / 2, y: offerLane.y + offerLane.height - 24 };
+  const now = () => Promise.all(names.map((name) => column(page, name).evaluate((el) => ({
+    ring: getComputedStyle(el).boxShadow !== "none",
+    menu: getComputedStyle(el.querySelector(".app-column-menu")!).opacity !== "0",
+  })))).then((all) => names.filter((_, i) => all[i].ring || all[i].menu));
+  const menuBox = (await decidedMenu.boundingBox())!;
+  await page.mouse.move(menuBox.x + menuBox.width / 2, menuBox.y + menuBox.height / 2);
+  await expect.poll(marked).toEqual(["Decided"]);
+  await page.mouse.move(inOffer.x, inOffer.y);
+  expect(await now(), "the column left goes at once, so two never show together").toEqual(["Offer"]);
+
+  // Open, the menu keeps its column marked while the pointer is elsewhere,
+  // and no other column marks under the pointer while it is open.
+  await decidedMenu.click();
+  await expect(decidedMenu).toHaveAttribute("aria-expanded", "true");
+  await page.mouse.move(inOffer.x, inOffer.y);
+  await expect.poll(marked, "open, the menu keeps its column marked, and only it").toEqual(["Decided"]);
+  expect(await seen(offer.locator(".app-column-menu")), "and the column under the pointer shows no menu").toBe("0");
+
+  // Closed by a press in the next column, the menu keeps the focus, as a
+  // pressed button does, yet its ⋯ goes with the pointer: one column marked.
+  await page.mouse.click(inOffer.x, inOffer.y);
+  await expect(decidedMenu).toHaveAttribute("aria-expanded", "false");
+  await expect.poll(marked, "the pointer's column alone").toEqual(["Offer"]);
+  expect(await seen(decidedMenu), "the pressed menu does not stay out").toBe("0");
+  await page.mouse.move(0, 0);
+  await expect.poll(marked, "left, no column is marked").toEqual([]);
+
+  // A card carried inside its own column leaves that column plain: under a drag only a drop marks.
+  await column(page, "Considering").locator(".app-column-head").scrollIntoViewIfNeeded();
+  const home = (await column(page, "Considering").boundingBox())!;
+  await pressAndCarry(page, 101, home.x + home.width / 2, home.y + home.height - 40);
+  await expect(page.locator(".app-board[data-dragging]")).toHaveCount(1);
+  await expect.poll(marked, "the column a card leaves never marks").toEqual([]);
+  // Carried on, the column it would land in wears the same mark the menu gave Decided.
+  const to = await middleOf(page, "Researching");
+  await page.mouse.move(to.x, to.y, { steps: 8 });
+  await expect(column(page, "Researching")).toHaveAttribute("data-drop-target", "");
+  await expect.poll(() => column(page, "Researching").evaluate(look)).toBe(hovered);
+  await page.mouse.up();
+});
+
 test("Up next asks a past interview once, with the three outcomes behind the question, and a row's calendar tool waits for the pointer or the keyboard", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "Where nothing hovers the tools always show.");
   const soon = new Date(Date.now() + 3 * 86_400_000);
@@ -1722,6 +1795,51 @@ test("the List never widens the page: a narrow window scrolls the table inside i
   expect(star!.x).toBeGreaterThan(width / 2);
 });
 
+/* The row belongs to the place, not to the view on screen: Considering and
+   the Board, which offer the same tools, put each one at the same point, and
+   the row spans the same width in all three views, so switching moves
+   nothing. */
+for (const width of [1440, 1920]) {
+  test(`switching views moves none of the row's tools at ${width}`, async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name === "mobile", "one desktop geometry is the claim");
+    await page.setViewportSize({ width, height: 900 });
+    await installPipeline(page, backlog);
+    const row = page.locator(".app-pipeline-toolbar");
+    const at = async (view: string) => {
+      await page.goto(`/pipeline/${view}`);
+      await expect(row.getByRole("button", { name: msg("shared-filters") })).toBeVisible();
+      const box = async (locator: ReturnType<typeof row.locator>) => {
+        // Up next has no Columns: a tool a view lacks is "none", not a wait.
+        const b = (await locator.count()) ? await locator.boundingBox() : null;
+        return b ? `${Math.round(b.x)}+${Math.round(b.width)}` : "none";
+      };
+      const edges = async (locator: ReturnType<typeof row.locator>) => {
+        const b = (await locator.count()) ? await locator.boundingBox() : null;
+        return b ? { left: Math.round(b.x), width: Math.round(b.width) } : null;
+      };
+      // Columns carries its view's own hidden count ("Columns 3"), so its
+      // width follows the data: its right edge is the fixed point, and each
+      // tool before it keeps its distance from Columns' left edge.
+      const columns = await edges(row.getByRole("button", { name: new RegExp(msg("applications-columns")) }));
+      const before = async (locator: ReturnType<typeof row.locator>) => {
+        const e = await edges(locator);
+        return e && columns ? `${columns.left - e.left}+${e.width}` : e ? `${e.left}+${e.width}` : "none";
+      };
+      return {
+        row: await box(row),
+        search: await before(row.getByRole("searchbox")),
+        filters: await before(row.getByRole("button", { name: msg("shared-filters") })),
+        columnsEnd: columns ? columns.left + columns.width : "none",
+      };
+    };
+    const list = await at("list");
+    const board = await at("board");
+    const upNext = await at("up-next");
+    expect(list).toEqual(board);
+    expect(upNext.row).toBe(board.row);
+  });
+}
+
 test("the List's compare beacon stands in Radar's margin, level with the role picked last and clear of every star", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "the margin exists from 1100px; a phone docks the beacon");
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -1742,12 +1860,32 @@ test("the List's compare beacon stands in Radar's margin, level with the role pi
   const table = (await page.locator(".app-list-scroll").boundingBox())!;
   const toolbar = (await page.locator(".app-pipeline-toolbar").boundingBox())!;
   const filters = (await page.getByRole("button", { name: msg("shared-filters") }).boundingBox())!;
-  const last = (await listRow(page, "Group Product Manager").boundingBox())!;
+  const lastRow = listRow(page, "Group Product Manager");
+  const last = (await lastRow.boundingBox())!;
+  const actions = (await lastRow.locator(".app-list-actions").boundingBox())!;
+  const margin = lastRow.locator(".app-list-margin");
   const box = (await pill.boundingBox())!;
-  // One right edge for the toolbar and the rows, with the margin past both.
+  // One right edge for the toolbar and the list, and the row's hairline runs
+  // through the margin to it.
   expect(Math.abs(toolbar.x + toolbar.width - (table.x + table.width))).toBeLessThanOrEqual(1);
+  const reach = (await margin.boundingBox())!;
+  expect(Math.abs(reach.x + reach.width - (table.x + table.width))).toBeLessThanOrEqual(1);
+  expect(reach.width).toBe(76);
+  // The margin is pinned, so it draws its row's line as a 1px shadow in the
+  // row's own line colour (a pinned cell leaves a border behind on the grid),
+  // and the header's in the header's strong rule.
+  const line = (cell: Element) => getComputedStyle(cell).borderBottomColor;
+  const shadow = (cell: Element) => getComputedStyle(cell).boxShadow;
+  const rowLine = await lastRow.locator("td").first().evaluate(line);
+  const headLine = await page.locator("thead th").first().evaluate(line);
+  await page.mouse.move(0, 0);
+  await expect.poll(() => margin.evaluate(shadow)).toBe(`${rowLine} 0px -1px 0px 0px inset`);
+  expect(await page.locator("thead .app-list-margin").evaluate(shadow)).toBe(`${headLine} 0px -1px 0px 0px inset`);
+  // A row's hover fills its line to the same edge, and keeps the line.
+  await lastRow.hover();
+  await expect.poll(() => margin.evaluate(shadow)).toContain(`${rowLine} 0px -1px 0px 0px inset, `);
   // In the margin, never over the pinned stars, and inside the window.
-  expect(box.x).toBeGreaterThan(table.x + table.width);
+  expect(box.x).toBeGreaterThan(actions.x + actions.width);
   expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width);
   // Level with the row picked last.
   const centre = box.y + box.height / 2;
@@ -1755,6 +1893,18 @@ test("the List's compare beacon stands in Radar's margin, level with the role pi
   expect(centre).toBeLessThan(last.y + last.height);
   // A control of the page's own height, as the toolbar's buttons are.
   expect(Math.round(box.height)).toBe(Math.round(filters.height));
+
+  // Scrolled down, the margin's head stays pinned with the other heads, so
+  // no column head passes under the margin's place. The fixture's few rows
+  // fit any window, so the frame is made shorter than the list.
+  const scroller = page.locator(".app-list-scroll");
+  expect(await scroller.evaluate((el) => {
+    el.style.maxHeight = "150px";
+    el.scrollTop = 60;
+    return el.scrollTop;
+  }), "the list scrolls down in its frame").toBeGreaterThan(0);
+  const tops = () => page.evaluate(() => [...document.querySelectorAll("thead tr > *")].map((cell) => Math.round(cell.getBoundingClientRect().top)));
+  await expect.poll(async () => new Set(await tops()).size, "every head, the margin's too, on one line").toBe(1);
 });
 
 test("the Pipeline and Radar each keep their own comparison, through a visit to the other and a reload", async ({ page }, testInfo) => {

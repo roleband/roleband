@@ -266,11 +266,6 @@ profile-roles-step-nothing-called-under = No hay nada llamado “{ $query }” e
 profile-roles-step-filter-roles = Filtrar disciplinas
 profile-roles-step-filter-roles-2 = Filtrar disciplinas…
 profile-roles-step-craft-for = Disciplinas para { $label }
-profile-roles-step-roles = { $count ->
-    [one] { $count2 } puesto · { $examples }
-    [many] { $count2 } de puestos · { $examples }
-   *[other] { $count2 } puestos · { $examples }
-}
 
 ## features/scope/walk/SubjectsStep.tsx
 profile-subjects-step-choose-a-list-then-tick = Elige una lista y marca qué incluir

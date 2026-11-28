@@ -137,12 +137,41 @@ export function CompanyIcon({
       </span>
     );
   }
+  return <BrandGlyph ref={frame} path={icon.path} hex={raw} size={size} className={cls} />;
+}
+
+/** A one-colour mark on a 24 grid, resting in the ink of its line and taking
+ *  its brand colour on hover (CompanyIcon.css). Company marks and the
+ *  assistant apps' marks share it, so two marks side by side match in size
+ *  and behaviour. */
+export function BrandGlyph({
+  path,
+  hex,
+  size = 20,
+  evenOdd = false,
+  className = "ui-company-icon",
+  ref,
+}: {
+  path: string;
+  hex: string;
+  size?: number;
+  /** For a mark whose inner shapes are holes in the outer one. */
+  evenOdd?: boolean;
+  className?: string;
+  ref?: React.Ref<HTMLSpanElement>;
+}) {
+  const style = {
+    "--brand-l": brandInk(hex, "light"),
+    "--brand-d": brandInk(hex, "dark"),
+    width: size,
+    height: size,
+  } as React.CSSProperties;
   return (
-    <span ref={frame} className={cls} style={style} aria-hidden="true">
+    <span ref={ref} className={className} style={style} aria-hidden="true">
       <svg viewBox="0 0 24 24" width={size} height={size} role="presentation">
         {/* Simple Icons marks are single-path solids — no stroke, unlike the
             Lucide UI set. Do not add strokeWidth here. */}
-        <path d={icon.path} fill="currentColor" />
+        <path d={path} fill="currentColor" fillRule={evenOdd ? "evenodd" : undefined} />
       </svg>
     </span>
   );

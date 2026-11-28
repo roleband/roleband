@@ -78,6 +78,10 @@ const CHARTER: Record<string, FactClass> = {
   // Which sheet may state a count badge's face and shape: an ownership fact
   // about where a recipe lives, which no single render shows.
   "design/count-badge.test.ts": "ownership",
+  // Which sheet may set a page's width: the shell, through one token. A
+  // screen's own width shows only on a window wider than the measure, and a
+  // render at any one width passes the rest.
+  "design/page-measure.test.ts": "ownership",
   // Which icon files the page and its manifest name, and that each ships at the
   // size it declares: a browser shows one favicon and never reports a touch
   // icon or a manifest icon that is missing or mis-sized.

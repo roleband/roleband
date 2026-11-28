@@ -250,9 +250,6 @@ profile-roles-step-nothing-called-under = { $label } 下没有名为“{ $query 
 profile-roles-step-filter-roles = 筛选职能
 profile-roles-step-filter-roles-2 = 筛选职能…
 profile-roles-step-craft-for = { $label } 的职能
-profile-roles-step-roles = { $count ->
-   *[other] { $count2 } 个职位 · { $examples }
-}
 
 ## features/scope/walk/SubjectsStep.tsx
 profile-subjects-step-choose-a-list-then-tick = 选择列表，再勾选内容

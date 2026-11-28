@@ -184,6 +184,48 @@ describe("CompanyProfilePanel", () => {
     expect(within(ev as HTMLElement).getByText("Inferred")).toBeInTheDocument();
   });
 
+  it("leaves built-in data unsaid when no plugin answers, so the values keep their room", async () => {
+    // Every identity fact is RoleBand's own: a "Built-in data" chip on each
+    // row repeats one fact and takes the room the values need.
+    const ours = { source: "roleband" };
+    mock(base({
+      attribution: null,
+      source_names: {},
+      sources: OURS,
+      fields: {
+        ticker: field("AMZN", ours),
+        hq_city: field("Seattle", ours),
+        headcount: field(1_576_000, { source: "manual", is_manual: true }),
+        equity_vehicle: field("rsu", { source: "heuristic" }),
+      },
+    }));
+    render(<CompanyProfilePanel slug="amazon" />);
+
+    const ticker = (await screen.findByText("Ticker")).closest(".prof-field") as HTMLElement;
+    expect(within(ticker).getByText("AMZN")).toBeInTheDocument();
+    expect(screen.queryByText(msg("vocab-source-roleband"))).toBeNull();
+    // A row that differs still says so: a pin, an inference.
+    const hc = screen.getByText("Headcount").closest(".prof-field") as HTMLElement;
+    expect(within(hc).getByText(msg("vocab-source-manual"))).toBeInTheDocument();
+    const ev = screen.getByText("Equity vehicle").closest(".prof-field") as HTMLElement;
+    expect(within(ev).getByText("Inferred")).toBeInTheDocument();
+  });
+
+  it("names built-in data while a plugin answers the other rows, since then it is the difference", async () => {
+    mock(base({
+      fields: {
+        ticker: field("GOOG", { source: "roleband" }),
+        headcount: field(258750, { source: PLUGIN_SOURCE }),
+      },
+    }));
+    render(<CompanyProfilePanel slug="google" />);
+
+    const ticker = (await screen.findByText("Ticker")).closest(".prof-field") as HTMLElement;
+    expect(within(ticker).getByText(msg("vocab-source-roleband"))).toBeInTheDocument();
+    const hc = screen.getByText("Headcount").closest(".prof-field") as HTMLElement;
+    expect(within(hc).queryByText(PLUGIN_NAME)).toBeNull();
+  });
+
   it("shows a website as its bare domain, linking to the full URL", async () => {
     // "https://www.google.com" spent most of the row's width on a scheme and a
     // `www.` that name nothing. The link still goes to the untouched URL.
