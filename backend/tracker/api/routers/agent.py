@@ -1054,11 +1054,12 @@ async def picks_begin(
     return await op.write(
         lambda: picks.begin(op.session, params, host=op.host, withheld=kept),
         shown=lambda result: picks.shown_begin(result, kept),
+        on_replay=lambda result: picks.replayed_begin(op.session, result, kept),
         described=picks.RunActivity(),
     )
 
 
-@router.get(
+@router.post(
     f"{PREFIX}/picks/runs/next",
     response_model=Envelope[picks.Batch],
     openapi_extra=operation_route(picks.PICKS_NEXT),
@@ -1066,7 +1067,7 @@ async def picks_begin(
 async def picks_next(
     op: Annotated[OperationContext, Depends(admitted(picks.PICKS_NEXT))],
 ) -> Envelope[Any]:
-    return op.ok(await picks.next_batch(
+    return await op.write(lambda: picks.next_batch(
         op.session, op.input_as(picks.NextInput), withheld=withheld(picks.PICKS_NEXT, op.switches),
     ))
 

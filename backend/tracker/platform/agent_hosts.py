@@ -60,7 +60,7 @@ class Skill:
 
 
 ROLEBAND_SKILL = Skill("roleband", 6, ("SKILL.md",))
-TOP_PICKS_SKILL = Skill("roleband-top-picks", 1, ("SKILL.md", "setup.md", "judging.md"))
+TOP_PICKS_SKILL = Skill("roleband-top-picks", 2, ("SKILL.md", "setup.md", "judging.md"))
 #: Every skill `connect` installs. The first is the one a connected host
 #: always has: without it the host was never connected.
 SKILLS: tuple[Skill, ...] = (ROLEBAND_SKILL, TOP_PICKS_SKILL)

@@ -528,6 +528,12 @@ TABLE_OWNERS: dict[str, TableOwnership] = {
         writers=("tracker/picks/runs.py", "tracker/picks/verdicts.py"),
         readers=("tracker/picks/runs.py", "tracker/picks/brief.py"),
     ),
+    "pick_delivery": TableOwnership(
+        claim="user",
+        lifecycle="append_only",
+        writers=("tracker/picks/runs.py",),
+        readers=("tracker/picks/runs.py",),
+    ),
     "pick_verdict": TableOwnership(
         claim="user",
         lifecycle="authored",

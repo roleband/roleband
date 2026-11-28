@@ -134,6 +134,7 @@ NOT_COUNTED: Mapping[tuple[str, str], str] = {
     ("POST", "/api/usage/install-id/reset"): "usage sharing's own control: a reset must not leave a trace",
     ("POST", "/api/agent/v1/recipes/validate"): (
         "an agent read that sends its recipe as a body: it changes nothing, and no agent read is counted"),
+    ("POST", "/api/agent/v1/picks/runs/next"): "the agent's page handoffs are recorded in the local audit",
     **{
         (method, path): (
             "an agent's write: a new action would widen the catalogue and re-ask every sharer, and the "

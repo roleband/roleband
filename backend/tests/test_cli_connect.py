@@ -811,7 +811,7 @@ def test_human_output_says_which_assistant_connect_found(home):
                              cwd=home.root, env=env, capture_output=True, text=True, timeout=30)
     assert process.returncode == 0, process.stderr
     assert process.stdout.startswith("claude-code (the host this runs in): what --apply would change")
-    assert "the roleband-top-picks skill, version 1, installs" in process.stdout
+    assert f"the roleband-top-picks skill, version {agent_hosts.TOP_PICKS_SKILL.version}, installs" in process.stdout
 
 
 def test_connect_reports_whether_the_command_is_on_path(home):

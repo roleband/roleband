@@ -33,9 +33,11 @@ from tracker.db.models import (
     Favorite,
     Job,
     JobFeedback,
+    JobLineage,
     JobPlaceSet,
     JobPlaceSetMember,
     PickBrief,
+    PickDelivery,
     PickRun,
     PickVerdict,
     ScrapeRun,
@@ -44,6 +46,7 @@ from tracker.db.models import (
 from tracker.picks import background as background_store
 from tracker.picks import brief as briefs
 from tracker.picks import mode as picks_mode
+from tracker.picks import runs as picks_runs
 from tracker.picks import setup as setup_store
 from tracker.picks.background import Reading
 from tracker.picks.brief import Patch
@@ -76,9 +79,11 @@ async def _read(api_client, path: str, **params):
     return response, response.json()
 
 
-async def _write(api_client, method: str, path: str, body: dict[str, Any], *, key: str | None = None):
+async def _write(
+    api_client, method: str, path: str, body: dict[str, Any], *, key: str | None = None, host: str = "claude-code",
+):
     response = await api_client.request(
-        method, f"{PREFIX}{path}", json=body, headers={IDEMPOTENCY_KEY_HEADER: key or _key(), **HOST},
+        method, f"{PREFIX}{path}", json=body, headers={IDEMPOTENCY_KEY_HEADER: key or _key(), "X-RoleBand-Host": host},
     )
     return response, response.json()
 
@@ -171,8 +176,38 @@ def _pick(job: int, reasons: list[dict] | None = None, **over) -> dict:
     }
 
 
-async def _begin(api_client, **body) -> dict:
-    return _data(*await _write(api_client, "POST", "/picks/runs", body))
+async def _begin(api_client, *, host: str = "claude-code", **body) -> dict:
+    return _data(*await _write(api_client, "POST", "/picks/runs", body, host=host))
+
+
+async def _next(api_client, *, host: str = "claude-code", **body):
+    response = await api_client.post(f"{PREFIX}/picks/runs/next", json=body, headers={"X-RoleBand-Host": host})
+    return response, response.json()
+
+
+async def _deliveries(db_session) -> dict[tuple[str, int], Any]:
+    async with _fresh(db_session) as session:
+        records = (await session.scalars(select(PickDelivery))).all()
+        return {(row.run_id, row.job_id): row.local_day for row in records}
+
+
+@pytest.fixture
+def picks_clock(monkeypatch):
+    zone = ZoneInfo("Europe/Stockholm")
+    monkeypatch.setenv("TZ", zone.key)
+    clock = {"now": datetime.now(zone).replace(hour=14, minute=0, second=0, microsecond=0)}
+
+    class _Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            at = clock["now"]
+            return at.replace(tzinfo=None) if tz is None else at.astimezone(tz)
+
+    # The app's mode switch and the run checks read the clock too, so a pause
+    # stamps the same day and hour the run began in.
+    for module in (picks_operations, picks_mode, picks_runs):
+        monkeypatch.setattr(module, "datetime", _Clock)
+    return clock
 
 
 async def _decide(api_client, run: dict, verdicts: list[dict], *, key: str | None = None):
@@ -267,12 +302,23 @@ async def test_a_run_larger_than_a_batch_is_read_on_with_next(api_client, worksp
     assert run["count"] == 2 and run["next_cursor"] == 2
     assert run["continue_with"] == [{"operation": "picks.next", "arguments": {"run": run["run"], "cursor": 2}}]
 
-    rest = _data(*await _read(api_client, "/picks/runs/next", run=run["run"], cursor=2))
+    rest = _data(*await _next(api_client, run=run["run"], cursor=2))
     assert rest["count"] == 1 and rest["next_cursor"] is None and rest["batch"][0]["fit_rank"] == 3
     assert {posting["job"] for posting in (*run["batch"], *rest["batch"])} == {
         workspace["jobs"]["staff"], workspace["jobs"]["principal"], workspace["jobs"]["lead"],
     }
-    _refused(*await _read(api_client, "/picks/runs/next", run="run_000000000000", cursor=0), "not_found")
+    _refused(*await _next(api_client, run="run_000000000000", cursor=0), "not_found")
+
+
+async def test_paging_needs_write_access_and_get_cannot_hand_out_a_batch(api_client, db_session, workspace):
+    run = await _begin(api_client, limit=1)
+    body = {"run": run["run"], "cursor": run["next_cursor"]}
+    response = await api_client.get(f"{PREFIX}/picks/runs/next", params=body, headers=HOST)
+    assert response.status_code == 404
+    await set_agent_access(db_session, AgentAccessConfig(enabled=True, allow_writes=False))
+    await db_session.commit()
+    _refused(*await _next(api_client, **body), "writes_disabled")
+    assert set(await _deliveries(db_session)) == {(run["run"], run["batch"][0]["job"])}
 
 
 # --------------------------------------------------------------------------- #
@@ -428,6 +474,8 @@ async def test_a_replay_under_the_same_key_saves_nothing_twice_and_a_new_key_is_
         )
     assert listed == 1, "a replay changed nothing and lists nothing"
 
+    page = _data(*await _next(api_client, run=run["run"], cursor=0))
+    assert jobs["staff"] not in {posting["job"] for posting in page["batch"]}
     assert await _outcomes(api_client, run, [_pick(jobs["staff"])]) == {jobs["staff"]: "already_judged"}
     assert len(await _verdicts(db_session)) == 1
     # The same key with another request is a conflict, never a second write.
@@ -437,12 +485,144 @@ async def test_a_replay_under_the_same_key_saves_nothing_twice_and_a_new_key_is_
 async def test_beginning_again_under_the_same_key_answers_the_same_run(api_client, db_session, workspace):
     key = _key()
 
-    first = _data(*await _write(api_client, "POST", "/picks/runs", {}, key=key))
-    again = _data(*await _write(api_client, "POST", "/picks/runs", {}, key=key))
+    first = _data(*await _write(api_client, "POST", "/picks/runs", {"limit": 1}, key=key))
+    again = _data(*await _write(api_client, "POST", "/picks/runs", {"limit": 1}, key=key))
 
     assert again["run"] == first["run"] and again["batch"] == first["batch"]
+    assert first["counts"]["handed"] == first["count"] == 1
+    assert set(await _deliveries(db_session)) == {(first["run"], posting["job"]) for posting in first["batch"]}
     async with _fresh(db_session) as session:
         assert await session.scalar(select(func.count()).select_from(PickRun)) == 1
+
+
+@pytest.mark.parametrize("change", ["closed", "dismissed", "sibling_dismissed", "scope", "hidden", "hard_rule"])
+async def test_a_posting_that_leaves_the_live_queue_is_skipped_and_refused(api_client, db_session, workspace, change):
+    staff, lead, principal = (workspace["jobs"][name] for name in ("staff", "lead", "principal"))
+    now = workspace["now"]
+    await db_session.execute(update(Job).where(Job.id == lead).values(first_seen=now - timedelta(hours=1)))
+    await db_session.execute(update(Job).where(Job.id == staff).values(first_seen=now - timedelta(hours=2)))
+    dismissed = staff
+    if change == "sibling_dismissed":
+        sibling = make_job(
+            "staff-nyc", title="Staff Product Manager, Pricing", content_hash="h-staff-nyc",
+            first_seen=now - timedelta(hours=1), locations=["New York, NY, USA"], location_groups=["nyc"],
+        )
+        place_set = JobPlaceSet(company="google", title="staff product manager pricing", text_hash="0" * 32,
+                                size=2, places=["Mountain View, CA, USA", "New York, NY, USA"], rule_version="t1")
+        db_session.add_all([sibling, place_set])
+        await db_session.flush()
+        db_session.add_all([JobPlaceSetMember(job_id=job, set_id=place_set.id, status="auto")
+                            for job in (staff, sibling.id)])
+        dismissed = sibling.id
+    await db_session.commit()
+
+    run = await _begin(api_client, limit=1)
+    assert run["batch"][0]["job"] == lead and run["next_cursor"] == 1
+    page = {"run": run["run"], "cursor": run["next_cursor"]}
+    before = _data(*await _next(api_client, **page))
+    assert [(row["job"], row["fit_rank"]) for row in before["batch"]] == [(staff, 2), (principal, 3)]
+
+    if change in {"dismissed", "sibling_dismissed"}:
+        response = await api_client.put(f"/api/jobs/{dismissed}/feedback", json={"verdict": "dismissed"})
+        assert response.status_code == 200
+    else:
+        async with _fresh(db_session) as session:
+            if change == "hidden":
+                await session.execute(update(TrackedCompany).where(TrackedCompany.slug == "google").values(visible=False))
+            else:
+                metadata = {
+                    "closed": {"status": "closed"}, "scope": {"in_scope": False},
+                    "hard_rule": {"disclosed_base_min": 150_000, "disclosed_base_max": 190_000},
+                }
+                await session.execute(update(Job).where(Job.id == staff).values(**metadata[change]))
+            await session.commit()
+    async with _fresh(db_session) as session:
+        assert await session.scalar(select(Job.content_hash).where(Job.id == staff)) == "h-staff"
+
+    after = _data(*await _next(api_client, **page))
+    assert (after["batch"], after["count"], after["next_cursor"]) == ([before["batch"][1]], 1, None)
+    assert await _outcomes(api_client, run, [_pick(staff), _pick(principal)]) == {
+        staff: "posting_ineligible", principal: None,
+    }
+    assert [row.job_id for row in await _verdicts(db_session)] == [principal]
+
+
+async def test_an_empty_window_advances_and_a_begin_replay_keeps_its_original_cursor(api_client, db_session, workspace):
+    request, key = {"limit": 1}, _key()
+    first = _data(*await _write(api_client, "POST", "/picks/runs", request, key=key))
+    run, initial_cursor = first["run"], first["next_cursor"]
+    middle = _data(*await _next(api_client, run=run, cursor=initial_cursor, limit=1))
+    for posting in (first["batch"][0], middle["batch"][0]):
+        response = await api_client.put(f"/api/jobs/{posting['job']}/feedback", json={"verdict": "dismissed"})
+        assert response.status_code == 200
+
+    response, body = await _write(api_client, "POST", "/picks/runs", request, key=key)
+    assert body["meta"]["replayed"] is True
+    assert _data(response, body) == {**first, "batch": [], "count": 0}
+    async with _fresh(db_session) as session:
+        assert await session.scalar(select(func.count()).select_from(PickRun)) == 1
+        stored = await session.scalar(select(CommandReceipt.result).where(CommandReceipt.idempotency_key == key))
+        assert stored == first
+
+    skipped = _data(*await _next(api_client, run=run, cursor=initial_cursor, limit=1))
+    assert (skipped["batch"], skipped["count"], skipped["next_cursor"]) == ([], 0, 2)
+    assert skipped["continue_with"] == [{"operation": "picks.next", "arguments": {"run": run, "cursor": 2}}]
+    final = _data(*await _next(api_client, run=run, cursor=skipped["next_cursor"], limit=1))
+    assert (final["count"], final["batch"][0]["fit_rank"], final["next_cursor"]) == (1, 3, None)
+    still_eligible = final["batch"][0]["job"]
+    assert await _outcomes(api_client, first, [_pick(still_eligible)]) == {still_eligible: None}
+
+
+async def test_a_trial_still_takes_judged_roles_but_skips_roles_that_leave_the_radar(api_client, db_session, workspace):
+    staff, lead = (workspace["jobs"][name] for name in ("staff", "lead"))
+    routine = await _begin(api_client)
+    assert await _outcomes(api_client, routine, [_pick(staff)]) == {staff: None}
+    trial = await _begin(api_client, trial=True)
+    assert {staff, lead} <= {posting["job"] for posting in trial["batch"]}
+    response = await api_client.put(f"/api/jobs/{lead}/feedback", json={"verdict": "dismissed"})
+    assert response.status_code == 200
+
+    page = _data(*await _next(api_client, run=trial["run"], cursor=0))
+    assert page["batch"] == [posting for posting in trial["batch"] if posting["job"] != lead]
+    assert await _outcomes(api_client, trial, [_pick(staff), _pick(lead)]) == {staff: None, lead: "posting_ineligible"}
+    assert [(row.job_id, row.trial) for row in await _verdicts(db_session)] == [(staff, False), (staff, True)]
+
+
+@pytest.mark.parametrize("group", ["duplicate_stack", "place_set"])
+async def test_a_new_representative_outside_the_run_can_displace_a_queued_member(api_client, db_session, workspace, group):
+    staff = workspace["jobs"]["staff"]
+    run = await _begin(api_client)
+    assert staff in {posting["job"] for posting in run["batch"]}
+    async with _fresh(db_session) as session:
+        peer = make_job(
+            "staff-nyc", title="Staff Product Manager, Pricing", content_hash="h-staff-nyc",
+            first_seen=workspace["now"] - timedelta(days=1), locations=["New York, NY, USA"], location_groups=["nyc"],
+        )
+        session.add(peer)
+        await session.flush()
+        if group == "duplicate_stack":
+            lineage = JobLineage(company="google", root_job_id=staff, size=2, open_members=2,
+                                 first_seen=peer.first_seen, last_seen=workspace["now"])
+            session.add(lineage)
+            await session.flush()
+            peer.lineage_id, peer.lineage_seq, peer.lineage_role = lineage.id, 2, "duplicate"
+            await session.execute(update(Job).where(Job.id == staff).values(
+                lineage_id=lineage.id, lineage_seq=1, lineage_role="original",
+            ))
+        else:
+            place_set = JobPlaceSet(company="google", title="staff product manager pricing", text_hash="0" * 32,
+                                    size=2, places=["Mountain View, CA, USA", "New York, NY, USA"], rule_version="t1")
+            session.add(place_set)
+            await session.flush()
+            session.add_all([JobPlaceSetMember(job_id=job, set_id=place_set.id, status="auto")
+                             for job in (staff, peer.id)])
+        await session.commit()
+
+    page = _data(*await _next(api_client, run=run["run"], cursor=0))
+    assert page["batch"] == [posting for posting in run["batch"] if posting["job"] != staff]
+    assert await _outcomes(api_client, run, [_pick(staff), _pick(peer.id)]) == {
+        staff: "posting_ineligible", peer.id: "not_in_run",
+    }
 
 
 async def test_a_posting_outside_the_run_or_changed_since_it_began_is_refused(api_client, db_session, workspace):
@@ -452,6 +632,8 @@ async def test_a_posting_outside_the_run_or_changed_since_it_began_is_refused(ap
         await session.execute(update(Job).where(Job.id == jobs["staff"]).values(content_hash="h-staff-rewritten"))
         await session.commit()
 
+    page = _data(*await _next(api_client, run=run["run"], cursor=0))
+    assert page["batch"] == [posting for posting in run["batch"] if posting["job"] != jobs["staff"]]
     assert await _outcomes(api_client, run, [
         _pick(jobs["staff"]), _pick(jobs["underpaid"]), _pick(987_654), _pick(jobs["principal"]),
     ]) == {
@@ -497,15 +679,16 @@ async def test_a_closed_or_unknown_run_takes_no_verdict(api_client, db_session, 
     assert status["routine"]["last_run"]["note"] == "The plan's limit was reached."
 
 
-async def test_a_run_open_past_the_bound_reads_as_abandoned_and_takes_no_write(api_client, db_session, workspace):
+async def test_a_run_open_past_the_bound_reads_as_abandoned_and_takes_no_work(api_client, db_session, workspace):
     jobs = workspace["jobs"]
-    run = await _begin(api_client)
+    run = await _begin(api_client, limit=1)
     await db_session.execute(update(PickRun).where(PickRun.id == run["run"]).values(
         started_at=datetime.now(UTC) - ABANDONED_AFTER - timedelta(minutes=1),
     ))
     await db_session.commit()
 
     for answer in (
+        await _next(api_client, run=run["run"], cursor=1),
         await _write(api_client, "POST", "/picks/runs/finish", {"run": run["run"], "outcome": "finished"}),
         await _decide(api_client, run, [_pick(jobs["staff"])]),
         await _write(api_client, "PATCH", "/brief", {
@@ -529,11 +712,12 @@ async def test_a_further_batch_leaves_out_a_posting_whose_text_changed_since_the
         await session.execute(update(Job).where(Job.id == queued[1]).values(content_hash="h-rewritten"))
         await session.commit()
 
-    rest = _data(*await _read(api_client, "/picks/runs/next", run=run["run"], cursor=1))
+    rest = _data(*await _next(api_client, run=run["run"], cursor=1))
 
-    # Its verdict would be refused as posting_changed; the next run hands out the new text.
     assert [(posting["job"], posting["fit_rank"]) for posting in rest["batch"]] == [(queued[2], 3)]
     assert rest["next_cursor"] is None
+    assert await _outcomes(api_client, run, [_pick(queued[1])]) == {queued[1]: "not_in_run"}
+    assert set(await _deliveries(db_session)) == {(run["run"], queued[0]), (run["run"], queued[2])}
 
 
 async def test_a_replayed_run_start_answers_no_postings_once_postings_are_not_shared(api_client, db_session, workspace):
@@ -708,18 +892,9 @@ async def test_beginning_a_run_closes_the_same_assistants_open_run_as_abandoned(
     assert {posting["job"] for posting in second["batch"]} == {posting["job"] for posting in first["batch"]}
 
 
-async def test_a_days_runs_together_hand_out_at_most_the_daily_cap(api_client, db_session, workspace, monkeypatch):
+async def test_a_days_runs_together_hand_out_at_most_the_daily_cap(api_client, db_session, workspace, picks_clock):
     await update_top_picks_settings(db_session, daily_cap=2)
     await db_session.commit()
-    # Every run of the test begins at the same instant, so all of them fall on one local day.
-    at = datetime.now(UTC)
-
-    class _Frozen(datetime):
-        @classmethod
-        def now(cls, tz=None):
-            return at if tz is None else at.astimezone(tz)
-
-    monkeypatch.setattr(picks_operations, "datetime", _Frozen)
 
     first = await _begin(api_client)
     assert first["counts"] == {"waiting": 3, "ruled_out_by_rules": 1, "handed": 2, "held_back": 1}
@@ -732,11 +907,179 @@ async def test_a_days_runs_together_hand_out_at_most_the_daily_cap(api_client, d
     assert second["batch"] == [] and second["counts"]["handed"] == 0 and second["counts"]["held_back"] == 1
 
     # Yesterday's runs do not count against today.
-    async with _fresh(db_session) as session:
-        await session.execute(update(PickRun).values(started_at=PickRun.started_at - timedelta(days=2)))
-        await session.commit()
+    picks_clock["now"] += timedelta(days=1)
     third = await _begin(api_client)
     assert third["counts"]["handed"] == 1
+
+
+@pytest.mark.parametrize("end", ["stopped", "finished", "replaced", "expired"])
+@pytest.mark.parametrize("judge_first", [True, False], ids=["judged", "unjudged"])
+async def test_an_interrupted_run_leaves_capacity_for_the_same_day(
+    api_client, db_session, workspace, picks_clock, end, judge_first,
+):
+    await update_top_picks_settings(db_session, daily_cap=3)
+    await db_session.commit()
+    first = await _begin(api_client, limit=1)
+    handed = first["batch"][0]["job"]
+    if judge_first:
+        assert await _outcomes(api_client, first, [
+            {"job": handed, "verdict": "pass", "pass_code": "not_better"},
+        ]) == {handed: None}
+    if end in {"stopped", "finished"}:
+        _data(*await _write(api_client, "POST", "/picks/runs/finish", {
+            "run": first["run"], "outcome": end, "note": "The check ended after one batch.",
+        }))
+    if end == "expired":
+        picks_clock["now"] += ABANDONED_AFTER + timedelta(minutes=1)
+        _refused(*await _next(api_client, run=first["run"], cursor=1), "invalid_input")
+
+    second = await _begin(api_client, host="codex" if end == "expired" else "claude-code")
+    served_again = [posting["job"] for posting in second["batch"]]
+    assert second["count"] == 2
+    assert (handed in served_again) is not judge_first
+    assert set(await _deliveries(db_session)) == {
+        (first["run"], handed), *((second["run"], job_id) for job_id in served_again),
+    }
+    assert (await _begin(api_client))["batch"] == []
+    async with _fresh(db_session) as session:
+        stored = await session.get(PickRun, first["run"])
+        assert stored.outcome == ("abandoned" if end in {"replaced", "expired"} else end)
+
+
+async def test_paging_reuses_handoffs_and_admits_only_delivered_verdicts(
+    api_client, db_session, workspace, picks_clock,
+):
+    await update_top_picks_settings(db_session, daily_cap=3)
+    await db_session.commit()
+    run = await _begin(api_client, limit=1)
+    async with _fresh(db_session) as session:
+        queued = [job_id for job_id, _ in (await session.get(PickRun, run["run"])).queue]
+    assert await _outcomes(api_client, run, [_pick(queued[1])]) == {queued[1]: "not_in_run"}
+
+    page = _data(*await _next(api_client, run=run["run"], cursor=1, limit=1))
+    assert page == _data(*await _next(api_client, run=run["run"], cursor=1, limit=1))
+    assert [(p["job"], p["fit_rank"]) for p in page["batch"]] == [(queued[1], 2)]
+    overlap = _data(*await _next(api_client, run=run["run"], cursor=0))
+    assert [(p["job"], p["fit_rank"]) for p in overlap["batch"]] == list(zip(queued, (1, 2, 3), strict=True))
+    assert await _outcomes(api_client, run, [_pick(queued[1])]) == {queued[1]: None}
+    assert set(await _deliveries(db_session)) == {(run["run"], job_id) for job_id in queued}
+    assert (await _begin(api_client))["count"] == 0
+
+
+async def test_a_queued_posting_that_becomes_ineligible_uses_no_slot(
+    api_client, db_session, workspace, picks_clock,
+):
+    await update_top_picks_settings(db_session, daily_cap=3)
+    await db_session.commit()
+    run = await _begin(api_client, limit=1)
+    async with _fresh(db_session) as session:
+        first, second, third = [job_id for job_id, _ in (await session.get(PickRun, run["run"])).queue]
+        await session.execute(update(Job).where(Job.id == second).values(status="closed"))
+        await session.commit()
+    page = _data(*await _next(api_client, run=run["run"], cursor=1, limit=1))
+    assert page["batch"] == [] and page["next_cursor"] == 2
+    assert _data(*await _next(api_client, run=run["run"], cursor=1, limit=1)) == page
+    tail = _data(*await _next(api_client, run=run["run"], cursor=page["next_cursor"]))
+    assert [(posting["job"], posting["fit_rank"]) for posting in tail["batch"]] == [(third, 3)]
+    assert await _outcomes(api_client, run, [_pick(second)]) == {second: "not_in_run"}
+    assert set(await _deliveries(db_session)) == {(run["run"], first), (run["run"], third)}
+    assert (await _begin(api_client))["count"] == 1
+
+
+@pytest.mark.parametrize("competing_call", ["begin", "page"])
+async def test_two_hosts_cannot_hand_out_the_final_slot_twice(
+    api_client, db_session, workspace, picks_clock, competing_call,
+):
+    await update_top_picks_settings(db_session, daily_cap=3)
+    await db_session.commit()
+    first = await _begin(api_client, limit=1)
+    other = await _begin(api_client, host="codex", limit=1)
+    assert first["count"] == other["count"] == 1
+    async with _fresh(db_session) as holder:
+        page = await picks_operations.next_batch(
+            holder, picks_operations.NextInput(run=first["run"], cursor=1), withheld=(),
+        )
+        assert page.count == 1
+        task = asyncio.create_task(
+            _begin(api_client, host="codex") if competing_call == "begin"
+            else _next(api_client, host="codex", run=other["run"], cursor=1),
+        )
+        await until_waiting(db_session.bind, task)
+        assert not task.done()
+        await holder.commit()
+    competing = await task
+    assert (competing if competing_call == "begin" else _data(*competing))["batch"] == []
+    assert len(await _deliveries(db_session)) == 3
+
+
+async def test_lowering_the_cap_stops_new_handoffs_and_keeps_the_delivered_slots(
+    api_client, db_session, workspace, picks_clock,
+):
+    await update_top_picks_settings(db_session, daily_cap=3)
+    await db_session.commit()
+    run = await _begin(api_client, limit=1)
+    _data(*await _write(api_client, "PUT", "/picks/mode", {"daily_cap": 1}))
+    page = _data(*await _next(api_client, run=run["run"], cursor=0, limit=2))
+    assert page["batch"] == run["batch"] and page["next_cursor"] == 2
+    assert _data(*await _next(api_client, run=run["run"], cursor=1, limit=1))["batch"] == []
+    _data(*await _write(api_client, "PUT", "/picks/mode", {"daily_cap": 2}))
+    page = _data(*await _next(api_client, run=run["run"], cursor=1))
+    assert [posting["fit_rank"] for posting in page["batch"]] == [2]
+    assert len(await _deliveries(db_session)) == 2
+
+
+async def test_the_handoff_day_is_local_and_trials_count_apart(api_client, db_session, workspace, picks_clock):
+    await update_top_picks_settings(db_session, daily_cap=2)
+    await db_session.commit()
+    picks_clock["now"] = picks_clock["now"].replace(hour=23, minute=59)
+    yesterday = picks_clock["now"].date()
+    run = await _begin(api_client, limit=1)
+    picks_clock["now"] += timedelta(minutes=2)
+    today = picks_clock["now"].date()
+    trial = await _begin(api_client, host="codex", trial=True, limit=1)
+    assert _data(*await _next(api_client, host="codex", run=trial["run"], cursor=1))["count"] == 2
+
+    page = _data(*await _next(api_client, run=run["run"], cursor=0))
+    assert page["count"] == 2
+    first, second = (posting["job"] for posting in page["batch"])
+    restarted = await _begin(api_client)
+    assert restarted["count"] == 1
+    deliveries = await _deliveries(db_session)
+    assert deliveries[run["run"], first] == yesterday
+    assert deliveries[run["run"], second] == today
+    assert {day for (run_id, _), day in deliveries.items() if run_id == trial["run"]} == {today}
+    assert (await _begin(api_client))["batch"] == []
+
+
+async def test_a_legacy_queue_stays_charged_and_can_still_take_a_verdict(
+    api_client, db_session, workspace, picks_clock,
+):
+    await update_top_picks_settings(db_session, daily_cap=3)
+    now = picks_clock["now"]
+    staff = workspace["jobs"]["staff"]
+    principal = workspace["jobs"]["principal"]
+    legacy = PickRun(
+        id="run_legacy", host="codex", brief_version=1, started_at=now,
+        queue=[[staff, "h-staff"], [principal, "h-principal"]],
+    )
+    db_session.add_all([
+        legacy,
+        PickRun(
+            id="run_legacy_later", brief_version=1, started_at=now + timedelta(minutes=5),
+            queue=[[staff, "h-staff"]], finished_at=now + timedelta(minutes=6), outcome="stopped",
+        ),
+    ])
+    await db_session.commit()
+
+    page = _data(*await _next(api_client, host="codex", run=legacy.id, cursor=1))
+    assert [(posting["job"], posting["fit_rank"]) for posting in page["batch"]] == [(principal, 2)]
+    assert await _outcomes(api_client, {"run": legacy.id, "brief": {"version": 1}}, [_pick(principal)]) == {
+        principal: None,
+    }
+    assert await _deliveries(db_session) == {}
+    assert (await _begin(api_client))["count"] == 0
+    picks_clock["now"] += timedelta(days=1)
+    assert (await _begin(api_client))["count"] == 2
 
 
 # --------------------------------------------------------------------------- #
@@ -1283,16 +1626,23 @@ async def test_a_batch_leaves_the_estimate_out_while_market_statistics_are_not_s
         return {posting["estimated_pay"]["base_median"] if posting["estimated_pay"] else None for posting in batch}
 
     # Two postings in the run's first answer and one read on: every way a batch is answered.
-    shared = await _begin(api_client, limit=2)
-    shared_rest = _data(*await _read(api_client, "/picks/runs/next", run=shared["run"], cursor=2))["batch"]
+    key = _key()
+    shared = _data(*await _write(api_client, "POST", "/picks/runs", {"limit": 2}, key=key))
+    shared_rest = _data(*await _next(api_client, run=shared["run"], cursor=2))["batch"]
     assert bases(shared["batch"]) | bases(shared_rest) == estimates
     assert None not in bases(shared["batch"]) and None not in bases(shared_rest)
     # Samples are drawn from the whole Board: the fourth role has no estimate to show.
     assert bases(_data(*await _read(api_client, "/picks/samples"))["samples"]) == estimates | {None}
 
     await _choose(db_session, market_statistic="not_shared")
+    replayed = _data(*await _write(api_client, "POST", "/picks/runs", {"limit": 2}, key=key))
+    assert replayed["run"] == shared["run"] and bases(replayed["batch"]) == {None}
+    await _choose(db_session, public_posting="not_shared")
+    _refused(*await _write(api_client, "POST", "/picks/runs", {"limit": 2}, key=key), "category_disabled")
+
+    await _choose(db_session, market_statistic="not_shared")
     kept = await _begin(api_client, limit=2)
-    rest = _data(*await _read(api_client, "/picks/runs/next", run=kept["run"], cursor=2))["batch"]
+    rest = _data(*await _next(api_client, run=kept["run"], cursor=2))["batch"]
     samples = _data(*await _read(api_client, "/picks/samples"))["samples"]
 
     assert (len(kept["batch"]), len(rest), len(samples)) == (2, 1, 4)
@@ -1443,6 +1793,93 @@ async def test_pausing_in_the_app_starts_no_run_and_keeps_everything_saved(api_c
     assert resumed.json()["state"] == "on"
     assert (await _begin(api_client))["run"].startswith("run_")
     assert (await api_client.put("/api/picks/mode", json={"state": "paused"})).status_code == 422
+
+
+@pytest.mark.parametrize("entry_point", ["app", "agent"])
+async def test_pause_closes_active_routine_work_but_keeps_trials_and_saved_verdicts(
+    api_client, db_session, workspace, entry_point, picks_clock,
+):
+    await update_top_picks_settings(db_session, daily_cap=3)
+    await db_session.commit()
+    key = _key()
+    run = _data(*await _write(api_client, "POST", "/picks/runs", {"limit": 1}, key=key))
+    first = run["batch"][0]["job"]
+    await _outcomes(api_client, run, [{"job": first, "verdict": "pass", "pass_code": "not_better"}])
+    async with _fresh(db_session) as session:
+        later = (await session.get(PickRun, run["run"])).queue[1][0]
+
+    trial_response = await api_client.post(
+        f"{PREFIX}/picks/runs", json={"limit": 1, "trial": True},
+        headers={IDEMPOTENCY_KEY_HEADER: _key(), "X-RoleBand-Host": "codex"},
+    )
+    trial = _data(trial_response, trial_response.json())
+
+    picks_clock["now"] += timedelta(minutes=5)
+    if entry_point == "app":
+        paused = await api_client.put("/api/picks/mode", json={"state": "off"})
+        assert paused.status_code == 200 and paused.json()["state"] == "off"
+    else:
+        assert _data(*await _write(api_client, "PUT", "/picks/mode", {"state": "off"}))["state"] == "off"
+
+    for response in (
+        await _next(api_client, run=run["run"], cursor=1),
+        await _decide(api_client, run, [_pick(later)]),
+        await _write(api_client, "POST", "/picks/runs/finish", {"run": run["run"], "outcome": "finished"}),
+        await _write(api_client, "POST", "/picks/runs", {"limit": 1}, key=key),
+        await _write(api_client, "PATCH", "/brief", {
+            "if_revision": 1, "reason": "A pull.", "run": run["run"], "pulls": [{"text": "Payments"}],
+        }),
+    ):
+        assert _refused(*response, "invalid_input")["details"]["reason"] == "run_closed"
+    saved = await _verdicts(db_session)
+    assert [(row.job_id, row.verdict) for row in saved] == [(first, "pass")]
+    async with _fresh(db_session) as session:
+        closed = await session.get(PickRun, run["run"])
+        assert (closed.outcome, closed.note) == ("abandoned", "Top picks was paused.")
+        assert closed.started_at < closed.finished_at
+
+    trial_page = _data(*await _next(api_client, run=trial["run"], cursor=1))
+    assert trial_page["batch"]
+    trial_job = trial_page["batch"][0]["job"]
+    assert await _outcomes(api_client, trial, [
+        {"job": trial_job, "verdict": "pass", "pass_code": "not_better"},
+    ]) == {trial_job: None}
+
+    picks_clock["now"] += timedelta(minutes=5)
+    resumed = await api_client.put("/api/picks/mode", json={"state": "on"})
+    assert resumed.status_code == 200 and resumed.json()["health"] == "never_ran"
+    response = await _next(api_client, run=run["run"], cursor=1)
+    assert _refused(*response, "invalid_input")["details"]["reason"] == "run_closed"
+    after = await _begin(api_client)
+    assert after["run"] != run["run"] and after["count"] == 2
+    assert first not in [posting["job"] for posting in after["batch"]]
+
+
+async def test_a_verdict_waiting_on_a_pause_cannot_land_after_it(api_client, db_session, workspace):
+    run = await _begin(api_client)
+    async with _fresh(db_session) as holder:
+        await lock_picks(holder)
+        task = asyncio.create_task(_decide(api_client, run, [_pick(workspace["jobs"]["staff"])]))
+        await until_waiting(db_session.bind, task)
+        assert not task.done(), "the verdict waits for the picks lock"
+        await picks_mode.change(holder, state="off", now=datetime.now(UTC))
+        await holder.commit()
+
+    assert _refused(*await task, "invalid_input")["details"]["reason"] == "run_closed"
+    assert await _verdicts(db_session) == []
+
+
+async def test_a_run_left_open_in_an_already_paused_workspace_cannot_serve_work(api_client, db_session, workspace):
+    run = await _begin(api_client, limit=1)
+    await update_top_picks_settings(db_session, state="off")
+    await db_session.commit()
+
+    response = await _next(api_client, run=run["run"], cursor=1)
+    assert _refused(*response, "invalid_input")["details"]["reason"] == "run_closed"
+
+    assert (await api_client.put("/api/picks/mode", json={"state": "on"})).status_code == 200
+    response = await _next(api_client, run=run["run"], cursor=1)
+    assert _refused(*response, "invalid_input")["details"]["reason"] == "run_closed"
 
 
 async def test_the_app_cannot_switch_on_a_mode_that_was_never_set_up(api_client, db_session, scratch_scope):

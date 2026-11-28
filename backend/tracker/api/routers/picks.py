@@ -122,7 +122,7 @@ async def set_picks_mode(payload: PicksModeInput, session: SessionDep) -> PicksS
         raise api_error(422, ErrorCode.INVALID_INPUT, "name the state, the daily limit, or both")
     changes = {"daily_cap": payload.daily_limit} if payload.daily_limit is not None else {}
     try:
-        await mode.change(session, state=payload.state, now=datetime.now(UTC), **changes)
+        await mode.change(session, state=payload.state, now=None, **changes)
     except mode.BriefRequired:
         raise api_error(409, ErrorCode.INVALID_INPUT, "top picks is not set up") from None
     # Paused, the checks are not expected: a stall's row goes with the switch.

@@ -35,17 +35,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from tracker.db.models import Favorite, Job, JobFeedback, PickRun, PickVerdict, Pursuit
+from tracker.picks import queue
 from tracker.picks.brief import BriefBody, item_ids
 from tracker.picks.rules import ruled_out
-from tracker.picks.runs import queue_of
+from tracker.picks.runs import delivered_queue
 
 VerdictKind = Literal["pick", "near_miss", "pass"]
 AgainstBaseline = Literal["better", "comparable", "weaker", "unknown"]
 PassCode = Literal["hard_rule", "out_of_reach", "below_level", "not_better", "not_real", "off_direction", "other"]
 #: Why one verdict of a batch is refused: the run's own state, then the form.
 Refusal = Literal[
-    "not_in_run", "brief_changed", "posting_changed", "already_judged", "incomplete", "too_many_reasons",
-    "too_long", "not_plain_text", "unknown_brief_item", "weaker_than_baseline", "not_for_a_pass",
+    "not_in_run", "brief_changed", "posting_changed", "already_judged", "posting_ineligible", "incomplete",
+    "too_many_reasons", "too_long", "not_plain_text", "unknown_brief_item", "weaker_than_baseline", "not_for_a_pass",
 ]
 View = Literal["picks", "near_misses", "passed", "removed"]
 
@@ -148,10 +149,14 @@ async def save(
 ) -> list[Saved]:
     """Save each verdict of an open run the engine accepts, each in its own
     savepoint, and count them on the run. The caller holds the picks lock."""
-    handed = queue_of(run)
+    handed = await delivered_queue(session, run, [item.job for item in items])
+    ids = list(handed)
+    eligible = (await queue.eligible_in_run(session, run, ids, body=body, now=now)).with_only_columns(Job.id)
     jobs = {
-        job.id: job
-        for job in (await session.scalars(select(Job).where(Job.id.in_([item.job for item in items])))).all()
+        job_id: (content_hash, is_eligible)
+        for job_id, content_hash, is_eligible in (await session.execute(
+            select(Job.id, Job.content_hash, Job.id.in_(eligible)).where(Job.id.in_(ids))
+        )).all()
     }
     out: list[Saved] = []
     for item in items:
@@ -192,15 +197,17 @@ async def save(
 
 
 async def _refusal_in_run(
-    session: AsyncSession, run: PickRun, item: VerdictIn, handed: dict[int, str], jobs: dict[int, Job], *,
+    session: AsyncSession, run: PickRun, item: VerdictIn, handed: dict[int, str],
+    jobs: dict[int, tuple[str | None, bool]], *,
     body: BriefBody, active_version: int,
 ) -> Refusal | None:
     job = jobs.get(item.job)
-    if job is None or item.job not in handed:
+    if job is None:
         return "not_in_run"
+    content_hash, is_eligible = job
     if run.brief_version != active_version:
         return "brief_changed"
-    if (job.content_hash or "") != handed[item.job]:
+    if (content_hash or "") != handed[item.job]:
         return "posting_changed"
     judged = await session.scalar(
         select(PickVerdict.id).where(
@@ -210,6 +217,8 @@ async def _refusal_in_run(
     )
     if judged is not None:
         return "already_judged"
+    if not is_eligible:
+        return "posting_ineligible"
     return refusal(item, body)
 
 
