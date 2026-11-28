@@ -659,6 +659,59 @@ async def test_a_brief_changed_during_a_run_refuses_its_verdicts(api_client, db_
     }), "invalid_input")
 
 
+async def test_a_stale_run_cannot_hand_out_more_postings_or_use_the_remaining_daily_slot(
+    api_client, db_session, workspace, picks_clock,
+):
+    picks_clock["now"] = datetime.now(UTC)
+    await update_top_picks_settings(db_session, daily_cap=2)
+    await db_session.commit()
+    key = _key()
+    run = _data(*await _write(api_client, "POST", "/picks/runs", {"limit": 1}, key=key))
+    assert run["count"] == 1 and run["next_cursor"] == 1
+    changed = _data(*await _write(api_client, "PATCH", "/brief", {
+        "if_revision": 1, "target": "active", "run": run["run"],
+        "reason": "They saved a role with broad ownership.",
+        "pulls": [{"text": "Owns a whole product", "weight": 3}],
+    }))
+    assert changed["version"] != run["brief"]["version"]
+
+    for answer in (
+        await _next(api_client, run=run["run"], cursor=run["next_cursor"]),
+        await _next(api_client, run=run["run"], cursor=0, limit=1),
+        await _write(api_client, "POST", "/picks/runs", {"limit": 1}, key=key),
+    ):
+        assert _refused(*answer, "invalid_input")["details"]["reason"] == "brief_changed"
+    assert set(await _deliveries(db_session)) == {(run["run"], run["batch"][0]["job"])}
+
+    stopped = _data(*await _write(api_client, "POST", "/picks/runs/finish", {
+        "run": run["run"], "outcome": "stopped", "note": "The active brief changed.",
+    }))
+    assert (stopped["outcome"], stopped["judged"]) == ("stopped", 0)
+    replacement = await _begin(api_client)
+    assert replacement["brief"]["version"] == changed["version"]
+    assert replacement["count"] == 1
+    handed = replacement["batch"][0]["job"]
+    assert await _outcomes(api_client, replacement, [
+        {"job": handed, "verdict": "pass", "pass_code": "not_better"},
+    ]) == {handed: None}
+
+
+async def test_paging_rechecks_the_brief_after_waiting_for_the_picks_lock(api_client, db_session, workspace):
+    run = await _begin(api_client, limit=1)
+    assert run["next_cursor"] == 1
+    async with _fresh(db_session) as holder:
+        await lock_picks(holder)
+        task = asyncio.create_task(_next(api_client, run=run["run"], cursor=run["next_cursor"]))
+        await until_waiting(db_session.bind, task)
+        await briefs.patch(holder, Patch(
+            parts={"pulls": [{"text": "Owns payments"}]}, reason="They want to stay in payments.",
+            if_revision=1, target="active",
+        ))
+        await holder.commit()
+    assert _refused(*await task, "invalid_input")["details"]["reason"] == "brief_changed"
+    assert len(await _deliveries(db_session)) == 1
+
+
 async def test_a_closed_or_unknown_run_takes_no_verdict(api_client, db_session, workspace):
     jobs = workspace["jobs"]
     run = await _begin(api_client)

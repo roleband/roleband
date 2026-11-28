@@ -197,7 +197,8 @@ normal, and it is what this is for."
    `data.suggested_check_times`, with this prompt, word for word:
    "Run the RoleBand top picks check now. Use the roleband-top-picks skill and
    follow its routine: open a run, judge the waiting roles, write the verdicts
-   with `roleband picks decide`, and close the run with `roleband picks finish`.
+   with `roleband picks decide`, apply any reactions with `roleband brief patch`
+   after the last batch, and close the run with `roleband picks finish`.
    These writes are what this task is for. Ask nothing; if something needs me,
    finish the run with a note."
    If you cannot create it yourself, give the person the exact steps and wait

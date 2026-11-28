@@ -5,29 +5,6 @@ the person's filters, and everything a checkable hard rule excludes. What
 reaches you is worth reading, best fit first. Your job is the judgment code
 cannot make.
 
-## First, the reactions
-
-`data.reactions` from `picks begin` says what the person did with earlier
-picks and near misses: each one's `reaction.kind` is `saved`, `pursued` or
-`not_for_me`.
-
-| They | You may |
-|---|---|
-| Saved or pursued a pick | Add it to `examples` as `wanted`; raise the weight of the pulls its reasons rest on |
-| Marked a pick Not for me | Add it to `examples` as `unwanted` with their reason; lower a pull, or add a pull or trade-off the reason reveals |
-| Did so several times for the same reason | Add one entry to `proposed_rules`. Never add the rule itself |
-| Saved a near miss | Treat it as a missed pick; change the brief so it would now be picked |
-| Did nothing | Nothing |
-
-A Not for me carries why in `reaction.reason`: `pay_too_low`, `wrong_level`,
-`wrong_role`, `wrong_domain`, `company`, `wrong_place` or `other`, and the
-person's own words, when they wrote any, in `reaction.reason_text`. Their words
-outweigh the code.
-
-Send changes with `roleband brief patch --run RUN ...` and a one-line `reason`.
-In a run you may change only `pulls`, `tradeoffs`, `examples` and
-`proposed_rules`; anything else exits 7 with `needs_the_person`.
-
 ## For each posting, in order
 
 Stop at the first step that settles it.
@@ -117,7 +94,38 @@ Each item of `data.results` is `saved` or `refused`, with the code in
 | `not_in_run` | It was not handed to this run: leave it |
 | `posting_changed` | Its text changed since the run began: leave it; the next run hands it again |
 | `posting_ineligible` | It no longer qualifies for the queue. Leave it and continue |
-| `brief_changed` | The person changed the brief during the run: finish the run; the next run judges under the new brief |
+| `brief_changed` | Close the run as stopped. The next run judges under the new brief |
+
+## After the last batch, apply reactions
+
+`data.reactions` from `picks begin` says what the person did with earlier
+picks and near misses: each one's `reaction.kind` is `saved`, `pursued` or
+`not_for_me`.
+
+| They | You may |
+|---|---|
+| Saved or pursued a pick | Add it to `examples` as `wanted`; raise the weight of the pulls its reasons rest on |
+| Marked a pick Not for me | Add it to `examples` as `unwanted` with their reason; lower a pull, or add a pull or trade-off the reason reveals |
+| Did so several times for the same reason | Add one entry to `proposed_rules`. Never add the rule itself |
+| Saved a near miss | Treat it as a missed pick; change the brief so it would now be picked |
+| Did nothing | Nothing |
+
+A Not for me carries why in `reaction.reason`: `pay_too_low`, `wrong_level`,
+`wrong_role`, `wrong_domain`, `company`, `wrong_place` or `other`, and the
+person's own words, when they wrote any, in `reaction.reason_text`. Their words
+outweigh the code.
+
+A patch makes a new active version. Send it only after every batch's verdicts
+have been submitted and before closing the run. If the reactions call for a
+change, read `roleband brief get --which active --json`. If `data.version`
+differs from the run's `data.brief.version`, close the run as stopped. Use
+`data.revision` as `N` and send the changed parts in one patch, with a one-line
+`reason`. A part given replaces the whole part, so keep its unchanged entries.
+
+`echo '{"examples": [...], "reason": "Learned from their saved roles"}' | roleband brief patch --run RUN --target active --if-revision N --input - --idempotency-key KEY --json`.
+
+In a run you may change only `pulls`, `tradeoffs`, `examples` and
+`proposed_rules`; anything else exits 7 with `needs_the_person`.
 
 ## Hold to these
 
