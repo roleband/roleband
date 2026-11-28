@@ -19,7 +19,7 @@ test.beforeEach(async ({ page }) => {
     profile: null, scope_configured: true,
   } }));
   await page.route("/api/stats", (route) => route.fulfill({ json: statsFixture }));
-  await page.route("/api/facets**", (route) => route.fulfill({ json: facetsFixture }));
+  await mockGet(page, "/api/facets**", (route) => route.fulfill({ json: facetsFixture }));
   await page.route("/api/notifications**", (route) => route.fulfill({ json: notificationsFixture }));
   await page.route("/api/jobs/*/similar**", (route) => route.fulfill({ json: { scope: "cross", items: [] } }));
   await page.route("/api/jobs?**", (route) => route.fulfill({ json: jobListFixture }));

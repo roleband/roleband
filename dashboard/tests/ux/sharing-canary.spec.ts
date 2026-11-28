@@ -1,5 +1,5 @@
 import { gunzipSync } from "node:zlib";
-import { expect, test, viewChoices } from "./fixtures";
+import { expect, mockGet, test, viewChoices } from "./fixtures";
 import type { Page } from "./fixtures";
 import type { Request } from "@playwright/test";
 import {
@@ -98,7 +98,7 @@ test.beforeEach(async ({ page }) => {
   await page.route("/api/stats", (route) => route.fulfill({ json: statsFixture }));
   await page.route("/api/status", (route) => route.fulfill({ json: statusFixture }));
   await page.route("/api/companies/directory/status", (route) => route.fulfill({ json: { size: 0, following: false, since: null, checked: 0, to_check: 0, with_roles: 0, waiting_for_power: false } }));
-  await page.route("/api/facets**", (route) => route.fulfill({ json: facetsFixture }));
+  await mockGet(page, "/api/facets**", (route) => route.fulfill({ json: facetsFixture }));
   await page.route("/api/notifications**", (route) => route.fulfill({ json: notificationsFixture }));
   await page.route("/api/jobs?**", (route) => route.fulfill({ json: canaryJobs }));
   await page.route("/api/profile", (route) => route.fulfill({ json: { profile: null, scope_configured: true, intent_statement: "" } }));

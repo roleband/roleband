@@ -1,4 +1,4 @@
-import { expect, test, viewChoices } from "./fixtures";
+import { expect, mockGet, test, viewChoices } from "./fixtures";
 import { msg } from "../../src/test/msg";
 import {
   duplicateProposalFixture,
@@ -21,7 +21,7 @@ const longSharedDescription = Array.from(
 test.beforeEach(async ({ page }) => {
   await page.route("/api/stats", (route) => route.fulfill({ json: statsFixture }));
   await page.route("/api/status", (route) => route.fulfill({ json: statusFixture }));
-  await page.route("/api/facets**", (route) => route.fulfill({ json: facetsFixture }));
+  await mockGet(page, "/api/facets**", (route) => route.fulfill({ json: facetsFixture }));
   await page.route("/api/notifications**", (route) => route.fulfill({ json: notificationsFixture }));
   await page.route("/api/jobs?**", (route) => route.fulfill({ json: jobListFixture }));
   await page.route("/api/twins/review?**", (route) =>
